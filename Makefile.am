@@ -53,28 +53,28 @@ libmoabio_la_SOURCES = \
   FileTokenizer.hpp \
   GmshUtil.cpp \
   GmshUtil.hpp \
+  ReadABAQUS.cpp \
+  ReadABAQUS.hpp \
   ReadGmsh.cpp \
   ReadGmsh.hpp \
-  ReadSms.hpp \
-  ReadSms.cpp \
-  ReadSTL.cpp \
-  ReadSTL.hpp \
-  ReadVtk.cpp \
-  ReadVtk.hpp \
-  ReadSmf.hpp \
-  ReadSmf.cpp \
-  SMF_State.cpp \
-  SMF_State.hpp \
   ReadIDEAS.cpp \
   ReadIDEAS.hpp \
   ReadMCNP5.cpp \
   ReadMCNP5.hpp \
   ReadNASTRAN.cpp \
   ReadNASTRAN.hpp \
-  ReadABAQUS.cpp \
-  ReadABAQUS.hpp \
+  ReadSmf.hpp \
+  ReadSmf.cpp \
+  ReadSms.hpp \
+  ReadSms.cpp \
+  ReadSTL.cpp \
+  ReadSTL.hpp \
   ReadTetGen.cpp \
   ReadTetGen.hpp \
+  ReadVtk.cpp \
+  ReadVtk.hpp \
+  SMF_State.cpp \
+  SMF_State.hpp \
   Tqdcfr.cpp \
   Tqdcfr.hpp \
   VtkUtil.cpp \
@@ -87,12 +87,12 @@ libmoabio_la_SOURCES = \
   WriteGmsh.hpp \
   WriteSTL.cpp \
   WriteSTL.hpp \
+  WriteSmf.cpp \
+  WriteSmf.hpp \
   WriteTemplate.cpp \
   WriteTemplate.hpp \
   WriteVtk.cpp \
   WriteVtk.hpp \
-  WriteSmf.cpp \
-  WriteSmf.hpp \
   $(MOAB_NETCDF_SRCS) \
   $(MOAB_HDF5_SRCS) \
   $(MOAB_CCMIO_SRCS) \
