@@ -35,6 +35,7 @@
 
 #include <sstream>
 #include <assert.h>
+#include <string.h>
 
 const bool debug = false;
 const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
@@ -2581,13 +2582,14 @@ MBErrorCode Tqdcfr::create_set( MBEntityHandle& h, unsigned int flags )
 // #ifdef TEST_TQDCFR
 #else
 #include "MBCore.hpp"
-#include "testdir.h"
+#define STRINGIFY_(A) #A
+#define STRINGIFY(A) STRINGIFY_(A)
 
 int main(int argc, char* argv[])
 {
 
     // Check command line arg
-  const char* file = TEST_DIR "/brick_cubit10.2.cub";
+  const char* file = STRINGIFY(SRCDIR) "/brick_cubit10.2.cub";
   if (argc < 2)
   {
     std::cout << "Usage: tqdcfr <cub_file_name>" << std::endl;

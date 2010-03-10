@@ -34,6 +34,7 @@
 #include <string>
 #include <vector>
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 #include "MBInterface.hpp"

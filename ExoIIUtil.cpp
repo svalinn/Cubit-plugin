@@ -17,6 +17,7 @@
 #include "MBInternals.hpp"
 #include "MBInterface.hpp"
 #include "MBCN.hpp"
+#include <string.h>
 
 //
 // definitions of ExoII-related static arrays

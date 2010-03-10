@@ -31,6 +31,7 @@
 #include <string>
 #include <vector>
 #include <stdio.h>
+#include <string.h>
 #include <iostream>
 
 #include "MBInterface.hpp"
