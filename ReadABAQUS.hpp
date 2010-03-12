@@ -81,7 +81,7 @@ transformation. To create a full copy:
 In order to provide convenient access to the data and mesh structures
 the following data model is used:
 
-• MBEntitySet file_set
+• EntitySet file_set
    • tags
        • NONE
    • members
@@ -89,7 +89,7 @@ the following data model is used:
        • all elements of all parts and all instances
        • all assembly_sets
        • all part_sets
-• MBEntitySet part_set
+• EntitySet part_set
    • tags
        • mSetNameTag (opaque=char*)
          name of entitity set
@@ -98,7 +98,7 @@ the following data model is used:
        • part elements
        • part node sets
        • part element sets
-• MBEntitySet assembly_set
+• EntitySet assembly_set
    • tags
        • mSetNameTag (opaque=char*)
          name of entitity set
@@ -108,7 +108,7 @@ the following data model is used:
       • instance node_sets  
       • instance nodes
       • instance elements
-• MBEntitySet instance_set
+• EntitySet instance_set
    • tags
        • mSetNameTag (opaque=char*)
          name of entitity set
@@ -125,7 +125,7 @@ the following data model is used:
       • instance elements
       • instance node_sets  
       • instanec element_sets
-• MBEntitySet node_set
+• EntitySet node_set
    • tags
        • mSetNameTag (opaque=char*)
          name of entitity set
@@ -139,7 +139,7 @@ the following data model is used:
          (NULL if this node_set is not in an assembly)
    • members
       • nodes
-• MBEntitySet element_set
+• EntitySet element_set
    • tags
        • mSetNameTag (opaque=char*)
          name of entitity set
@@ -157,14 +157,14 @@ the following data model is used:
          material id in these elements
    • members
       • elements
-• MBEntity node
+• Entity node
    • tags
        • mLocalIDTag (int)
          numerical ID of node in local scope (part, instance)
        • mInstanceHandleTag (handle)
          pointer back to instance set in which this node exists
          (NULL if this node is not in an instance)
-• MBEntity element
+• Entity element
    • tags
        • mLocalIDTag (int)
          numerical ID of element in local scope (part, instance)
@@ -189,9 +189,11 @@ the following data model is used:
 #include <iostream>
 #include <fstream>
 
-#include "MBForward.hpp"
-#include "MBReaderIface.hpp"
-#include "MBRange.hpp"
+#include "moab/Forward.hpp"
+#include "moab/ReaderIface.hpp"
+#include "moab/Range.hpp"
+
+namespace moab {
 
 #define ABAQUS_SET_TYPE_TAG_NAME "abaqus_set_type"
 #define ABAQUS_SET_NAME_TAG_NAME "abaqus_set_name"
@@ -296,27 +298,27 @@ enum abaqus_solid_section_params { abq_solid_section_undefined = 0,
 
 
 
-class MBReadUtilIface;
+class ReadUtilIface;
 
-class ReadABAQUS : public MBReaderIface
+class ReadABAQUS : public ReaderIface
 {
 public:
   
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
   
   void tokenize( const std::string& str,
                  std::vector<std::string>& tokens,
                  const char* delimiters );
   
   //! load an ABAQUS file
-  MBErrorCode load_file( const char *exodus_file_name,
-                         const MBEntityHandle* file_set,
+  ErrorCode load_file( const char *exodus_file_name,
+                         const EntityHandle* file_set,
                          const FileOptions& opts,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int subset_list_length = 0,
-                         const MBTag* file_id_tag = 0 );
+                         const Tag* file_id_tag = 0 );
   
-  MBErrorCode read_tag_values( const char* file_name,
+  ErrorCode read_tag_values( const char* file_name,
                                const char* tag_name,
                                const FileOptions& opts,
                                std::vector<int>& tag_values_out,
@@ -324,7 +326,7 @@ public:
                                int subset_list_length = 0 );
   
   //! Constructor
-  ReadABAQUS(MBInterface* impl = NULL);
+  ReadABAQUS(Interface* impl = NULL);
   
   //! Destructor
   virtual ~ReadABAQUS();
@@ -333,67 +335,67 @@ private:
   
   void reset();
   
-  MBErrorCode read_heading(MBEntityHandle file_set);
-  MBErrorCode read_part(MBEntityHandle file_set);
-  MBErrorCode read_assembly(MBEntityHandle file_set);
-  MBErrorCode read_unsupported(MBEntityHandle file_set);
-  MBErrorCode read_node_list(MBEntityHandle parent_set);
-  MBErrorCode read_element_list(MBEntityHandle parent_set);
-  MBErrorCode read_node_set(MBEntityHandle parent_set,
-			    MBEntityHandle file_set = 0,
-			    MBEntityHandle assembly_set = 0);
-  MBErrorCode read_element_set(MBEntityHandle parent_set,
-			    MBEntityHandle file_set = 0,
-			    MBEntityHandle assembly_set = 0);
-  MBErrorCode read_solid_section(MBEntityHandle parent_set);
-  MBErrorCode read_instance(MBEntityHandle assembly_set,
-			    MBEntityHandle file_set);
+  ErrorCode read_heading(EntityHandle file_set);
+  ErrorCode read_part(EntityHandle file_set);
+  ErrorCode read_assembly(EntityHandle file_set);
+  ErrorCode read_unsupported(EntityHandle file_set);
+  ErrorCode read_node_list(EntityHandle parent_set);
+  ErrorCode read_element_list(EntityHandle parent_set);
+  ErrorCode read_node_set(EntityHandle parent_set,
+			    EntityHandle file_set = 0,
+			    EntityHandle assembly_set = 0);
+  ErrorCode read_element_set(EntityHandle parent_set,
+			    EntityHandle file_set = 0,
+			    EntityHandle assembly_set = 0);
+  ErrorCode read_solid_section(EntityHandle parent_set);
+  ErrorCode read_instance(EntityHandle assembly_set,
+			    EntityHandle file_set);
   
 
-  MBErrorCode get_elements_by_id(MBEntityHandle parent_set,
+  ErrorCode get_elements_by_id(EntityHandle parent_set,
 				 std::vector<int> element_ids_subset,
-				 MBRange &element_range);
+				 Range &element_range);
   
-  MBErrorCode get_nodes_by_id(MBEntityHandle parent_set,
+  ErrorCode get_nodes_by_id(EntityHandle parent_set,
 			      std::vector<int> node_ids_subset,
-			      MBRange &node_range);
+			      Range &node_range);
     
-  MBErrorCode get_set_by_name(MBEntityHandle parent_set,
+  ErrorCode get_set_by_name(EntityHandle parent_set,
 			      int ABQ_set_type,
 			      std::string set_name,
-			      MBEntityHandle &set_handle);
+			      EntityHandle &set_handle);
 
-  MBErrorCode get_set_elements(MBEntityHandle set_handle,
-			       MBRange &element_range);
+  ErrorCode get_set_elements(EntityHandle set_handle,
+			       Range &element_range);
 
-  MBErrorCode get_set_elements_by_name(MBEntityHandle parent_set,
+  ErrorCode get_set_elements_by_name(EntityHandle parent_set,
 				       int ABQ_set_type,
 				       std::string set_name,
-				       MBRange &element_range);
+				       Range &element_range);
     
 			      
-  MBErrorCode get_set_nodes(MBEntityHandle parent_set,
+  ErrorCode get_set_nodes(EntityHandle parent_set,
 			    int ABQ_set_type,
 			    std::string set_name,
-			    MBRange &node_range);
+			    Range &node_range);
   
-  MBErrorCode add_entity_set(MBEntityHandle parent_set,
+  ErrorCode add_entity_set(EntityHandle parent_set,
 			     int ABQ_set_type,
 			     std::string set_name,
-			     MBEntityHandle &entity_set);
+			     EntityHandle &entity_set);
 
-  MBErrorCode create_instance_of_part(const MBEntityHandle file_set,
-				      const MBEntityHandle parent_set,
+  ErrorCode create_instance_of_part(const EntityHandle file_set,
+				      const EntityHandle parent_set,
 				      const std::string part_name,
 				      const std::string instance_name,
-				      MBEntityHandle &entity_set,
+				      EntityHandle &entity_set,
 				      const std::vector<double> &translation,
 				      const std::vector<double> &rotation);
 
-  MBTag get_tag(const char* tag_name, int tag_size, MBTagType tag_type,
-                MBDataType tag_data_type);
-  MBTag get_tag(const char* tag_name, int tag_size, MBTagType tag_type,
-                MBDataType tag_data_type, const void* def_val);
+  Tag get_tag(const char* tag_name, int tag_size, TagType tag_type,
+                DataType tag_data_type);
+  Tag get_tag(const char* tag_name, int tag_size, TagType tag_type,
+                DataType tag_data_type, const void* def_val);
   
   void cyl2rect(std::vector<double> coord_list);
 
@@ -413,10 +415,10 @@ private:
 				  std::map<std::string,std::string>& params);
 
   //! interface instance
-  MBInterface* mdbImpl;
+  Interface* mdbImpl;
 
   // read mesh interface
-  MBReadUtilIface* readMeshIface;
+  ReadUtilIface* readMeshIface;
 
   std::ifstream abFile;        // abaqus file
 
@@ -428,31 +430,32 @@ private:
 
   //! Cached tags for reading.  Note that all these tags are defined when the
   //! core is initialized.
-  MBTag mMaterialSetTag;
-  MBTag mDirichletSetTag;
-  MBTag mNeumannSetTag;
-  MBTag mHasMidNodesTag;
+  Tag mMaterialSetTag;
+  Tag mDirichletSetTag;
+  Tag mNeumannSetTag;
+  Tag mHasMidNodesTag;
 
-  MBTag mSetTypeTag;
-  MBTag mPartHandleTag;
-  MBTag mInstancePIDTag;
-  MBTag mInstanceGIDTag;
+  Tag mSetTypeTag;
+  Tag mPartHandleTag;
+  Tag mInstancePIDTag;
+  Tag mInstanceGIDTag;
 
-  MBTag mLocalIDTag;
-  MBTag mInstanceHandleTag;
-  MBTag mAssemblyHandleTag;
+  Tag mLocalIDTag;
+  Tag mInstanceHandleTag;
+  Tag mAssemblyHandleTag;
 
-  MBTag mSetNameTag;
-  MBTag mMatNameTag;
+  Tag mSetNameTag;
+  Tag mMatNameTag;
 
   abaqus_line_types  next_line_type;
 
-  std::map<MBEntityHandle,unsigned int> num_part_instances;
-  std::map<MBEntityHandle,unsigned int> num_assembly_instances;
+  std::map<EntityHandle,unsigned int> num_part_instances;
+  std::map<EntityHandle,unsigned int> num_assembly_instances;
   std::map<std::string,unsigned int> matIDmap;
   unsigned mat_id;
   
 };
 
+} // namespace moab
 
 #endif

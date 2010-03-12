@@ -14,16 +14,18 @@
  */
 
 #include "ExoIIUtil.hpp"
-#include "MBInternals.hpp"
-#include "MBInterface.hpp"
-#include "MBCN.hpp"
+#include "Internals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/MBCN.hpp"
 #include <string.h>
+
+namespace moab {
 
 //
 // definitions of ExoII-related static arrays
 //
 
-const MBEntityType ExoIIUtil::ExoIIElementMBEntity[] =
+const EntityType ExoIIUtil::ExoIIElementMBEntity[] =
 {
   MBVERTEX, // SPHERE,
   MBEDGE, // SPRING,
@@ -274,14 +276,14 @@ ExoIIElementType ExoIIUtil::static_element_name_to_type(const char *name)
   return EXOII_MAX_ELEM_TYPE;
 }
 
-ExoIIElementType ExoIIUtil::static_get_element_type(MBInterface *mdbImpl, 
-                                             const MBEntityHandle entity, 
-                                             const MBTag mid_nodes_tag, 
-                                                    const MBTag geom_dimension_tag,
-                                             const MBEntityType indiv_entity_type) 
+ExoIIElementType ExoIIUtil::static_get_element_type(Interface *mdbImpl, 
+                                             const EntityHandle entity, 
+                                             const Tag mid_nodes_tag, 
+                                                    const Tag geom_dimension_tag,
+                                             const EntityType indiv_entity_type) 
 {
     // branch based on what kind of entity we're looking at
-  MBEntityType handle_type = mdbImpl->type_from_handle(entity);
+  EntityType handle_type = mdbImpl->type_from_handle(entity);
   
   if (handle_type == MBENTITYSET) 
   {
@@ -334,7 +336,7 @@ ExoIIElementType ExoIIUtil::static_get_element_type(MBInterface *mdbImpl,
     return EXOII_SPHERE;
 
   else {
-    std::vector<MBEntityHandle> tmp(31);
+    std::vector<EntityHandle> tmp(31);
 
     mdbImpl->get_connectivity(&entity, 1, tmp, true);
     return get_element_type_from_num_verts(tmp.size(), indiv_entity_type);
@@ -346,7 +348,7 @@ ExoIIElementType ExoIIUtil::static_get_element_type(MBInterface *mdbImpl,
 }
 
 ExoIIElementType ExoIIUtil::get_element_type_from_num_verts(const int num_verts, 
-                                                            const MBEntityType entity_type,
+                                                            const EntityType entity_type,
                                                             const int dimension) 
 {
   for (int i = 0; i < EXOII_MAX_ELEM_TYPE; i++) {
@@ -359,3 +361,4 @@ ExoIIElementType ExoIIUtil::get_element_type_from_num_verts(const int num_verts,
   return EXOII_MAX_ELEM_TYPE;
 }
 
+} // namespace moab

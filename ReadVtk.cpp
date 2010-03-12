@@ -24,48 +24,50 @@
 #include <string.h>
 
 #include "ReadVtk.hpp"
-#include "MBRange.hpp"
-#include "MBInternals.hpp"
-#include "MBInterface.hpp"
-#include "MBReadUtilIface.hpp"
+#include "moab/Range.hpp"
+#include "Internals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/ReadUtilIface.hpp"
 #include "FileOptions.hpp"
 #include "FileTokenizer.hpp"
 #include "VtkUtil.hpp"
 
 #define MB_VTK_MATERIAL_SETS
 #ifdef MB_VTK_MATERIAL_SETS
-#  include "MBTagConventions.hpp"
+#  include "moab/MBTagConventions.hpp"
 #  include <map>
 
-class MBHash
+namespace moab {
+
+class Hash
 {
 public:
   unsigned long value;
 
-  MBHash()
+  Hash()
     {
     this->value = 5381L;
     }
-  MBHash( const unsigned char* bytes, size_t len )
+  Hash( const unsigned char* bytes, size_t len )
     { // djb2, a hash by dan bernstein presented on comp.lang.c for hashing strings.
     this->value = 5381L;
     for ( ; len ; -- len, ++ bytes )
       this->value = this->value * 33 + ( *bytes );
     }
-  MBHash( bool duh )
+  Hash( bool duh )
     {
     this->value = duh; // hashing a single bit with a long is stupid but easy.
     }
-  MBHash( const MBHash& src )
+  Hash( const Hash& src )
     {
     this->value = src.value;
     }
-  MBHash& operator = ( const MBHash& src )
+  Hash& operator = ( const Hash& src )
     {
     this->value = src.value;
     return *this;
     }
-  bool operator < ( const MBHash& other ) const
+  bool operator < ( const Hash& other ) const
     {
     return this->value < other.value;
     }
@@ -78,12 +80,12 @@ public:
 // will be placed into the same set.
 // There will be no collisions when the opaque data is shorter than an
 // unsigned long, and this is really the only case we need to support.
-// The rest is bonus. MBHash does quite well with strings, even those
+// The rest is bonus. Hash does quite well with strings, even those
 // with identical prefixes.
-class MBModulator : public std::map<MBHash,MBEntityHandle>
+class Modulator : public std::map<Hash,EntityHandle>
 {
 public:
-  MBModulator( MBInterface* iface, std::string tag_name, MBDataType mb_type, size_t size, size_t per_elem )
+  Modulator( Interface* iface, std::string tag_name, DataType mb_type, size_t size, size_t per_elem )
     {
     this->mesh = iface;
     std::vector<unsigned char> default_val;
@@ -91,28 +93,28 @@ public:
     this->mesh->tag_create( tag_name.c_str(), size, MB_TAG_SPARSE,
       mb_type, this->tag, &default_val[0], true );
     }
-  void add_entity( MBEntityHandle ent, const unsigned char* bytes, size_t len )
+  void add_entity( EntityHandle ent, const unsigned char* bytes, size_t len )
     {
-    MBHash h( bytes, len );
-    MBEntityHandle mset = this->congruence_class( h, bytes );
+    Hash h( bytes, len );
+    EntityHandle mset = this->congruence_class( h, bytes );
     this->mesh->add_entities( mset, &ent, 1 );
     }
-  void add_entities( MBRange& range, const unsigned char* bytes, size_t bytes_per_ent )
+  void add_entities( Range& range, const unsigned char* bytes, size_t bytes_per_ent )
     {
-    for( MBRange::iterator it = range.begin(); it != range.end(); ++ it, bytes += bytes_per_ent )
+    for( Range::iterator it = range.begin(); it != range.end(); ++ it, bytes += bytes_per_ent )
       {
-      MBHash h( bytes, bytes_per_ent );
-      MBEntityHandle mset = this->congruence_class( h, bytes );
+      Hash h( bytes, bytes_per_ent );
+      EntityHandle mset = this->congruence_class( h, bytes );
       this->mesh->add_entities( mset, &*it, 1 );
       }
     }
-  MBEntityHandle congruence_class( const MBHash& h, const void* tag_data )
+  EntityHandle congruence_class( const Hash& h, const void* tag_data )
     {
-    std::map<MBHash,MBEntityHandle>::iterator it = this->find( h );
+    std::map<Hash,EntityHandle>::iterator it = this->find( h );
     if ( it == this->end() )
       {
-      MBEntityHandle mset;
-      MBRange preexist;
+      EntityHandle mset;
+      Range preexist;
       this->mesh->get_entities_by_type_and_tag( 0, MBENTITYSET, &this->tag, &tag_data, 1, preexist );
       if ( preexist.size() )
         {
@@ -129,26 +131,26 @@ public:
     return it->second;
     }
 
-  MBInterface* mesh;
-  MBTag tag;
+  Interface* mesh;
+  Tag tag;
 };
 #endif // MB_VTK_MATERIAL_SETS
 
-MBReaderIface* ReadVtk::factory( MBInterface* iface )
+ReaderIface* ReadVtk::factory( Interface* iface )
   { return new ReadVtk( iface ); }
 
-ReadVtk::ReadVtk(MBInterface* impl)
+ReadVtk::ReadVtk(Interface* impl)
     : mdbImpl(impl), mPartitionTagName(MATERIAL_SET_TAG_NAME)
 {
   void* ptr = 0;
-  mdbImpl->query_interface("MBReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  mdbImpl->query_interface("ReadUtilIface", &ptr);
+  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 }
 
 ReadVtk::~ReadVtk()
 {
   if (readMeshIface) {
-    mdbImpl->release_interface("MBReadUtilIface", readMeshIface);
+    mdbImpl->release_interface("ReadUtilIface", readMeshIface);
     readMeshIface = 0;
   }
 }
@@ -168,7 +170,7 @@ const char* const vtk_type_names[] = { "bit",
                                        0 };
 
 
-MBErrorCode ReadVtk::read_tag_values( const char* /* file_name */,
+ErrorCode ReadVtk::read_tag_values( const char* /* file_name */,
                                       const char* /* tag_name */,
                                       const FileOptions& /* opts */,
                                       std::vector<int>& /* tag_values_out */,
@@ -179,19 +181,19 @@ MBErrorCode ReadVtk::read_tag_values( const char* /* file_name */,
 }
 
 
-MBErrorCode ReadVtk::load_file( const char *filename,
-                                const MBEntityHandle* ,
+ErrorCode ReadVtk::load_file( const char *filename,
+                                const EntityHandle* ,
                                 const FileOptions& opts,
-                                const MBReaderIface::IDTag* subset_list,
+                                const ReaderIface::IDTag* subset_list,
                                 int subset_list_length,
-                                const MBTag* file_id_tag) 
+                                const Tag* file_id_tag) 
 {
-  MBErrorCode result;
+  ErrorCode result;
 
   int major, minor;
   char vendor_string[257];
-  std::vector<MBRange> element_list;
-  MBRange vertices;
+  std::vector<Range> element_list;
+  Range vertices;
   
   if (subset_list && subset_list_length) {
     readMeshIface->report_error( "Reading subset of files not supported for VTK." );
@@ -270,12 +272,12 @@ MBErrorCode ReadVtk::load_file( const char *filename,
   
     // Count the number of elements read
   long elem_count = 0;
-  for (std::vector<MBRange>::iterator it = element_list.begin(); it != element_list.end(); ++it )
+  for (std::vector<Range>::iterator it = element_list.begin(); it != element_list.end(); ++it )
     elem_count += it->size();
   
     // Read attribute data until end of file.
   const char* const block_type_names[] = { "POINT_DATA", "CELL_DATA", 0 };
-  std::vector<MBRange> vertex_list(1);
+  std::vector<Range> vertex_list(1);
   vertex_list[0] = vertices;
   int blocktype = 0;
   while (!tokens.eof())
@@ -330,13 +332,13 @@ MBErrorCode ReadVtk::load_file( const char *filename,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::allocate_vertices( long num_verts,
-                                        MBEntityHandle& start_handle_out,
+ErrorCode ReadVtk::allocate_vertices( long num_verts,
+                                        EntityHandle& start_handle_out,
                                         double*& x_coord_array_out,
                                         double*& y_coord_array_out,
                                         double*& z_coord_array_out )
 {
-  MBErrorCode result;
+  ErrorCode result;
   
     // Create vertices
   std::vector<double*> arrays;
@@ -353,11 +355,11 @@ MBErrorCode ReadVtk::allocate_vertices( long num_verts,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::read_vertices( FileTokenizer& tokens,
+ErrorCode ReadVtk::read_vertices( FileTokenizer& tokens,
                                     long num_verts, 
-                                    MBEntityHandle& start_handle_out )
+                                    EntityHandle& start_handle_out )
 {
-  MBErrorCode result;
+  ErrorCode result;
   double *x, *y, *z;
   
   result = allocate_vertices( num_verts, start_handle_out, x, y, z );
@@ -376,14 +378,14 @@ MBErrorCode ReadVtk::read_vertices( FileTokenizer& tokens,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::allocate_elements( long num_elements,
+ErrorCode ReadVtk::allocate_elements( long num_elements,
                                         int vert_per_element,
-                                        MBEntityType type,
-                                        MBEntityHandle& start_handle_out,
-                                        MBEntityHandle*& conn_array_out,
-                                        std::vector<MBRange>& append_to_this )
+                                        EntityType type,
+                                        EntityHandle& start_handle_out,
+                                        EntityHandle*& conn_array_out,
+                                        std::vector<Range>& append_to_this )
 {
-  MBErrorCode result;
+  ErrorCode result;
   
   start_handle_out = 0;
   result = readMeshIface->get_element_array( num_elements,
@@ -395,14 +397,14 @@ MBErrorCode ReadVtk::allocate_elements( long num_elements,
   if (MB_SUCCESS != result)
     return result;
   
-  MBRange range(start_handle_out, start_handle_out+num_elements-1);
+  Range range(start_handle_out, start_handle_out+num_elements-1);
   append_to_this.push_back( range );
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::vtk_read_dataset( FileTokenizer& tokens,
-                                       MBRange& vertex_list,
-                                       std::vector<MBRange>& element_list )
+ErrorCode ReadVtk::vtk_read_dataset( FileTokenizer& tokens,
+                                       Range& vertex_list,
+                                       std::vector<Range>& element_list )
 {
   const char* const data_type_names[] = { "STRUCTURED_POINTS",
                                           "STRUCTURED_GRID",
@@ -426,14 +428,14 @@ MBErrorCode ReadVtk::vtk_read_dataset( FileTokenizer& tokens,
 }
 
 
-MBErrorCode ReadVtk::vtk_read_structured_points( FileTokenizer& tokens, 
-                                                 MBRange& vertex_list,
-                                                 std::vector<MBRange>& elem_list )
+ErrorCode ReadVtk::vtk_read_structured_points( FileTokenizer& tokens, 
+                                                 Range& vertex_list,
+                                                 std::vector<Range>& elem_list )
 {
   long i, j, k;
   long dims[3];
   double origin[3], space[3];
-  MBErrorCode result;
+  ErrorCode result;
  
   if (!tokens.match_token( "DIMENSIONS" ) || 
       !tokens.get_long_ints( 3, dims ) ||
@@ -460,7 +462,7 @@ MBErrorCode ReadVtk::vtk_read_structured_points( FileTokenizer& tokens,
   
     // Create vertices
   double *x, *y, *z;
-  MBEntityHandle start_handle = 0;
+  EntityHandle start_handle = 0;
   long num_verts = dims[0]*dims[1]*dims[2];
   result = allocate_vertices( num_verts, start_handle, x, y, z );
   if (MB_SUCCESS != result)
@@ -479,12 +481,12 @@ MBErrorCode ReadVtk::vtk_read_structured_points( FileTokenizer& tokens,
   return vtk_create_structured_elems( dims, start_handle, elem_list );
 }
 
-MBErrorCode ReadVtk::vtk_read_structured_grid( FileTokenizer& tokens, 
-                                               MBRange& vertex_list,
-                                               std::vector<MBRange>& elem_list )
+ErrorCode ReadVtk::vtk_read_structured_grid( FileTokenizer& tokens, 
+                                               Range& vertex_list,
+                                               std::vector<Range>& elem_list )
 {
   long num_verts, dims[3];
-  MBErrorCode result;
+  ErrorCode result;
  
   if (!tokens.match_token( "DIMENSIONS" ) ||
       !tokens.get_long_ints( 3, dims )    ||
@@ -513,7 +515,7 @@ MBErrorCode ReadVtk::vtk_read_structured_grid( FileTokenizer& tokens,
   }
   
     // Create and read vertices
-  MBEntityHandle start_handle = 0;
+  EntityHandle start_handle = 0;
   result = read_vertices( tokens, num_verts, start_handle );
   if (MB_SUCCESS != result)
     return result;
@@ -522,15 +524,15 @@ MBErrorCode ReadVtk::vtk_read_structured_grid( FileTokenizer& tokens,
   return vtk_create_structured_elems( dims, start_handle, elem_list );
 }
 
-MBErrorCode ReadVtk::vtk_read_rectilinear_grid( FileTokenizer& tokens, 
-                                                MBRange& vertex_list,
-                                                std::vector<MBRange>& elem_list )
+ErrorCode ReadVtk::vtk_read_rectilinear_grid( FileTokenizer& tokens, 
+                                                Range& vertex_list,
+                                                std::vector<Range>& elem_list )
 {
   int i, j, k;
   long dims[3];
   const char* labels[] = { "X_COORDINATES", "Y_COORDINATES", "Z_COORDINATES" };
   std::vector<double> coords[3];
-  MBErrorCode result;
+  ErrorCode result;
   
   if (!tokens.match_token( "DIMENSIONS" )||
       !tokens.get_long_ints( 3, dims )   ||
@@ -567,7 +569,7 @@ MBErrorCode ReadVtk::vtk_read_rectilinear_grid( FileTokenizer& tokens,
   
     // Create vertices
   double *x, *y, *z;
-  MBEntityHandle start_handle = 0;
+  EntityHandle start_handle = 0;
   long num_verts = dims[0]*dims[1]*dims[2];
   result = allocate_vertices( num_verts, start_handle, x, y, z );
   if (MB_SUCCESS != result)
@@ -588,11 +590,11 @@ MBErrorCode ReadVtk::vtk_read_rectilinear_grid( FileTokenizer& tokens,
   return vtk_create_structured_elems( dims, start_handle, elem_list );
 }
 
-MBErrorCode ReadVtk::vtk_read_polydata( FileTokenizer& tokens, 
-                                        MBRange& vertex_list,
-                                        std::vector<MBRange>& elem_list )
+ErrorCode ReadVtk::vtk_read_polydata( FileTokenizer& tokens, 
+                                        Range& vertex_list,
+                                        std::vector<Range>& elem_list )
 {
-  MBErrorCode result;
+  ErrorCode result;
   long num_verts;
   std::vector<int> connectivity;
   const char* const poly_data_names[] = { "VERTICES",
@@ -615,7 +617,7 @@ MBErrorCode ReadVtk::vtk_read_polydata( FileTokenizer& tokens,
   }
   
     // Create vertices and read coordinates
-  MBEntityHandle start_handle = 0;
+  EntityHandle start_handle = 0;
   result = read_vertices( tokens, num_verts, start_handle );
   if (MB_SUCCESS != result)
     return result;
@@ -653,21 +655,21 @@ MBErrorCode ReadVtk::vtk_read_polydata( FileTokenizer& tokens,
   return result;
 }
 
-MBErrorCode ReadVtk::vtk_read_polygons( FileTokenizer& tokens,
-                                        MBEntityHandle first_vtx, 
-                                        std::vector<MBRange>& elem_list )
+ErrorCode ReadVtk::vtk_read_polygons( FileTokenizer& tokens,
+                                        EntityHandle first_vtx, 
+                                        std::vector<Range>& elem_list )
 {
-  MBErrorCode result;
+  ErrorCode result;
   long size[2];
   
   if (!tokens.get_long_ints( 2, size ) ||
       !tokens.get_newline( ))
     return MB_FAILURE;
 
-  const MBRange empty;
-  std::vector<MBEntityHandle> conn_hdl;
+  const Range empty;
+  std::vector<EntityHandle> conn_hdl;
   std::vector<long> conn_idx;
-  MBEntityHandle first = 0, prev = 0, handle;
+  EntityHandle first = 0, prev = 0, handle;
   for (int i = 0; i < size[0]; ++i) {
     long count;
     if (!tokens.get_long_ints( 1, &count ))
@@ -705,13 +707,13 @@ MBErrorCode ReadVtk::vtk_read_polygons( FileTokenizer& tokens,
 
 
 
-MBErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
-                                                 MBRange& vertex_list,
-                                                 std::vector<MBRange>& elem_list  )
+ErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
+                                                 Range& vertex_list,
+                                                 std::vector<Range>& elem_list  )
 {
-  MBErrorCode result;
+  ErrorCode result;
   long i, num_verts, num_elems[2];
-  MBEntityHandle tmp_conn_list[27];
+  EntityHandle tmp_conn_list[27];
 
   if (!tokens.match_token( "POINTS" )        ||
       !tokens.get_long_ints( 1, &num_verts ) ||
@@ -726,7 +728,7 @@ MBErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
   }
   
     // Create vertices and read coordinates
-  MBEntityHandle first_vertex = 0;
+  EntityHandle first_vertex = 0;
   result = read_vertices( tokens, num_verts, first_vertex );
   if (MB_SUCCESS != result)
     return result;
@@ -764,7 +766,7 @@ MBErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
     if (vtk_type >= VtkUtil::numVtkElemType)
       return MB_FAILURE;
       
-    MBEntityType type = VtkUtil::vtkElemTypes[vtk_type].mb_type;
+    EntityType type = VtkUtil::vtkElemTypes[vtk_type].mb_type;
     if (type == MBMAXTYPE) {
       readMeshIface->report_error( "Unsupported VTK element type: %s (%d)\n",
                                    VtkUtil::vtkElemTypes[vtk_type].name, vtk_type );
@@ -791,15 +793,15 @@ MBErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
     
       // Allocate element block
     long num_elem = end_id - id;
-    MBEntityHandle start_handle = 0;
-    MBEntityHandle* conn_array;
+    EntityHandle start_handle = 0;
+    EntityHandle* conn_array;
     
     result = allocate_elements( num_elem, num_vtx, type, start_handle,
                                 conn_array, elem_list );
     if (MB_SUCCESS != result)
       return result;
 
-    MBEntityHandle *conn_sav = conn_array;
+    EntityHandle *conn_sav = conn_array;
     
       // Store element connectivity
     for ( ; id < end_id; ++id)
@@ -836,8 +838,8 @@ MBErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
       const unsigned* order = VtkUtil::vtkElemTypes[vtk_type].node_order;
       if ( order )
       {
-        assert( num_vtx * sizeof(MBEntityHandle) <= sizeof(tmp_conn_list) );
-        memcpy( tmp_conn_list, conn_array, num_vtx * sizeof(MBEntityHandle) );
+        assert( num_vtx * sizeof(EntityHandle) <= sizeof(tmp_conn_list) );
+        memcpy( tmp_conn_list, conn_array, num_vtx * sizeof(EntityHandle) );
         for (int j = 0; j < num_vtx; ++j)
           conn_array[order[j]] = tmp_conn_list[j];
       }       
@@ -854,11 +856,11 @@ MBErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::vtk_create_structured_elems( const long* dims, 
-                                            MBEntityHandle first_vtx,
-                                            std::vector<MBRange>& elem_list )
+ErrorCode ReadVtk::vtk_create_structured_elems( const long* dims, 
+                                            EntityHandle first_vtx,
+                                            std::vector<Range>& elem_list )
 {
-  MBErrorCode result;
+  ErrorCode result;
   int non_zero[3] = {0,0,0};  // True if dim > 0 for x, y, z respectively
   long elem_dim = 0;          // Element dimension (2->quad, 3->hex)
   long num_elems = 1;         // Total number of elements
@@ -876,7 +878,7 @@ MBErrorCode ReadVtk::vtk_create_structured_elems( const long* dims,
   vert_per_elem = 1 << elem_dim;
   
     // Get element type from element dimension
-  MBEntityType type;
+  EntityType type;
   switch( elem_dim )
   {
     case 1: type = MBEDGE; break;
@@ -889,14 +891,14 @@ MBErrorCode ReadVtk::vtk_create_structured_elems( const long* dims,
   }
 
     // Allocate storage for elements
-  MBEntityHandle start_handle = 0;
-  MBEntityHandle* conn_array;
+  EntityHandle start_handle = 0;
+  EntityHandle* conn_array;
   result = allocate_elements( num_elems, vert_per_elem, type, start_handle,
                               conn_array, elem_list );
   if (MB_SUCCESS != result)
     return MB_FAILURE;
 
-  MBEntityHandle *conn_sav = conn_array;
+  EntityHandle *conn_sav = conn_array;
   
     // Offsets of element vertices in grid relative to corner closest to origin 
   long k = dims[0]*dims[1];
@@ -920,7 +922,7 @@ MBErrorCode ReadVtk::vtk_create_structured_elems( const long* dims,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::vtk_read_field( FileTokenizer& tokens )
+ErrorCode ReadVtk::vtk_read_field( FileTokenizer& tokens )
 {
     // This is not supported yet.
     // Parse the data but throw it away because
@@ -960,8 +962,8 @@ MBErrorCode ReadVtk::vtk_read_field( FileTokenizer& tokens )
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::vtk_read_attrib_data( FileTokenizer& tokens, 
-                                           std::vector<MBRange>& entities )
+ErrorCode ReadVtk::vtk_read_attrib_data( FileTokenizer& tokens, 
+                                           std::vector<Range>& entities )
 {
   const char* const type_names[] = { "SCALARS",
                                      "COLOR_SCALARS",
@@ -995,14 +997,14 @@ MBErrorCode ReadVtk::vtk_read_attrib_data( FileTokenizer& tokens,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens, 
+ErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens, 
                                         int type, 
                                         size_t per_elem, 
-                                        std::vector<MBRange>& entities,
+                                        std::vector<Range>& entities,
                                         const char* name )
 {
-  MBErrorCode result;
-  MBDataType mb_type;
+  ErrorCode result;
+  DataType mb_type;
   size_t size;
   if (type == 1)
   {
@@ -1030,15 +1032,15 @@ MBErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens,
   }
 
 #ifdef MB_VTK_MATERIAL_SETS
-  MBModulator materialMap( this->mdbImpl, this->mPartitionTagName, mb_type, size, per_elem );
+  Modulator materialMap( this->mdbImpl, this->mPartitionTagName, mb_type, size, per_elem );
   bool isMaterial =
-    size * per_elem <= 4 &&                            // must have int-sized values (MBParallelComm requires it)
+    size * per_elem <= 4 &&                            // must have int-sized values (ParallelComm requires it)
     ! this->mPartitionTagName.empty() &&               // must have a non-empty field name...
     ! strcmp( name, this->mPartitionTagName.c_str() ); // ... that matches our spec.
 #endif // MB_VTK_MATERIAL_SETS
   
     // get/create tag
-  MBTag handle;
+  Tag handle;
   result = mdbImpl->tag_get_handle ( name, handle );
   if (result == MB_TAG_NOT_FOUND)
   {
@@ -1052,7 +1054,7 @@ MBErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens,
   else if (result == MB_SUCCESS)
   {
     int existing_size;
-    MBDataType existing_type;
+    DataType existing_type;
     
     result = mdbImpl->tag_get_size( handle, existing_size );
     if (MB_SUCCESS != result)
@@ -1078,7 +1080,7 @@ MBErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens,
  
     // Count number of entities
   long count = 0;
-  std::vector<MBRange>::iterator iter;
+  std::vector<Range>::iterator iter;
   for (iter = entities.begin(); iter != entities.end(); ++iter)
     count += iter->size();
 
@@ -1094,7 +1096,7 @@ MBErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens,
       }
       
       bool* data_iter = data;
-      MBRange::iterator ent_iter = iter->begin();
+      Range::iterator ent_iter = iter->begin();
       for ( ; ent_iter != iter->end(); ++ent_iter)
       {
         unsigned char bits = 0;
@@ -1157,8 +1159,8 @@ MBErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens,
 }
   
 
-MBErrorCode ReadVtk::vtk_read_scalar_attrib( FileTokenizer& tokens, 
-                                             std::vector<MBRange>& entities,
+ErrorCode ReadVtk::vtk_read_scalar_attrib( FileTokenizer& tokens, 
+                                             std::vector<Range>& entities,
                                              const char* name)
 {
   int type = tokens.match_token( vtk_type_names );
@@ -1195,8 +1197,8 @@ MBErrorCode ReadVtk::vtk_read_scalar_attrib( FileTokenizer& tokens,
 }
 
 
-MBErrorCode ReadVtk::vtk_read_color_attrib( FileTokenizer& tokens, 
-                                            std::vector<MBRange>& entities,
+ErrorCode ReadVtk::vtk_read_color_attrib( FileTokenizer& tokens, 
+                                            std::vector<Range>& entities,
                                             const char* name)
 {
   long size;
@@ -1206,8 +1208,8 @@ MBErrorCode ReadVtk::vtk_read_color_attrib( FileTokenizer& tokens,
   return vtk_read_tag_data( tokens, 10, size, entities, name );
 }
 
-MBErrorCode ReadVtk::vtk_read_vector_attrib( FileTokenizer& tokens, 
-                                             std::vector<MBRange>& entities,
+ErrorCode ReadVtk::vtk_read_vector_attrib( FileTokenizer& tokens, 
+                                             std::vector<Range>& entities,
                                              const char* name)
 {
   int type = tokens.match_token( vtk_type_names );
@@ -1217,8 +1219,8 @@ MBErrorCode ReadVtk::vtk_read_vector_attrib( FileTokenizer& tokens,
   return vtk_read_tag_data( tokens, type, 3, entities, name );
 }
 
-MBErrorCode ReadVtk::vtk_read_texture_attrib( FileTokenizer& tokens,
-                                              std::vector<MBRange>& entities,
+ErrorCode ReadVtk::vtk_read_texture_attrib( FileTokenizer& tokens,
+                                              std::vector<Range>& entities,
                                               const char* name)
 {
   int type, dim;
@@ -1236,8 +1238,8 @@ MBErrorCode ReadVtk::vtk_read_texture_attrib( FileTokenizer& tokens,
   return vtk_read_tag_data( tokens, type, dim, entities, name );
 }
 
-MBErrorCode ReadVtk::vtk_read_tensor_attrib( FileTokenizer& tokens,
-                                             std::vector<MBRange>& entities,
+ErrorCode ReadVtk::vtk_read_tensor_attrib( FileTokenizer& tokens,
+                                             std::vector<Range>& entities,
                                              const char* name ) 
 {
   int type = tokens.match_token( vtk_type_names );
@@ -1247,8 +1249,8 @@ MBErrorCode ReadVtk::vtk_read_tensor_attrib( FileTokenizer& tokens,
   return vtk_read_tag_data( tokens, type, 9, entities, name );
 }  
 
-MBErrorCode ReadVtk::vtk_read_field_attrib( FileTokenizer& tokens, 
-                                            std::vector<MBRange>& entities,
+ErrorCode ReadVtk::vtk_read_field_attrib( FileTokenizer& tokens, 
+                                            std::vector<Range>& entities,
                                             const char* )
 {
   long num_fields;
@@ -1276,7 +1278,7 @@ MBErrorCode ReadVtk::vtk_read_field_attrib( FileTokenizer& tokens,
     if (!type)
       return MB_FAILURE;
 
-    MBErrorCode result;
+    ErrorCode result;
     if ( ( result = vtk_read_tag_data( tokens, type, num_comp, entities, name_alloc.c_str() ) ) != MB_SUCCESS )
       {
       readMeshIface->report_error(
@@ -1289,10 +1291,10 @@ MBErrorCode ReadVtk::vtk_read_field_attrib( FileTokenizer& tokens,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadVtk::store_file_ids( MBTag tag, const MBRange& verts,
-                                     const std::vector<MBRange>& elems )
+ErrorCode ReadVtk::store_file_ids( Tag tag, const Range& verts,
+                                     const std::vector<Range>& elems )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
   
   rval = readMeshIface->assign_ids( tag, verts );
   if (MB_SUCCESS != rval)
@@ -1306,6 +1308,8 @@ MBErrorCode ReadVtk::store_file_ids( MBTag tag, const MBRange& verts,
   
   return MB_SUCCESS;
 }
+
+} // namespace moab
 
     
     

@@ -33,20 +33,22 @@
 #include "Body.hpp"
 #include "InitCGMA.hpp"
 
-#include "MBCore.hpp"
-#include "MBInterface.hpp"
-#include "MBRange.hpp"
-#include "MBTagConventions.hpp"
+#include "moab/Core.hpp"
+#include "moab/Interface.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBTagConventions.hpp"
 #include "FileOptions.hpp"
 
-#include "GeomTopoTool.hpp"
+#include "moab/GeomTopoTool.hpp"
 
 #include <stdio.h>
 #include <algorithm>
 #include <assert.h>
 
 #include "ReadCGM.hpp"
-#include "MBReadUtilIface.hpp"
+#include "moab/ReadUtilIface.hpp"
+
+namespace moab {
 
 #define GF_CUBIT_FILE_TYPE    "CUBIT"
 #define GF_STEP_FILE_TYPE     "STEP"
@@ -55,10 +57,10 @@
 #define GF_ACIS_BIN_FILE_TYPE "ACIS_SAB"
 #define GF_OCC_BREP_FILE_TYPE "OCC"
 
-MBReaderIface* ReadCGM::factory( MBInterface* iface )
+ReaderIface* ReadCGM::factory( Interface* iface )
 { return new ReadCGM( iface ); }
 
-ReadCGM::ReadCGM(MBInterface *impl)
+ReadCGM::ReadCGM(Interface *impl)
   : geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), 
     geometry_resabs_tag(0)
 {
@@ -66,11 +68,11 @@ ReadCGM::ReadCGM(MBInterface *impl)
   mdbImpl = impl;
   myGeomTool = new GeomTopoTool(impl);
   void* ptr = 0;
-  impl->query_interface( "MBReadUtilIface", &ptr );
+  impl->query_interface( "ReadUtilIface", &ptr );
   assert(NULL != ptr);
-  readUtilIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  readUtilIface = reinterpret_cast<ReadUtilIface*>(ptr);
 
-  MBErrorCode rval;
+  ErrorCode rval;
 
   // get some tag handles
   rval = mdbImpl->tag_create( GEOM_DIMENSION_TAG_NAME, sizeof(int), 
@@ -96,13 +98,13 @@ ReadCGM::ReadCGM(MBInterface *impl)
 
 ReadCGM::~ReadCGM()
 {
-  std::string iface_name = "MBReadUtilIface";
+  std::string iface_name = "ReadUtilIface";
   mdbImpl->release_interface(iface_name, readUtilIface);
   delete myGeomTool;
 }
 
 
-MBErrorCode ReadCGM::read_tag_values( const char* /* file_name */,
+ErrorCode ReadCGM::read_tag_values( const char* /* file_name */,
                                       const char* /* tag_name */,
                                       const FileOptions& /* opts */,
                                       std::vector<int>& /* tag_values_out */,
@@ -115,15 +117,15 @@ MBErrorCode ReadCGM::read_tag_values( const char* /* file_name */,
 
 
 // copy geometry into mesh database
-MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
-                      const MBEntityHandle* file_set,
+ErrorCode ReadCGM::load_file(const char *cgm_file_name,
+                      const EntityHandle* file_set,
                       const FileOptions& opts,
-                      const MBReaderIface::IDTag* subset_list,
+                      const ReaderIface::IDTag* subset_list,
                       int subset_list_length,
-                      const MBTag* file_id_tag)
+                      const Tag* file_id_tag)
 {
   // blocks_to_load and num_blocks are ignored.
-  MBErrorCode rval;
+  ErrorCode rval;
 
   if (subset_list && subset_list_length) {
     readUtilIface->report_error( "Reading subset of files not supported for CGM data." );
@@ -158,8 +160,8 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
   }
 
   // CGM data
-  std::map<RefEntity*,MBEntityHandle> entmap[5]; // one for each dim, and one for groups
-  std::map<RefEntity*,MBEntityHandle>::iterator ci;
+  std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
+  std::map<RefEntity*,EntityHandle>::iterator ci;
   const char geom_categories[][CATEGORY_TAG_SIZE] = 
     {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
   const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
@@ -205,7 +207,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
     entlist.reset();
     for (int i = entlist.size(); i--; ) {
       RefEntity* ent = entlist.get_and_step();
-      MBEntityHandle handle;
+      EntityHandle handle;
       rval = mdbImpl->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
       if (MB_SUCCESS != rval)
         return rval;
@@ -235,7 +237,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
       entlist.reset();
       for (int i = entlist.size(); i--; ) {
         RefEntity* ent = entlist.get_and_step();
-        MBEntityHandle h = entmap[dim-1][ent];
+        EntityHandle h = entmap[dim-1][ent];
         rval = mdbImpl->add_parent_child( ci->second, h );
         if (MB_SUCCESS != rval)
           return rval;
@@ -285,7 +287,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
   }
 
     // create entity sets for all ref groups
-  std::vector<MBTag> extra_name_tags;
+  std::vector<Tag> extra_name_tags;
   DLIList<CubitString*> name_list;
   entlist.clean_out();
   GeometryQueryTool::instance()->ref_entity_list( "group", entlist );
@@ -299,7 +301,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
     name_list.reset();
     CubitString name = *name_list.get();
     
-    MBEntityHandle h;
+    EntityHandle h;
     rval = mdbImpl->create_meshset( MESHSET_SET, h );
     if (MB_SUCCESS != rval)
       return rval;
@@ -326,7 +328,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
     if (name_list.size() > 1) {
       for (int j = extra_name_tags.size(); j < name_list.size(); ++j) {
         sprintf( namebuf, "EXTRA_%s%d", NAME_TAG_NAME, j );
-        MBTag t;
+        Tag t;
         rval = mdbImpl->tag_create( namebuf, NAME_TAG_SIZE, MB_TAG_SPARSE, MB_TYPE_OPAQUE, t, 0, true );
         assert(!rval);
         extra_name_tags.push_back(t);
@@ -355,7 +357,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
     entlist.clean_out();
     grp->get_child_ref_entities( entlist );
     
-    MBRange entities;
+    Range entities;
     while (entlist.size()) {
       RefEntity* ent = entlist.pop();
       int dim = ent->dimension();
@@ -410,7 +412,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
   for (ci = entmap[0].begin(); ci != entmap[0].end(); ++ci) {
     CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
     double coords[3] = {pos.x(), pos.y(), pos.z()};
-    MBEntityHandle vh;
+    EntityHandle vh;
     rval = mdbImpl->create_vertex( coords, vh );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
@@ -453,7 +455,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
         std::cerr << "Warning: No facetting for curve " << edge->id() << std::endl;
         continue;
       }
-      MBEntityHandle h = entmap[0][start_vtx];
+      EntityHandle h = entmap[0][start_vtx];
       rval = mdbImpl->add_entities( ci->second, &h, 1 );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
@@ -473,11 +475,11 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
     }
     
       // create interior points
-    std::vector<MBEntityHandle> verts, edges;
+    std::vector<EntityHandle> verts, edges;
     verts.push_back( entmap[0][start_vtx] );
     for (size_t i = 1; i < points.size() - 1; ++i) {
       double coords[] = { points[i].x(), points[i].y(), points[i].z() };
-      MBEntityHandle h;
+      EntityHandle h;
       rval = mdbImpl->create_vertex( coords, h );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
@@ -487,7 +489,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
     
       // create edges
     for (size_t i = 0; i < verts.size()-1; ++i) {
-      MBEntityHandle h;
+      EntityHandle h;
       rval = mdbImpl->create_element( MBEDGE, &verts[i], 2, h );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
@@ -517,7 +519,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
       return MB_FAILURE;
 
       // declare array of all vertex handles
-    std::vector<MBEntityHandle> verts( data.pointListCount, 0 );
+    std::vector<EntityHandle> verts( data.pointListCount, 0 );
     
       // get list of vertices in surface
     me_list.clean_out();
@@ -554,8 +556,8 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
     }
     
       // now create facets
-    MBRange facets;
-    std::vector<MBEntityHandle> corners;
+    Range facets;
+    std::vector<EntityHandle> corners;
     for (int i = 0; i < data.fListCount; i += data.facet_list()[i]+1) {
       int* facet = data.facet_list() + i;
       corners.resize( *facet );
@@ -566,7 +568,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
         }
         corners[j-1] = verts[facet[j]];
       }
-      MBEntityType type;
+      EntityType type;
       if (*facet == 3)
         type = MBTRI;
       else {
@@ -581,7 +583,7 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
       // if (surf->bridge_sense() == CUBIT_REVERSED)
       //   std::reverse( corners.begin(), corners.end() );
       
-      MBEntityHandle h;
+      EntityHandle h;
       rval = mdbImpl->create_element( type, &corners[0], corners.size(), h );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
@@ -718,3 +720,4 @@ void ReadCGM::tokenize( const std::string& str,
   }
 }
 
+} // namespace moab

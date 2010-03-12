@@ -25,36 +25,38 @@
 
 #include <list>
 #ifdef USE_MPI // include this before HDF5 headers to avoid conflicts
-#  include "MBmpi.h"
+#  include "moab_mpi.h"
 #endif
 #include "mhdf.h"
-#include "MBForward.hpp"
-#include "MBRange.hpp"
-#include "MBWriterIface.hpp"
-#include "RangeMap.hpp"
+#include "moab/Forward.hpp"
+#include "moab/Range.hpp"
+#include "moab/WriterIface.hpp"
+#include "moab/RangeMap.hpp"
 
-class MBWriteUtilIface;
+namespace moab {
+
+class WriteUtilIface;
 
 /* If this define is not set, node->entity adjacencies will not be written */
 #undef MB_H5M_WRITE_NODE_ADJACENCIES
 
-class MB_DLL_EXPORT WriteHDF5 : public MBWriterIface
+class MB_DLL_EXPORT WriteHDF5 : public WriterIface
 {
 public:
 
-  static MBWriterIface* factory( MBInterface* );
+  static WriterIface* factory( Interface* );
 
   /** The type to use for entity IDs w/in the file.
    * 
    * NOTE:  If this is changed, the value of id_type 
    *        MUST be changed accordingly.
    */
-  typedef MBEntityHandle id_t;
+  typedef EntityHandle id_t;
   
   /** HDF5 type corresponding to type of id_t */
   static const hid_t id_type;
 
-  WriteHDF5( MBInterface* iface );
+  WriteHDF5( Interface* iface );
   
   virtual ~WriteHDF5();
   
@@ -63,52 +65,52 @@ public:
    * \param export_sets  Array of handles to sets to export, or NULL to export all.
    * \param export_set_count Length of <code>export_sets</code> array.
    */
-  MBErrorCode write_file( const char* filename,
+  ErrorCode write_file( const char* filename,
                           const bool overwrite,
                           const FileOptions& opts,
-                          const MBEntityHandle* export_sets,
+                          const EntityHandle* export_sets,
                           const int export_set_count,
                           const std::vector<std::string>& qa_records,
-                          const MBTag* tag_list = 0,
+                          const Tag* tag_list = 0,
                           int num_tags = 0,
                           int user_dimension = 3 );
 
   /** Create attributes holding the HDF5 type handle for the 
    *  type of a bunch of the default tags.
    */
-  //static MBErrorCode register_known_tag_types( MBInterface* );
+  //static ErrorCode register_known_tag_types( Interface* );
 
 protected:
   
-  MBErrorCode serial_create_file( const char* filename,
+  ErrorCode serial_create_file( const char* filename,
                                   bool overwrite,
                                   const std::vector<std::string>& qa_records,
-                                  const MBTag* tag_list,
+                                  const Tag* tag_list,
                                   int num_tags,
                                   int dimension = 3 );
 
   /** Function to create the file.  Virtual to allow override
    *  for parallel version.
    */
-  virtual MBErrorCode parallel_create_file( const char* filename,
+  virtual ErrorCode parallel_create_file( const char* filename,
                                             bool overwrite,
                                             const std::vector<std::string>& qa_records,
-                                            const MBTag* tag_list,
+                                            const Tag* tag_list,
                                             int num_tags,
                                             int dimension = 3,
                                             int pcomm_no = 0 );
 
 
   /** Functions that the parallel version overrides*/
-  virtual MBErrorCode write_shared_set_descriptions( hid_t ) 
+  virtual ErrorCode write_shared_set_descriptions( hid_t ) 
     { return MB_SUCCESS;}
-  virtual MBErrorCode write_shared_set_contents( hid_t )
+  virtual ErrorCode write_shared_set_contents( hid_t )
     { return MB_SUCCESS;}
-  virtual MBErrorCode write_shared_set_children( hid_t )
+  virtual ErrorCode write_shared_set_children( hid_t )
     { return MB_SUCCESS;}
-  virtual MBErrorCode write_shared_set_parents( hid_t )
+  virtual ErrorCode write_shared_set_parents( hid_t )
     { return MB_SUCCESS;}
-  virtual MBErrorCode write_finished();
+  virtual ErrorCode write_finished();
   virtual void tprint( const char* fmt, ... )
 #ifdef __GNUC__
 __attribute__((format(printf,2,3)))
@@ -117,21 +119,21 @@ __attribute__((format(printf,2,3)))
 
  
   //! Gather tags
-  MBErrorCode gather_tags( const MBTag* user_tag_list, int user_tag_list_length );
+  ErrorCode gather_tags( const Tag* user_tag_list, int user_tag_list_length );
 
   /** Helper function for create-file
    *
    * Calculate the sum of the number of non-set adjacencies
    * of all entities in the passed range.
    */
-  MBErrorCode count_adjacencies( const MBRange& elements, id_t& result );
+  ErrorCode count_adjacencies( const Range& elements, id_t& result );
   
   /** Helper function for create-file
    *
    * Create zero-ed tables where element connectivity and 
    * adjacency data will be stored.
    */
-  MBErrorCode create_elem_tables( MBEntityType mb_type,
+  ErrorCode create_elem_tables( EntityType mb_type,
                                   int nodes_per_element,
                                   id_t number_elements,
                                   long& first_id_out );
@@ -140,7 +142,7 @@ __attribute__((format(printf,2,3)))
    *
    * Calculate total length of set contents and child tables.
    */
-  MBErrorCode count_set_size( const MBRange& sets,
+  ErrorCode count_set_size( const Range& sets,
                               long& contents_length_out,
                               long& children_length_out,
                               long& parents_length_out );
@@ -149,27 +151,27 @@ __attribute__((format(printf,2,3)))
    *
    * Create zero-ed table where set descriptions will be written
    */
-  MBErrorCode create_set_meta( id_t number_sets, long& first_id_out );
+  ErrorCode create_set_meta( id_t number_sets, long& first_id_out );
 
   /** Helper function for create-file
    *
    * Create zero-ed tables where set data will be written.
    */
-  MBErrorCode create_set_tables( long contents_length, 
+  ErrorCode create_set_tables( long contents_length, 
                                  long children_length,
                                  long parents_length );
 
   //! Write exodus-type QA info
-  MBErrorCode write_qa( const std::vector<std::string>& list );
+  ErrorCode write_qa( const std::vector<std::string>& list );
 
 
   //! Range of entities, grouped by type, to export 
   struct ExportSet 
   {
     //! The range of entities.
-    MBRange range;
+    Range range;
     //! The type of the entities in the range
-    MBEntityType type;
+    EntityType type;
     //! The number of nodes per entity - not used for nodes and sets
     int num_nodes;
     //! The first Id allocated by the mhdf library.  Entities in range have sequential IDs.
@@ -178,7 +180,7 @@ __attribute__((format(printf,2,3)))
     //! Always zero except for parallel IO.
     id_t offset;
     //! Offset for adjacency data.  Always zero except for parallel IO
-    MBEntityID adj_offset;
+    EntityID adj_offset;
     //! If doing parallel IO, largest number of entities to write
     //! for any processor (needed to do collective IO).  Zero if unused.
     long max_num_ents, max_num_adjs;
@@ -198,9 +200,9 @@ public:
   struct SparseTag
   {
     //! The tag handle
-    MBTag tag_id;
+    Tag tag_id;
     //! The list of entities with this tag
-    MBRange range;
+    Range range;
     //! The offset at which to begin writting this processor's data.
     //! Always zero except for parallel IO. 
     id_t offset;
@@ -224,16 +226,16 @@ protected:
   //! A memory buffer to use for all I/O operations.
   char* dataBuffer;
 
-  //! MBInterface pointer passed to constructor
-  MBInterface* iFace;
+  //! Interface pointer passed to constructor
+  Interface* iFace;
   //! Cached pointer to writeUtil interface.
-  MBWriteUtilIface* writeUtil;
+  WriteUtilIface* writeUtil;
   
   //! The file handle from the mhdf library
   mhdf_FileHandle filePtr;
   
   //! Map from entity handles to file IDs
-  RangeMap<MBEntityHandle,id_t> idMap;
+  RangeMap<EntityHandle,id_t> idMap;
   
   //! The list elements to export.
   std::list<ExportSet> exportList;
@@ -277,20 +279,20 @@ private:
 
   //! Do the actual work of write_file.  Separated from write_file
   //! for easier resource cleanup.
-  MBErrorCode write_file_impl( const char* filename,
+  ErrorCode write_file_impl( const char* filename,
                                const bool overwrite,
                                const FileOptions& opts,
-                               const MBEntityHandle* export_sets,
+                               const EntityHandle* export_sets,
                                const int export_set_count,
                                const std::vector<std::string>& qa_records,
-                               const MBTag* tag_list,
+                               const Tag* tag_list,
                                int num_tags,
                                int user_dimension = 3 );
 
-  MBErrorCode init();
+  ErrorCode init();
 
   //! Get information about a meshset
-  MBErrorCode get_set_info( MBEntityHandle set,
+  ErrorCode get_set_info( EntityHandle set,
                             long& num_entities,
                             long& num_children,
                             long& num_parents,
@@ -306,12 +308,12 @@ protected:
    *\param var_len_total For variable-length tags, the total number of values
    *                     in the data table.
    */
-  MBErrorCode create_tag( MBTag tag_id, 
+  ErrorCode create_tag( Tag tag_id, 
                           unsigned long num_entities,
                           unsigned long var_len_total );
   
   /**\brief add entities to idMap */
-  MBErrorCode assign_ids( const MBRange& entities, id_t first_id );
+  ErrorCode assign_ids( const Range& entities, id_t first_id );
   
   /** Get possibly compacted list of IDs for passed entities
    *
@@ -327,34 +329,34 @@ protected:
    * If the ID list is compacted, ranged_list will be 'true'.
    * Otherwise it will be 'false'.
    */
-  MBErrorCode range_to_blocked_list( const MBRange& input_range,
+  ErrorCode range_to_blocked_list( const Range& input_range,
                                      std::vector<id_t>& output_id_list , 
                                      bool& ranged_list );
   
 
-  MBErrorCode range_to_id_list( const MBRange& input_range,
+  ErrorCode range_to_id_list( const Range& input_range,
                                 id_t* array );
   //! Get IDs for entities 
-  MBErrorCode vector_to_id_list( const std::vector<MBEntityHandle>& input,
+  ErrorCode vector_to_id_list( const std::vector<EntityHandle>& input,
                                  std::vector<id_t>& output, 
                                  bool remove_non_written = false );
 
-  /** When writing tags containing MBEntityHandles to file, need to convert tag
-   *  data from MBEntityHandles to file IDs.  This function does that. 
+  /** When writing tags containing EntityHandles to file, need to convert tag
+   *  data from EntityHandles to file IDs.  This function does that. 
    *
    * If the handle is not valid or does not correspond to an entity that will
    * be written to the file, the file ID is set to zero.
-   *\param data  The data buffer.  As input, an array of MBEntityHandles.  As
+   *\param data  The data buffer.  As input, an array of EntityHandles.  As
    *             output an array of file IDS, where the size of each integral
-   *             file ID is the same as the size of MBEntityHandle.
+   *             file ID is the same as the size of EntityHandle.
    *\param count The number of handles in the buffer.
    *\return true if at least one of the handles is valid and will be written to
    *             the file or at least one of the handles is NULL (zero). false
    *             otherwise
    */
-  bool convert_handle_tag( MBEntityHandle* data, size_t count ) const;
-  bool convert_handle_tag( const MBEntityHandle* source,
-                           MBEntityHandle* dest, 
+  bool convert_handle_tag( EntityHandle* data, size_t count ) const;
+  bool convert_handle_tag( const EntityHandle* source,
+                           EntityHandle* dest, 
                            size_t count ) const;
 
   /** Get IDs of adjacent entities.
@@ -363,11 +365,11 @@ protected:
    * adjacent entity is to be exported (ID is not zero), append
    * the ID to the passed list.
    */
-  MBErrorCode get_adjacencies( MBEntityHandle entity, std::vector<id_t>& adj );
+  ErrorCode get_adjacencies( EntityHandle entity, std::vector<id_t>& adj );
                                 
   //! get sum of lengths of tag values (as number of type) for 
   //! variable length tag data.
-  MBErrorCode get_tag_data_length( const SparseTag& tag_info,
+  ErrorCode get_tag_data_length( const SparseTag& tag_info,
                                    unsigned long& result );
   
 private:
@@ -379,19 +381,19 @@ private:
    *
    * \param export_sets  The list of meshsets to export
    */
-  MBErrorCode gather_mesh_info( const std::vector<MBEntityHandle>& export_sets );
+  ErrorCode gather_mesh_info( const std::vector<EntityHandle>& export_sets );
   
   //! Same as gather_mesh_info, except for entire mesh
-  MBErrorCode gather_all_mesh( );
+  ErrorCode gather_all_mesh( );
   
   //! Initialize internal data structures from gathered mesh
-  MBErrorCode initialize_mesh( const MBRange entities_by_dim[5] );
+  ErrorCode initialize_mesh( const Range entities_by_dim[5] );
  
   /** Write out the nodes.
    *
    * Note: Assigns IDs to nodes.
    */
-  MBErrorCode write_nodes( );
+  ErrorCode write_nodes( );
   
   /** Write out element connectivity.
    *
@@ -400,7 +402,7 @@ private:
    * Note: Assigns element IDs.
    * Note: Must do write_nodes first so node IDs get assigned.
    */
-  MBErrorCode write_elems( ExportSet& elemset );
+  ErrorCode write_elems( ExportSet& elemset );
   
   /** Write out meshsets
    * 
@@ -409,16 +411,16 @@ private:
    * Note: Must have written nodes and element connectivity
    *       so entities have assigned IDs.
    */
-  MBErrorCode write_sets( );
+  ErrorCode write_sets( );
 
-  MBErrorCode write_parents_children( bool children );
+  ErrorCode write_parents_children( bool children );
   
   /** Write adjacency info for passed set of elements
    *
    * Note: Must have written element connectivity so elements
    *       have IDs assigned.
    */
-  MBErrorCode write_adjacencies( const ExportSet& export_set );
+  ErrorCode write_adjacencies( const ExportSet& export_set );
   
   /** Write tag information and data.
    * 
@@ -426,29 +428,29 @@ private:
    *       sets so that entities have IDs assigned.
    */
 /*
-  MBErrorCode write_tag( MBTag tag_handle );
+  ErrorCode write_tag( Tag tag_handle );
   
   //! Write dense tag for all entities 
-  MBErrorCode write_dense_tag( MBTag tag_handle,
+  ErrorCode write_dense_tag( Tag tag_handle,
                                hid_t hdf_write_type );
 
   //! Write dense tag for specified entity set
-  MBErrorCode write_dense_tag( ExportSet& set,
-                               MBTag tag_handle,
+  ErrorCode write_dense_tag( ExportSet& set,
+                               Tag tag_handle,
                                hid_t hdf_write_type );
 */  
   //! Write sparse tag for all entities.
-  MBErrorCode write_sparse_tag( const SparseTag& tag_data );
+  ErrorCode write_sparse_tag( const SparseTag& tag_data );
                             
   //! Get element connectivity
-  MBErrorCode get_connectivity( MBRange::const_iterator begin,
-                                MBRange::const_iterator end,
+  ErrorCode get_connectivity( Range::const_iterator begin,
+                                Range::const_iterator end,
                                 int nodes_per_element,
                                 id_t* id_data_out );
                                    
   //! Get size data for tag
   //!\param tag       MOAB tag ID
-  //!\param moab_type Output: MBDataType for tag
+  //!\param moab_type Output: DataType for tag
   //!\param num_bytes Output: MOAB tag size (bits for bit tags).
   //!                         MB_VARIABLE_LENGTH for variable-length tags.
   //!\param elem_size Output: Size of type values per entity (e.g.
@@ -459,8 +461,8 @@ private:
   //!\param hdf_type  Output: zero or handle for user-defined custom type
   //!                         (user-defined type available only for opaque
   //!                         data.)
-  MBErrorCode get_tag_size( MBTag tag,
-                            MBDataType& moab_type,
+  ErrorCode get_tag_size( Tag tag,
+                            DataType& moab_type,
                             int& num_bytes,
                             int& elem_size,
                             int& file_size,
@@ -468,10 +470,12 @@ private:
                             hid_t& hdf_type );
                             
   //! Write ID table for sparse tag
-  MBErrorCode write_sparse_ids( const SparseTag& tag_data, hid_t table_handle );
+  ErrorCode write_sparse_ids( const SparseTag& tag_data, hid_t table_handle );
   
   //! Write varialbe-length tag data
-  MBErrorCode write_var_len_tag( const SparseTag& tag_info );
+  ErrorCode write_var_len_tag( const SparseTag& tag_info );
 };
+
+} // namespace moab
 
 #endif

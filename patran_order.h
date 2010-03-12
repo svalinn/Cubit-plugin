@@ -3,6 +3,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+namespace moab {
 #endif
 
 /* Define maps that, when indexed by the PATRAN connectivity index return
@@ -85,7 +86,7 @@ static const int* const patran_pri_order[] = { 0, 0, 0, 0, 0, 0, 0, 0,
                                         0, 0, 0, 0, 0, 0, 0, 0, 
                                         0 };
 
-/* Define matrix of maps indexed by element topology (MBEntityType) and
+/* Define matrix of maps indexed by element topology (EntityType) and
    number of nodes. Entries are NULL where MBCN connectivity
    is the same as PATRAN (or the number of nodes is invalid.) */
 
@@ -106,6 +107,7 @@ static const int *const *const patran_elem_order_map[] = {
 
 #ifdef __cplusplus
 } /*  extern "C" */
+} /* namespace moab */
 #endif
 
 #endif

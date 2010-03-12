@@ -55,30 +55,32 @@
 #define READ_STL_HPP
 
 #include <stdio.h>
-#include "MBForward.hpp"
-#include "MBReaderIface.hpp"
+#include "moab/Forward.hpp"
+#include "moab/ReaderIface.hpp"
 
-class MBReadUtilIface;
+namespace moab {
+
+class ReadUtilIface;
 
 // Base class for binary and ASCII readers
-class ReadSTL : public MBReaderIface
+class ReadSTL : public ReaderIface
 {
    
 public:
 
     //! factory method for STL reader
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
 
     //! Generic file loading code for both binary and ASCII readers.
     //! Calls reader-specific read_triangles function to do actual I/O.
-  MBErrorCode load_file( const char *file_name,
-                         const MBEntityHandle* file_set,
+  ErrorCode load_file( const char *file_name,
+                         const EntityHandle* file_set,
                          const FileOptions& opts,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int subset_list_length = 0,
-                         const MBTag* file_id_tag = 0 );
+                         const Tag* file_id_tag = 0 );
 
-  MBErrorCode read_tag_values( const char* file_name,
+  ErrorCode read_tag_values( const char* file_name,
                                const char* tag_name,
                                const FileOptions& opts,
                                std::vector<int>& tag_values_out,
@@ -86,7 +88,7 @@ public:
                                int subset_list_length = 0 );
   
     //! Constructor
-  ReadSTL(MBInterface* impl = NULL);
+  ReadSTL(Interface* impl = NULL);
 
    //! Destructor
   virtual ~ReadSTL();
@@ -107,19 +109,21 @@ public:
 protected:
 
     // I/O specific part of reader - read ASCII file
-  MBErrorCode ascii_read_triangles( const char* file_name, 
+  ErrorCode ascii_read_triangles( const char* file_name, 
                                     std::vector<Triangle>& tris_out );
 
     // I/O specific part of reader - read binary file
-  MBErrorCode binary_read_triangles( const char* file_name, 
+  ErrorCode binary_read_triangles( const char* file_name, 
                                      ByteOrder byte_order,
                                      std::vector<Triangle>& tris_out );
 
-  MBReadUtilIface* readMeshIface;
+  ReadUtilIface* readMeshIface;
 
     //! interface instance
-  MBInterface* mdbImpl;
+  Interface* mdbImpl;
 
 };
+
+} // namespace moab
 
 #endif

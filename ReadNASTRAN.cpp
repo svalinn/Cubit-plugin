@@ -23,38 +23,40 @@
 #include <assert.h>
 #include <cmath>
 
-#include "MBInterface.hpp"
-#include "MBReadUtilIface.hpp"
-#include "MBInternals.hpp" // for MB_START_ID
-#include "MBRange.hpp"
+#include "moab/Interface.hpp"
+#include "moab/ReadUtilIface.hpp"
+#include "Internals.hpp" // for MB_START_ID
+#include "moab/Range.hpp"
 #include "FileOptions.hpp"
 #include "FileTokenizer.hpp"
-#include "MBTagConventions.hpp"
-#include "MBCN.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "moab/MBCN.hpp"
 
-MBReaderIface* ReadNASTRAN::factory( MBInterface* iface ) { 
+namespace moab {
+
+ReaderIface* ReadNASTRAN::factory( Interface* iface ) { 
   return new ReadNASTRAN( iface );
 }
 
 // constructor
-ReadNASTRAN::ReadNASTRAN(MBInterface* impl)
+ReadNASTRAN::ReadNASTRAN(Interface* impl)
   : MBI(impl) {
     assert(NULL != impl);
     void *ptr = 0;
-    MBI->query_interface("MBReadUtilIface", &ptr);
+    MBI->query_interface("ReadUtilIface", &ptr);
     assert(NULL != ptr);
-    readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+    readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 }
 
 // destructor
 ReadNASTRAN::~ReadNASTRAN() {
   if (readMeshIface) {
-    MBI->release_interface("MBReadUtilIface", readMeshIface);
+    MBI->release_interface("ReadUtilIface", readMeshIface);
     readMeshIface = 0;
   }
 }
 
-MBErrorCode ReadNASTRAN::read_tag_values( const char*        file_name,
+ErrorCode ReadNASTRAN::read_tag_values( const char*        file_name,
                                           const char*        tag_name,
                                           const FileOptions& opts,
                                           std::vector<int>&  tag_values_out,
@@ -64,13 +66,13 @@ MBErrorCode ReadNASTRAN::read_tag_values( const char*        file_name,
   return MB_NOT_IMPLEMENTED;
 }
 
-// load the file as called by the MBInterface function
-MBErrorCode ReadNASTRAN::load_file(const char                  *filename, 
-                                   const MBEntityHandle        *, 
+// load the file as called by the Interface function
+ErrorCode ReadNASTRAN::load_file(const char                  *filename, 
+                                   const EntityHandle        *, 
                                    const FileOptions           &options,
-                                   const MBReaderIface::IDTag  *subset_list,
+                                   const ReaderIface::IDTag  *subset_list,
                                    int                         subset_list_length,
-                                   const MBTag*                file_id_tag) {
+                                   const Tag*                file_id_tag) {
   // at this time there is no support for reading a subset of the file
   if (subset_list && subset_list_length) {
     readMeshIface->report_error( "Reading subset of files not supported for NASTRAN." );
@@ -82,7 +84,7 @@ MBErrorCode ReadNASTRAN::load_file(const char                  *filename,
 
   bool debug = false;
   if (debug) std::cout << "begin ReadNASTRAN::load_file" << std::endl;
-  MBErrorCode result;
+  ErrorCode result;
 
   // Count the entities of each type in the file. This is used to allocate the node array. 
   int entity_count[MBMAXTYPE];
@@ -110,7 +112,7 @@ MBErrorCode ReadNASTRAN::load_file(const char                  *filename,
     if(MB_SUCCESS != result) return result;
 
     // Process the tokens of the line. The first token describes the entity type.
-    MBEntityType type;
+    EntityType type;
     result = determine_entity_type( tokens.front(), type );
     if(MB_SUCCESS != result) return result;
     entity_count[type]++;
@@ -124,10 +126,10 @@ MBErrorCode ReadNASTRAN::load_file(const char                  *filename,
   }
   
   // Keep list of material sets
-  std::vector<MBRange> materials;
+  std::vector<Range> materials;
 
   // Now that the number of vertices is known, create the vertices.
-  MBEntityHandle start_vert = NULL;
+  EntityHandle start_vert = NULL;
   std::vector<double*> coord_arrays(3);
   result = readMeshIface->get_node_arrays( 3, entity_count[0], MB_START_ID,
 					   start_vert, coord_arrays );
@@ -151,7 +153,7 @@ MBErrorCode ReadNASTRAN::load_file(const char                  *filename,
     if(MB_SUCCESS != result) return result;
 
     // Process the tokens of the line. The first token describes the entity type.
-    MBEntityType type;
+    EntityType type;
     result = determine_entity_type( tokens.front(), type );
     if(MB_SUCCESS != result) return result;
 
@@ -188,7 +190,7 @@ MBErrorCode ReadNASTRAN::load_file(const char                  *filename,
      large field: 1x8, 4x16, 1x8. Field 1 must have an asterisk following the character string
      free field: each line entry must be separated by a comma
      Implementation tries to avoid more searches than necessary. */
-MBErrorCode ReadNASTRAN::determine_line_format( const std::string line, 
+ErrorCode ReadNASTRAN::determine_line_format( const std::string line, 
                                                   line_format &format ) {
   std::string::size_type found_asterisk = line.find("*");
   if(std::string::npos != found_asterisk) {
@@ -207,7 +209,7 @@ MBErrorCode ReadNASTRAN::determine_line_format( const std::string line,
   }
 
   /* Tokenize the line. Continue-lines have not been implemented. */
-MBErrorCode ReadNASTRAN::tokenize_line(const std::string line, const line_format format, 
+ErrorCode ReadNASTRAN::tokenize_line(const std::string line, const line_format format, 
 				       std::vector<std::string> &tokens ) { 
   size_t line_size = line.size();
   switch(format) {
@@ -233,8 +235,8 @@ MBErrorCode ReadNASTRAN::tokenize_line(const std::string line, const line_format
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadNASTRAN::determine_entity_type( const std::string first_token, 
-                                                  MBEntityType &type ) {
+ErrorCode ReadNASTRAN::determine_entity_type( const std::string first_token, 
+                                                  EntityType &type ) {
   if     (0==first_token.compare("GRID    ")) type = MBVERTEX;
   else if(0==first_token.compare("CTETRA  ")) type = MBTET;
   else if(0==first_token.compare("CPENTA  ")) type = MBPRISM;
@@ -259,7 +261,7 @@ MBErrorCode ReadNASTRAN::determine_entity_type( const std::string first_token,
    has the coordinates: ( 3.980454, 6.9052e-1, 5.6008e-1 )
    GRID      200005       04.004752-3.985-15.4955-1  
    has the coordinates: ( 4.004752, -3.985e-1, 5.4955e-1 ) */
-MBErrorCode ReadNASTRAN::get_real( const std::string token, double &real ) {
+ErrorCode ReadNASTRAN::get_real( const std::string token, double &real ) {
   std::string significand = token;
   std::string exponent = "0";
 
@@ -312,12 +314,12 @@ MBErrorCode ReadNASTRAN::get_real( const std::string token, double &real ) {
 
 /* It has been determined that this line is a vertex. Read the rest of
    the line and create the vertex. */
-MBErrorCode ReadNASTRAN::read_node( const std::vector<std::string> tokens, 
+ErrorCode ReadNASTRAN::read_node( const std::vector<std::string> tokens, 
 				    const bool debug, 
 				    double* coords[3],
                                     int& id ) {
   // read the node's id (unique)
-  MBErrorCode result;
+  ErrorCode result;
   id = atoi(tokens[1].c_str());
 
   // read the node's coordinate system number
@@ -342,23 +344,23 @@ MBErrorCode ReadNASTRAN::read_node( const std::vector<std::string> tokens,
 /* The type of element has already been identified. Read the rest of the
    line and create the element. Assume that all of the nodes have already
    been created. */
-MBErrorCode ReadNASTRAN::read_element( const std::vector<std::string> tokens, 
-				       std::vector<MBRange> &materials,
-				       const MBEntityType element_type,
+ErrorCode ReadNASTRAN::read_element( const std::vector<std::string> tokens, 
+				       std::vector<Range> &materials,
+				       const EntityType element_type,
 				       const bool debug ) {
 
   // read the element's id (unique) and material set
-  MBErrorCode result;
+  ErrorCode result;
   int id = atoi(tokens[1].c_str());    
   int material = atoi(tokens[2].c_str());
   
     // Resize materials list if necessary.  This code is somewhat complicated
-    // so as to avoid copying of MBRanges
+    // so as to avoid copying of Ranges
   if (material >= (int)materials.size()) {
     if ((int)materials.capacity() < material)
       materials.resize( material+1 );
     else {
-      std::vector<MBRange> new_mat( material+1 );
+      std::vector<Range> new_mat( material+1 );
       for (size_t i = 0; i < materials.size(); ++i)
         new_mat[i].swap( materials[i] );
       materials.swap( new_mat );
@@ -367,8 +369,8 @@ MBErrorCode ReadNASTRAN::read_element( const std::vector<std::string> tokens,
 
   // the size of the connectivity array depends on the element type
   int n_conn = MBCN::VerticesPerEntity(element_type);
-  MBEntityHandle conn_verts[27];
-  assert(n_conn <= (int)(sizeof(conn_verts)/sizeof(MBEntityHandle)));
+  EntityHandle conn_verts[27];
+  assert(n_conn <= (int)(sizeof(conn_verts)/sizeof(EntityHandle)));
   
   // read the connected node ids from the file
   for(int i=0; i<n_conn; i++) {
@@ -379,7 +381,7 @@ MBErrorCode ReadNASTRAN::read_element( const std::vector<std::string> tokens,
   }
 
   // Create the element and set the global id from the NASTRAN file
-  MBEntityHandle element;
+  EntityHandle element;
   result = MBI->create_element( element_type, conn_verts, n_conn, element );
   if(MB_SUCCESS != result) return result;
   elemIdMap.insert( id, element, 1 );
@@ -389,10 +391,10 @@ MBErrorCode ReadNASTRAN::read_element( const std::vector<std::string> tokens,
 }
 
 
-MBErrorCode ReadNASTRAN::create_materials( const std::vector<MBRange>& materials )
+ErrorCode ReadNASTRAN::create_materials( const std::vector<Range>& materials )
 {
-  MBErrorCode result;
-  MBTag material_tag;
+  ErrorCode result;
+  Tag material_tag;
   result = MBI->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_DENSE, 
                            MB_TYPE_INTEGER, material_tag, 0);
   if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
@@ -405,7 +407,7 @@ MBErrorCode ReadNASTRAN::create_materials( const std::vector<MBRange>& materials
       // created new by only merging with existing in current file set,
       // so do the same here. - j.kraftcheck
       
-    MBEntityHandle handle;
+    EntityHandle handle;
     result = MBI->create_meshset( MESHSET_SET, handle );
     if (MB_SUCCESS != result)
       return result;
@@ -423,22 +425,22 @@ MBErrorCode ReadNASTRAN::create_materials( const std::vector<MBRange>& materials
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadNASTRAN::assign_ids( const MBTag* file_id_tag )
+ErrorCode ReadNASTRAN::assign_ids( const Tag* file_id_tag )
 {
 
   // create tag
-  MBErrorCode result;
-  MBTag id_tag;
+  ErrorCode result;
+  Tag id_tag;
   result = MBI->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_DENSE, 
                            MB_TYPE_INTEGER, id_tag, 0);
   if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
 
-  RangeMap<int,MBEntityHandle>::iterator i;
+  RangeMap<int,EntityHandle>::iterator i;
   std::vector<int> ids;
   for (int t = 0; t < 2; ++t) {
-    RangeMap<int,MBEntityHandle>& fileIdMap = t ? elemIdMap : nodeIdMap;
+    RangeMap<int,EntityHandle>& fileIdMap = t ? elemIdMap : nodeIdMap;
     for (i = fileIdMap.begin(); i != fileIdMap.end(); ++i) {
-      MBRange range( i->value, i->value + i->count - 1 );
+      Range range( i->value, i->value + i->count - 1 );
 
       result = readMeshIface->assign_ids( id_tag, range, i->begin );
       if (MB_SUCCESS != result)
@@ -454,3 +456,5 @@ MBErrorCode ReadNASTRAN::assign_ids( const MBTag* file_id_tag )
   
   return MB_SUCCESS;
 }
+
+} // namespace moab

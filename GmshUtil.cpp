@@ -15,6 +15,8 @@
 
 #include "GmshUtil.hpp"
 
+namespace moab {
+
 // Indexed by position in Gmsh order, containing cooresponding
 // position in MOAB order.
 const int hex_27_node_order[] =  {  
@@ -73,7 +75,7 @@ const GmshElemType GmshUtil::gmshElemTypes[] = {
 
 const unsigned GmshUtil::numGmshElemType = sizeof(GmshUtil::gmshElemTypes) / sizeof(GmshUtil::gmshElemTypes[0]);
 
-// Define an array, indexed by MBEntityType and number of nodes, 
+// Define an array, indexed by EntityType and number of nodes, 
 // containing the corresponding Gmsh element type.
 #define TWENTYEIGHT_ZEROS { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 const int MAX_NODES = 28;
@@ -93,7 +95,7 @@ const int mb_to_gmsh_type[][MAX_NODES] = {
   TWENTYEIGHT_ZEROS,  // MBENTITYSET
   TWENTYEIGHT_ZEROS };// MBMAXTYPE
 
-int GmshUtil::get_gmsh_type( MBEntityType type, unsigned num_nodes )
+int GmshUtil::get_gmsh_type( EntityType type, unsigned num_nodes )
 {
   if (num_nodes >= (unsigned)MAX_NODES)
     return -1;
@@ -105,3 +107,5 @@ int GmshUtil::get_gmsh_type( MBEntityType type, unsigned num_nodes )
   return gmshElemTypes[idx].mb_type == MBMAXTYPE ? -1 : idx;
 }
 
+
+} // namespace moab

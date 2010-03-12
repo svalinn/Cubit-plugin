@@ -37,34 +37,36 @@
 #include <vector>
 #include <string>
 
-#include "MBForward.hpp"
-#include "MBRange.hpp"
-#include "ExoIIInterface.hpp"
-#include "MBWriterIface.hpp"
+#include "moab/Forward.hpp"
+#include "moab/Range.hpp"
+#include "moab/ExoIIInterface.hpp"
+#include "moab/WriterIface.hpp"
 
-class MBWriteUtilIface;
+namespace moab {
 
-class MB_DLL_EXPORT WriteTEMPLATE : public MBWriterIface
+class WriteUtilIface;
+
+class MB_DLL_EXPORT WriteTEMPLATE : public WriterIface
 {
  
 public:
 
    //! Constructor
-   WriteTEMPLATE(MBInterface *impl);
+   WriteTEMPLATE(Interface *impl);
 
    //! Destructor
   virtual ~WriteTEMPLATE();
   
-  static MBWriterIface* factory( MBInterface* );
+  static WriterIface* factory( Interface* );
 
     //! writes out a file
-  MBErrorCode write_file(const char *file_name,
+  ErrorCode write_file(const char *file_name,
                          const bool overwrite,
                          const FileOptions& opts,
-                          const MBEntityHandle *output_list,
+                          const EntityHandle *output_list,
                           const int num_sets,
                           const std::vector<std::string>& qa_list,
-                          const MBTag* tag_list,
+                          const Tag* tag_list,
                           int num_tags,
                           int export_dimension);
   
@@ -77,8 +79,8 @@ public:
     int number_nodes_per_element;
     int number_attributes;
     ExoIIElementType element_type;
-    MBEntityType moab_type;
-    MBRange *elements;
+    EntityType moab_type;
+    Range *elements;
   };
 
 //! struct used to hold data for each nodeset to be output; used by
@@ -87,7 +89,7 @@ public:
   {
     int id;
     int number_nodes;
-    std::vector< MBEntityHandle > nodes;
+    std::vector< EntityHandle > nodes;
     std::vector< double > node_dist_factors;
   
   };
@@ -98,9 +100,9 @@ public:
   {
     int id;
     int number_elements;
-    std::vector<MBEntityHandle> elements;
+    std::vector<EntityHandle> elements;
     std::vector<int> side_numbers;
-    MBEntityHandle mesh_set_handle;
+    EntityHandle mesh_set_handle;
   };
 
 
@@ -110,7 +112,7 @@ protected:
   //int number_dimensions();
 
     //! open a file for writing
-  MBErrorCode open_file(const char *filename);
+  ErrorCode open_file(const char *filename);
 
   //! contains the general information about a mesh
   class MeshInfo
@@ -122,7 +124,7 @@ protected:
     unsigned int num_matsets;
     unsigned int num_dirsets;
     unsigned int num_neusets;
-    MBRange nodes;
+    Range nodes;
 
     MeshInfo() 
         : num_dim(0), num_nodes(0), num_elements(0), num_matsets(0), 
@@ -134,51 +136,53 @@ protected:
 private:
 
     //! interface instance
-  MBInterface *mbImpl;
-  MBWriteUtilIface* mWriteIface;
+  Interface *mbImpl;
+  WriteUtilIface* mWriteIface;
   
     //! file name
   std::string fileName;
 
     //! Meshset Handle for the mesh that is currently being read
-  MBEntityHandle mCurrentMeshHandle;
+  EntityHandle mCurrentMeshHandle;
 
   //! Cached tags for reading.  Note that all these tags are defined when the
   //! core is initialized.
-  MBTag mMaterialSetTag;
-  MBTag mDirichletSetTag;
-  MBTag mNeumannSetTag;
-  MBTag mHasMidNodesTag;
-  MBTag mGlobalIdTag;
-  MBTag mMatSetIdTag;
+  Tag mMaterialSetTag;
+  Tag mDirichletSetTag;
+  Tag mNeumannSetTag;
+  Tag mHasMidNodesTag;
+  Tag mGlobalIdTag;
+  Tag mMatSetIdTag;
 
-  MBTag mEntityMark;   //used to say whether an entity will be exported
+  Tag mEntityMark;   //used to say whether an entity will be exported
 
-  MBErrorCode gather_mesh_information(MeshInfo &mesh_info,
+  ErrorCode gather_mesh_information(MeshInfo &mesh_info,
                                       std::vector<MaterialSetData> &matset_info,
                                       std::vector<NeumannSetData> &neuset_info,
                                       std::vector<DirichletSetData> &dirset_info,
-                                      std::vector<MBEntityHandle> &matsets,
-                                      std::vector<MBEntityHandle> &neusets,
-                                      std::vector<MBEntityHandle> &dirsets);
+                                      std::vector<EntityHandle> &matsets,
+                                      std::vector<EntityHandle> &neusets,
+                                      std::vector<EntityHandle> &dirsets);
   
-  MBErrorCode initialize_file(MeshInfo &mesh_info);
+  ErrorCode initialize_file(MeshInfo &mesh_info);
 
-  MBErrorCode write_nodes(const int num_nodes, const MBRange& nodes, 
+  ErrorCode write_nodes(const int num_nodes, const Range& nodes, 
                           const int dimension );
 
-  MBErrorCode write_matsets(MeshInfo &mesh_info, 
+  ErrorCode write_matsets(MeshInfo &mesh_info, 
                             std::vector<MaterialSetData> &matset_data,
                             std::vector<NeumannSetData> &neuset_data);
   
-  MBErrorCode get_valid_sides(MBRange &elems, const int sense,
+  ErrorCode get_valid_sides(Range &elems, const int sense,
                               WriteTEMPLATE::NeumannSetData &neuset_data);
   
   void reset_matset(std::vector<MaterialSetData> &matset_info);
   
-  MBErrorCode get_neuset_elems(MBEntityHandle neuset, int current_sense,
-                               MBRange &forward_elems, MBRange &reverse_elems);
+  ErrorCode get_neuset_elems(EntityHandle neuset, int current_sense,
+                               Range &forward_elems, Range &reverse_elems);
   
 };
+
+} // namespace moab
 
 #endif

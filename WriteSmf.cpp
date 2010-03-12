@@ -34,47 +34,49 @@
 #include <iterator>
 #include <algorithm>
 
-#include "MBInterface.hpp"
-#include "MBRange.hpp"
-#include "MBCN.hpp"
-#include "MBTagConventions.hpp"
-#include "MBWriteUtilIface.hpp"
-#include "MBInternals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBCN.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "moab/WriteUtilIface.hpp"
+#include "Internals.hpp"
 #include "FileOptions.hpp"
-#include "MBVersion.h"
+#include "moab/Version.h"
+
+namespace moab {
 
 const int DEFAULT_PRECISION = 10;
 const bool DEFAULT_STRICT = true;
 
-MBWriterIface *WriteSmf::factory( MBInterface* iface )
+WriterIface *WriteSmf::factory( Interface* iface )
   { return new WriteSmf( iface ); }
 
-WriteSmf::WriteSmf(MBInterface *impl) 
+WriteSmf::WriteSmf(Interface *impl) 
     : mbImpl(impl), writeTool(0)
 {
   assert(impl != NULL);
 
   void* ptr = 0;
-  impl->query_interface( "MBWriteUtilIface", &ptr );
-  writeTool = reinterpret_cast<MBWriteUtilIface*>(ptr);
+  impl->query_interface( "WriteUtilIface", &ptr );
+  writeTool = reinterpret_cast<WriteUtilIface*>(ptr);
 }
 
 WriteSmf::~WriteSmf() 
 {
-  mbImpl->release_interface("MBWriteUtilIface", writeTool);
+  mbImpl->release_interface("WriteUtilIface", writeTool);
 }
 
-MBErrorCode WriteSmf::write_file(const char *file_name, 
+ErrorCode WriteSmf::write_file(const char *file_name, 
                                  const bool overwrite,
                                  const FileOptions& opts,
-                                 const MBEntityHandle *output_list,
+                                 const EntityHandle *output_list,
                                  const int num_sets,
                                  const std::vector<std::string>& ,
-                                 const MBTag* tag_list,
+                                 const Tag* tag_list,
                                  int num_tags,
                                  int )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
 
     // Get precision for node coordinates
   int precision;
@@ -99,7 +101,7 @@ MBErrorCode WriteSmf::write_file(const char *file_name,
   file.precision( precision );
     // Get entities to write
   
-  MBRange triangles;
+  Range triangles;
   if (!output_list || !num_sets)
   {
     rval = mbImpl->get_entities_by_type( 0, MBTRI, triangles, false);
@@ -116,14 +118,14 @@ MBErrorCode WriteSmf::write_file(const char *file_name,
   // use an array with all the connectivities in the triangles; it will be converted later to ints
   int numTriangles = triangles.size();
   int array_alloc = 3*numTriangles;       // allocated size of 'array'
-  MBEntityHandle* array = new MBEntityHandle[array_alloc]; // ptr to working array of result handles
+  EntityHandle* array = new EntityHandle[array_alloc]; // ptr to working array of result handles
   // fill up array with node handles; reorder and uniquify 
   if (!array)
      return MB_MEMORY_ALLOCATION_FAILED;
   int fillA = 0;
-  for (MBRange::const_iterator e = triangles.begin(); e != triangles.end(); ++e)
+  for (Range::const_iterator e = triangles.begin(); e != triangles.end(); ++e)
     {
-      const MBEntityHandle* conn;
+      const EntityHandle* conn;
       int conn_len;
       rval = mbImpl->get_connectivity( *e, conn, conn_len );
       if (MB_SUCCESS != rval  ) 
@@ -153,7 +155,7 @@ MBErrorCode WriteSmf::write_file(const char *file_name,
   double coord[3];
   for(int i=0; i<numNodes; i++)
     {
-      MBEntityHandle node_handle = array[i];
+      EntityHandle node_handle = array[i];
      
       rval = mbImpl->get_coords(&node_handle,1, coord);
       if(rval !=MB_SUCCESS) return rval;
@@ -163,9 +165,9 @@ MBErrorCode WriteSmf::write_file(const char *file_name,
   // write faces now
   // leave a blank line for cosmetics
   file << " \n";
-  for (MBRange::const_iterator e = triangles.begin(); e != triangles.end(); ++e)
+  for (Range::const_iterator e = triangles.begin(); e != triangles.end(); ++e)
     {
-      const MBEntityHandle* conn;
+      const EntityHandle* conn;
       int conn_len;
       rval = mbImpl->get_connectivity( *e, conn, conn_len );
       if (MB_SUCCESS != rval  ) 
@@ -186,4 +188,5 @@ MBErrorCode WriteSmf::write_file(const char *file_name,
   return MB_SUCCESS;
 }
 
-  
+} // namespace moab
+

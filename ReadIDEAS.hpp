@@ -2,8 +2,8 @@
 #include <fstream>
 #include <vector>
 
-#include "MBReaderIface.hpp"
-#include "MBInterface.hpp"
+#include "moab/ReaderIface.hpp"
+#include "moab/Interface.hpp"
 
 #define VERTEX_LIST       2411 
 #define MAKE_TETRAHEDRA   2412
@@ -11,23 +11,25 @@
 #define MAT_PROP_TABLE_TAG "mat_prop_table"
 #define PHYS_PROP_TABLE_TAG "phys_prop_table"
 
-class MBReadUtilIface;
+namespace moab {
 
-class ReadIDEAS : public MBReaderIface
+class ReadUtilIface;
+
+class ReadIDEAS : public ReaderIface
 {
 
 public:
 
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
 
-  MBErrorCode load_file( const char* fname, 
-			 const MBEntityHandle* meshset, 
+  ErrorCode load_file( const char* fname, 
+			 const EntityHandle* meshset, 
 			 const FileOptions&,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int subset_list_length = 0,
-                         const MBTag* file_id_tag = 0 );
+                         const Tag* file_id_tag = 0 );
 
-  MBErrorCode read_tag_values( const char* file_name,
+  ErrorCode read_tag_values( const char* file_name,
                                const char* tag_name,
                                const FileOptions& opts,
                                std::vector<int>& tag_values_out,
@@ -35,25 +37,27 @@ public:
                                int subset_list_length = 0 );
   
   //! Constructor
-  ReadIDEAS(MBInterface* impl = NULL);
+  ReadIDEAS(Interface* impl = NULL);
   
   //! Destructor
   virtual ~ReadIDEAS() {}
 
 protected:
   
-  MBErrorCode skip_header();
-  MBErrorCode create_vertices(MBEntityHandle& first_vertex, const MBTag* file_id_tag);
-  MBErrorCode create_tetrahedral_elements(MBEntityHandle first_vertex, const MBTag* file_id_tag);
+  ErrorCode skip_header();
+  ErrorCode create_vertices(EntityHandle& first_vertex, const Tag* file_id_tag);
+  ErrorCode create_tetrahedral_elements(EntityHandle first_vertex, const Tag* file_id_tag);
   
 private:
   
   std::ifstream file;
   
   // Read mesh interface
-  MBReadUtilIface* readMeshIface;
+  ReadUtilIface* readMeshIface;
   
   // MOAB Interface
-  MBInterface* MBI;
+  Interface* MBI;
 
 };
+
+} // namespace moab

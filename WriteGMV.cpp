@@ -24,14 +24,16 @@
 
 #include "WriteGMV.hpp"
 
-#include "MBInterface.hpp"
-#include "MBInternals.hpp"
-#include "MBRange.hpp"
-#include "MBCN.hpp"
-#include "MBTagConventions.hpp"
-#include "MBWriteUtilIface.hpp"
+#include "moab/Interface.hpp"
+#include "Internals.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBCN.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "moab/WriteUtilIface.hpp"
 #include <fstream>
 #include <assert.h>
+
+namespace moab {
 
 const char *WriteGMV::gmvTypeNames[] = {
   "",
@@ -48,17 +50,17 @@ const char *WriteGMV::gmvTypeNames[] = {
   ""
 };
 
-MBWriterIface* WriteGMV::factory( MBInterface* iface )
+WriterIface* WriteGMV::factory( Interface* iface )
   { return new WriteGMV( iface ); }
 
-WriteGMV::WriteGMV(MBInterface *impl) 
+WriteGMV::WriteGMV(Interface *impl) 
     : mbImpl(impl), mCurrentMeshHandle(0)
 {
   assert(impl != NULL);
 
   void* ptr = 0;
-  impl->query_interface( "MBWriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<MBWriteUtilIface*>(ptr);
+  impl->query_interface( "WriteUtilIface", &ptr );
+  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
 
   // initialize in case tag_get_handle fails below
   mMaterialSetTag  = 0;
@@ -72,7 +74,7 @@ WriteGMV::WriteGMV(MBInterface *impl)
   // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
   int dum_val = 0;
-  MBErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
+  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
   if (MB_TAG_NOT_FOUND == result)
     result = impl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mMaterialSetTag,
                               &dum_val);
@@ -102,19 +104,19 @@ WriteGMV::WriteGMV(MBInterface *impl)
 
 WriteGMV::~WriteGMV() 
 {
-  std::string iface_name = "MBWriteUtilIface";
+  std::string iface_name = "WriteUtilIface";
   mbImpl->release_interface(iface_name, mWriteIface);
 }
 
-MBErrorCode WriteGMV::write_file(const char *file_name,
-                                 const MBEntityHandle output_set,
+ErrorCode WriteGMV::write_file(const char *file_name,
+                                 const EntityHandle output_set,
                                  const int user_dimension,
                                  const bool mesh,
                                  const bool poly_mesh) 
 {
     // general function for writing a mesh
   
-  MBErrorCode result = MB_SUCCESS;
+  ErrorCode result = MB_SUCCESS;
 
     // initialize file
 
@@ -131,17 +133,17 @@ MBErrorCode WriteGMV::write_file(const char *file_name,
   return result;
 }
 
-MBErrorCode WriteGMV::write_file( const char* filename,
+ErrorCode WriteGMV::write_file( const char* filename,
                                   const bool ,
                                   const FileOptions& opts,
-                                  const MBEntityHandle* output_sets,
+                                  const EntityHandle* output_sets,
                                   const int num_output_sets,
                                   const std::vector<std::string>& ,
-                                  const MBTag*,
+                                  const Tag*,
                                   int,
                                   int dimension )
 {
-  MBEntityHandle output_set = 0;
+  EntityHandle output_set = 0;
   if (output_sets && num_output_sets > 0)
   {
     if (num_output_sets > 1)
@@ -158,14 +160,14 @@ MBErrorCode WriteGMV::write_file( const char* filename,
 }
   
 
-MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
-                                       const MBEntityHandle output_set,
+ErrorCode WriteGMV::local_write_mesh(const char *file_name,
+                                       const EntityHandle output_set,
                                        const int user_dimension,
                                        const bool mesh,
                                        const bool poly_mesh)
 {
   std::ofstream ofile;
-  MBErrorCode result;
+  ErrorCode result;
 
   if (mesh) {
       // need to insert ".gmv"
@@ -183,8 +185,8 @@ MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
   ofile << "gmvinput ascii" << std::endl;
   
     // get elements to be output
-  MBRange dum_range, elements, all_verts;
-  MBEntityType otype;
+  Range dum_range, elements, all_verts;
+  EntityType otype;
   if (poly_mesh) {
     result = mbImpl->get_entities_by_type(output_set, MBPOLYGON, elements, true);
     if (MB_SUCCESS != result) return result;
@@ -197,12 +199,12 @@ MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
       result = mbImpl->get_entities_by_type(output_set, otype, dum_range, true);
       if (MB_SUCCESS != result) return result;
 
-      std::copy(dum_range.begin(), dum_range.end(), mb_range_inserter(elements));
+      std::copy(dum_range.begin(), dum_range.end(), range_inserter(elements));
     }
   }
   
     // gather the vertices in these elements
-  result = mbImpl->get_adjacencies(elements, 0, false, all_verts, MBInterface::UNION);
+  result = mbImpl->get_adjacencies(elements, 0, false, all_verts, Interface::UNION);
   if (MB_SUCCESS != result) return result;
   
   int num_verts = all_verts.size();
@@ -239,25 +241,25 @@ MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
     // iterate over types in selected dimension
 
   std::vector<int> connect;
-  std::vector<MBEntityHandle> connecth;
+  std::vector<EntityHandle> connecth;
 
   if (mesh) {
-    MBRange sub_range;
+    Range sub_range;
     
     ofile << "cells " << elements.size() << std::endl;
   
-    for (MBEntityType otype = MBCN::TypeDimensionMap[user_dimension].first;
+    for (EntityType otype = MBCN::TypeDimensionMap[user_dimension].first;
          otype <= MBCN::TypeDimensionMap[user_dimension].second; otype++) {
 
       if (otype == MBPOLYGON || otype == MBPOLYHEDRON) continue;
       
         // get the first element of this type in the range, and one past the last
-      MBRange::iterator lower =
-        MBRange::lower_bound(elements.begin(),
+      Range::iterator lower =
+        Range::lower_bound(elements.begin(),
                              elements.end(),
                              CREATE_HANDLE(otype, MB_START_ID, i));
-      MBRange::iterator upper =
-        MBRange::lower_bound(elements.begin(),
+      Range::iterator upper =
+        Range::lower_bound(elements.begin(),
                              elements.end(),
                              CREATE_HANDLE(otype+1, MB_START_ID, i));
       
@@ -265,7 +267,7 @@ MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
     
         // copy these elements into a subrange
       sub_range.clear();
-      std::copy(lower, upper, mb_range_inserter(sub_range));
+      std::copy(lower, upper, range_inserter(sub_range));
 
         // make sure the connectivity array is big enough
       int verts_per = MBCN::VerticesPerEntity(otype);
@@ -296,7 +298,7 @@ MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
   else if (poly_mesh) {
   
       // write polygons/hedra, if any
-    MBRange polygons, polyhedra;
+    Range polygons, polyhedra;
     result = mbImpl->get_entities_by_type(output_set, MBPOLYGON, polygons, true);
     if (MB_SUCCESS != result) return result;
   
@@ -311,7 +313,7 @@ MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
 
     ofile << "faces " << polygons.size() << " " << polyhedra.size() << std::endl;
 
-    for (MBRange::iterator rit = polygons.begin(); rit != polygons.end(); rit++) {
+    for (Range::iterator rit = polygons.begin(); rit != polygons.end(); rit++) {
         // get the vertices
       connecth.clear();
       result = mbImpl->get_connectivity(&(*rit), 1, connecth, true);
@@ -322,7 +324,7 @@ MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
         // get the polyhedra, if any
       if (user_dimension == 3) {
         polyhedra.clear();
-        result = mbImpl->get_adjacencies(MBRange(*rit, *rit), 3, false, polyhedra);
+        result = mbImpl->get_adjacencies(Range(*rit, *rit), 3, false, polyhedra);
         if (MB_SUCCESS != result) return result;
     
           // put them in the connect array
@@ -357,4 +359,6 @@ MBErrorCode WriteGMV::local_write_mesh(const char *file_name,
   
   return MB_SUCCESS;
 }
+
+} // namespace moab
 

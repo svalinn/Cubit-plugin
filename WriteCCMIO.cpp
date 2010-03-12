@@ -36,14 +36,16 @@
 #include <iostream>
 #include <algorithm>
 
-#include "MBInterface.hpp"
-#include "MBRange.hpp"
-#include "MBCN.hpp"
+#include "moab/Interface.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBCN.hpp"
 #include "assert.h"
-#include "MBInternals.hpp"
+#include "Internals.hpp"
 #include "ExoIIUtil.hpp"
-#include "MBTagConventions.hpp"
-#include "MBWriteUtilIface.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "moab/WriteUtilIface.hpp"
+
+namespace moab {
 
 static char const kStateName[] = "default";
 
@@ -64,22 +66,22 @@ static const int ccm_types[] = {
 #define INS_ID(stringvar, prefix, id)           \
     sprintf(stringvar, prefix, id)
 
-MBWriterIface* WriteCCMIO::factory( MBInterface* iface )
+WriterIface* WriteCCMIO::factory( Interface* iface )
 { return new WriteCCMIO( iface ); }
 
-WriteCCMIO::WriteCCMIO(MBInterface *impl) 
+WriteCCMIO::WriteCCMIO(Interface *impl) 
         : mbImpl(impl), mCurrentMeshHandle(0)
 {
   assert(impl != NULL);
 
   void* ptr = 0;
-  impl->query_interface( "MBWriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<MBWriteUtilIface*>(ptr);
+  impl->query_interface( "WriteUtilIface", &ptr );
+  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
 
     // initialize in case tag_get_handle fails below
     //! get and cache predefined tag handles
   int dum_val = 0;
-  MBErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
+  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
   if (MB_TAG_NOT_FOUND == result)
     result = impl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mMaterialSetTag,
                               &dum_val);
@@ -124,7 +126,7 @@ WriteCCMIO::WriteCCMIO(MBInterface *impl)
 
 WriteCCMIO::~WriteCCMIO() 
 {
-  std::string iface_name = "MBWriteUtilIface";
+  std::string iface_name = "WriteUtilIface";
   mbImpl->release_interface(iface_name, mWriteIface);
 
   mbImpl->tag_delete(mEntityMark);
@@ -141,13 +143,13 @@ void WriteCCMIO::reset_matset(std::vector<WriteCCMIO::MaterialSetData> &matset_i
   }
 }
 
-MBErrorCode WriteCCMIO::write_file(const char *file_name, 
+ErrorCode WriteCCMIO::write_file(const char *file_name, 
                                    const bool /* overwrite (commented out to remove warning) */,
                                    const FileOptions& opts,
-                                   const MBEntityHandle *ent_handles,
+                                   const EntityHandle *ent_handles,
                                    const int num_sets,
                                    const std::vector<std::string>&,
-                                   const MBTag* ,
+                                   const Tag* ,
                                    int ,
                                    int )
 {
@@ -159,7 +161,7 @@ MBErrorCode WriteCCMIO::write_file(const char *file_name,
   if (NULL == strstr(file_name, ".ccmio"))
     return MB_FAILURE;
 
-  std::vector<MBEntityHandle> matsets, dirsets, neusets, partsets, entities;
+  std::vector<EntityHandle> matsets, dirsets, neusets, partsets, entities;
 
   fileName = file_name;
   
@@ -167,7 +169,7 @@ MBErrorCode WriteCCMIO::write_file(const char *file_name,
 
   if (num_sets == 0) {
       // default to all defined sets
-    MBRange this_range;
+    Range this_range;
     mbImpl->get_entities_by_type_and_tag(0, MBENTITYSET, &mMaterialSetTag, NULL, 1, this_range);
     std::copy(this_range.begin(), this_range.end(), std::back_inserter(matsets));
     this_range.clear();
@@ -185,7 +187,7 @@ MBErrorCode WriteCCMIO::write_file(const char *file_name,
   
   else {
     int dummy;
-    for (const MBEntityHandle *iter = ent_handles; iter < ent_handles+num_sets; iter++) 
+    for (const EntityHandle *iter = ent_handles; iter < ent_handles+num_sets; iter++) 
     {
       if (MB_SUCCESS == mbImpl->tag_get_data(mMaterialSetTag, &(*iter), 1, &dummy))
         matsets.push_back(*iter);
@@ -199,7 +201,7 @@ MBErrorCode WriteCCMIO::write_file(const char *file_name,
     }
   }
 
-  MBErrorCode result = mbImpl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
+  ErrorCode result = mbImpl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
   if (MB_TAG_NOT_FOUND == result) {
     int dum_val_array[] = {0, 0, 0, 0};
     result = mbImpl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, mHasMidNodesTag,
@@ -297,7 +299,7 @@ MBErrorCode WriteCCMIO::write_file(const char *file_name,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID) 
+ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID) 
 {
   // Write out a dummy problem description.  If we happen to know that
   // there already is a problem description previously recorded that
@@ -325,16 +327,16 @@ MBErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateI
 }
 
 
-MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
+ErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
                                                 std::vector<WriteCCMIO::MaterialSetData> &matset_info,
                                                 std::vector<WriteCCMIO::NeumannSetData> &neuset_info,
                                                 std::vector<WriteCCMIO::DirichletSetData> &dirset_info,
-                                                std::vector<MBEntityHandle> &matsets,
-                                                std::vector<MBEntityHandle> &neusets,
-                                                std::vector<MBEntityHandle> &dirsets)
+                                                std::vector<EntityHandle> &matsets,
+                                                std::vector<EntityHandle> &neusets,
+                                                std::vector<EntityHandle> &dirsets)
 {
 
-  std::vector<MBEntityHandle>::iterator vector_iter, end_vector_iter;
+  std::vector<EntityHandle>::iterator vector_iter, end_vector_iter;
 
   mesh_info.num_nodes = 0;
   mesh_info.num_elements = 0;
@@ -347,7 +349,7 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
 
   mesh_info.num_matsets = matsets.size();
 
-  std::vector<MBEntityHandle> parent_meshsets;
+  std::vector<EntityHandle> parent_meshsets;
 
     // clean out the bits for the element mark
   mbImpl->tag_delete(mEntityMark);
@@ -359,18 +361,18 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
   {
        
     WriteCCMIO::MaterialSetData matset_data;
-    matset_data.elements = new MBRange;
+    matset_data.elements = new Range;
 
       //for the purpose of qa records, get the parents of these matsets 
     if( mbImpl->get_parent_meshsets( *vector_iter, parent_meshsets ) != MB_SUCCESS )
       return MB_FAILURE;
 
       // get all Entity Handles in the mesh set
-    MBRange dummy_range;
+    Range dummy_range;
     mbImpl->get_entities_by_handle(*vector_iter, dummy_range, true );
 
       // find the dimension of the last entity in this range
-    MBRange::iterator entity_iter = dummy_range.end();
+    Range::iterator entity_iter = dummy_range.end();
     entity_iter = dummy_range.end();
     entity_iter--;
     int this_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
@@ -380,7 +382,7 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
       entity_iter++;
     
     if (entity_iter != dummy_range.end())
-      std::copy(entity_iter, dummy_range.end(), mb_range_inserter(*(matset_data.elements)));
+      std::copy(entity_iter, dummy_range.end(), range_inserter(*(matset_data.elements)));
 
     assert(matset_data.elements->begin() == matset_data.elements->end() ||
            MBCN::Dimension(TYPE_FROM_HANDLE(*(matset_data.elements->begin()))) == this_dim);
@@ -395,13 +397,13 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
     matset_data.number_attributes = 0;
  
       // iterate through all the elements in the meshset
-    MBRange::iterator elem_range_iter, end_elem_range_iter;
+    Range::iterator elem_range_iter, end_elem_range_iter;
     elem_range_iter = matset_data.elements->begin();
     end_elem_range_iter = matset_data.elements->end();
 
       // get the entity type for this matset, verifying that it's the same for all elements
       // THIS ASSUMES HANDLES SORT BY TYPE!!!
-    MBEntityType entity_type = TYPE_FROM_HANDLE(*elem_range_iter);
+    EntityType entity_type = TYPE_FROM_HANDLE(*elem_range_iter);
     end_elem_range_iter--;
     if (entity_type != TYPE_FROM_HANDLE(*(end_elem_range_iter++))) {
       mWriteIface->report_error("Entities in matset %i not of common type", id);
@@ -416,7 +418,7 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
     matset_data.moab_type = mbImpl->type_from_handle(*(matset_data.elements->begin()));
     if (MBMAXTYPE == matset_data.moab_type) return MB_FAILURE;
     
-    std::vector<MBEntityHandle> tmp_conn;
+    std::vector<EntityHandle> tmp_conn;
     mbImpl->get_connectivity(&(*(matset_data.elements->begin())), 1, tmp_conn);
     matset_data.element_type = 
         ExoIIUtil::get_element_type_from_num_verts(tmp_conn.size(), entity_type, dimension);
@@ -440,7 +442,7 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
     if(!neusets.empty())
     {
         // if there are neusets, keep track of which elements are being written out
-      for(MBRange::iterator iter = matset_data.elements->begin(); 
+      for(Range::iterator iter = matset_data.elements->begin(); 
           iter != matset_data.elements->end(); ++iter)
       {
         unsigned char bit = 0x1;
@@ -463,7 +465,7 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
       mesh_info.num_dim = highest_dimension_of_element_matsets;
   }
 
-  MBRange::iterator range_iter, end_range_iter;
+  Range::iterator range_iter, end_range_iter;
   range_iter = mesh_info.nodes.begin();
   end_range_iter = mesh_info.nodes.end();
 
@@ -489,20 +491,20 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
     
     dirset_data.id = id; 
 
-    std::vector<MBEntityHandle> node_vector;
+    std::vector<EntityHandle> node_vector;
       //get the nodes of the dirset that are in mesh_info.nodes
     if( mbImpl->get_entities_by_handle(*vector_iter, node_vector, true) != MB_SUCCESS ) {
       mWriteIface->report_error("Couldn't get nodes in dirset %i", id);
       return MB_FAILURE;
     }
 
-    std::vector<MBEntityHandle>::iterator iter, end_iter;
+    std::vector<EntityHandle>::iterator iter, end_iter;
     iter = node_vector.begin();
     end_iter= node_vector.end();
  
     int j=0; 
     unsigned char node_marked = 0;
-    MBErrorCode result;
+    ErrorCode result;
     for(; iter != end_iter; iter++)
     {
       if (TYPE_FROM_HANDLE(*iter) != MBVERTEX) continue;
@@ -537,11 +539,11 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
  
       //get the sides in two lists, one forward the other reverse; starts with forward sense
       // by convention
-    MBRange forward_elems, reverse_elems;
+    Range forward_elems, reverse_elems;
     if(get_neuset_elems(*vector_iter, 0, forward_elems, reverse_elems) == MB_FAILURE)
       return MB_FAILURE;
 
-    MBErrorCode result = get_valid_sides(forward_elems, 1, neuset_data);
+    ErrorCode result = get_valid_sides(forward_elems, 1, neuset_data);
     if (MB_SUCCESS != result) {
       mWriteIface->report_error("Couldn't get valid sides data.");
       return result;
@@ -559,14 +561,14 @@ MBErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteCCMIO::get_valid_sides(MBRange &elems, const int sense,
+ErrorCode WriteCCMIO::get_valid_sides(Range &elems, const int sense,
                                         WriteCCMIO::NeumannSetData &neuset_data) 
 {
     // this is where we see if underlying element of side set element is included in output 
 
   unsigned char element_marked = 0;
-  MBErrorCode result;
-  for(MBRange::iterator iter = elems.begin(); iter != elems.end(); iter++)
+  ErrorCode result;
+  for(Range::iterator iter = elems.begin(); iter != elems.end(); iter++)
   {
       // should insert here if "side" is a quad/tri on a quad/tri mesh
     result = mbImpl->tag_get_data(mEntityMark, &(*iter), 1, &element_marked);
@@ -584,7 +586,7 @@ MBErrorCode WriteCCMIO::get_valid_sides(MBRange &elems, const int sense,
     }
     else //then "side" is probably a quad/tri on a hex/tet mesh
     {
-      std::vector<MBEntityHandle> parents;
+      std::vector<EntityHandle> parents;
       int dimension = MBCN::Dimension( TYPE_FROM_HANDLE(*iter));
 
         //get the adjacent parent element of "side"
@@ -626,12 +628,12 @@ MBErrorCode WriteCCMIO::get_valid_sides(MBRange &elems, const int sense,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteCCMIO::get_gids(const MBRange &ents, int *&gids,
+ErrorCode WriteCCMIO::get_gids(const Range &ents, int *&gids,
                                  int &minid, int &maxid) 
 {
   int num_ents = ents.size();
   gids = new int[num_ents];
-  MBErrorCode result = mbImpl->tag_get_data(mGlobalIdTag, ents, &gids[0]);
+  ErrorCode result = mbImpl->tag_get_data(mGlobalIdTag, ents, &gids[0]);
   if (MB_SUCCESS != result) {
     mWriteIface->report_error("Couldn't get global id data.");
     return result;
@@ -651,13 +653,13 @@ MBErrorCode WriteCCMIO::get_gids(const MBRange &ents, int *&gids,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteCCMIO::write_nodes(CCMIOID rootID, const MBRange& nodes, 
+ErrorCode WriteCCMIO::write_nodes(CCMIOID rootID, const Range& nodes, 
                                     const int dimension, int *&vgids)
 {
     // get/write map (global ids) first
   const int num_nodes = nodes.size();
   int minid, maxid;
-  MBErrorCode result = get_gids(nodes, vgids, minid, maxid);
+  ErrorCode result = get_gids(nodes, vgids, minid, maxid);
   if (MB_SUCCESS != result) return result;
   
   CCMIOID mapID;
@@ -707,10 +709,10 @@ MBErrorCode WriteCCMIO::write_nodes(CCMIOID rootID, const MBRange& nodes,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteCCMIO::transform_coords(const int dimension, const int num_nodes, double *coords) 
+ErrorCode WriteCCMIO::transform_coords(const int dimension, const int num_nodes, double *coords) 
 {
-  MBTag trans_tag;
-  MBErrorCode result = mbImpl->tag_get_handle( MESH_TRANSFORM_TAG_NAME, trans_tag);
+  Tag trans_tag;
+  ErrorCode result = mbImpl->tag_get_handle( MESH_TRANSFORM_TAG_NAME, trans_tag);
   if( result == MB_TAG_NOT_FOUND ) return MB_SUCCESS;
   double trans_matrix[16]; 
   result = mbImpl->tag_get_data( trans_tag, NULL, 0, trans_matrix ); 
@@ -736,22 +738,22 @@ MBErrorCode WriteCCMIO::transform_coords(const int dimension, const int num_node
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to remove warning) */,
+ErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to remove warning) */,
                                       std::vector<WriteCCMIO::MaterialSetData> &matset_data,
                                       std::vector<WriteCCMIO::NeumannSetData> &/* neuset_data  */,
                                         // (commented out to remove warning)
-                                      MBRange &verts,
+                                      Range &verts,
                                       const int *vgids)
 {
   std::vector<int> connect;
-  MBErrorCode result;
+  ErrorCode result;
   CCMIOID rootID, cellMapID, topologyID, id;
   
     // don't usually have anywhere near 31 nodes per element
   connect.reserve(31);
-  MBRange::const_iterator rit;
+  Range::const_iterator rit;
 
-  MBRange all_elems;
+  Range all_elems;
   for (unsigned int i = 0; i < matset_data.size(); i++)
     all_elems.merge(*(matset_data[i].elements));
 
@@ -786,7 +788,7 @@ MBErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to 
     // Write the faces
     // first, allocate a tag of length 6 (max # faces per region, except
     // for polyhedra)
-  MBTag mark_tag;
+  Tag mark_tag;
   short int def_val = 0;
   result = mbImpl->tag_create("__mark", 1, MB_TAG_DENSE, MB_TYPE_OPAQUE, 
                               mark_tag, &def_val);
@@ -797,17 +799,17 @@ MBErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to 
   
     // now faces
   unsigned char markt;
-  std::vector<MBEntityHandle> tmp_face_cells, storage;
+  std::vector<EntityHandle> tmp_face_cells, storage;
   std::vector<int> iface_connect, iface_cells;
   std::vector<int> eface_connect, eface_cells;
-  MBEntityHandle tmp_connect[MBCN::MAX_NODES_PER_ELEMENT]; // tmp connect vector
-  const MBEntityHandle *connectc; int num_connectc; // cell connectivity
-  const MBEntityHandle *connectf; int num_connectf; // face connectivity
+  EntityHandle tmp_connect[MBCN::MAX_NODES_PER_ELEMENT]; // tmp connect vector
+  const EntityHandle *connectc; int num_connectc; // cell connectivity
+  const EntityHandle *connectf; int num_connectf; // face connectivity
   i = 0;
   rit = all_elems.begin();
   for (; i < num_elems; i++, rit++) {
       // if not polyh, get mark
-    MBEntityType etype = TYPE_FROM_HANDLE(*rit);
+    EntityType etype = TYPE_FROM_HANDLE(*rit);
     if (MBPOLYHEDRON != etype && MBPOLYGON != etype) {
       result = mbImpl->tag_get_data(mark_tag, &(*rit), 1, &markt);
       if (MB_SUCCESS != result) {
@@ -863,7 +865,7 @@ MBErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to 
                          2, side_num, sense, offset);
         if (sense == 1 && tmp_face_cells[0] != *rit) {
           assert(2 == tmp_face_cells.size());
-          MBEntityHandle tmph = tmp_face_cells[0]; 
+          EntityHandle tmph = tmp_face_cells[0]; 
           tmp_face_cells[1] = tmp_face_cells[0]; 
           tmp_face_cells[0] = tmph;
         }
@@ -883,8 +885,8 @@ MBErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to 
 
       if (!is_polyh && is_internal) {
           // mark other cell for this face, if there is another cell
-        MBEntityHandle other_cell = tmp_face_cells[0];
-        const MBEntityHandle *connecto; int num_connecto;
+        EntityHandle other_cell = tmp_face_cells[0];
+        const EntityHandle *connecto; int num_connecto;
         if (other_cell == *rit) other_cell = tmp_face_cells[1];
         result = mbImpl->get_connectivity(other_cell, connecto, num_connecto, 
                                           false, &storage);
@@ -955,7 +957,7 @@ MBErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to 
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteCCMIO::open_file(const char* filename)
+ErrorCode WriteCCMIO::open_file(const char* filename)
 {
     // not a valid filname
   if(strlen((const char*)filename) == 0)
@@ -970,28 +972,28 @@ MBErrorCode WriteCCMIO::open_file(const char* filename)
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteCCMIO::get_neuset_elems(MBEntityHandle neuset, int current_sense,
-                                         MBRange &forward_elems, MBRange &reverse_elems) 
+ErrorCode WriteCCMIO::get_neuset_elems(EntityHandle neuset, int current_sense,
+                                         Range &forward_elems, Range &reverse_elems) 
 {
-  MBRange neuset_elems, neuset_meshsets;
+  Range neuset_elems, neuset_meshsets;
 
     // get the sense tag; don't need to check return, might be an error if the tag
     // hasn't been created yet
-  MBTag sense_tag = 0;
+  Tag sense_tag = 0;
   mbImpl->tag_get_handle("SENSE", sense_tag);
 
     // get the entities in this set
-  MBErrorCode result = mbImpl->get_entities_by_handle(neuset, neuset_elems, true);
+  ErrorCode result = mbImpl->get_entities_by_handle(neuset, neuset_elems, true);
   if (MB_FAILURE == result) return result;
   
     // now remove the meshsets into the neuset_meshsets; first find the first meshset,
-  MBRange::iterator range_iter = neuset_elems.begin();
+  Range::iterator range_iter = neuset_elems.begin();
   while (TYPE_FROM_HANDLE(*range_iter) != MBENTITYSET && range_iter != neuset_elems.end())
     range_iter++;
   
     // then, if there are some, copy them into neuset_meshsets and erase from neuset_elems
   if (range_iter != neuset_elems.end()) {
-    std::copy(range_iter, neuset_elems.end(), mb_range_inserter(neuset_meshsets));
+    std::copy(range_iter, neuset_elems.end(), range_inserter(neuset_meshsets));
     neuset_elems.erase(range_iter, neuset_elems.end());
   }
   
@@ -1000,7 +1002,7 @@ MBErrorCode WriteCCMIO::get_neuset_elems(MBEntityHandle neuset, int current_sens
     // (if the sense is 0, copy into both ranges)
 
     // need to step forward on list until we reach the right dimension
-  MBRange::iterator dum_it = neuset_elems.end();
+  Range::iterator dum_it = neuset_elems.end();
   dum_it--;
   int target_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*dum_it));
   dum_it = neuset_elems.begin();
@@ -1009,9 +1011,9 @@ MBErrorCode WriteCCMIO::get_neuset_elems(MBEntityHandle neuset, int current_sens
     dum_it++;
 
   if (current_sense == 1 || current_sense == 0)
-    std::copy(dum_it, neuset_elems.end(), mb_range_inserter(forward_elems));
+    std::copy(dum_it, neuset_elems.end(), range_inserter(forward_elems));
   if (current_sense == -1 || current_sense == 0)
-    std::copy(dum_it, neuset_elems.end(), mb_range_inserter(reverse_elems));
+    std::copy(dum_it, neuset_elems.end(), range_inserter(reverse_elems));
   
     // now loop over the contained meshsets, getting the sense of those and calling this
     // function recursively
@@ -1031,5 +1033,7 @@ MBErrorCode WriteCCMIO::get_neuset_elems(MBEntityHandle neuset, int current_sens
   return result;
 }
 
+
+} // namespace moab
 
   

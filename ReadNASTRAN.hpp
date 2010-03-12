@@ -36,33 +36,35 @@
 #include <sstream>
 #include <vector>
 
-#include "MBInterface.hpp"
-#include "MBReaderIface.hpp"
+#include "moab/Interface.hpp"
+#include "moab/ReaderIface.hpp"
 #include "FileTokenizer.hpp"
-#include "RangeMap.hpp"
+#include "moab/RangeMap.hpp"
 
-class MBReadUtilIface;
+namespace moab {
 
-class ReadNASTRAN : public MBReaderIface
+class ReadUtilIface;
+
+class ReadNASTRAN : public ReaderIface
 {
 
 public:
   // factory method
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
   
-  MBErrorCode load_file( const char                  *filename,
-                         const MBEntityHandle        *file_set,
+  ErrorCode load_file( const char                  *filename,
+                         const EntityHandle        *file_set,
                          const FileOptions           &options,
-                         const MBReaderIface::IDTag  *subset_list = 0,
+                         const ReaderIface::IDTag  *subset_list = 0,
                          int                         subset_list_length = 0,
-                         const MBTag                 *file_id_tag = 0 );
+                         const Tag                 *file_id_tag = 0 );
   // constructor
-  ReadNASTRAN(MBInterface* impl = NULL);
+  ReadNASTRAN(Interface* impl = NULL);
 
   // destructor
   virtual ~ReadNASTRAN();
 
-  MBErrorCode read_tag_values( const char         *file_name,
+  ErrorCode read_tag_values( const char         *file_name,
 			       const char         *tag_name,
 			       const FileOptions  &opts,
 			       std::vector<int>   &tag_values_out,
@@ -73,40 +75,43 @@ protected:
   
 private:  
   // read mesh interface
-  MBReadUtilIface* readMeshIface;
+  ReadUtilIface* readMeshIface;
   
   // MOAB Interface
-  MBInterface* MBI;
+  Interface* MBI;
   
-  RangeMap<int, MBEntityHandle> nodeIdMap, elemIdMap;
+  RangeMap<int, EntityHandle> nodeIdMap, elemIdMap;
 
   enum line_format { SMALL_FIELD,                     
                      LARGE_FIELD,                 
                      FREE_FIELD }; 
 
-  MBErrorCode determine_line_format( const std::string line, 
+  ErrorCode determine_line_format( const std::string line, 
                                      line_format &format );
   
-  MBErrorCode tokenize_line( const std::string line, 
+  ErrorCode tokenize_line( const std::string line, 
                              const line_format format,
                              std::vector<std::string> &tokens );  
 
-  MBErrorCode determine_entity_type( const std::string token, MBEntityType &type); 
+  ErrorCode determine_entity_type( const std::string token, EntityType &type); 
 
-  MBErrorCode get_real( const std::string, double &real );
+  ErrorCode get_real( const std::string, double &real );
 
-  MBErrorCode read_node(const std::vector<std::string> tokens, 
+  ErrorCode read_node(const std::vector<std::string> tokens, 
                         const bool           debug, 
                         double*              coord_arrays[3], 
                         int                  &node_id);
 
-  MBErrorCode read_element(const std::vector<std::string> tokens, 
-                           std::vector<MBRange>           &materials,
-                           const MBEntityType             element_type,
+  ErrorCode read_element(const std::vector<std::string> tokens, 
+                           std::vector<Range>           &materials,
+                           const EntityType             element_type,
                            const bool                     debug );
 
-  MBErrorCode create_materials( const std::vector<MBRange> &materials );
+  ErrorCode create_materials( const std::vector<Range> &materials );
 
-  MBErrorCode assign_ids( const MBTag* file_id_tag );
+  ErrorCode assign_ids( const Tag* file_id_tag );
 };
+
+} // namespace moab
+
 #endif

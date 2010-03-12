@@ -21,14 +21,12 @@
 
 #include "ReadSTL.hpp"
 #include "FileTokenizer.hpp" // for FileTokenizer
-#include "MBInternals.hpp"
-#include "MBInterface.hpp"
-#include "MBReadUtilIface.hpp"
-#include "MBRange.hpp"
+#include "Internals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/ReadUtilIface.hpp"
+#include "moab/Range.hpp"
 #include "FileOptions.hpp"
-#include "MBSysUtil.hpp"
-
-#include "MBEntityHandle.h"
+#include "SysUtil.hpp"
 
 #include <errno.h>
 #include <string.h>
@@ -36,20 +34,21 @@
 #include <assert.h>
 #include <map>
 
+namespace moab {
 
 
-ReadSTL::ReadSTL(MBInterface* impl)
+ReadSTL::ReadSTL(Interface* impl)
     : mdbImpl(impl)
 {
   void* ptr = 0;
-  mdbImpl->query_interface("MBReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  mdbImpl->query_interface("ReadUtilIface", &ptr);
+  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 }
 
 ReadSTL::~ReadSTL()
 {
   if (readMeshIface) {
-    mdbImpl->release_interface("MBReadUtilIface", readMeshIface);
+    mdbImpl->release_interface("ReadUtilIface", readMeshIface);
     readMeshIface = 0;
   }
 }
@@ -62,7 +61,7 @@ bool ReadSTL::Point::operator<( const ReadSTL::Point& other ) const
 
 
 
-MBErrorCode ReadSTL::read_tag_values( const char* /* file_name */,
+ErrorCode ReadSTL::read_tag_values( const char* /* file_name */,
                                       const char* /* tag_name */,
                                       const FileOptions& /* opts */,
                                       std::vector<int>& /* tag_values_out */,
@@ -75,19 +74,19 @@ MBErrorCode ReadSTL::read_tag_values( const char* /* file_name */,
 // Generic load function for both ASCII and binary.  Calls
 // pure-virtual function implemented in subclasses to read
 // the data from the file.
-MBErrorCode ReadSTL::load_file( const char* filename,
-                                const MBEntityHandle* , 
+ErrorCode ReadSTL::load_file( const char* filename,
+                                const EntityHandle* , 
                                 const FileOptions& opts,
-                                const MBReaderIface::IDTag* subset_list,
+                                const ReaderIface::IDTag* subset_list,
                                 int subset_list_length,
-                                const MBTag* file_id_tag )
+                                const Tag* file_id_tag )
 {
   if (subset_list && subset_list_length) {
     readMeshIface->report_error( "Reading subset of files not supported for STL." );
     return MB_UNSUPPORTED_OPERATION;
   }
 
-  MBErrorCode result;
+  ErrorCode result;
 
   std::vector<ReadSTL::Triangle> triangles;
  
@@ -130,7 +129,7 @@ MBErrorCode ReadSTL::load_file( const char* filename,
 
     // Create a std::map from position->handle, and such
     // that all positions are specified, and handles are zero.
-  std::map<Point,MBEntityHandle> vertex_map;
+  std::map<Point,EntityHandle> vertex_map;
   for (std::vector<Triangle>::iterator i = triangles.begin(); i != triangles.end(); ++i)
   {
     vertex_map[i->points[0]] = 0;
@@ -140,7 +139,7 @@ MBErrorCode ReadSTL::load_file( const char* filename,
   
     // Create vertices 
   std::vector<double*> coord_arrays;
-  MBEntityHandle handle = 0;
+  EntityHandle handle = 0;
   result = readMeshIface->get_node_arrays( 3, vertex_map.size(), MB_START_ID,
                                            handle, coord_arrays );
   if (MB_SUCCESS != result)
@@ -149,7 +148,7 @@ MBErrorCode ReadSTL::load_file( const char* filename,
     // Copy vertex coordinates into entity sequence coordinate arrays
     // and copy handle into vertex_map.
   double *x = coord_arrays[0], *y = coord_arrays[1], *z = coord_arrays[2];
-  for (std::map<Point,MBEntityHandle>::iterator i = vertex_map.begin();
+  for (std::map<Point,EntityHandle>::iterator i = vertex_map.begin();
        i != vertex_map.end(); ++i)
   {
     i->second = handle; ++handle;
@@ -160,7 +159,7 @@ MBErrorCode ReadSTL::load_file( const char* filename,
   
     // Allocate triangles
   handle = 0;
-  MBEntityHandle* connectivity;
+  EntityHandle* connectivity;
   result = readMeshIface->get_element_array( triangles.size(),
                                              3,
                                              MBTRI,
@@ -172,7 +171,7 @@ MBErrorCode ReadSTL::load_file( const char* filename,
   
     // Use vertex_map to reconver triangle connectivity from
     // vertex coordinates.
-  MBEntityHandle *conn_sav = connectivity;
+  EntityHandle *conn_sav = connectivity;
   for (std::vector<Triangle>::iterator i = triangles.begin(); i != triangles.end(); ++i)
   {
     *connectivity = vertex_map[i->points[0]]; ++connectivity;
@@ -190,7 +189,7 @@ MBErrorCode ReadSTL::load_file( const char* filename,
 
 
 // Read ASCII file
-MBErrorCode ReadSTL::ascii_read_triangles( const char* name,
+ErrorCode ReadSTL::ascii_read_triangles( const char* name,
                                           std::vector<ReadSTL::Triangle>& tris )
 {
   FILE* file = fopen( name, "r" );
@@ -268,7 +267,7 @@ struct BinaryTri {
 };
 
 // Read a binary STL file
-MBErrorCode ReadSTL::binary_read_triangles( const char* name,
+ErrorCode ReadSTL::binary_read_triangles( const char* name,
                                            ReadSTL::ByteOrder byte_order,
                                            std::vector<ReadSTL::Triangle>& tris )
 {
@@ -290,7 +289,7 @@ MBErrorCode ReadSTL::binary_read_triangles( const char* name,
   
     // Allow user setting for byte order, default to little endian
   const bool want_big_endian = (byte_order == STL_BIG_ENDIAN);
-  const bool am_big_endian = !MBSysUtil::little_endian();
+  const bool am_big_endian = !SysUtil::little_endian();
   bool swap_bytes = (want_big_endian == am_big_endian);
   
     // Compare the number of triangles to the length of the file.  
@@ -307,11 +306,11 @@ MBErrorCode ReadSTL::binary_read_triangles( const char* name,
   
     // Get expected number of triangles
   if (swap_bytes)
-    MBSysUtil::byteswap( &header.count, 1 );
+    SysUtil::byteswap( &header.count, 1 );
   unsigned long num_tri = header.count;
   
     // Get the file length
-  long filesize = MBSysUtil::filesize( file );
+  long filesize = SysUtil::filesize( file );
   if (filesize >= 0) // -1 indicates could not determine file size (e.g. reading from FIFO)
   {
       // Check file size, but be careful of numeric overflow
@@ -321,7 +320,7 @@ MBErrorCode ReadSTL::binary_read_triangles( const char* name,
         // Unless the byte order was specified explicitly in the 
         // tag, try the opposite byte order.
       uint32_t num_tri_tmp = header.count;
-      MBSysUtil::byteswap( &num_tri_tmp, 1 );
+      SysUtil::byteswap( &num_tri_tmp, 1 );
       unsigned long num_tri_swap = num_tri_tmp;
       if (byte_order != STL_UNKNOWN_BYTE_ORDER || // If byte order was specified, fail now
           ULONG_MAX / 50 - 84 < num_tri_swap  || // watch for overflow in next line
@@ -351,7 +350,7 @@ MBErrorCode ReadSTL::binary_read_triangles( const char* name,
     }
     
     if (swap_bytes)
-      MBSysUtil::byteswap( tri.coords, 9 );
+      SysUtil::byteswap( tri.coords, 9 );
     
     for (unsigned j = 0; j < 9; ++j)
       i->points[j/3].coords[j%3] = tri.coords[j];
@@ -362,5 +361,7 @@ MBErrorCode ReadSTL::binary_read_triangles( const char* name,
 }
 
 
-MBReaderIface* ReadSTL::factory( MBInterface* iface )
+ReaderIface* ReadSTL::factory( Interface* iface )
   { return new ReadSTL(iface); }
+
+} // namespace moab

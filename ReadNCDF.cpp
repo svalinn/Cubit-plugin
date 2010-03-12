@@ -31,17 +31,19 @@
 #include <sstream>
 #include <map>
 
-#include "MBCN.hpp"
-#include "MBRange.hpp"
-#include "MBInterface.hpp"
+#include "moab/MBCN.hpp"
+#include "moab/Range.hpp"
+#include "moab/Interface.hpp"
 #include "ExoIIUtil.hpp"
-#include "MBTagConventions.hpp"
-#include "MBInternals.hpp"
-#include "MBReadUtilIface.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "Internals.hpp"
+#include "moab/ReadUtilIface.hpp"
 #include "exodus_order.h"
 #include "FileOptions.hpp"
-#include "MBAdaptiveKDTree.hpp"
-#include "MBCartVect.hpp"
+#include "moab/AdaptiveKDTree.hpp"
+#include "moab/CartVect.hpp"
+
+namespace moab {
 
 #define INS_ID(stringvar, prefix, id) \
           sprintf(stringvar, prefix, id)
@@ -67,18 +69,18 @@
             val = ncdim->size();\
           } else val = 0;
 
-MBReaderIface* ReadNCDF::factory( MBInterface* iface )
+ReaderIface* ReadNCDF::factory( Interface* iface )
   { return new ReadNCDF( iface ); }
 
-ReadNCDF::ReadNCDF(MBInterface* impl)
+ReadNCDF::ReadNCDF(Interface* impl)
     : mdbImpl(impl), max_line_length(-1), max_str_length(-1)
 {
   assert(impl != NULL);
   reset();
   
   void* ptr = 0;
-  impl->query_interface( "MBReadUtilIface", &ptr );
-  readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  impl->query_interface( "ReadUtilIface", &ptr );
+  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 
   // initialize in case tag_get_handle fails below
   mMaterialSetTag  = 0;
@@ -91,7 +93,7 @@ ReadNCDF::ReadNCDF(MBInterface* impl)
 
   //! get and cache predefined tag handles
   int dum_val = 0;
-  MBErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
+  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
   if (MB_TAG_NOT_FOUND == result)
     result = impl->tag_create(MATERIAL_SET_TAG_NAME, 
                               sizeof(int), 
@@ -176,12 +178,12 @@ void ReadNCDF::reset()
 
 ReadNCDF::~ReadNCDF() 
 {
-  std::string iface_name = "MBReadUtilIface";
+  std::string iface_name = "ReadUtilIface";
   mdbImpl->release_interface(iface_name, readMeshIface);
 }
   
 
-MBErrorCode ReadNCDF::read_tag_values(const char* file_name,
+ErrorCode ReadNCDF::read_tag_values(const char* file_name,
                                       const char* tag_name,
                                       const FileOptions& opts,
                                       std::vector<int>& id_array,
@@ -204,7 +206,7 @@ MBErrorCode ReadNCDF::read_tag_values(const char* file_name,
   std::auto_ptr<NcFile> deleter(ncFile);
 
     // 1. Read the header
-  MBErrorCode rval = read_exodus_header( );
+  ErrorCode rval = read_exodus_header( );
   if (MB_FAILURE == rval) 
     return rval;
   
@@ -254,14 +256,14 @@ MBErrorCode ReadNCDF::read_tag_values(const char* file_name,
 
 
 
-MBErrorCode ReadNCDF::load_file(const char *exodus_file_name,
-                                const MBEntityHandle* file_set,
+ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
+                                const EntityHandle* file_set,
                                 const FileOptions& opts,
-                                const MBReaderIface::IDTag* subset_list,
+                                const ReaderIface::IDTag* subset_list,
                                 int subset_list_length,
-                                const MBTag* file_id_tag)
+                                const Tag* file_id_tag)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
   int num_blocks = 0;
   const int* blocks_to_load = 0;
@@ -282,7 +284,7 @@ MBErrorCode ReadNCDF::load_file(const char *exodus_file_name,
     // the actual work
   
   //See if opts has tdata.
-  MBErrorCode rval;
+  ErrorCode rval;
   std::string s;
   rval = opts.get_str_option("tdata", s ); 
   if(MB_SUCCESS == rval && !s.empty())
@@ -347,7 +349,7 @@ MBErrorCode ReadNCDF::load_file(const char *exodus_file_name,
 
 
 
-MBErrorCode ReadNCDF::read_exodus_header()
+ErrorCode ReadNCDF::read_exodus_header()
 {
   CPU_WORD_SIZE = sizeof(double);  // With ExodusII version 2, all floats
   IO_WORD_SIZE = sizeof(double);   // should be changed to doubles
@@ -400,7 +402,7 @@ MBErrorCode ReadNCDF::read_exodus_header()
   return MB_SUCCESS;
 }
  
-MBErrorCode ReadNCDF::read_nodes(const MBTag* file_id_tag)
+ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
 {
 
     // read the nodes into memory
@@ -410,7 +412,7 @@ MBErrorCode ReadNCDF::read_nodes(const MBTag* file_id_tag)
   // create a sequence to hold the node coordinates
   // get the current number of entities and start at the next slot
 
-  MBEntityHandle node_handle = 0;
+  EntityHandle node_handle = 0;
   std::vector<double*> arrays;
   readMeshIface->get_node_arrays(3, numberNodes_loading, 
       MB_START_ID, node_handle, arrays);
@@ -459,7 +461,7 @@ MBErrorCode ReadNCDF::read_nodes(const MBTag* file_id_tag)
   }
   
   if (file_id_tag) {
-    MBRange nodes;
+    Range nodes;
     nodes.insert( node_handle, node_handle + numberNodes_loading - 1 );
     readMeshIface->assign_ids( *file_id_tag, nodes, vertexOffset );
   }
@@ -467,7 +469,7 @@ MBErrorCode ReadNCDF::read_nodes(const MBTag* file_id_tag)
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadNCDF::read_block_headers(const int *blocks_to_load,
+ErrorCode ReadNCDF::read_block_headers(const int *blocks_to_load,
                                            const int num_blocks)
 {
      
@@ -563,7 +565,7 @@ bool ReadNCDF::dimension_exists(const char *attrib_name)
   return false;
 }
 
-MBErrorCode ReadNCDF::read_elements(const MBTag* file_id_tag)
+ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
 {
     // read in elements
   
@@ -591,7 +593,7 @@ MBErrorCode ReadNCDF::read_elements(const MBTag* file_id_tag)
 
     // get some information about this block
     int block_id = (*this_it).blockId;
-    MBEntityHandle *conn = 0;
+    EntityHandle *conn = 0;
 
       // get the ncdf connect variable and the element type
     INS_ID(temp_string, "connect%d", block_seq_id);
@@ -615,7 +617,7 @@ MBErrorCode ReadNCDF::read_elements(const MBTag* file_id_tag)
     
     int verts_per_element = ExoIIUtil::VerticesPerElement[(*this_it).elemType];
     int number_nodes = (*this_it).numElements*verts_per_element;
-    const MBEntityType mb_type = ExoIIUtil::ExoIIElementMBEntity[(*this_it).elemType];
+    const EntityType mb_type = ExoIIUtil::ExoIIElementMBEntity[(*this_it).elemType];
 
     // allocate an array to read in connectivity data
     readMeshIface->get_element_array(
@@ -627,17 +629,17 @@ MBErrorCode ReadNCDF::read_elements(const MBTag* file_id_tag)
         conn);
         
         // create a range for this sequence of elements
-      MBEntityHandle start_range, end_range;
+      EntityHandle start_range, end_range;
       start_range = (*this_it).startMBId;
       end_range   = start_range + (*this_it).numElements-1;
 
-      MBRange new_range(start_range, end_range);
-      //MBRange<MBEntityHandle> new_range((*this_it).startMBId, 
+      Range new_range(start_range, end_range);
+      //Range<EntityHandle> new_range((*this_it).startMBId, 
       //                                  (*this_it).startMBId+(*this_it).numElements-1);
     
         // create a MBSet for this block and set the material tag
 
-      MBEntityHandle ms_handle;
+      EntityHandle ms_handle;
       if( mdbImpl->create_meshset( MESHSET_SET | MESHSET_TRACK_OWNER, ms_handle ) != MB_SUCCESS)
         return MB_FAILURE;
 
@@ -650,13 +652,13 @@ MBErrorCode ReadNCDF::read_elements(const MBTag* file_id_tag)
         return MB_FAILURE;
       
     // just a check because the following code won't work if this case fails
-    assert(sizeof(MBEntityHandle) >= sizeof(int));
+    assert(sizeof(EntityHandle) >= sizeof(int));
 
     // tmp_ptr is of type int* and points at the same place as conn
     int* tmp_ptr = reinterpret_cast<int*>(conn);
     
     // read the connetivity into that memory,  this will take only part of the array
-    // 1/2 if sizeof(MBEntityHandle) == 64 bits.
+    // 1/2 if sizeof(EntityHandle) == 64 bits.
     NcBool status = temp_var->get(tmp_ptr, this_it->numElements, verts_per_element);
     if (status == 0) {
       readMeshIface->report_error("MBCN:: Problem getting connectivity.");
@@ -671,13 +673,13 @@ MBErrorCode ReadNCDF::read_elements(const MBTag* file_id_tag)
         return MB_FAILURE;
       }
       nodesInLoadedBlocks[tmp_ptr[i]] = 1;
-      conn[i] = static_cast<MBEntityHandle>(tmp_ptr[i]) + vertexOffset;
+      conn[i] = static_cast<EntityHandle>(tmp_ptr[i]) + vertexOffset;
     }
     
     // Adjust connectivity order if necessary
     const int* reorder = exodus_elem_order_map[mb_type][verts_per_element];
     if (reorder)
-      MBReadUtilIface::reorder( reorder, conn, this_it->numElements, verts_per_element );
+      ReadUtilIface::reorder( reorder, conn, this_it->numElements, verts_per_element );
     
 
       
@@ -699,7 +701,7 @@ MBErrorCode ReadNCDF::read_elements(const MBTag* file_id_tag)
       
       
     if (file_id_tag) {
-      MBRange range;
+      Range range;
       range.insert( this_it->startMBId, this_it->startMBId + this_it->numElements - 1 );
       readMeshIface->assign_ids( *file_id_tag, range, this_it->startExoId );
     }
@@ -708,7 +710,7 @@ MBErrorCode ReadNCDF::read_elements(const MBTag* file_id_tag)
   return MB_SUCCESS;
 }
   
-MBErrorCode ReadNCDF::read_global_ids()
+ErrorCode ReadNCDF::read_global_ids()
 {
     // read in the map from the exodus file
   int* ptr = new int [numberElements_loading];
@@ -734,8 +736,8 @@ MBErrorCode ReadNCDF::read_global_ids()
     {
       if (iter->startMBId != 0)
       {
-        MBRange range(iter->startMBId, iter->startMBId+iter->numElements-1);
-        MBErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag, 
+        Range range(iter->startMBId, iter->startMBId+iter->numElements-1);
+        ErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag, 
                                                   range, &ptr[ptr_pos]);
         if (error != MB_SUCCESS)
         {
@@ -768,9 +770,9 @@ MBErrorCode ReadNCDF::read_global_ids()
       delete [] ptr;
       return MB_FAILURE;
     } 
-    MBRange range(MB_START_ID+vertexOffset, 
+    Range range(MB_START_ID+vertexOffset, 
                   MB_START_ID+vertexOffset+numberNodes_loading-1);
-    MBErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag, 
+    ErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag, 
                                               range, &ptr[0]);
     if (MB_SUCCESS != error)
       readMeshIface->report_error("ReadNCDF:: Problem setting node global ids.");
@@ -781,7 +783,7 @@ MBErrorCode ReadNCDF::read_global_ids()
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadNCDF::read_nodesets() 
+ErrorCode ReadNCDF::read_nodesets() 
 {
     // read in the nodesets for the model
 
@@ -856,17 +858,17 @@ MBErrorCode ReadNCDF::read_nodesets()
     }
 
       // Maybe there is already a nodesets meshset here we can append to 
-    MBRange child_meshsets;
+    Range child_meshsets;
     if( mdbImpl->get_entities_by_handle(0, child_meshsets ) != MB_SUCCESS ) 
       return MB_FAILURE;
 
     child_meshsets = subtract( child_meshsets, initRange);
 
-    MBRange::iterator iter, end_iter;
+    Range::iterator iter, end_iter;
     iter = child_meshsets.begin();
     end_iter = child_meshsets.end();
 
-    MBEntityHandle ns_handle = 0;
+    EntityHandle ns_handle = 0;
     for(; iter != end_iter; iter++)
     {
       int nodeset_id;
@@ -881,15 +883,15 @@ MBErrorCode ReadNCDF::read_nodesets()
       }
     } 
 
-    std::vector< MBEntityHandle > nodes_of_nodeset;
+    std::vector< EntityHandle > nodes_of_nodeset;
     if( ns_handle )
       if( mdbImpl->get_entities_by_handle( ns_handle, nodes_of_nodeset, true) != MB_SUCCESS )
         return MB_FAILURE;
 
       // make these into entity handles
-      // TODO: could we have read it into MBEntityHandle sized array in the first place?
+      // TODO: could we have read it into EntityHandle sized array in the first place?
     int j, temp;
-    std::vector<MBEntityHandle> nodes;
+    std::vector<EntityHandle> nodes;
     std::vector<double> dist_factor_vector;
     for (j = 0; j < number_nodes_in_set; j++)
     {
@@ -965,7 +967,7 @@ MBErrorCode ReadNCDF::read_nodesets()
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadNCDF::read_sidesets() 
+ErrorCode ReadNCDF::read_sidesets() 
 {
   // uhhh if you read the same file (previously_read==true) then blow away the 
   // sidesets pertaining to this file?  How do you do that?  If you read a 
@@ -994,14 +996,14 @@ MBErrorCode ReadNCDF::read_sidesets()
 
 
   // Maybe there is already a sidesets meshset here we can append to 
-  MBRange child_meshsets;
+  Range child_meshsets;
   if( mdbImpl->get_entities_by_type(0, MBENTITYSET, 
                                     child_meshsets ) != MB_SUCCESS ) 
     return MB_FAILURE;
 
   child_meshsets = subtract( child_meshsets, initRange);
 
-  MBRange::iterator iter, end_iter;
+  Range::iterator iter, end_iter;
 
   int i;
   std::vector<char> temp_string_storage(max_str_length+1);
@@ -1044,7 +1046,7 @@ MBErrorCode ReadNCDF::read_sidesets()
     }
 
     std::vector<double> temp_dist_factor_vector;
-    std::vector<MBEntityHandle> entities_to_add, reverse_entities;
+    std::vector<EntityHandle> entities_to_add, reverse_entities;
     // create the sideset entities 
     if( create_ss_elements( &element_list[0], &side_list[0], number_sides_in_set, number_dist_factors_in_set, 
                             entities_to_add, reverse_entities, temp_dist_factor_vector, 
@@ -1057,7 +1059,7 @@ MBErrorCode ReadNCDF::read_sidesets()
       iter = child_meshsets.begin();
       end_iter = child_meshsets.end();
 
-      MBEntityHandle ss_handle = 0;
+      EntityHandle ss_handle = 0;
       for(; iter != end_iter; iter++)
       {
         int sideset_id;
@@ -1091,20 +1093,20 @@ MBErrorCode ReadNCDF::read_sidesets()
 
         if (!reverse_entities.empty()) {
             // also make a reverse set to put in this set
-          MBEntityHandle reverse_set;
+          EntityHandle reverse_set;
           if (mdbImpl->create_meshset(MESHSET_SET | MESHSET_TRACK_OWNER, reverse_set) != MB_SUCCESS)
             return MB_FAILURE;
 
 
             // add the reverse set to the sideset set and the entities to the reverse set
-          MBErrorCode result = mdbImpl->add_entities(ss_handle, &reverse_set, 1);
+          ErrorCode result = mdbImpl->add_entities(ss_handle, &reverse_set, 1);
           if (MB_SUCCESS != result) return result;
 
           result = mdbImpl->add_entities(reverse_set, &reverse_entities[0], reverse_entities.size());
           if (MB_SUCCESS != result) return result;
 
             // set the reverse tag
-          MBTag sense_tag;
+          Tag sense_tag;
           result = mdbImpl->tag_get_handle("SENSE", sense_tag);
           int dum_sense = 0;
           if (result == MB_TAG_NOT_FOUND) {
@@ -1145,12 +1147,12 @@ MBErrorCode ReadNCDF::read_sidesets()
 
 }
 
-MBErrorCode ReadNCDF::create_ss_elements( int *element_ids, 
+ErrorCode ReadNCDF::create_ss_elements( int *element_ids, 
                                             int *side_list, 
                                             int num_sides,  
                                             int num_dist_factors, 
-                                            std::vector<MBEntityHandle> &entities_to_add,
-                                            std::vector<MBEntityHandle> &reverse_entities,
+                                            std::vector<EntityHandle> &entities_to_add,
+                                            std::vector<EntityHandle> &reverse_entities,
                                             std::vector<double> &dist_factor_vector, 
                                            int ss_seq_id)
 {
@@ -1180,10 +1182,10 @@ MBErrorCode ReadNCDF::create_ss_elements( int *element_ids,
     }
   }
 
-  MBEntityType subtype;
+  EntityType subtype;
   int num_side_nodes, num_elem_nodes;
-  const MBEntityHandle* nodes;
-  std::vector<MBEntityHandle> connectivity;
+  const EntityHandle* nodes;
+  std::vector<EntityHandle> connectivity;
   int side_node_idx[32];
 
   int df_index = 0;
@@ -1196,9 +1198,9 @@ MBErrorCode ReadNCDF::create_ss_elements( int *element_ids,
     if( find_side_element_type( element_ids[i], exoii_type, block_data, df_index, side_list[i]) != MB_SUCCESS )
       continue; //isn't being read in this time
 
-    MBEntityType type = ExoIIUtil::ExoIIElementMBEntity[exoii_type];
+    EntityType type = ExoIIUtil::ExoIIElementMBEntity[exoii_type];
 
-    MBEntityHandle ent_handle = element_ids[i] - block_data.startExoId + block_data.startMBId;
+    EntityHandle ent_handle = element_ids[i] - block_data.startExoId + block_data.startMBId;
 
     const int side_num = side_list[i] - 1;
     if(type == MBHEX)
@@ -1386,19 +1388,19 @@ MBErrorCode ReadNCDF::create_ss_elements( int *element_ids,
   return MB_SUCCESS; 
 }
 
-MBErrorCode ReadNCDF::create_sideset_element( const std::vector<MBEntityHandle>& connectivity, 
-                                              MBEntityType type, MBEntityHandle& handle)
+ErrorCode ReadNCDF::create_sideset_element( const std::vector<EntityHandle>& connectivity, 
+                                              EntityType type, EntityHandle& handle)
 {
   // get adjacent entities
-  MBErrorCode error = MB_SUCCESS;
+  ErrorCode error = MB_SUCCESS;
   int to_dim = MBCN::Dimension(type);
-  std::vector<MBEntityHandle> adj_ent;
+  std::vector<EntityHandle> adj_ent;
   mdbImpl->get_adjacencies(&(connectivity[0]), 1, to_dim, false, adj_ent);
 
   // for each entity, see if we can find a match
   // if we find a match, return it
   bool match_found = false;
-  std::vector<MBEntityHandle> match_conn;
+  std::vector<EntityHandle> match_conn;
   for(unsigned int i=0; i<adj_ent.size() && match_found == false; i++)
   {
     // get the connectivity
@@ -1411,7 +1413,7 @@ MBErrorCode ReadNCDF::create_sideset_element( const std::vector<MBEntityHandle>&
       continue;
 
     // find a matching node
-    std::vector<MBEntityHandle>::iterator iter;
+    std::vector<EntityHandle>::iterator iter;
     iter = std::find(match_conn.begin(), match_conn.end(), connectivity[0]);
     if(iter == match_conn.end())
       continue;
@@ -1461,7 +1463,7 @@ MBErrorCode ReadNCDF::create_sideset_element( const std::vector<MBEntityHandle>&
 }
 
 
-MBErrorCode ReadNCDF::find_side_element_type( const int exodus_id, ExoIIElementType &elem_type, 
+ErrorCode ReadNCDF::find_side_element_type( const int exodus_id, ExoIIElementType &elem_type, 
                                                 ReadBlockData &block_data, int &df_index, int side_id)
 {
 
@@ -1510,7 +1512,7 @@ MBErrorCode ReadNCDF::find_side_element_type( const int exodus_id, ExoIIElementT
   return MB_FAILURE;
 }
 
-MBErrorCode ReadNCDF::read_qa_records(MBEntityHandle file_set)
+ErrorCode ReadNCDF::read_qa_records(EntityHandle file_set)
 {
   std::vector<std::string> qa_records;
   read_qa_information( qa_records );
@@ -1534,7 +1536,7 @@ MBErrorCode ReadNCDF::read_qa_records(MBEntityHandle file_set)
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadNCDF::read_qa_information(std::vector<std::string> &qa_record_list)
+ErrorCode ReadNCDF::read_qa_information(std::vector<std::string> &qa_record_list)
 {
   // inquire on the genesis file to find the number of qa records
 
@@ -1559,7 +1561,7 @@ MBErrorCode ReadNCDF::read_qa_information(std::vector<std::string> &qa_record_li
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadNCDF::read_qa_string(char *temp_string,
+ErrorCode ReadNCDF::read_qa_string(char *temp_string,
                                      int record_number,
                                      int record_position)
 {
@@ -1587,11 +1589,11 @@ MBErrorCode ReadNCDF::read_qa_string(char *temp_string,
 // The cub_file_set contains the mesh to be updated. There could exist other
 // file sets that should be kept separate, such as the geometry file set from
 // ReadCGM.
-MBErrorCode ReadNCDF::update(const char *exodus_file_name, 
+ErrorCode ReadNCDF::update(const char *exodus_file_name, 
                              const FileOptions& opts, 
                              const int num_blocks, 
                              const int *blocks_to_load,
-                             const MBEntityHandle cub_file_set)
+                             const EntityHandle cub_file_set)
 {
   //Function : updating current database from new exodus_file. 
   //Creator:   Jane Hu
@@ -1620,7 +1622,7 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
   // *******************************************************************
   // Move nodes to their deformed locations.
   // *******************************************************************  
-  MBErrorCode rval;
+  ErrorCode rval;
   std::string s;
   rval = opts.get_str_option("tdata", s ); 
   if(MB_SUCCESS != rval)
@@ -1806,20 +1808,20 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
   int lost = 0;
 
   // Place cub verts in a kdtree.
-  MBRange cub_verts;
+  Range cub_verts;
   rval = mdbImpl->get_entities_by_type( cub_file_set, MBVERTEX, cub_verts );
   if(MB_SUCCESS != rval) return rval;
   std::cout << "  cub_file_set contains " << cub_verts.size() << " nodes." 
             << std::endl;
-  MBAdaptiveKDTree kdtree( mdbImpl, true );
-  MBEntityHandle root;
-  MBAdaptiveKDTree::Settings settings;
+  AdaptiveKDTree kdtree( mdbImpl, true );
+  EntityHandle root;
+  AdaptiveKDTree::Settings settings;
   settings.maxEntPerLeaf = 1;                                   
   settings.candidateSplitsPerDir = 1;                
-  settings.candidatePlaneSet = MBAdaptiveKDTree::SUBDIVISION;
+  settings.candidatePlaneSet = AdaptiveKDTree::SUBDIVISION;
   rval = kdtree.build_tree( cub_verts, root, &settings );      
   if(MB_SUCCESS != rval) return rval;
-  MBAdaptiveKDTreeIter tree_iter;                                                     
+  AdaptiveKDTreeIter tree_iter;                                                     
   rval = kdtree.get_tree_iterator( root, tree_iter );
   if(MB_SUCCESS != rval) return rval;
 
@@ -1831,7 +1833,7 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
 
   // We should not use cub verts unless they have been matched. Place in a map
   // for fast handle_by_id lookup.
-  std::map<int,MBEntityHandle> matched_cub_vert_id_map;
+  std::map<int,EntityHandle> matched_cub_vert_id_map;
 
   // For each exo vert find the closest cub vert. Use proximity because kd-tree
   // search is O(logn) but MOAB tag search is O(n). For 150k nodes this 
@@ -1841,24 +1843,24 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
   std::cout << "  exodus file contains " << numberNodes_loading << " nodes." 
             << std::endl;
   for(int i=0; i<numberNodes_loading; ++i) {
-    MBEntityHandle cub_vert = 0;
-    std::vector<MBEntityHandle> leaves;
+    EntityHandle cub_vert = 0;
+    std::vector<EntityHandle> leaves;
     int exo_id = ptr[i];
-    MBCartVect exo_coords( orig_coords[0][i], orig_coords[1][i], orig_coords[2][i] );
+    CartVect exo_coords( orig_coords[0][i], orig_coords[1][i], orig_coords[2][i] );
 
     double min_dist = MAX_NODE_DIST;
 
     rval = kdtree.leaves_within_distance( root, exo_coords.array(), MAX_NODE_DIST, leaves );    
     if(MB_SUCCESS != rval) return rval;
-    for(std::vector<MBEntityHandle>::const_iterator j=leaves.begin(); 
+    for(std::vector<EntityHandle>::const_iterator j=leaves.begin(); 
       j!=leaves.end(); ++j) {
       //if(0 != cub_vert) break;
-      std::vector<MBEntityHandle> leaf_verts;
+      std::vector<EntityHandle> leaf_verts;
       rval = mdbImpl->get_entities_by_type( *j, MBVERTEX, leaf_verts );
       if(MB_SUCCESS != rval) return rval;
 
       // Find the matching cub node by id or proximity
-      for(std::vector<MBEntityHandle>::const_iterator k=leaf_verts.begin(); 
+      for(std::vector<EntityHandle>::const_iterator k=leaf_verts.begin(); 
         k!=leaf_verts.end(); ++k) {
         if(match_node_ids) {
           int cub_id;
@@ -1869,7 +1871,7 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
             break;
           }
         } else {
-          MBCartVect orig_cub_coords, difference;
+          CartVect orig_cub_coords, difference;
           rval = mdbImpl->get_coords( &(*k), 1, orig_cub_coords.array() );
           if(MB_SUCCESS != rval) return rval;
           difference = orig_cub_coords - exo_coords;
@@ -1883,7 +1885,7 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
     }
     // If a cub vert is found, update it with the deformed coords from the exo file.
     if(0 != cub_vert) {
-      MBCartVect updated_exo_coords;
+      CartVect updated_exo_coords;
       matched_cub_vert_id_map[exo_id] = cub_vert;
       updated_exo_coords[0] = orig_coords[0][i] + deformed_arrays[0][i];
       updated_exo_coords[1] = orig_coords[1][i] + deformed_arrays[1][i];
@@ -2034,13 +2036,13 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
     ExoIIElementType elem_type = ExoIIUtil::static_element_name_to_type(dum_str);
     delete [] dum_str;
     (*i).elemType = elem_type;
-    const MBEntityType mb_type = ExoIIUtil::ExoIIElementMBEntity[(*i).elemType];
+    const EntityType mb_type = ExoIIUtil::ExoIIElementMBEntity[(*i).elemType];
 
     // Get the number of nodes per element
     unsigned int nodes_per_element = ExoIIUtil::VerticesPerElement[(*i).elemType];
     
     // read the connectivity into that memory,  this will take only part of the array
-    // 1/2 if sizeof(MBEntityHandle) == 64 bits.
+    // 1/2 if sizeof(EntityHandle) == 64 bits.
     int exo_conn[i->numElements][nodes_per_element];
     NcBool status = temp_var->get( &exo_conn[0][0], i->numElements, nodes_per_element);
     if (0 == status) {
@@ -2082,7 +2084,7 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
     for (int j=0; j<i->numElements; ++j) {
       if (1 != death_status[j]) {
 
-        MBRange cub_elem, cub_nodes;
+        Range cub_elem, cub_nodes;
         if(match_elems_by_connectivity) {
           // get exodus nodes for the element
 	  std::vector<int> elem_conn(nodes_per_element);
@@ -2099,7 +2101,7 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
           // The map is a log search and takes almost no time. 
           // MOAB's linear tag search takes 5-10 minutes.
           for(unsigned int k=0; k<nodes_per_element; ++k) {
-	    std::map<int,MBEntityHandle>::iterator k_iter;
+	    std::map<int,EntityHandle>::iterator k_iter;
             k_iter = matched_cub_vert_id_map.find( elem_conn_node_ids[k] );
             
             if(k_iter == matched_cub_vert_id_map.end()) {
@@ -2130,7 +2132,7 @@ MBErrorCode ReadNCDF::update(const char *exodus_file_name,
           // get the element by id
           rval = mdbImpl->get_entities_by_type_and_tag( cub_file_set, mb_type, 
 		  				        &mGlobalIdTag, id, 1, cub_elem, 
-                                                        MBInterface::INTERSECT );
+                                                        Interface::INTERSECT );
           if(MB_SUCCESS != rval) return rval;
         }
 
@@ -2184,3 +2186,5 @@ void ReadNCDF::tokenize( const std::string& str,
       pos = str.size();
   }
 }
+
+} // namespace moab

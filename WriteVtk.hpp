@@ -19,76 +19,80 @@
 
 #include <iosfwd>
 
-#include "MBForward.hpp"
-#include "MBWriterIface.hpp"
+#include "moab/Forward.hpp"
+#include "moab/WriterIface.hpp"
 
-class MBWriteUtilIface;
+namespace moab {
 
-//class MB_DLL_EXPORT WriteVtk : public MBWriterIface
-class WriteVtk : public MBWriterIface
+class WriteUtilIface;
+
+//class MB_DLL_EXPORT WriteVtk : public WriterIface
+class WriteVtk : public WriterIface
 {
  
 public:
 
    //! Constructor
-   WriteVtk(MBInterface *impl);
+   WriteVtk(Interface *impl);
 
    //! Destructor
   virtual ~WriteVtk();
   
-  static MBWriterIface* factory( MBInterface* );
+  static WriterIface* factory( Interface* );
 
     //! writes out a file
-  MBErrorCode write_file(const char *file_name,
+  ErrorCode write_file(const char *file_name,
                          const bool overwrite,
                          const FileOptions& opts,
-                         const MBEntityHandle *output_list,
+                         const EntityHandle *output_list,
                          const int num_sets,
                          const std::vector<std::string>& qa_list,
-                         const MBTag* tag_list,
+                         const Tag* tag_list,
                          int num_tags,
                          int export_dimension);
 
 private:
 
     //! Get entities to write, given set list passed to \ref write_file
-  MBErrorCode gather_mesh( const MBEntityHandle* set_list,
+  ErrorCode gather_mesh( const EntityHandle* set_list,
                            int num_sets, 
-                           MBRange& nodes,
-                           MBRange& elems );
+                           Range& nodes,
+                           Range& elems );
     
     //! Write 4-line VTK file header
-  MBErrorCode write_header( std::ostream& stream );
+  ErrorCode write_header( std::ostream& stream );
   
     //! Write node coordinates
-  MBErrorCode write_nodes( std::ostream& stream, const MBRange& nodes );
+  ErrorCode write_nodes( std::ostream& stream, const Range& nodes );
   
     //! Write element connectivity
-  MBErrorCode write_elems( std::ostream& stream, const MBRange& nodes, const MBRange& elems );
+  ErrorCode write_elems( std::ostream& stream, const Range& nodes, const Range& elems );
   
     //! Write all tags on either the list of nodes or the list of elements
-  MBErrorCode write_tags( std::ostream& stream, bool nodes, const MBRange& entities,
-                          const MBTag* tag_list, int num_tags );
+  ErrorCode write_tags( std::ostream& stream, bool nodes, const Range& entities,
+                          const Tag* tag_list, int num_tags );
   
     //! Write the tad description for the passed tag and call the template
     //! \ref write_tag function to write the tag data.
-  MBErrorCode write_tag( std::ostream& stream, MBTag tag, const MBRange& entities, const MBRange& tagged_entities );
+  ErrorCode write_tag( std::ostream& stream, Tag tag, const Range& entities, const Range& tagged_entities );
   
     //! Write tag data
   template <typename T> 
-  MBErrorCode write_tag( std::ostream& stream, MBTag tag, const MBRange& entities, const MBRange& tagged_entities,
+  ErrorCode write_tag( std::ostream& stream, Tag tag, const Range& entities, const Range& tagged_entities,
                          const int);
 
-  MBErrorCode write_bit_tag( std::ostream& stream, MBTag tag, const MBRange& entities, const MBRange& tagged_entities );
+  ErrorCode write_bit_tag( std::ostream& stream, Tag tag, const Range& entities, const Range& tagged_entities );
     //! Write a list of values
   template <typename T>
   void write_data( std::ostream& stream, const std::vector<T>& data, unsigned vals_per_tag );
 
-  MBInterface* mbImpl;
-  MBWriteUtilIface* writeTool;
+  Interface* mbImpl;
+  WriteUtilIface* writeTool;
  
   bool mStrict; // If true, do not write data that cannot fit in strict VTK file format.
   
 };
+
+} // namespace moab
 
 #endif

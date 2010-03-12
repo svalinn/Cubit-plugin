@@ -2,9 +2,12 @@
 #define READ_TET_GEN_HPP
 
 #include <iosfwd>
-#include "MBForward.hpp"
-#include "MBReaderIface.hpp"
-class MBReadUtilIface;
+#include "moab/Forward.hpp"
+#include "moab/ReaderIface.hpp"
+
+namespace moab {
+
+class ReadUtilIface;
 
 /* TetGen mesh data is typically split into two or three files:
  * name.node : node data
@@ -28,22 +31,22 @@ class MBReadUtilIface;
  *                                     name is zero-length, the attribute data
  *                                     will be disgarded.  
  */
-class ReadTetGen : public MBReaderIface
+class ReadTetGen : public ReaderIface
 {
    
 public:
 
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
 
     //! load a file
-  MBErrorCode load_file( const char *file_name,
-                         const MBEntityHandle* file_set,
+  ErrorCode load_file( const char *file_name,
+                         const EntityHandle* file_set,
                          const FileOptions&,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int subset_list_length = 0,
-                         const MBTag* file_id_tag = 0 );
+                         const Tag* file_id_tag = 0 );
 
-  MBErrorCode read_tag_values( const char* file_name,
+  ErrorCode read_tag_values( const char* file_name,
                                const char* tag_name,
                                const FileOptions& opts,
                                std::vector<int>& tag_values_out,
@@ -51,15 +54,15 @@ public:
                                int subset_list_length = 0 );
   
     //! Constructor
-  ReadTetGen(MBInterface* impl = NULL);
+  ReadTetGen(Interface* impl = NULL);
 
    //! Destructor
   virtual ~ReadTetGen();
 
 private:
 
-  MBInterface* mbIface;
-  MBReadUtilIface* readTool;
+  Interface* mbIface;
+  ReadUtilIface* readTool;
 
   /**\brief Try to open one of several input files
    *
@@ -75,7 +78,7 @@ private:
    *\param opts             Input options list.
    *\param file_stream      The stream to open for the file.
    */
-  MBErrorCode open_file( const std::string& input_file_name,
+  ErrorCode open_file( const std::string& input_file_name,
                          const std::string& input_name_base,
                          const std::string& input_name_suffix,
                          const char* file_type_suffix,
@@ -92,11 +95,11 @@ private:
    *\param lineno Incremented for each real line read from the stream
    *              (including disgarded empty and comment lines.)
    */
-  MBErrorCode read_line( std::istream& file, std::string& line, int& lineno );
+  ErrorCode read_line( std::istream& file, std::string& line, int& lineno );
 
   /**\brief Read a line of double values from a file.
    */
-  MBErrorCode read_line( std::istream& file, 
+  ErrorCode read_line( std::istream& file, 
                          double* values_out, int num_values,
                          int& lineno );
 
@@ -116,22 +119,23 @@ private:
    * \param group_designator Input: special tag name used to designate an
    *                    attribute as the group (surface or volume) ID.
    */
-  MBErrorCode parse_attr_list( const std::string& option_str,
-                               std::vector<MBTag>& tag_list,
+  ErrorCode parse_attr_list( const std::string& option_str,
+                               std::vector<Tag>& tag_list,
                                std::vector<int>& index_list,
                                const char* group_designator = 0 );
 
-  MBErrorCode read_node_file( std::istream& file, 
-                              const MBTag* attr_tag_list,
+  ErrorCode read_node_file( std::istream& file, 
+                              const Tag* attr_tag_list,
                               const int* attr_tag_index,
                               int attr_tag_list_len,
-                              std::vector<MBEntityHandle>& nodes );
+                              std::vector<EntityHandle>& nodes );
 
-  MBErrorCode read_elem_file( MBEntityType type,
+  ErrorCode read_elem_file( EntityType type,
                               std::istream& file, 
-                              const std::vector<MBEntityHandle>& nodes,
-                              MBRange& elems );
+                              const std::vector<EntityHandle>& nodes,
+                              Range& elems );
 };
 
+} // namespace moab
 
 #endif // defined(READ_TET_GEN_HPP)

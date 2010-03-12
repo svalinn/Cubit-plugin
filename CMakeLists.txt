@@ -30,10 +30,6 @@
     ${MOAB_BINARY_DIR}/src
     ${MOAB_SOURCE_DIR}/src/parallel
     ${MOAB_BINARY_DIR}/src/parallel
-    ${MOAB_SOURCE_DIR}/src/moab
-    ${MOAB_BINARY_DIR}/src/moab
-    ${MOAB_SOURCE_DIR}/src/parallel/moab
-    ${MOAB_BINARY_DIR}/src/parallel/moab
   )
 
   if ( MOAB_USE_NETCDF )

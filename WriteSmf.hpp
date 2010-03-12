@@ -19,40 +19,44 @@
 
 #include <iosfwd>
 
-#include "MBForward.hpp"
-#include "MBWriterIface.hpp"
+#include "moab/Forward.hpp"
+#include "moab/WriterIface.hpp"
 
-class MBWriteUtilIface;
+namespace moab {
 
-//class MB_DLL_EXPORT WriteSmf : public MBWriterIface
-class WriteSmf : public MBWriterIface
+class WriteUtilIface;
+
+//class MB_DLL_EXPORT WriteSmf : public WriterIface
+class WriteSmf : public WriterIface
 {
  
 public:
 
    //! Constructor
-   WriteSmf(MBInterface *impl);
+   WriteSmf(Interface *impl);
 
    //! Destructor
   virtual ~WriteSmf();
   
-  static MBWriterIface* factory( MBInterface* );
+  static WriterIface* factory( Interface* );
 
     //! writes out a file
-  MBErrorCode write_file(const char *file_name,
+  ErrorCode write_file(const char *file_name,
                          const bool overwrite,
                          const FileOptions& opts,
-                         const MBEntityHandle *output_list,
+                         const EntityHandle *output_list,
                          const int num_sets,
                          const std::vector<std::string>& qa_list,
-                         const MBTag* tag_list,
+                         const Tag* tag_list,
                          int num_tags,
                          int export_dimension);
 
   private:
      
-    MBInterface* mbImpl;
-    MBWriteUtilIface* writeTool;
+    Interface* mbImpl;
+    WriteUtilIface* writeTool;
 };
+
+} // namespace moab
 
 #endif

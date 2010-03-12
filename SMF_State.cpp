@@ -4,8 +4,9 @@
 #include <cstring>
 #include <cstdlib>
 
-inline int streq(const char *a,const char *b) { return std::strcmp(a,b)==0; }
+static inline int streq(const char *a,const char *b) { return std::strcmp(a,b)==0; }
 
+namespace moab {
 
 SMF_State::SMF_State(const SMF_ivars& ivar, SMF_State *link)
 {
@@ -19,7 +20,7 @@ SMF_State::SMF_State(const SMF_ivars& ivar, SMF_State *link)
     else
     {
 	vertex_correction = 0;
-        MBAffineXform identity;
+        AffineXform identity;
 	xform = identity;
     }
 
@@ -54,17 +55,19 @@ void SMF_State::set( std::vector<std::string> & argv)
 	vertex_correction = atoi(argv[1].c_str());
 }
 
-void SMF_State::mmult(const MBAffineXform &M)
+void SMF_State::mmult(const AffineXform &M)
 {
     // initially, we tried this:
     // xform.accumulate(M);
     // maybe we should do M.accumulate(xform) 
-    MBAffineXform tmp=M;
+    AffineXform tmp=M;
     tmp.accumulate(xform);
     xform = tmp;
 }
 
-void SMF_State::mload(const MBAffineXform& M)
+void SMF_State::mload(const AffineXform& M)
 {
     xform = M;
 }
+
+} // namespace moab

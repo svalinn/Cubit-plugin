@@ -37,30 +37,32 @@
  *       ERROR_TAG
  */
 
-#include "MBInterface.hpp"
-#include "MBReaderIface.hpp"
+#include "moab/Interface.hpp"
+#include "moab/ReaderIface.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
 
-class MBReadUtilIface;
+namespace moab {
 
-class ReadMCNP5 : public MBReaderIface
+class ReadUtilIface;
+
+class ReadMCNP5 : public ReaderIface
 {
 
 public:
   // factory method
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
   
-  MBErrorCode load_file( const char*                 fname,
-                         const MBEntityHandle        *input_meshset,
+  ErrorCode load_file( const char*                 fname,
+                         const EntityHandle        *input_meshset,
                          const FileOptions           &options,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int                         subset_list_length = 0,
-                         const MBTag*                file_id_tag = 0 );
+                         const Tag*                file_id_tag = 0 );
 
-  MBErrorCode read_tag_values( const char*        file_name,
+  ErrorCode read_tag_values( const char*        file_name,
                                const char*        tag_name,
                                const FileOptions& opts,
                                std::vector<int>&  tag_values_out,
@@ -68,7 +70,7 @@ public:
                                int                subset_list_length = 0 );
 
   // constructor
-  ReadMCNP5(MBInterface* impl = NULL);
+  ReadMCNP5(Interface* impl = NULL);
 
   // destructor
   virtual ~ReadMCNP5();
@@ -90,64 +92,64 @@ private:
                   ELECTRON };
   
   // read mesh interface
-  MBReadUtilIface* readMeshIface;
+  ReadUtilIface* readMeshIface;
   
   // MOAB Interface
-  MBInterface* MBI;
+  Interface* MBI;
   
-  const MBTag* fileIDTag;
+  const Tag* fileIDTag;
   int nodeId, elemId;
 
   // reads the meshtal file
-  MBErrorCode load_one_file( const char           *fname,
-                             const MBEntityHandle *input_meshset,
+  ErrorCode load_one_file( const char           *fname,
+                             const EntityHandle *input_meshset,
                              const FileOptions    &options,
                              const bool           average );
   
-  MBErrorCode create_tags( MBTag &date_and_time_tag,  
-                           MBTag &title_tag,
-                           MBTag &nps_tag, 
-                           MBTag &tally_number_tag,   
-                           MBTag &tally_comment_tag,
-                           MBTag &tally_particle_tag, 
-                           MBTag &tally_coord_sys_tag,
-                           MBTag &tally_tag,          
-                           MBTag &error_tag );
+  ErrorCode create_tags( Tag &date_and_time_tag,  
+                           Tag &title_tag,
+                           Tag &nps_tag, 
+                           Tag &tally_number_tag,   
+                           Tag &tally_comment_tag,
+                           Tag &tally_particle_tag, 
+                           Tag &tally_coord_sys_tag,
+                           Tag &tally_tag,          
+                           Tag &error_tag );
 
-  MBErrorCode read_file_header( std::fstream      &file,
+  ErrorCode read_file_header( std::fstream      &file,
                                 bool              debug,
                                 char              date_and_time[100], 
                                 char              title[100], 
                                 unsigned long int &nps );
 
-  MBErrorCode set_header_tags( MBEntityHandle             output_meshset, 
+  ErrorCode set_header_tags( EntityHandle             output_meshset, 
                                         char              date_and_time[100],
                                         char              title[100],
                                         unsigned long int nps,
-                                        MBTag             data_and_time_tag,
-                                        MBTag             title_tag,
-                                        MBTag             nps_tag );
+                                        Tag             data_and_time_tag,
+                                        Tag             title_tag,
+                                        Tag             nps_tag );
 
-  MBErrorCode read_tally_header( std::fstream &file,
+  ErrorCode read_tally_header( std::fstream &file,
                                  bool         debug,
                                  unsigned int &tally_number,
                                  char         tally_comment[100],
                                  particle     &tally_particle );
 
-  MBErrorCode get_tally_particle( std::string a,
+  ErrorCode get_tally_particle( std::string a,
                                   bool        debug,
                                   particle    &tally_particle );
 
-  MBErrorCode read_mesh_planes( std::fstream         &file, 
+  ErrorCode read_mesh_planes( std::fstream         &file, 
                                 bool                 debug, 
                                 std::vector<double>  planes[3], 
                                 coordinate_system    &coord_sys);
 
-  MBErrorCode get_mesh_plane( std::istringstream  &ss, 
+  ErrorCode get_mesh_plane( std::istringstream  &ss, 
                               bool                debug, 
                               std::vector<double> &plane);
 
-  MBErrorCode read_element_values_and_errors( std::fstream        &file,
+  ErrorCode read_element_values_and_errors( std::fstream        &file,
                                               bool                debug,
                                               std::vector<double> planes[3],
                                               unsigned int        n_chopped_x0_planes,
@@ -156,51 +158,51 @@ private:
                                               double              values[],
                                               double              errors[] );
 
-  MBErrorCode set_tally_tags( MBEntityHandle    tally_meshset,
+  ErrorCode set_tally_tags( EntityHandle    tally_meshset,
                               unsigned int      tally_number,
                               char              tally_comment[100],
                               particle          tally_particle,
                               coordinate_system tally_coord_sys,
-                              MBTag             tally_number_tag, 
-                              MBTag             tally_comment_tag,
-                              MBTag             tally_particle_tag,
-                              MBTag             tally_coord_sys_tag );
+                              Tag             tally_number_tag, 
+                              Tag             tally_comment_tag,
+                              Tag             tally_particle_tag,
+                              Tag             tally_coord_sys_tag );
 
-  MBErrorCode create_vertices( std::vector<double> planes[3],
+  ErrorCode create_vertices( std::vector<double> planes[3],
                                bool                debug,
-                               MBEntityHandle      &start_vert,
+                               EntityHandle      &start_vert,
                                coordinate_system   coord_sys,
-                               MBEntityHandle      tally_meshset );
+                               EntityHandle      tally_meshset );
  
-  MBErrorCode create_elements( bool                debug, 
+  ErrorCode create_elements( bool                debug, 
                                std::vector<double> planes[3],
                                unsigned int        n_chopped_x0_planes,
                                unsigned int        n_chopped_x2_planes,
-                               MBEntityHandle      start_vert,
+                               EntityHandle      start_vert,
                                double              values[],
                                double              errors[],
-                               MBTag               tally_tag,
-                               MBTag               error_tag,
-                               MBEntityHandle      tally_meshset,
+                               Tag               tally_tag,
+                               Tag               error_tag,
+                               EntityHandle      tally_meshset,
                                coordinate_system   tally_coord_sys );
 
-  MBErrorCode average_with_existing_tally( bool              debug,
+  ErrorCode average_with_existing_tally( bool              debug,
                                            unsigned long int &new_nps,
                                            unsigned long int nps,
                                            unsigned int      tally_number,
-                                           MBTag             tally_number_tag,
-                                           MBTag             nps_tag,
-                                           MBTag             tally_tag,
-                                           MBTag             error_tag,
+                                           Tag             tally_number_tag,
+                                           Tag             nps_tag,
+                                           Tag             tally_tag,
+                                           Tag             error_tag,
                                            double            values[],
                                            double            errors[],
                                            unsigned int      n_elements );
   
-  MBErrorCode transform_point_to_cartesian(double *in, 
+  ErrorCode transform_point_to_cartesian(double *in, 
                                            double *out, 
                                            coordinate_system coord_sys);
 
-  MBErrorCode average_tally_values(const unsigned long int nps0, 
+  ErrorCode average_tally_values(const unsigned long int nps0, 
                                    const unsigned long int nps1,
                                    double                  *values0,
                                    const double            *values1,
@@ -208,3 +210,5 @@ private:
                                    const double            *errors1,
                                    const unsigned long int n_values);
 };
+
+} // namespace moab

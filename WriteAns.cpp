@@ -35,33 +35,35 @@
 #include <fstream>
 #include <iomanip>
 
-#include "MBInterface.hpp"
-#include "MBRange.hpp"
-#include "MBCN.hpp"
+#include "moab/Interface.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBCN.hpp"
 #include "assert.h"
-#include "MBInternals.hpp"
+#include "Internals.hpp"
 #include "ExoIIUtil.hpp"
-#include "MBTagConventions.hpp"
+#include "moab/MBTagConventions.hpp"
 
 #define INS_ID(stringvar, prefix, id) \
           sprintf(stringvar, prefix, id)
 
-MBWriterIface* WriteAns::factory( MBInterface* iface )
+namespace moab {
+
+WriterIface* WriteAns::factory( Interface* iface )
   { return new WriteAns( iface ); }
 
-WriteAns::WriteAns(MBInterface *impl) 
+WriteAns::WriteAns(Interface *impl) 
     : mbImpl(impl), mCurrentMeshHandle(0)
 {
   assert(impl != NULL);
 
   void* ptr = 0;
-  impl->query_interface( "MBWriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<MBWriteUtilIface*>(ptr);
+  impl->query_interface( "WriteUtilIface", &ptr );
+  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
 
     // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
   int dum_val = 0;
-  MBErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
+  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
   if (MB_TAG_NOT_FOUND == result)
     result = impl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mMaterialSetTag,
                               &dum_val);
@@ -80,18 +82,18 @@ WriteAns::WriteAns(MBInterface *impl)
 
 WriteAns::~WriteAns() 
 {
-  std::string iface_name = "MBWriteUtilIface";
+  std::string iface_name = "WriteUtilIface";
   mbImpl->release_interface(iface_name, mWriteIface);
 
 }
 
-MBErrorCode WriteAns::write_file(const char *file_name, 
+ErrorCode WriteAns::write_file(const char *file_name, 
                                       const bool /* overwrite (commented out to remove warning) */,
                                       const FileOptions&,
-                                      const MBEntityHandle *ent_handles,
+                                      const EntityHandle *ent_handles,
                                       const int num_sets,
                                       const std::vector<std::string>&, 
-                                      const MBTag* ,
+                                      const Tag* ,
                                       int ,
                                       int )
 {
@@ -99,7 +101,7 @@ MBErrorCode WriteAns::write_file(const char *file_name,
          0 != mNeumannSetTag &&
          0 != mDirichletSetTag);
   
-  MBErrorCode result;
+  ErrorCode result;
 
   //set SOLID45 element type to #60000, hope nobody has already...
   const char *ETSolid45 = "60045";
@@ -137,7 +139,7 @@ MBErrorCode WriteAns::write_file(const char *file_name,
   ans_file << "/prep7" << std::endl;
 
   //gather single output set
-  MBEntityHandle output_set = 0;
+  EntityHandle output_set = 0;
   if(ent_handles && num_sets > 0)
     {
       for(int i=0;i<num_sets;i++)
@@ -149,14 +151,14 @@ MBErrorCode WriteAns::write_file(const char *file_name,
     }
   
   //search for all nodes
-  MBRange node_range;
+  Range node_range;
   result=mbImpl->get_entities_by_type(output_set, MBVERTEX, node_range, true);
   if(result !=MB_SUCCESS) return result;
   
   
   // Commented out until Seg Fault taken care of in gather_nodes...
   //get any missing nodes which are needed for elements
-  //MBRange all_ent_range,missing_range;
+  //Range all_ent_range,missing_range;
   //result=mbImpl->get_entities_by_handle(output_set,all_ent_range,true);
   //if(result !=MB_SUCCESS) return result;
   //result=mWriteIface->gather_nodes_from_elements(all_ent_range,0,missing_range);
@@ -165,9 +167,9 @@ MBErrorCode WriteAns::write_file(const char *file_name,
 
   // write the nodes 
   double coord[3];
-  for(MBRange::iterator it = node_range.begin(); it != node_range.end(); it++)
+  for(Range::iterator it = node_range.begin(); it != node_range.end(); it++)
     {
-      MBEntityHandle node_handle = *it;
+      EntityHandle node_handle = *it;
      
       result = mbImpl->get_coords(&node_handle,1, coord);
       if(result !=MB_SUCCESS) return result;
@@ -186,20 +188,20 @@ MBErrorCode WriteAns::write_file(const char *file_name,
   ans_file << "nread," << base_string << ",node" << std::endl;
 
   //search for all node sets (Dirichlet Sets)
-  MBRange node_mesh_sets;
+  Range node_mesh_sets;
   int ns_id;
   result = mbImpl->get_entities_by_type_and_tag(0,MBENTITYSET,&mDirichletSetTag,NULL,1,node_mesh_sets);
   if(result !=MB_SUCCESS)return result;
 
-  for(MBRange::iterator ns_it = node_mesh_sets.begin(); ns_it!=node_mesh_sets.end();ns_it++)
+  for(Range::iterator ns_it = node_mesh_sets.begin(); ns_it!=node_mesh_sets.end();ns_it++)
     {
       result = mbImpl->tag_get_data(mDirichletSetTag, &(*ns_it),1,&ns_id);
       if(result !=MB_SUCCESS)return result;
-      std::vector<MBEntityHandle> node_vector;
+      std::vector<EntityHandle> node_vector;
       result = mbImpl->get_entities_by_handle(*ns_it,node_vector, true);
       if(result !=MB_SUCCESS)return result;
       //for every nodeset found, cycle through nodes in set:
-      for(std::vector<MBEntityHandle>::iterator node_it = node_vector.begin(); node_it!=node_vector.end();node_it++)
+      for(std::vector<EntityHandle>::iterator node_it = node_vector.begin(); node_it!=node_vector.end();node_it++)
 	{
 	  int ns_node_id = mbImpl->id_from_handle(*node_it);
 	  if(node_it==node_vector.begin())
@@ -228,14 +230,14 @@ MBErrorCode WriteAns::write_file(const char *file_name,
   // For all nodes past 8, write on second line
 
   //Write all MBTET elements
-  MBRange tet_range;
+  Range tet_range;
   result = mbImpl->get_entities_by_type(output_set, MBTET, tet_range, true);
   if(result !=MB_SUCCESS) return result;
-  for(MBRange::iterator elem_it=tet_range.begin();elem_it!=tet_range.end();elem_it++)
+  for(Range::iterator elem_it=tet_range.begin();elem_it!=tet_range.end();elem_it++)
     {
-      MBEntityHandle elem_handle = *elem_it;
+      EntityHandle elem_handle = *elem_it;
       int elem_id = mbImpl->id_from_handle(elem_handle);
-      std::vector<MBEntityHandle> conn;
+      std::vector<EntityHandle> conn;
       result = mbImpl->get_connectivity(&elem_handle, 1, conn, false);
       if(result !=MB_SUCCESS) return result;
       //make sure 4 or 10 node tet
@@ -276,14 +278,14 @@ MBErrorCode WriteAns::write_file(const char *file_name,
     }
 
   //Write all MBHEX elements
-  MBRange hex_range;
+  Range hex_range;
   result = mbImpl->get_entities_by_type(output_set, MBHEX, hex_range, true);
   if(result !=MB_SUCCESS) return result;
-  for(MBRange::iterator elem_it=hex_range.begin();elem_it!=hex_range.end();elem_it++)
+  for(Range::iterator elem_it=hex_range.begin();elem_it!=hex_range.end();elem_it++)
     {
-      MBEntityHandle elem_handle = *elem_it;
+      EntityHandle elem_handle = *elem_it;
       int elem_id = mbImpl->id_from_handle(elem_handle);
-      std::vector<MBEntityHandle> conn;
+      std::vector<EntityHandle> conn;
       result = mbImpl->get_connectivity(&elem_handle, 1, conn,false);
       if(result !=MB_SUCCESS) return result;
       //make sure supported hex type
@@ -330,14 +332,14 @@ MBErrorCode WriteAns::write_file(const char *file_name,
       
     }
   //Write all MBPRISM elements
-  MBRange prism_range;
+  Range prism_range;
   result = mbImpl->get_entities_by_type(output_set, MBPRISM, prism_range, true);
   if(result !=MB_SUCCESS) return result;
-  for(MBRange::iterator elem_it=prism_range.begin();elem_it!=prism_range.end();elem_it++)
+  for(Range::iterator elem_it=prism_range.begin();elem_it!=prism_range.end();elem_it++)
     {
-      MBEntityHandle elem_handle = *elem_it;
+      EntityHandle elem_handle = *elem_it;
       int elem_id = mbImpl->id_from_handle(elem_handle);
-      std::vector<MBEntityHandle> conn;
+      std::vector<EntityHandle> conn;
       result = mbImpl->get_connectivity(&elem_handle, 1, conn,false);
       if(result !=MB_SUCCESS) return result;
       //make sure supported prism type
@@ -373,26 +375,26 @@ MBErrorCode WriteAns::write_file(const char *file_name,
   ans_file << "eread," << base_string << ",elem" << std::endl;
 
   //search for all side sets (Neumann)
-  MBRange side_mesh_sets;
+  Range side_mesh_sets;
   int ss_id;
   result = mbImpl->get_entities_by_type_and_tag(0,MBENTITYSET,&mNeumannSetTag,NULL,1,side_mesh_sets);
   if(result !=MB_SUCCESS)return result;
   //cycle through all sets found
-  for(MBRange::iterator ss_it = side_mesh_sets.begin(); ss_it!=side_mesh_sets.end();ss_it++)
+  for(Range::iterator ss_it = side_mesh_sets.begin(); ss_it!=side_mesh_sets.end();ss_it++)
     {
       result = mbImpl->tag_get_data(mNeumannSetTag, &(*ss_it),1,&ss_id);
       if(result !=MB_SUCCESS)return result;
-      std::vector<MBEntityHandle> elem_vector;
+      std::vector<EntityHandle> elem_vector;
       result = mbImpl->get_entities_by_handle(*ss_it,elem_vector, true);
       if(result !=MB_SUCCESS)return result;
       
       //cycle through elements in current side set
-      for(std::vector<MBEntityHandle>::iterator elem_it = elem_vector.begin(); elem_it!=elem_vector.end();elem_it++)
+      for(std::vector<EntityHandle>::iterator elem_it = elem_vector.begin(); elem_it!=elem_vector.end();elem_it++)
 	{
-	  MBEntityHandle elem_handle = *elem_it;
+	  EntityHandle elem_handle = *elem_it;
 	  	  
 	  //instead of selecting current element in set, select its nodes...
-	  std::vector<MBEntityHandle> conn;
+	  std::vector<EntityHandle> conn;
 	  result = mbImpl->get_connectivity(&elem_handle, 1, conn);
 	  if(result !=MB_SUCCESS)return result;
 	  if(elem_it==elem_vector.begin())
@@ -415,23 +417,23 @@ MBErrorCode WriteAns::write_file(const char *file_name,
     }
   
   //Gather all element blocks
-  MBRange matset;
+  Range matset;
   int mat_id;
   result = mbImpl->get_entities_by_type_and_tag(0, MBENTITYSET, &mMaterialSetTag, NULL, 1, matset);
   if(result !=MB_SUCCESS)return result;
   //cycle through all elem blocks
-  for(MBRange::iterator mat_it = matset.begin(); mat_it!=matset.end();mat_it++)
+  for(Range::iterator mat_it = matset.begin(); mat_it!=matset.end();mat_it++)
     {
-      MBEntityHandle matset_handle = *mat_it;
+      EntityHandle matset_handle = *mat_it;
       result = mbImpl->tag_get_data(mMaterialSetTag,&matset_handle, 1,&mat_id);
       if(result !=MB_SUCCESS)return result;
-      std::vector<MBEntityHandle> mat_vector;
+      std::vector<EntityHandle> mat_vector;
       result = mbImpl->get_entities_by_handle(*mat_it,mat_vector, true);
       if(result !=MB_SUCCESS)return result;
       //cycle through elements in current mat set
-      for(std::vector<MBEntityHandle>::iterator elem_it = mat_vector.begin(); elem_it!=mat_vector.end();elem_it++)
+      for(std::vector<EntityHandle>::iterator elem_it = mat_vector.begin(); elem_it!=mat_vector.end();elem_it++)
 	{
-	  MBEntityHandle elem_handle = *elem_it;
+	  EntityHandle elem_handle = *elem_it;
 	  int elem_id = mbImpl->id_from_handle(elem_handle);
 	  if(elem_it==mat_vector.begin())
 	    {
@@ -451,3 +453,5 @@ MBErrorCode WriteAns::write_file(const char *file_name,
 
   return MB_SUCCESS;
 }
+
+} // namespace moab

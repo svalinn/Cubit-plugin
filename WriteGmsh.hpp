@@ -30,43 +30,47 @@
 #ifndef WRITE_GMSH_HPP
 #define WRITE_GMSH_HPP
 
-#include "MBForward.hpp"
-#include "MBWriterIface.hpp"
-class MBWriteUtilIface;
-
+#include "moab/Forward.hpp"
+#include "moab/WriterIface.hpp"
 #include <stdio.h>
 
-class WriteGmsh : public MBWriterIface
+namespace moab {
+
+class WriteUtilIface;
+
+class WriteGmsh : public WriterIface
 {
  
 public:
   
     //! factory method
-  static MBWriterIface* factory( MBInterface* );
+  static WriterIface* factory( Interface* );
 
    //! Constructor
-  WriteGmsh(MBInterface *impl);
+  WriteGmsh(Interface *impl);
 
    //! Destructor
   virtual ~WriteGmsh();
   
     //! writes out a file
-  MBErrorCode write_file(const char *file_name,
+  ErrorCode write_file(const char *file_name,
                          const bool overwrite,
                          const FileOptions& opts,
-                         const MBEntityHandle *output_list,
+                         const EntityHandle *output_list,
                          const int num_sets,
                          const std::vector<std::string>& qa_list,
-                         const MBTag* tag_list,
+                         const Tag* tag_list,
                          int num_tags,
                          int export_dimension);  
 
 private:
                                        
     //! interface instance
-  MBInterface *mbImpl;
-  MBWriteUtilIface* mWriteIface;
+  Interface *mbImpl;
+  WriteUtilIface* mWriteIface;
 
 };
+
+} // namespace moab
 
 #endif

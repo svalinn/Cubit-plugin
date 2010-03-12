@@ -15,6 +15,8 @@
 
 #include "VtkUtil.hpp"
 
+namespace moab {
+
 
 const char* VtkUtil::vtkTypeNames[] = {
  "unsigned_char", // MB_TYPE_OPAQUE
@@ -30,7 +32,7 @@ const unsigned VtkUtil::typeSizes[] = {
  sizeof(int),            // MB_TYPE_INTEGER
  sizeof(double),         // MB_TYPE_DOUBLE
  1,                      // MB_TYPE_BIT
- sizeof(MBEntityHandle), // MB_TYPE_HANDLE
+ sizeof(EntityHandle), // MB_TYPE_HANDLE
 };
 */
 
@@ -96,7 +98,7 @@ const VtkElemType VtkUtil::vtkElemTypes[] = {
 
 const unsigned VtkUtil::numVtkElemType = sizeof(VtkUtil::vtkElemTypes) / sizeof(VtkUtil::vtkElemTypes[0]);
 
-// Define an array, indexed by MBEntityType containing the corresponding 
+// Define an array, indexed by EntityType containing the corresponding 
 // VTK element type numbers for the linear, quadratic (mid-edge),
 // and full (mid-face & mid-region node) elements.
 // Zero is used to indicate an invalid type (not supported by VTK.)  The
@@ -116,7 +118,7 @@ const int mb_to_vtk_type[][3] = {
   {  0,  0,  0 },  // MBENTITYSET
   {  0,  0,  0 } };// MBMAXTYPE
 
-const VtkElemType* VtkUtil::get_vtk_type( MBEntityType type, unsigned num_nodes )
+const VtkElemType* VtkUtil::get_vtk_type( EntityType type, unsigned num_nodes )
 {
   const int i = mb_to_vtk_type[type][0]; // Index for linear type
   const int j = mb_to_vtk_type[type][1]; // Index for quadratic type
@@ -140,3 +142,4 @@ const VtkElemType* VtkUtil::get_vtk_type( MBEntityType type, unsigned num_nodes 
   return 0;
 }
 
+} // namespace moab

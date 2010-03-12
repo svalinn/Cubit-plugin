@@ -34,50 +34,52 @@
 #include <set>
 #include <iterator>
 
-#include "MBInterface.hpp"
-#include "MBRange.hpp"
-#include "MBCN.hpp"
-#include "MBTagConventions.hpp"
-#include "MBWriteUtilIface.hpp"
-#include "MBInternals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBCN.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "moab/WriteUtilIface.hpp"
+#include "Internals.hpp"
 #include "FileOptions.hpp"
-#include "MBVersion.h"
+#include "moab/Version.h"
 
 #define INS_ID(stringvar, prefix, id) \
 sprintf(stringvar, prefix, id)
 
+namespace moab {
+
 const int DEFAULT_PRECISION = 10;
 const bool DEFAULT_STRICT = true;
 
-MBWriterIface *WriteVtk::factory( MBInterface* iface )
+WriterIface *WriteVtk::factory( Interface* iface )
   { return new WriteVtk( iface ); }
 
-WriteVtk::WriteVtk(MBInterface *impl) 
+WriteVtk::WriteVtk(Interface *impl) 
     : mbImpl(impl), writeTool(0), mStrict(DEFAULT_STRICT)
 {
   assert(impl != NULL);
 
   void* ptr = 0;
-  impl->query_interface( "MBWriteUtilIface", &ptr );
-  writeTool = reinterpret_cast<MBWriteUtilIface*>(ptr);
+  impl->query_interface( "WriteUtilIface", &ptr );
+  writeTool = reinterpret_cast<WriteUtilIface*>(ptr);
 }
 
 WriteVtk::~WriteVtk() 
 {
-  mbImpl->release_interface("MBWriteUtilIface", writeTool);
+  mbImpl->release_interface("WriteUtilIface", writeTool);
 }
 
-MBErrorCode WriteVtk::write_file(const char *file_name, 
+ErrorCode WriteVtk::write_file(const char *file_name, 
                                  const bool overwrite,
                                  const FileOptions& opts,
-                                 const MBEntityHandle *output_list,
+                                 const EntityHandle *output_list,
                                  const int num_sets,
                                  const std::vector<std::string>& ,
-                                 const MBTag* tag_list,
+                                 const Tag* tag_list,
                                  int num_tags,
                                  int )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
 
     // Get precision for node coordinates
   int precision;
@@ -92,7 +94,7 @@ MBErrorCode WriteVtk::write_file(const char *file_name,
     mStrict = DEFAULT_STRICT;
   
     // Get entities to write
-  MBRange nodes, elems;
+  Range nodes, elems;
   rval = gather_mesh( output_list, num_sets, nodes, elems );
   if (MB_SUCCESS != rval)
     return rval;
@@ -130,21 +132,21 @@ MBErrorCode WriteVtk::write_file(const char *file_name,
 }
 
 
-MBErrorCode WriteVtk::gather_mesh( const MBEntityHandle* set_list,
+ErrorCode WriteVtk::gather_mesh( const EntityHandle* set_list,
                                    int num_sets, 
-                                   MBRange& nodes,
-                                   MBRange& elems )
+                                   Range& nodes,
+                                   Range& elems )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
   int e;
   
   if (!set_list || !num_sets)
   {
-    MBRange a;
+    Range a;
     rval = mbImpl->get_entities_by_handle( 0, a );
     if (MB_SUCCESS != rval) return rval;
 
-    MBRange::const_iterator node_i, elem_i, set_i;
+    Range::const_iterator node_i, elem_i, set_i;
     node_i = a.lower_bound( a.begin(), a.end(), CREATE_HANDLE(    MBVERTEX, 0, e ) );
     elem_i = a.lower_bound(    node_i, a.end(), CREATE_HANDLE(      MBEDGE, 0, e ) );
     set_i  = a.lower_bound(    elem_i, a.end(), CREATE_HANDLE( MBENTITYSET, 0, e ) );
@@ -152,10 +154,10 @@ MBErrorCode WriteVtk::gather_mesh( const MBEntityHandle* set_list,
     elems.merge( elem_i, set_i );
 
       // filter out unsupported element types
-    MBEntityType et = MBEDGE;
+    EntityType et = MBEDGE;
     for (et++; et < MBENTITYSET; et++) {
       if (VtkUtil::get_vtk_type(et, MBCN::VerticesPerEntity(et))) continue;
-      MBRange::iterator 
+      Range::iterator 
         eit = elems.lower_bound(elems.begin(), elems.end(), CREATE_HANDLE(et, 0, e)),
         ep1it = elems.lower_bound(elems.begin(), elems.end(), CREATE_HANDLE(et+1, 0, e));
       elems.erase(eit, ep1it);
@@ -163,23 +165,23 @@ MBErrorCode WriteVtk::gather_mesh( const MBEntityHandle* set_list,
   }
   else
   {
-    std::set<MBEntityHandle> visited;
-    std::vector<MBEntityHandle> sets;
+    std::set<EntityHandle> visited;
+    std::vector<EntityHandle> sets;
     sets.reserve(num_sets);
     std::copy( set_list, set_list + num_sets, std::back_inserter(sets) );
     while (!sets.empty()) {
         // get next set
-      MBEntityHandle set = sets.back();
+      EntityHandle set = sets.back();
       sets.pop_back();
         // skip sets we've already done
       if (!visited.insert(set).second)
         continue;
       
-      MBRange a;
+      Range a;
       rval = mbImpl->get_entities_by_handle( set, a );
       if (MB_SUCCESS != rval) return rval;
       
-      MBRange::const_iterator node_i, elem_i, set_i;
+      Range::const_iterator node_i, elem_i, set_i;
       node_i = a.lower_bound( a.begin(), a.end(), CREATE_HANDLE(    MBVERTEX, 0, e ) );
       elem_i = a.lower_bound(    node_i, a.end(), CREATE_HANDLE(      MBEDGE, 0, e ) );
       set_i  = a.lower_bound(    elem_i, a.end(), CREATE_HANDLE( MBENTITYSET, 0, e ) );
@@ -192,9 +194,9 @@ MBErrorCode WriteVtk::gather_mesh( const MBEntityHandle* set_list,
       std::copy( a.begin(), a.end(), std::back_inserter(sets) );
     }
     
-    for (MBRange::const_iterator e = elems.begin(); e != elems.end(); ++e)
+    for (Range::const_iterator e = elems.begin(); e != elems.end(); ++e)
     {
-      const MBEntityHandle* conn;
+      const EntityHandle* conn;
       int conn_len;
       rval = mbImpl->get_connectivity( *e, conn, conn_len );
       if (MB_SUCCESS != rval) return rval;
@@ -213,7 +215,7 @@ MBErrorCode WriteVtk::gather_mesh( const MBEntityHandle* set_list,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteVtk::write_header( std::ostream& stream )
+ErrorCode WriteVtk::write_header( std::ostream& stream )
 {
   stream << "# vtk DataFile Version 3.0" << std::endl;
   stream << MB_VERSION_STRING << std::endl;
@@ -223,14 +225,14 @@ MBErrorCode WriteVtk::write_header( std::ostream& stream )
 }
 
 
-MBErrorCode WriteVtk::write_nodes( std::ostream& stream, const MBRange& nodes )
+ErrorCode WriteVtk::write_nodes( std::ostream& stream, const Range& nodes )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
   
   stream << "POINTS " << nodes.size() << " double" << std::endl;
   
   double coords[3];
-  for (MBRange::const_iterator i = nodes.begin(); i != nodes.end(); ++i) {
+  for (Range::const_iterator i = nodes.begin(); i != nodes.end(); ++i) {
     coords[1] = coords[2] = 0.0;
     rval = mbImpl->get_coords( &*i, 1, coords );
     if (MB_SUCCESS != rval)
@@ -241,20 +243,20 @@ MBErrorCode WriteVtk::write_nodes( std::ostream& stream, const MBRange& nodes )
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteVtk::write_elems( std::ostream& stream, 
-                                   const MBRange& nodes,
-                                   const MBRange& elems )
+ErrorCode WriteVtk::write_elems( std::ostream& stream, 
+                                   const Range& nodes,
+                                   const Range& elems )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
 
   // Get and write counts
   unsigned long num_elems, num_uses;
   num_elems = num_uses = elems.size();
-  for (MBRange::const_iterator i = elems.begin(); i != elems.end(); ++i)
+  for (Range::const_iterator i = elems.begin(); i != elems.end(); ++i)
   {
-    MBEntityType type = mbImpl->type_from_handle(*i);
+    EntityType type = mbImpl->type_from_handle(*i);
     if (!VtkUtil::get_vtk_type(type, MBCN::VerticesPerEntity(type))) continue;
-    const MBEntityHandle* conn;
+    const EntityHandle* conn;
     int conn_len;
     rval = mbImpl->get_connectivity( *i, conn, conn_len );
     if (MB_SUCCESS != rval)
@@ -267,13 +269,13 @@ MBErrorCode WriteVtk::write_elems( std::ostream& stream,
   std::vector<int> conn_data;
   std::vector<unsigned> vtk_types( elems.size() );
   std::vector<unsigned>::iterator t = vtk_types.begin();
-  for (MBRange::const_iterator i = elems.begin(); i != elems.end(); ++i)
+  for (Range::const_iterator i = elems.begin(); i != elems.end(); ++i)
   {
       // Get type information for element
-    MBEntityType type = TYPE_FROM_HANDLE(*i);
+    EntityType type = TYPE_FROM_HANDLE(*i);
 
       // Get element connectivity
-    const MBEntityHandle* conn;
+    const EntityHandle* conn;
     int conn_len;
     rval = mbImpl->get_connectivity( *i, conn, conn_len );
     if (MB_SUCCESS != rval)
@@ -319,13 +321,13 @@ MBErrorCode WriteVtk::write_elems( std::ostream& stream,
 
 
 
-MBErrorCode WriteVtk::write_tags( std::ostream& stream, 
+ErrorCode WriteVtk::write_tags( std::ostream& stream, 
                                   bool nodes, 
-                                  const MBRange& entities,
-                                  const MBTag* tag_list,
+                                  const Range& entities,
+                                  const Tag* tag_list,
                                   int num_tags )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
   
     // The #$%@#$% MOAB interface does not have a function to retreive
     // all entities with a tag, only all entities with a specified type
@@ -334,7 +336,7 @@ MBErrorCode WriteVtk::write_tags( std::ostream& stream,
     // to have the implementation subdivide the results by type and have
     // to call that function once for each type just to recombine the results.
     // Unfortunamtely, there doesn't seem to be any other way.
-  MBEntityType low_type, high_type;
+  EntityType low_type, high_type;
   if (nodes) 
   {
     low_type = MBVERTEX;
@@ -347,18 +349,18 @@ MBErrorCode WriteVtk::write_tags( std::ostream& stream,
   }
 
     // Get all defined tags
-  std::vector<MBTag> tags;
-  std::vector<MBTag>::iterator i;
+  std::vector<Tag> tags;
+  std::vector<Tag>::iterator i;
   rval = writeTool->get_tag_list( tags, tag_list, num_tags, false );
   if (MB_SUCCESS != rval)
     return rval;
   
     // For each tag...  
   bool entities_have_tags = false;
-  for (std::vector<MBTag>::iterator i = tags.begin(); i != tags.end(); ++i)
+  for (std::vector<Tag>::iterator i = tags.begin(); i != tags.end(); ++i)
   {
       // Skip tags holding entity handles -- no way to save them
-    MBDataType type;
+    DataType type;
     rval = mbImpl->tag_get_data_type( *i, type );
     if (MB_SUCCESS != rval)
       return rval;
@@ -366,7 +368,7 @@ MBErrorCode WriteVtk::write_tags( std::ostream& stream,
       continue;
       
       // Get size.  Variable-length tags should have been filtered
-      // out by MBWriteUtil already.
+      // out by WriteUtil already.
     int size;
     rval = mbImpl->tag_get_size( *i, size );
     if (MB_SUCCESS != rval)
@@ -396,10 +398,10 @@ MBErrorCode WriteVtk::write_tags( std::ostream& stream,
           
     
       // Get subset of input entities that have the tag set
-    MBRange tagged;
-    for (MBEntityType type = low_type; type < high_type; ++type)
+    Range tagged;
+    for (EntityType type = low_type; type < high_type; ++type)
     {
-      MBRange tmp_tagged;
+      Range tmp_tagged;
       rval = mbImpl->get_entities_by_type_and_tag( 0, type, &*i, 0, 1, tmp_tagged );
       if (MB_SUCCESS != rval)
         return rval;
@@ -470,10 +472,10 @@ void WriteVtk::write_data( std::ostream& stream,
 
 
 template <typename T>
-MBErrorCode WriteVtk::write_tag( std::ostream& stream, MBTag tag, const MBRange& entities, const MBRange& tagged,
+ErrorCode WriteVtk::write_tag( std::ostream& stream, Tag tag, const Range& entities, const Range& tagged,
                                  const int)
 {
-  MBErrorCode rval;
+  ErrorCode rval;
   const unsigned long n = entities.size();
   
     // Get tag properties  
@@ -496,9 +498,9 @@ MBErrorCode WriteVtk::write_tag( std::ostream& stream, MBTag tag, const MBRange&
     // the entities that actually have the tag set.
   std::vector<T> data;
   data.resize( n * vals_per_tag, 0 );
-  MBRange::const_iterator t = tagged.begin();
+  Range::const_iterator t = tagged.begin();
   typename std::vector<T>::iterator d = data.begin();
-  for (MBRange::const_iterator i = entities.begin(); 
+  for (Range::const_iterator i = entities.begin(); 
        i != entities.end() && t != tagged.end(); ++i, d += vals_per_tag)
   {
     if (*i == *t)
@@ -516,12 +518,12 @@ MBErrorCode WriteVtk::write_tag( std::ostream& stream, MBTag tag, const MBRange&
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteVtk::write_bit_tag( std::ostream& stream, 
-                                     MBTag tag, 
-                                     const MBRange& entities, 
-                                     const MBRange& tagged )
+ErrorCode WriteVtk::write_bit_tag( std::ostream& stream, 
+                                     Tag tag, 
+                                     const Range& entities, 
+                                     const Range& tagged )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
   const unsigned long n = entities.size();
   
     // Get tag properties  
@@ -544,9 +546,9 @@ MBErrorCode WriteVtk::write_bit_tag( std::ostream& stream,
     // those entities for which the tag is not set.
   std::vector<unsigned short> data;
   data.resize( n * vals_per_tag, 0 );
-  MBRange::const_iterator t = tagged.begin();
+  Range::const_iterator t = tagged.begin();
   std::vector<unsigned short>::iterator d = data.begin();
-  for (MBRange::const_iterator i = entities.begin(); 
+  for (Range::const_iterator i = entities.begin(); 
        i != entities.end() && t != tagged.end(); ++i)
   {
     if (*i == *t)
@@ -572,13 +574,13 @@ MBErrorCode WriteVtk::write_bit_tag( std::ostream& stream,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteVtk::write_tag( std::ostream& s, MBTag tag,
-                                 const MBRange& entities,
-                                 const MBRange& tagged )
+ErrorCode WriteVtk::write_tag( std::ostream& s, Tag tag,
+                                 const Range& entities,
+                                 const Range& tagged )
 {
     // Get tag properties
   std::string name;
-  MBDataType type;
+  DataType type;
   int size;
   if (MB_SUCCESS != mbImpl->tag_get_name( tag, name ) ||
       MB_SUCCESS != mbImpl->tag_get_size( tag, size ) ||
@@ -632,4 +634,4 @@ MBErrorCode WriteVtk::write_tag( std::ostream& s, MBTag tag,
   }
 }
 
-  
+} // namespace moab

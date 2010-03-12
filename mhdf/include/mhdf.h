@@ -529,7 +529,7 @@ mhdf_readNodeCoordWithOpt( hid_t data_handle,
  * Add a element group to the file. 
  * An element group is the data for a block of elements with the same 
  * TSTT type and same number of nodes in their connectivity data.
- * (e.g. all the HEX20 elements).  This function is also
+ * (e.g. all the MBHEX20 elements).  This function is also
  * used to create the groups for general polygon data and
  * general polyhedron data.  The requirement that all elements
  * have the same number of nodes in their connectivity does not
@@ -558,7 +558,7 @@ mhdf_addElement( mhdf_FileHandle file_handle,
  * Get the list of element groups in the file.
  * An element group is the data for a block of elements with the same 
  * TSTT type and same number of nodes in their connectivity data.
- * (e.g. all the HEX20 elements).  This function is also
+ * (e.g. all the MBHEX20 elements).  This function is also
  * used to retrieve the groups for general polygon data and
  * general polyhedron data.  The requirement that all elements
  * have the same number of nodes in their connectivity does not

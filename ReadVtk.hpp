@@ -16,30 +16,32 @@
 #ifndef READ_VTK_HPP
 #define READ_VTK_HPP
 
-#include "MBForward.hpp"
-#include "MBReaderIface.hpp"
+#include "moab/Forward.hpp"
+#include "moab/ReaderIface.hpp"
 
 #include <string>
 
-class MBReadUtilIface;
+namespace moab {
+
+class ReadUtilIface;
 class FileTokenizer;
 
-class ReadVtk : public MBReaderIface
+class ReadVtk : public ReaderIface
 {
    
 public:
 
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
 
     //! load a file
-  MBErrorCode load_file( const char *file_name,
-                         const MBEntityHandle* file_set,
+  ErrorCode load_file( const char *file_name,
+                         const EntityHandle* file_set,
                          const FileOptions&,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int subset_list_length = 0,
-                         const MBTag* file_id_tag = 0 );
+                         const Tag* file_id_tag = 0 );
 
-  MBErrorCode read_tag_values( const char* file_name,
+  ErrorCode read_tag_values( const char* file_name,
                                const char* tag_name,
                                const FileOptions& opts,
                                std::vector<int>& tag_values_out,
@@ -47,116 +49,118 @@ public:
                                int subset_list_length = 0 );
   
     //! Constructor
-  ReadVtk(MBInterface* impl = NULL);
+  ReadVtk(Interface* impl = NULL);
 
    //! Destructor
   virtual ~ReadVtk();
 
 protected:
 
-  MBErrorCode allocate_vertices( long num_vtx,
-                                 MBEntityHandle& start_handle_out,
+  ErrorCode allocate_vertices( long num_vtx,
+                                 EntityHandle& start_handle_out,
                                  double*& x_coord_array_out,
                                  double*& y_coord_array_out,
                                  double*& z_coord_array_out );
 
-  MBErrorCode read_vertices( FileTokenizer& tokens,
+  ErrorCode read_vertices( FileTokenizer& tokens,
                              long num_verts, 
-                             MBEntityHandle& start_handle_out );
+                             EntityHandle& start_handle_out );
 
-  MBErrorCode allocate_elements( long num_elements,
+  ErrorCode allocate_elements( long num_elements,
                                  int vert_per_element,
-                                 MBEntityType type,
-                                 MBEntityHandle& start_handle_out,
-                                 MBEntityHandle*& conn_array_out,
-                                 std::vector<MBRange>& append_to_this );
+                                 EntityType type,
+                                 EntityHandle& start_handle_out,
+                                 EntityHandle*& conn_array_out,
+                                 std::vector<Range>& append_to_this );
 
-  MBErrorCode vtk_read_dataset( FileTokenizer& tokens,
-                                MBRange& vertex_list,
-                                std::vector<MBRange>& element_list );
+  ErrorCode vtk_read_dataset( FileTokenizer& tokens,
+                                Range& vertex_list,
+                                std::vector<Range>& element_list );
 
-  MBErrorCode vtk_read_structured_points( FileTokenizer& tokens, 
-                                          MBRange& vertex_list,
-                                          std::vector<MBRange>& elem_list );
+  ErrorCode vtk_read_structured_points( FileTokenizer& tokens, 
+                                          Range& vertex_list,
+                                          std::vector<Range>& elem_list );
 
-  MBErrorCode vtk_read_structured_grid( FileTokenizer& tokens, 
-                                        MBRange& vertex_list,
-                                        std::vector<MBRange>& elem_list );
+  ErrorCode vtk_read_structured_grid( FileTokenizer& tokens, 
+                                        Range& vertex_list,
+                                        std::vector<Range>& elem_list );
 
-  MBErrorCode vtk_read_rectilinear_grid( FileTokenizer& tokens, 
-                                         MBRange& vertex_list,
-                                         std::vector<MBRange>& elem_list );
+  ErrorCode vtk_read_rectilinear_grid( FileTokenizer& tokens, 
+                                         Range& vertex_list,
+                                         std::vector<Range>& elem_list );
                                          
-  MBErrorCode vtk_read_polydata( FileTokenizer& tokens, 
-                                 MBRange& vertex_list,
-                                 std::vector<MBRange>& elem_list );
+  ErrorCode vtk_read_polydata( FileTokenizer& tokens, 
+                                 Range& vertex_list,
+                                 std::vector<Range>& elem_list );
                                  
-  MBErrorCode vtk_read_polygons( FileTokenizer& tokens,
-                                 MBEntityHandle first_vtx, 
-                                 std::vector<MBRange>& elem_list );
+  ErrorCode vtk_read_polygons( FileTokenizer& tokens,
+                                 EntityHandle first_vtx, 
+                                 std::vector<Range>& elem_list );
 
-  MBErrorCode vtk_read_unstructured_grid( FileTokenizer& tokens,
-                                          MBRange& vertex_list,
-                                          std::vector<MBRange>& elem_list  );
+  ErrorCode vtk_read_unstructured_grid( FileTokenizer& tokens,
+                                          Range& vertex_list,
+                                          std::vector<Range>& elem_list  );
 
-  MBErrorCode vtk_create_structured_elems( const long* dims, 
-                                           MBEntityHandle first_vtx,
-                                           std::vector<MBRange>& elem_list );
+  ErrorCode vtk_create_structured_elems( const long* dims, 
+                                           EntityHandle first_vtx,
+                                           std::vector<Range>& elem_list );
 
-  MBErrorCode vtk_read_field( FileTokenizer& tokens );
+  ErrorCode vtk_read_field( FileTokenizer& tokens );
 
-  MBErrorCode vtk_read_attrib_data( FileTokenizer& tokens, 
-                                    std::vector<MBRange>& entities );
+  ErrorCode vtk_read_attrib_data( FileTokenizer& tokens, 
+                                    std::vector<Range>& entities );
 
-  MBErrorCode vtk_read_tag_data( FileTokenizer& tokens, 
+  ErrorCode vtk_read_tag_data( FileTokenizer& tokens, 
                                  int type, 
                                  size_t per_elem, 
-                                 std::vector<MBRange>& entities,
+                                 std::vector<Range>& entities,
                                  const char* name );
 
-  MBErrorCode vtk_read_scalar_attrib( FileTokenizer& tokens, 
-                                      std::vector<MBRange>& entities,
+  ErrorCode vtk_read_scalar_attrib( FileTokenizer& tokens, 
+                                      std::vector<Range>& entities,
                                       const char* name);
 
-  MBErrorCode vtk_read_color_attrib( FileTokenizer& tokens, 
-                                     std::vector<MBRange>& entities,
+  ErrorCode vtk_read_color_attrib( FileTokenizer& tokens, 
+                                     std::vector<Range>& entities,
                                      const char* name);
 
-  MBErrorCode vtk_read_vector_attrib( FileTokenizer& tokens, 
-                                      std::vector<MBRange>& entities,
+  ErrorCode vtk_read_vector_attrib( FileTokenizer& tokens, 
+                                      std::vector<Range>& entities,
                                       const char* name);
 
-  MBErrorCode vtk_read_texture_attrib( FileTokenizer& tokens,
-                                       std::vector<MBRange>& entities,
+  ErrorCode vtk_read_texture_attrib( FileTokenizer& tokens,
+                                       std::vector<Range>& entities,
                                        const char* name);
 
-  MBErrorCode vtk_read_tensor_attrib( FileTokenizer& tokens,
-                                      std::vector<MBRange>& entities,
+  ErrorCode vtk_read_tensor_attrib( FileTokenizer& tokens,
+                                      std::vector<Range>& entities,
                                       const char* name );
 
-  MBErrorCode vtk_read_field_attrib( FileTokenizer& tokens, 
-                                     std::vector<MBRange>& entities,
+  ErrorCode vtk_read_field_attrib( FileTokenizer& tokens, 
+                                     std::vector<Range>& entities,
                                      const char* name);
 
-  MBErrorCode store_file_ids( MBTag tag,
-                              const MBRange& vertices,
-                              const std::vector<MBRange>& elements );
+  ErrorCode store_file_ids( Tag tag,
+                              const Range& vertices,
+                              const std::vector<Range>& elements );
 
 private:
 
-  MBReadUtilIface* readMeshIface;
+  ReadUtilIface* readMeshIface;
 
   //------------member variables ------------//
 
     //! interface instance
-  MBInterface* mdbImpl;
+  Interface* mdbImpl;
 
     //! Meshset Handle for the mesh that is currently being read
-  MBEntityHandle mCurrentMeshHandle;
+  EntityHandle mCurrentMeshHandle;
 
     //! A field which, if present and having a single integer for storage, should be used to partition the mesh by range. Defaults to MATERIAL_SET_TAG_NAME
   std::string mPartitionTagName;
 };
+
+} // namespace moab
 
 #endif
 

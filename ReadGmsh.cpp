@@ -24,13 +24,13 @@
 
 #include "ReadGmsh.hpp"
 #include "FileTokenizer.hpp" // for file tokenizer
-#include "MBInternals.hpp"
-#include "MBInterface.hpp"
-#include "MBReadUtilIface.hpp"
-#include "MBRange.hpp"
-#include "MBTagConventions.hpp"
-#include "MBParallelConventions.h"
-#include "MBCN.hpp"
+#include "Internals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/ReadUtilIface.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "moab/MBParallelConventions.h"
+#include "moab/MBCN.hpp"
 #include "GmshUtil.hpp"
 
 #include <errno.h>
@@ -38,27 +38,29 @@
 #include <map>
 #include <set>
 
-MBReaderIface* ReadGmsh::factory( MBInterface* iface )
+namespace moab {
+
+ReaderIface* ReadGmsh::factory( Interface* iface )
   { return new ReadGmsh(iface); }
 
-ReadGmsh::ReadGmsh(MBInterface* impl)
+ReadGmsh::ReadGmsh(Interface* impl)
     : mdbImpl(impl)
 {
   void* ptr = 0;
-  mdbImpl->query_interface("MBReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  mdbImpl->query_interface("ReadUtilIface", &ptr);
+  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 }
 
 ReadGmsh::~ReadGmsh()
 {
   if (readMeshIface) {
-    mdbImpl->release_interface("MBReadUtilIface", readMeshIface);
+    mdbImpl->release_interface("ReadUtilIface", readMeshIface);
     readMeshIface = 0;
   }
 }
 
 
-MBErrorCode ReadGmsh::read_tag_values( const char* /* file_name */,
+ErrorCode ReadGmsh::read_tag_values( const char* /* file_name */,
                                        const char* /* tag_name */,
                                        const FileOptions& /* opts */,
                                        std::vector<int>& /* tag_values_out */,
@@ -69,12 +71,12 @@ MBErrorCode ReadGmsh::read_tag_values( const char* /* file_name */,
 }
 
 
-MBErrorCode ReadGmsh::load_file( const char* filename, 
-                                 const MBEntityHandle*,
+ErrorCode ReadGmsh::load_file( const char* filename, 
+                                 const EntityHandle*,
                                  const FileOptions& ,
-                                 const MBReaderIface::IDTag* subset_list,
+                                 const ReaderIface::IDTag* subset_list,
                                  int subset_list_length,
-                                 const MBTag* file_id_tag )
+                                 const Tag* file_id_tag )
 {
   int num_material_sets = 0;
   const int* material_set_list = 0;
@@ -88,7 +90,7 @@ MBErrorCode ReadGmsh::load_file( const char* filename,
   }
 
   geomSets.clear();
-  MBErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, globalId );
+  ErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, globalId );
   if (MB_TAG_NOT_FOUND == result)
     result = mdbImpl->tag_create( GLOBAL_ID_TAG_NAME,
                                   sizeof(int), MB_TAG_SPARSE,
@@ -103,7 +105,7 @@ MBErrorCode ReadGmsh::load_file( const char* filename,
     blocks.insert( *material_set_list );
   
     // Map of ID->handle for nodes
-  std::map<long,MBEntityHandle> node_id_map;
+  std::map<long,EntityHandle> node_id_map;
   int data_size = 8;
   
     // Open file and hand off pointer to tokenizer
@@ -148,7 +150,7 @@ MBErrorCode ReadGmsh::load_file( const char* filename,
   
     // allocate nodes
   std::vector<double*> coord_arrays;
-  MBEntityHandle handle = 0;
+  EntityHandle handle = 0;
   result = readMeshIface->get_node_arrays( 3, num_nodes, MB_START_ID, 
                                            handle, coord_arrays );
   if (MB_SUCCESS != result)
@@ -167,7 +169,7 @@ MBErrorCode ReadGmsh::load_file( const char* filename,
         !tokens.get_doubles( 1, z++ ))
       return MB_FILE_WRITE_ERROR;
     
-    if (!node_id_map.insert( std::pair<long,MBEntityHandle>( id, handle ) ).second)
+    if (!node_id_map.insert( std::pair<long,EntityHandle>( id, handle ) ).second)
     {
       readMeshIface->report_error( "Dulicate node ID at line %d\n",
                                    tokens.line_number() );
@@ -178,9 +180,9 @@ MBErrorCode ReadGmsh::load_file( const char* filename,
     // create reverse map from handle to id
   std::vector<int> ids( num_nodes );
   std::vector<int>::iterator id_iter = ids.begin();
-  std::vector<MBEntityHandle> handles( num_nodes );
-  std::vector<MBEntityHandle>::iterator h_iter = handles.begin();
-  for (std::map<long,MBEntityHandle>::iterator i = node_id_map.begin();
+  std::vector<EntityHandle> handles( num_nodes );
+  std::vector<EntityHandle>::iterator h_iter = handles.begin();
+  for (std::map<long,EntityHandle>::iterator i = node_id_map.begin();
         i != node_id_map.end(); ++i, ++id_iter, ++h_iter)
   {
     *id_iter = i->first;
@@ -209,7 +211,7 @@ MBErrorCode ReadGmsh::load_file( const char* filename,
     return MB_FILE_WRITE_ERROR;
   
     // lists of data accumulated for elements
-  std::vector<MBEntityHandle> connectivity;
+  std::vector<EntityHandle> connectivity;
   std::vector<int> mat_set_list, geom_set_list, part_set_list, id_list;
     // temporary, per-element data
   std::vector<int> int_data(5), tag_data(2);
@@ -299,7 +301,7 @@ MBErrorCode ReadGmsh::load_file( const char* filename,
       // Convert conectivity from IDs to handles
     for (unsigned j = 0; j < tmp_conn.size(); ++j)
     {
-      std::map<long,MBEntityHandle>::iterator k = node_id_map.find( tmp_conn[j] );
+      std::map<long,EntityHandle>::iterator k = node_id_map.find( tmp_conn[j] );
       if (k == node_id_map.end()) {
         readMeshIface->report_error( "Invalid node ID at line %d\n",
                                      tokens.line_number() );
@@ -332,15 +334,15 @@ MBErrorCode ReadGmsh::load_file( const char* filename,
 }
 
 //! Create an element sequence
-MBErrorCode ReadGmsh::create_elements( const GmshElemType& type,
+ErrorCode ReadGmsh::create_elements( const GmshElemType& type,
                                const std::vector<int>& elem_ids,
                                const std::vector<int>& matl_ids,
                                const std::vector<int>& geom_ids,
                                const std::vector<int>& prtn_ids,
-                               const std::vector<MBEntityHandle>& connectivity,
-                               const MBTag* file_id_tag )
+                               const std::vector<EntityHandle>& connectivity,
+                               const Tag* file_id_tag )
 {
-  MBErrorCode result;
+  ErrorCode result;
   
     // Make sure input is consistent
   const unsigned long num_elem = elem_ids.size();
@@ -352,8 +354,8 @@ MBErrorCode ReadGmsh::create_elements( const GmshElemType& type,
     return MB_FAILURE;
   
     // Create the element sequence
-  MBEntityHandle handle = 0;
-  MBEntityHandle* conn_array;
+  EntityHandle handle = 0;
+  EntityHandle* conn_array;
   result = readMeshIface->get_element_array( num_elem, node_per_elem, type.mb_type,
                                              MB_START_ID, 
                                              handle, conn_array );
@@ -369,7 +371,7 @@ MBErrorCode ReadGmsh::create_elements( const GmshElemType& type,
   }
   else
   {
-    memcpy( conn_array, &connectivity[0], connectivity.size() * sizeof(MBEntityHandle) );
+    memcpy( conn_array, &connectivity[0], connectivity.size() * sizeof(EntityHandle) );
   }
 
     // notify MOAB of the new elements
@@ -377,7 +379,7 @@ MBErrorCode ReadGmsh::create_elements( const GmshElemType& type,
   if (MB_SUCCESS != result) return result;
 
     // Store element IDs
-  MBRange elements( handle, handle + num_elem - 1 );
+  Range elements( handle, handle + num_elem - 1 );
   result = mdbImpl->tag_set_data( globalId, elements, &elem_ids[0] );
   if (MB_SUCCESS != result)
     return result;
@@ -404,12 +406,12 @@ MBErrorCode ReadGmsh::create_elements( const GmshElemType& type,
 }
 
 //! Add elements to sets as dictated by grouping ID in file.
-MBErrorCode ReadGmsh::create_sets( MBEntityType type,
-                                   const MBRange& elements,
+ErrorCode ReadGmsh::create_sets( EntityType type,
+                                   const Range& elements,
                                    const std::vector<int>& set_ids,
                                    int set_type )
 { 
-  MBErrorCode result;
+  ErrorCode result;
   
     // Get a unque list of set IDs
   std::set<int> ids;
@@ -423,7 +425,7 @@ MBErrorCode ReadGmsh::create_sets( MBEntityType type,
 
     // Get/create tag handles
   int num_tags;
-  MBTag tag_handles[2];
+  Tag tag_handles[2];
   int tag_val;
   const void* tag_values[2] = { &tag_val, NULL };
   
@@ -474,9 +476,9 @@ MBErrorCode ReadGmsh::create_sets( MBEntityType type,
       continue;
     
       // Get all entities with the current set ID
-    MBRange entities, sets;
+    Range entities, sets;
     std::vector<int>::const_iterator j = set_ids.begin();
-    for (MBRange::iterator k = elements.begin(); k != elements.end(); ++j, ++k)
+    for (Range::iterator k = elements.begin(); k != elements.end(); ++j, ++k)
       if (*i == *j)
         entities.insert( *k );
   
@@ -493,7 +495,7 @@ MBErrorCode ReadGmsh::create_sets( MBEntityType type,
       sets = intersect( sets,  geomSets );
     
       // Get set handle
-    MBEntityHandle set;
+    EntityHandle set;
       // If no sets with ID, create one
     if (sets.empty())
     {
@@ -548,7 +550,7 @@ MBErrorCode ReadGmsh::create_sets( MBEntityType type,
 //! NOT IMPLEMENTED
 //! Reconstruct parent-child relations for geometry sets from
 //! mesh connectivity.  
-MBErrorCode ReadGmsh::create_geometric_topology()
+ErrorCode ReadGmsh::create_geometric_topology()
 {
   if (geomSets.empty())
     return MB_SUCCESS;
@@ -557,3 +559,5 @@ MBErrorCode ReadGmsh::create_geometric_topology()
   geomSets.clear();
   return MB_SUCCESS;
 }
+
+} // namespace moab

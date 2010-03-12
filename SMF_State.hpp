@@ -1,9 +1,11 @@
 #ifndef GFXSMF_STATE_INCLUDED // -*- C++ -*-
 #define GFXSMF_STATE_INCLUDED
 
-#include "MBAffineXform.hpp"
+#include "AffineXform.hpp"
 #include <string>
 #include <vector>
+
+namespace moab {
 
 struct SMF_ivars
 {
@@ -20,7 +22,7 @@ private:
     // Standard state variables
     int first_vertex;
     int vertex_correction;
-    MBAffineXform xform;
+    AffineXform xform;
 
 public:
     SMF_State(const SMF_ivars& ivar,SMF_State *link=NULL);
@@ -30,14 +32,15 @@ public:
     void inc(const char *var, int delta=1);
     void dec(const char *var, int delta=1);
 
-    void mmult(const MBAffineXform&);
-    void mload(const MBAffineXform&);
+    void mmult(const AffineXform&);
+    void mload(const AffineXform&);
 
     void vertex(double v[3]);
     void normal(double n[3]);
     void face(int *, const SMF_ivars& ivar);
 };
 
+} // namespace moab
 
 // GFXSMF_STATE_INCLUDED
 #endif

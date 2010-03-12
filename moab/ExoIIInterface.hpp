@@ -14,8 +14,12 @@
  */
 
 
-#ifndef EXOII_INTERFACE_HPP
-#define EXOII_INTERFACE_HPP
+#ifndef MOAB_EXOII_INTERFACE_HPP
+#define MOAB_EXOII_INTERFACE_HPP
+
+#include "moab/Types.hpp"
+
+namespace moab {
 
 enum ExoIIElementType
 {
@@ -37,14 +41,15 @@ enum ExoIIElementType
 };
 
 
-#define MAX_STR_LENGTH 33
-#define MAX_LINE_LENGTH 80
-
-#include "MBTypes.h"
-
 class MB_DLL_EXPORT ExoIIInterface
 {
 public:
+  enum {
+    MAX_STR_LENGTH = 33,
+    MAX_LINE_LENGTH = 80
+  };
+
+
   ExoIIInterface(){}
   virtual ~ExoIIInterface(){}
       
@@ -54,8 +59,8 @@ public:
   //! get the element type of the entity; this entity can either be a meshset, 
   //! in which case it will be assumed to be a material set meshset, or an 
   //! individual entity.
-  virtual  ExoIIElementType get_element_type(MBEntityHandle entity,
-      MBTag mid_nodes_tag, MBTag geom_dimension_tag, MBEntityType indiv_entity_type = MBMAXTYPE) = 0;
+  virtual  ExoIIElementType get_element_type(EntityHandle entity,
+      Tag mid_nodes_tag, Tag geom_dimension_tag, EntityType indiv_entity_type = MBMAXTYPE) = 0;
 
   virtual int has_mid_nodes(ExoIIElementType elem_type, int dimension) = 0;
   virtual void has_mid_nodes(ExoIIElementType elem_type, int* array) = 0;
@@ -67,6 +72,7 @@ public:
   
 };
 
+} // namespace moab
 
 #endif
 

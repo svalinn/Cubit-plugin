@@ -16,7 +16,9 @@
 #ifndef VTK_UTIL_HPP
 #define VTK_UTIL_HPP
 
-#include "MBEntityType.h"
+#include "moab/EntityType.hpp"
+
+namespace moab {
 
 //! Structure defining relation between MOAB and VTK element
 //! types.  VTK had different types for quadratic than linear
@@ -26,7 +28,7 @@ struct VtkElemType
 {
   const char* name;            //!< String name for use in error messages
   unsigned vtk_type;           //!< VTK integer type
-  MBEntityType mb_type;        //!< MOAB type
+  EntityType mb_type;        //!< MOAB type
   unsigned num_nodes;          //!< Number of nodes (0 for polygon)
   const unsigned* node_order;  //!< VTK element node ordering, indexed by
                                //!< the VTK node position and containing
@@ -41,7 +43,7 @@ class VtkUtil
 {
 
 public:
-    //! vtk data type names, indexed by MBDataType
+    //! vtk data type names, indexed by DataType
   static const char *vtkTypeNames[];
   
     //! Vtk types, indexed by VTK type number.
@@ -52,8 +54,10 @@ public:
   static const unsigned numVtkElemType;
   
     //! Get the VTK type corresponding to a tuple of the MOAB type and number of nodes.
-    //! num_nodes is ignored for POLYGON type.
-  static const VtkElemType* get_vtk_type( MBEntityType type, unsigned num_nodes );
+    //! num_nodes is ignored for MBPOLYGON type.
+  static const VtkElemType* get_vtk_type( EntityType type, unsigned num_nodes );
 };
+
+} // namespace moab
 
 #endif

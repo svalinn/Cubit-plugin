@@ -34,16 +34,19 @@
 #endif
 
 #include <string>
-class MBReadUtilIface;
+#include "moab/ReaderIface.hpp"
+
+namespace moab {
+
+class ReadUtilIface;
 class GeomTopoTool;
 
-#include "MBReaderIface.hpp"
-class ReadCGM : public MBReaderIface
+class ReadCGM : public ReaderIface
 {
 
 public:
 
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
 
   void tokenize( const std::string& str,
                  std::vector<std::string>& tokens,
@@ -55,14 +58,14 @@ public:
     //  * FACET_DISTANCE_TOLERANCE=<real> (default: 0.001)
     //  * MAX_FACET_EDGE_LENGTH=<real> (default: 0.0)
     //  * CGM_ATTRIBS=<yes|no>         (default: no)
-  MBErrorCode load_file( const char *cgm_file_name,
-                         const MBEntityHandle* file_set,
+  ErrorCode load_file( const char *cgm_file_name,
+                         const EntityHandle* file_set,
                          const FileOptions& opts,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int subset_list_length = 0,
-                         const MBTag* file_id_tag = 0 );
+                         const Tag* file_id_tag = 0 );
 
-  MBErrorCode read_tag_values( const char* file_name,
+  ErrorCode read_tag_values( const char* file_name,
                                const char* tag_name,
                                const FileOptions& opts,
                                std::vector<int>& tag_values_out,
@@ -70,14 +73,14 @@ public:
                                int subset_list_length = 0 );
 
    //! Constructor
-   ReadCGM(MBInterface* impl = NULL);
+   ReadCGM(Interface* impl = NULL);
 
    //! Destructor
   virtual ~ReadCGM();
 
 private:
 
-  MBReadUtilIface* readUtilIface;
+  ReadUtilIface* readUtilIface;
 
   GeomTopoTool* myGeomTool;
 
@@ -95,10 +98,12 @@ private:
   //------------member variables ------------//
 
     //! interface instance
-  MBInterface* mdbImpl;
+  Interface* mdbImpl;
 
-  MBTag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag, 
+  Tag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag, 
         geometry_resabs_tag;
 };
+
+} // namespace moab
 
 #endif

@@ -5,6 +5,7 @@
 
 #ifdef __cplusplus
 extern "C" {
+namespace moab {
 #endif
 
 /* Cubit writes ExodusII files with tet mid-face nodes in this order */
@@ -41,6 +42,7 @@ static const int *const *const exodus_elem_order_map[] = {
 
 #ifdef __cplusplus
 } /*  extern "C" */
+} /* namespace moab */
 #endif
 
 #endif

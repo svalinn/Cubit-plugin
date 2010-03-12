@@ -24,14 +24,16 @@
 #include <iostream>
 
 #include "ReadSmf.hpp"
-#include "MBRange.hpp"
-#include "MBInternals.hpp"
-#include "MBInterface.hpp"
-#include "MBReadUtilIface.hpp"
+#include "moab/Range.hpp"
+#include "Internals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/ReadUtilIface.hpp"
 #include "FileOptions.hpp"
-#include "MBAffineXform.hpp"
+#include "AffineXform.hpp"
 
-inline int streq(const char *a,const char *b) { return strcmp(a,b)==0; }
+static inline int streq(const char *a,const char *b) { return strcmp(a,b)==0; }
+
+namespace moab {
 
 ReadSmf::cmd_entry ReadSmf::read_cmds[] = {
     { "v", &ReadSmf::vertex },
@@ -56,14 +58,14 @@ ReadSmf::cmd_entry ReadSmf::read_cmds[] = {
     { "", NULL }
 };
 
-MBAffineXform mat_from_args(std::vector<std::string> & argv)
+AffineXform mat_from_args(std::vector<std::string> & argv)
 {
     double m3[9], offset[3];
     for (int i=0; i<9; i++)
 	m3[i] = atof(argv[i].c_str());
     for (int j=0; j<3; j++)
 	offset[j] = atof(argv[j+9].c_str());// only the first 12 are used, the last row (or column?) is 0001?
-    MBAffineXform M(m3, offset);
+    AffineXform M(m3, offset);
     return M;
 }
 
@@ -72,15 +74,15 @@ void bad_annotation(char *cmd)
     std::cerr << "SMF: Malformed annotation ["<< cmd << "]" << std::endl;
 }
 
-MBReaderIface* ReadSmf::factory( MBInterface* iface )
+ReaderIface* ReadSmf::factory( Interface* iface )
   { return new ReadSmf( iface ); }
 
-ReadSmf::ReadSmf(MBInterface* impl)
+ReadSmf::ReadSmf(Interface* impl)
     : mdbImpl(impl)
 {
   void* ptr = 0;
-  mdbImpl->query_interface("MBReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  mdbImpl->query_interface("ReadUtilIface", &ptr);
+  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
   _numNodes= _numFaces = 0;
   _numNodesInFile = _numElementsInFile = 0;
 }
@@ -88,13 +90,13 @@ ReadSmf::ReadSmf(MBInterface* impl)
 ReadSmf::~ReadSmf()
 {
   if (readMeshIface) {
-    mdbImpl->release_interface("MBReadUtilIface", readMeshIface);
+    mdbImpl->release_interface("ReadUtilIface", readMeshIface);
     readMeshIface = 0;
   }
 }
 
 
-MBErrorCode ReadSmf::read_tag_values( const char* /* file_name */,
+ErrorCode ReadSmf::read_tag_values( const char* /* file_name */,
                                       const char* /* tag_name */,
                                       const FileOptions& /* opts */,
                                       std::vector<int>& /* tag_values_out */,
@@ -105,14 +107,14 @@ MBErrorCode ReadSmf::read_tag_values( const char* /* file_name */,
 }
 
 
-MBErrorCode ReadSmf::load_file( const char *filename,
-                                const MBEntityHandle* ,
+ErrorCode ReadSmf::load_file( const char *filename,
+                                const EntityHandle* ,
                                 const FileOptions& opts,
-                                const MBReaderIface::IDTag* subset_list,
+                                const ReaderIface::IDTag* subset_list,
                                 int subset_list_length,
-                                const MBTag* file_id_tag) 
+                                const Tag* file_id_tag) 
 {
-  MBErrorCode result;
+  ErrorCode result;
   
   if (subset_list && subset_list_length) {
     readMeshIface->report_error( "Reading subset of files not supported for VTK." );
@@ -151,7 +153,7 @@ MBErrorCode ReadSmf::load_file( const char *filename,
   
     // Create vertices
   std::vector<double*> arrays;
-  MBEntityHandle start_handle_out;
+  EntityHandle start_handle_out;
   start_handle_out = 0;
   result = readMeshIface->get_node_arrays( 3, _numNodesInFile, MB_START_ID,
                                            start_handle_out, arrays );
@@ -170,12 +172,12 @@ MBErrorCode ReadSmf::load_file( const char *filename,
     }
   // elements
   
-  MBEntityHandle start_handle_elem_out;
+  EntityHandle start_handle_elem_out;
   start_handle_elem_out = 0;
-  MBEntityHandle* conn_array_out;
+  EntityHandle* conn_array_out;
   result = readMeshIface->get_element_array( _numElementsInFile,
                                              3,
-                                             MBTRI , // MBEntityType
+                                             MBTRI , // EntityType
                                              MB_START_ID,
                                              start_handle_elem_out,
                                              conn_array_out );
@@ -193,7 +195,7 @@ MBErrorCode ReadSmf::load_file( const char *filename,
   if (MB_SUCCESS != result)
     return result;
 
-  MBRange range(start_handle_out, start_handle_out+_numElementsInFile-1);
+  Range range(start_handle_out, start_handle_out+_numElementsInFile-1);
  
  
   return MB_SUCCESS;
@@ -259,7 +261,7 @@ void ReadSmf::annotation(char *cmd,  std::vector<std::string> & argv)
     
 }
 
-MBErrorCode ReadSmf::parse_line(char *line)
+ErrorCode ReadSmf::parse_line(char *line)
 {
     char *cmd,*s;
     std::vector<std::string>  argv;
@@ -377,7 +379,7 @@ void ReadSmf::trans(std::vector<std::string> & argv)
     double v3[3];
     for (int i=0; i<3; i++)
 	v3[i] = atof(argv[i].c_str());
-    MBAffineXform M = MBAffineXform::translation(v3);
+    AffineXform M = AffineXform::translation(v3);
     //Mat4 M = Mat4::trans(atof(argv(0)), atof(argv(1)), atof(argv(2)));
     state->mmult(M);
 }
@@ -386,7 +388,7 @@ void ReadSmf::scale(std::vector<std::string> & argv)
     double v3[3];
     for (int i=0; i<3; i++)
 	v3[i] = atof(argv[i].c_str());
-    MBAffineXform M = MBAffineXform::scale(v3);
+    AffineXform M = AffineXform::scale(v3);
     //Mat4 M = Mat4::scale(atof(argv(0)), atof(argv(1)), atof(argv(2)));
     state->mmult(M);
 }
@@ -409,7 +411,7 @@ void ReadSmf::rot(std::vector<std::string> & argv)
 	  std::cerr << "SMF: Malformed rotation command" << std::endl;
 	break;
     }
-    MBAffineXform M = MBAffineXform::rotation( angle, axis );
+    AffineXform M = AffineXform::rotation( angle, axis );
     state->mmult(M);
 }
 void ReadSmf::mmult(std::vector<std::string> & argv)
@@ -420,3 +422,5 @@ void ReadSmf::mload(std::vector<std::string> & argv)
 {
     state->mload(mat_from_args(argv));
 }
+
+} // namespace moab

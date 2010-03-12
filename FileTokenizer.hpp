@@ -16,11 +16,13 @@
 #ifndef FILE_TOKENIZER_HPP
 #define FILE_TOKENIZER_HPP
 
-#include "MBTypes.h"
+#include "moab/Types.hpp"
 #include <cstdio>
 #include <sys/types.h>
 
-class MBReadUtilIface;
+namespace moab {
+
+class ReadUtilIface;
 
 /** 
  * \class  FileTokenizer
@@ -50,7 +52,7 @@ class FileTokenizer
        *                      reporting errors.
        */
     FileTokenizer( std::FILE* file_ptr,
-                   MBReadUtilIface* read_util_ptr );
+                   ReadUtilIface* read_util_ptr );
     
       /** \brief destructor : closes file.
        *
@@ -220,7 +222,7 @@ class FileTokenizer
     std::FILE* filePtr;
     
       /** Pointer to MOAB ReadUtil Interface */
-    MBReadUtilIface* readUtilPtr;
+    ReadUtilIface* readUtilPtr;
     
       /** Input buffer */
     char buffer[512];
@@ -240,5 +242,7 @@ class FileTokenizer
        */
     char lastChar;
 };
+
+} // namespace moab
 
 #endif

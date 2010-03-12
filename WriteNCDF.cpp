@@ -37,36 +37,38 @@
 #include <string.h>
 #include <assert.h>
 
-#include "MBInterface.hpp"
-#include "MBRange.hpp"
-#include "MBCN.hpp"
-#include "MBTagConventions.hpp"
-#include "MBInternals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBCN.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "Internals.hpp"
 #include "ExoIIUtil.hpp"
-#include "MBWriteUtilIface.hpp"
+#include "moab/WriteUtilIface.hpp"
 #include "exodus_order.h"
+
+namespace moab {
 
 const int TIME_STR_LEN = 11;
 
 #define INS_ID(stringvar, prefix, id) \
           sprintf(stringvar, prefix, id)
 
-MBWriterIface* WriteNCDF::factory( MBInterface* iface )
+WriterIface* WriteNCDF::factory( Interface* iface )
   { return new WriteNCDF( iface ); }
 
-WriteNCDF::WriteNCDF(MBInterface *impl) 
+WriteNCDF::WriteNCDF(Interface *impl) 
     : mdbImpl(impl), ncFile(0), mCurrentMeshHandle(0)
 {
   assert(impl != NULL);
 
   void* ptr = 0;
-  impl->query_interface( "MBWriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<MBWriteUtilIface*>(ptr);
+  impl->query_interface( "WriteUtilIface", &ptr );
+  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
 
   // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
   int dum_val = 0;
-  MBErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
+  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
   if (MB_TAG_NOT_FOUND == result)
     result = impl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
                               MB_TYPE_INTEGER, mMaterialSetTag, &dum_val);
@@ -114,7 +116,7 @@ WriteNCDF::WriteNCDF(MBInterface *impl)
 
 WriteNCDF::~WriteNCDF() 
 {
-  std::string iface_name = "MBWriteUtilIface";
+  std::string iface_name = "WriteUtilIface";
   mdbImpl->release_interface(iface_name, mWriteIface);
 
   mdbImpl->tag_delete(mEntityMark);
@@ -151,13 +153,13 @@ void WriteNCDF::time_and_date(char* time_string, char* date_string)
    date_string[10] = (char)NULL;
 }
 
-MBErrorCode WriteNCDF::write_file(const char *exodus_file_name, 
+ErrorCode WriteNCDF::write_file(const char *exodus_file_name, 
                                     const bool overwrite,
                                     const FileOptions&,
-                                    const MBEntityHandle *ent_handles,
+                                    const EntityHandle *ent_handles,
                                     const int num_sets,
                                     const std::vector<std::string> &qa_records,
-                                    const MBTag*,
+                                    const Tag*,
                                     int,
                                     int user_dimension)
 {
@@ -169,13 +171,13 @@ MBErrorCode WriteNCDF::write_file(const char *exodus_file_name,
    mdbImpl->get_dimension( user_dimension );
   
 
-  std::vector<MBEntityHandle> blocks, nodesets, sidesets, entities;
+  std::vector<EntityHandle> blocks, nodesets, sidesets, entities;
 
     // separate into blocks, nodesets, sidesets
 
   if (num_sets == 0) {
       // default to all defined block, nodeset and sideset-type sets
-    MBRange this_range;
+    Range this_range;
     mdbImpl->get_entities_by_type_and_tag(0, MBENTITYSET, &mMaterialSetTag, NULL, 1, this_range);
     std::copy(this_range.begin(), this_range.end(), std::back_inserter(blocks));
     this_range.clear();
@@ -194,7 +196,7 @@ MBErrorCode WriteNCDF::write_file(const char *exodus_file_name,
       if (this_range.empty())
         return MB_FILE_WRITE_ERROR;
 
-      MBEntityHandle block_handle;
+      EntityHandle block_handle;
       int block_id = 1;
       mdbImpl->create_meshset( MESHSET_SET, block_handle );
       mdbImpl->tag_set_data( mMaterialSetTag, &block_handle, 1, &block_id );
@@ -204,7 +206,7 @@ MBErrorCode WriteNCDF::write_file(const char *exodus_file_name,
   }
   else {
     int dummy;
-    for (const MBEntityHandle *iter = ent_handles; iter < ent_handles+num_sets; iter++) 
+    for (const EntityHandle *iter = ent_handles; iter < ent_handles+num_sets; iter++) 
     {
       if (MB_SUCCESS == mdbImpl->tag_get_data(mMaterialSetTag, &(*iter), 1, &dummy))
         blocks.push_back(*iter);
@@ -320,17 +322,17 @@ MBErrorCode WriteNCDF::write_file(const char *exodus_file_name,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteNCDF::gather_mesh_information(
+ErrorCode WriteNCDF::gather_mesh_information(
                         ExodusMeshInfo &mesh_info,
                         std::vector<MaterialSetData> &block_info,
                         std::vector<NeumannSetData> &sideset_info,
                         std::vector<DirichletSetData> &nodeset_info,
-                        std::vector<MBEntityHandle> &blocks,
-                        std::vector<MBEntityHandle> &sidesets,
-                        std::vector<MBEntityHandle> &nodesets)
+                        std::vector<EntityHandle> &blocks,
+                        std::vector<EntityHandle> &sidesets,
+                        std::vector<EntityHandle> &nodesets)
 {
-  MBErrorCode rval;
-  std::vector<MBEntityHandle>::iterator vector_iter, end_vector_iter;
+  ErrorCode rval;
+  std::vector<EntityHandle>::iterator vector_iter, end_vector_iter;
 
   mesh_info.num_nodes = 0;
   mesh_info.num_elements = 0;
@@ -341,7 +343,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
   vector_iter= blocks.begin();
   end_vector_iter = blocks.end();
 
-  std::vector<MBEntityHandle> parent_meshsets;
+  std::vector<EntityHandle> parent_meshsets;
 
   // clean out the bits for the element mark
   rval = mdbImpl->tag_delete(mEntityMark);
@@ -363,7 +365,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
       return MB_FAILURE;
 
     // get all Entity Handles in the mesh set
-    MBRange dummy_range;
+    Range dummy_range;
     rval = mdbImpl->get_entities_by_handle(*vector_iter, dummy_range, true );
     if (MB_SUCCESS != rval)
       return rval;
@@ -375,7 +377,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
     // wait a minute, we are doing some filtering here that doesn't make sense at this level  CJS
 
       // find the dimension of the last entity in this range
-    MBRange::iterator entity_iter = dummy_range.end();
+    Range::iterator entity_iter = dummy_range.end();
     entity_iter = dummy_range.end();
     entity_iter--;
     int this_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
@@ -385,7 +387,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
       entity_iter++;
     
     if (entity_iter != dummy_range.end())
-      std::copy(entity_iter, dummy_range.end(), mb_range_inserter(block_data.elements));
+      std::copy(entity_iter, dummy_range.end(), range_inserter(block_data.elements));
 
     assert(block_data.elements.begin() == block_data.elements.end() ||
            MBCN::Dimension(TYPE_FROM_HANDLE(*(block_data.elements.begin()))) == this_dim);
@@ -403,13 +405,13 @@ MBErrorCode WriteNCDF::gather_mesh_information(
     block_data.number_attributes = 0;
  
      // iterate through all the elements in the meshset
-    MBRange::iterator elem_range_iter, end_elem_range_iter;
+    Range::iterator elem_range_iter, end_elem_range_iter;
     elem_range_iter = block_data.elements.begin();
     end_elem_range_iter = block_data.elements.end();
 
       // get the entity type for this block, verifying that it's the same for all elements
       // THIS ASSUMES HANDLES SORT BY TYPE!!!
-    MBEntityType entity_type = TYPE_FROM_HANDLE(*elem_range_iter);
+    EntityType entity_type = TYPE_FROM_HANDLE(*elem_range_iter);
     end_elem_range_iter--;
     if (entity_type != TYPE_FROM_HANDLE(*(end_elem_range_iter++))) {
       mWriteIface->report_error("Entities in block %i not of common type", id);
@@ -427,7 +429,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
     if( dimension > highest_dimension_of_element_blocks )
       highest_dimension_of_element_blocks = dimension;
 
-    std::vector<MBEntityHandle> tmp_conn;
+    std::vector<EntityHandle> tmp_conn;
     rval = mdbImpl->get_connectivity(&(*(block_data.elements.begin())), 1, tmp_conn);
     if (MB_SUCCESS != rval)
       return rval;
@@ -454,7 +456,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
     if(!sidesets.empty())
     {
       // if there are sidesets, keep track of which elements are being written out
-      for(MBRange::iterator iter = block_data.elements.begin(); 
+      for(Range::iterator iter = block_data.elements.begin(); 
           iter != block_data.elements.end(); ++iter)
       {
         unsigned char bit = 0x1;
@@ -495,7 +497,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
   }
 
 
-  MBRange::iterator range_iter, end_range_iter;
+  Range::iterator range_iter, end_range_iter;
   range_iter = mesh_info.nodes.begin();
   end_range_iter = mesh_info.nodes.end();
 
@@ -521,7 +523,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
     
     nodeset_data.id = id; 
 
-    std::vector<MBEntityHandle> node_vector;
+    std::vector<EntityHandle> node_vector;
     //get the nodes of the nodeset that are in mesh_info.nodes
     if( mdbImpl->get_entities_by_handle(*vector_iter, node_vector, true) != MB_SUCCESS ) {
       mWriteIface->report_error("Couldn't get nodes in nodeset %i", id);
@@ -541,13 +543,13 @@ MBErrorCode WriteNCDF::gather_mesh_information(
       has_dist_factors = 1;
     dist_factor_size /= sizeof(double);
     dist_factor_vector = reinterpret_cast<const double*>(ptr);
-    std::vector<MBEntityHandle>::iterator iter, end_iter;
+    std::vector<EntityHandle>::iterator iter, end_iter;
     iter = node_vector.begin();
     end_iter= node_vector.end();
  
     int j=0; 
     unsigned char node_marked = 0;
-    MBErrorCode result;
+    ErrorCode result;
     for(; iter != end_iter; iter++)
     {
       if (TYPE_FROM_HANDLE(*iter) != MBVERTEX) continue;
@@ -591,11 +593,11 @@ MBErrorCode WriteNCDF::gather_mesh_information(
  
     //get the sides in two lists, one forward the other reverse; starts with forward sense
       // by convention
-    MBRange forward_elems, reverse_elems;
+    Range forward_elems, reverse_elems;
     if(get_sideset_elems(*vector_iter, 0, forward_elems, reverse_elems) == MB_FAILURE)
       return MB_FAILURE;
 
-    MBErrorCode result = get_valid_sides(forward_elems, mesh_info, 1, sideset_data);
+    ErrorCode result = get_valid_sides(forward_elems, mesh_info, 1, sideset_data);
     if (MB_SUCCESS != result) {
       mWriteIface->report_error("Couldn't get valid sides data.");
       return result;
@@ -615,7 +617,7 @@ MBErrorCode WriteNCDF::gather_mesh_information(
 
 }
 
-MBErrorCode WriteNCDF::get_valid_sides(MBRange &elems, ExodusMeshInfo& /*mesh_info*/, 
+ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/, 
                                          const int sense,
                                          NeumannSetData &sideset_data) 
 {
@@ -640,8 +642,8 @@ MBErrorCode WriteNCDF::get_valid_sides(MBRange &elems, ExodusMeshInfo& /*mesh_in
   }
 
   unsigned char element_marked = 0;
-  MBErrorCode result;
-  for(MBRange::iterator iter = elems.begin(); iter != elems.end(); iter++)
+  ErrorCode result;
+  for(Range::iterator iter = elems.begin(); iter != elems.end(); iter++)
   {
       // should insert here if "side" is a quad/tri on a quad/tri mesh
     result = mdbImpl->tag_get_data(mEntityMark, &(*iter), 1, &element_marked);
@@ -659,7 +661,7 @@ MBErrorCode WriteNCDF::get_valid_sides(MBRange &elems, ExodusMeshInfo& /*mesh_in
     }
     else //then "side" is probably a quad/tri on a hex/tet mesh
     {
-      std::vector<MBEntityHandle> parents;
+      std::vector<EntityHandle> parents;
       int dimension = MBCN::Dimension( TYPE_FROM_HANDLE(*iter));
 
         //get the adjacent parent element of "side"
@@ -718,7 +720,7 @@ MBErrorCode WriteNCDF::get_valid_sides(MBRange &elems, ExodusMeshInfo& /*mesh_in
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteNCDF::write_qa_records(std::vector<std::string> &qa_record_list)
+ErrorCode WriteNCDF::write_qa_records(std::vector<std::string> &qa_record_list)
 {
   int i = 0;
   
@@ -735,7 +737,7 @@ MBErrorCode WriteNCDF::write_qa_records(std::vector<std::string> &qa_record_list
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteNCDF::write_qa_string(const char *string,
+ErrorCode WriteNCDF::write_qa_string(const char *string,
                                          int record_number,
                                          int record_position)
 {
@@ -773,7 +775,7 @@ MBErrorCode WriteNCDF::write_qa_string(const char *string,
 }
 
 
-MBErrorCode WriteNCDF::write_nodes(int num_nodes, MBRange& nodes, int dimension)
+ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
 {
   // write coordinates names
   NcVar *coord_var = ncFile->get_var("coor_names");
@@ -790,8 +792,8 @@ MBErrorCode WriteNCDF::write_nodes(int num_nodes, MBRange& nodes, int dimension)
   if (!status) return MB_FAILURE;
   
   //see if should transform coordinates
-  MBErrorCode result;
-  MBTag trans_tag;
+  ErrorCode result;
+  Tag trans_tag;
   result = mdbImpl->tag_get_handle( MESH_TRANSFORM_TAG_NAME, trans_tag);
   bool transform_needed = true;
   if( result == MB_TAG_NOT_FOUND )
@@ -875,7 +877,7 @@ MBErrorCode WriteNCDF::write_nodes(int num_nodes, MBRange& nodes, int dimension)
 }
 
 
-MBErrorCode WriteNCDF::write_header(ExodusMeshInfo& mesh_info,
+ErrorCode WriteNCDF::write_header(ExodusMeshInfo& mesh_info,
                                      std::vector<MaterialSetData> &block_info,
                                      std::vector<NeumannSetData> &sideset_info,
                                      std::vector<DirichletSetData> &nodeset_info,
@@ -895,8 +897,8 @@ MBErrorCode WriteNCDF::write_header(ExodusMeshInfo& mesh_info,
   title_string.append( ": " );
   title_string.append( "time " );
 
-  if(title_string.length() > MAX_LINE_LENGTH)
-    title_string.resize( MAX_LINE_LENGTH );
+  if(title_string.length() > ExoIIInterface::MAX_LINE_LENGTH)
+    title_string.resize( ExoIIInterface::MAX_LINE_LENGTH );
 
   // initialize the exodus file
 
@@ -910,7 +912,7 @@ MBErrorCode WriteNCDF::write_header(ExodusMeshInfo& mesh_info,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_data )
+ErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_data )
 {
 
   unsigned int i;
@@ -951,7 +953,7 @@ MBErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_d
     const unsigned int num_nodes = num_nodes_per_elem * num_elem;
     int* connectivity = new int[num_nodes];
 
-    MBErrorCode result = mWriteIface->get_element_array(
+    ErrorCode result = mWriteIface->get_element_array(
         num_elem, num_nodes_per_elem, mGlobalIdTag, block.elements, mGlobalIdTag, exodus_id ,connectivity);
 
     if(result != MB_SUCCESS) {
@@ -961,11 +963,11 @@ MBErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_d
     }
     
     // if necessary, convert from EXODUS to MBCN node order
-    const MBEntityType elem_type = ExoIIUtil::ExoIIElementMBEntity[block.element_type];
+    const EntityType elem_type = ExoIIUtil::ExoIIElementMBEntity[block.element_type];
     assert( block.elements.all_of_type( elem_type ) );
     const int* reorder = exodus_elem_order_map[elem_type][block.number_nodes_per_element];
     if (reorder)
-      MBWriteUtilIface::reorder( reorder, connectivity, 
+      WriteUtilIface::reorder( reorder, connectivity, 
                                  block.number_elements,
                                  block.number_nodes_per_element );
 
@@ -991,7 +993,7 @@ MBErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_d
 }
 
 
-MBErrorCode WriteNCDF::write_global_node_order_map(int num_nodes, MBRange& nodes)
+ErrorCode WriteNCDF::write_global_node_order_map(int num_nodes, Range& nodes)
 {
   // note: this routine bypasses the standard exodusII interface for efficiency!
 
@@ -1000,7 +1002,7 @@ MBErrorCode WriteNCDF::write_global_node_order_map(int num_nodes, MBRange& nodes
 
   // for now, output a dummy map!
 
-   MBRange::iterator range_iter, end_iter;
+   Range::iterator range_iter, end_iter;
    range_iter = nodes.begin();
    end_iter = nodes.end();
 
@@ -1032,7 +1034,7 @@ MBErrorCode WriteNCDF::write_global_node_order_map(int num_nodes, MBRange& nodes
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteNCDF::write_global_element_order_map(int num_elements)
+ErrorCode WriteNCDF::write_global_element_order_map(int num_elements)
 {
 
   // allocate map array
@@ -1070,7 +1072,7 @@ MBErrorCode WriteNCDF::write_global_element_order_map(int num_elements)
 }
 
 
-MBErrorCode WriteNCDF::write_element_order_map(int num_elements)
+ErrorCode WriteNCDF::write_element_order_map(int num_elements)
 {
   // note: this routine bypasses the standard exodusII interface for efficiency!
 
@@ -1107,7 +1109,7 @@ MBErrorCode WriteNCDF::write_element_order_map(int num_elements)
 
 
 
-MBErrorCode WriteNCDF::write_exodus_integer_variable(const char* variable_name,
+ErrorCode WriteNCDF::write_exodus_integer_variable(const char* variable_name,
                                                       int *variable_array,
                                                       int start_position,
                                                       int number_values)
@@ -1158,7 +1160,7 @@ MBErrorCode WriteNCDF::write_exodus_integer_variable(const char* variable_name,
 
 
 
-MBErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
+ErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
                                        std::vector<DirichletSetData> &nodesets)
 {
   unsigned int i,j;
@@ -1183,7 +1185,7 @@ MBErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
     int * exodus_id_array = new int[number_nodes];
     double * dist_factor_array = new double[number_nodes];
 
-    std::vector<MBEntityHandle>::iterator begin_iter, end_iter;
+    std::vector<EntityHandle>::iterator begin_iter, end_iter;
     std::vector<double>::iterator other_iter;
     begin_iter = (*ns_it).nodes.begin();
     end_iter = (*ns_it).nodes.end();
@@ -1191,7 +1193,7 @@ MBErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
 
     j=0;
     int exodus_id;
-    MBErrorCode result;
+    ErrorCode result;
     //fill up node array and dist. factor array at the same time
     for(; begin_iter != end_iter; begin_iter++)
     {
@@ -1285,7 +1287,7 @@ MBErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
     int * output_element_ids = new int[number_elements];
     int * output_element_side_numbers = new int[number_elements]; 
 
-    std::vector<MBEntityHandle>::iterator begin_iter, end_iter;
+    std::vector<EntityHandle>::iterator begin_iter, end_iter;
     begin_iter = sideset_data.elements.begin();
     end_iter = sideset_data.elements.end();
     std::vector<int>::iterator side_iter = sideset_data.side_numbers.begin();
@@ -1297,7 +1299,7 @@ MBErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
       //for each "side"
     for(; begin_iter != end_iter; begin_iter++, side_iter++)
     {
-      MBErrorCode result = mdbImpl->tag_get_data(mGlobalIdTag,
+      ErrorCode result = mdbImpl->tag_get_data(mGlobalIdTag,
                                                   &(*begin_iter), 
                                                   1, &exodus_id);
       if (MB_FAILURE == result) {
@@ -1317,7 +1319,7 @@ MBErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
       int num_values = 1;
     
         // ss_prop1[ss_index] = side_set_id
-      MBErrorCode result = write_exodus_integer_variable("ss_prop1",
+      ErrorCode result = write_exodus_integer_variable("ss_prop1",
                                                           &side_set_id, 
                                                           ss_index,num_values);
 
@@ -1392,7 +1394,7 @@ MBErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
+ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
                                                 std::vector<MaterialSetData> &block_data,
                                                 std::vector<NeumannSetData> & sideset_data,
                                                 std::vector<DirichletSetData> & nodeset_data,
@@ -1423,12 +1425,12 @@ MBErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
     // inquire on defined string dimension and general dimension for qa
 
   NcDim *dim_str, *dim_four, *dim_line, *dim_time;
-  if ((dim_str = ncFile->add_dim("len_string", MAX_STR_LENGTH)) == NULL)
+  if ((dim_str = ncFile->add_dim("len_string", ExoIIInterface::MAX_STR_LENGTH)) == NULL)
   {
     mWriteIface->report_error("WriteNCDF: failed to get string length in file");
     return (MB_FAILURE);
   }
-  if ((dim_line = ncFile->add_dim("len_line", MAX_LINE_LENGTH)) == NULL)
+  if ((dim_line = ncFile->add_dim("len_line", ExoIIInterface::MAX_LINE_LENGTH)) == NULL)
   {
     mWriteIface->report_error("WriteNCDF: failed to get line length in file");
     return (MB_FAILURE);
@@ -1608,7 +1610,7 @@ MBErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
       /* store element type as attribute of connectivity variable */
 
-    char element_type_string[MAX_STR_LENGTH+1];
+    char element_type_string[ExoIIInterface::MAX_STR_LENGTH+1];
     strcpy(element_type_string, ExoIIUtil::ElementTypeNames[ block.element_type ]);
 
     if (!connect->add_att("elem_type", element_type_string))
@@ -1874,7 +1876,7 @@ MBErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 }
 
 
-MBErrorCode WriteNCDF::open_file(const char* filename)
+ErrorCode WriteNCDF::open_file(const char* filename)
 {
    // not a valid filname
    if(strlen((const char*)filename) == 0)
@@ -1894,28 +1896,28 @@ MBErrorCode WriteNCDF::open_file(const char* filename)
    return MB_SUCCESS;
 }
 
-MBErrorCode WriteNCDF::get_sideset_elems(MBEntityHandle sideset, int current_sense,
-                                           MBRange &forward_elems, MBRange &reverse_elems) 
+ErrorCode WriteNCDF::get_sideset_elems(EntityHandle sideset, int current_sense,
+                                           Range &forward_elems, Range &reverse_elems) 
 {
-  MBRange ss_elems, ss_meshsets;
+  Range ss_elems, ss_meshsets;
 
     // get the sense tag; don't need to check return, might be an error if the tag
     // hasn't been created yet
-  MBTag sense_tag = 0;
+  Tag sense_tag = 0;
   mdbImpl->tag_get_handle("SENSE", sense_tag);
 
     // get the entities in this set
-  MBErrorCode result = mdbImpl->get_entities_by_handle(sideset, ss_elems, true);
+  ErrorCode result = mdbImpl->get_entities_by_handle(sideset, ss_elems, true);
   if (MB_FAILURE == result) return result;
   
     // now remove the meshsets into the ss_meshsets; first find the first meshset,
-  MBRange::iterator range_iter = ss_elems.begin();
+  Range::iterator range_iter = ss_elems.begin();
   while (TYPE_FROM_HANDLE(*range_iter) != MBENTITYSET && range_iter != ss_elems.end())
     range_iter++;
   
     // then, if there are some, copy them into ss_meshsets and erase from ss_elems
   if (range_iter != ss_elems.end()) {
-    std::copy(range_iter, ss_elems.end(), mb_range_inserter(ss_meshsets));
+    std::copy(range_iter, ss_elems.end(), range_inserter(ss_meshsets));
     ss_elems.erase(range_iter, ss_elems.end());
   }
   
@@ -1924,7 +1926,7 @@ MBErrorCode WriteNCDF::get_sideset_elems(MBEntityHandle sideset, int current_sen
     // (if the sense is 0, copy into both ranges)
 
     // need to step forward on list until we reach the right dimension
-  MBRange::iterator dum_it = ss_elems.end();
+  Range::iterator dum_it = ss_elems.end();
   dum_it--;
   int target_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*dum_it));
   dum_it = ss_elems.begin();
@@ -1933,9 +1935,9 @@ MBErrorCode WriteNCDF::get_sideset_elems(MBEntityHandle sideset, int current_sen
     dum_it++;
 
   if (current_sense == 1 || current_sense == 0)
-    std::copy(dum_it, ss_elems.end(), mb_range_inserter(forward_elems));
+    std::copy(dum_it, ss_elems.end(), range_inserter(forward_elems));
   if (current_sense == -1 || current_sense == 0)
-    std::copy(dum_it, ss_elems.end(), mb_range_inserter(reverse_elems));
+    std::copy(dum_it, ss_elems.end(), range_inserter(reverse_elems));
   
     // now loop over the contained meshsets, getting the sense of those and calling this
     // function recursively
@@ -1955,5 +1957,7 @@ MBErrorCode WriteNCDF::get_sideset_elems(MBEntityHandle sideset, int current_sen
   return result;
 }
 
+
+} // namespace moab
 
   

@@ -24,17 +24,19 @@
 #error "ExoIIUtil.hpp isn't supposed to be included into an application"
 #endif
 
-#include "MBForward.hpp"
-#include "ExoIIInterface.hpp"
+#include "moab/Forward.hpp"
+#include "moab/ExoIIInterface.hpp"
 
+
+namespace moab {
 
 class ExoIIUtil : public ExoIIInterface
 {
 
-  MBInterface* mMB;
+  Interface* mMB;
 
 public:
-  ExoIIUtil(MBInterface* mdb) : mMB(mdb) {}
+  ExoIIUtil(Interface* mdb) : mMB(mdb) {}
   ~ExoIIUtil(){}
 
   //! given the element name, return the type
@@ -46,9 +48,9 @@ public:
   //! get the element type of the entity; this entity can either be a meshset, 
   //! in which case it will be assumed to be a material set meshset, or an 
   //! individual entity.
-  virtual  ExoIIElementType get_element_type(MBEntityHandle entity,
-                                             MBTag mid_nodes_tag, MBTag geom_dimension_tag, 
-                                             MBEntityType indiv_entity_type = MBMAXTYPE)
+  virtual  ExoIIElementType get_element_type(EntityHandle entity,
+                                             Tag mid_nodes_tag, Tag geom_dimension_tag, 
+                                             EntityType indiv_entity_type = MBMAXTYPE)
   {
     return static_get_element_type(mMB, entity, mid_nodes_tag, geom_dimension_tag,
                                    indiv_entity_type);    
@@ -86,21 +88,21 @@ public:
 //! case it will be assumed to be a material set meshset, or an individual entity.  If a
 //! meshset, and indiv_entity_type is input, that type is used to start the search for
 //! the connectivity tag which determines how many vertices per entity are defined for that meshset
-  static ExoIIElementType static_get_element_type(MBInterface *mdbImpl,
-                                           const MBEntityHandle entity,
-                                           const MBTag mid_nodes_tag,
-                                           const MBTag geom_dimension_tag,
-                                           const MBEntityType indiv_entity_type = MBMAXTYPE);
+  static ExoIIElementType static_get_element_type(Interface *mdbImpl,
+                                           const EntityHandle entity,
+                                           const Tag mid_nodes_tag,
+                                           const Tag geom_dimension_tag,
+                                           const EntityType indiv_entity_type = MBMAXTYPE);
 
 //! given the number of vertices in an entity, and optionally the entity type and
 //! geometric dimension, return the corresponding exodusII element type; dimension defaults
 //! to 3 following TSTT convention
   static ExoIIElementType get_element_type_from_num_verts(const int num_verts, 
-                                                          const MBEntityType entity_type = MBMAXTYPE,
+                                                          const EntityType entity_type = MBMAXTYPE,
                                                           const int dimension = 3);
 
 //! the MB entity type used for each element type
-  static const MBEntityType ExoIIElementMBEntity[];
+  static const EntityType ExoIIElementMBEntity[];
 
 //! names for all the element types that MB ExoII reader supports
   static const char* ElementTypeNames[];
@@ -117,16 +119,18 @@ public:
 
 };
 
-//! postfix increment operator for MBEntityType
+//! postfix increment operator for EntityType
 inline ExoIIElementType operator++(ExoIIElementType &type, int)
 {
   return (ExoIIElementType)(((int&)type)++);
 }  
 
-//! prefix increment operator for MBEntityType
+//! prefix increment operator for EntityType
 inline ExoIIElementType& operator++(ExoIIElementType& type)
 {
   return (ExoIIElementType&)(++((int&)type));
 }
+
+} // namespace moab
 
 #endif

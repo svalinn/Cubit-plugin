@@ -21,14 +21,12 @@
 
 
 #include "WriteSTL.hpp"
-#include "MBCN.hpp"
-#include "MBInterface.hpp"
-#include "MBRange.hpp"
-#include "MBWriteUtilIface.hpp"
+#include "moab/MBCN.hpp"
+#include "moab/Interface.hpp"
+#include "moab/Range.hpp"
+#include "moab/WriteUtilIface.hpp"
 #include "FileOptions.hpp"
-#include "MBSysUtil.hpp"
-
-#include "MBEntityHandle.h"
+#include "SysUtil.hpp"
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -37,6 +35,8 @@
 #include <math.h>
 #include <fcntl.h>
 #include <limits.h>
+
+namespace moab {
 
 #if defined(_MSC_VER) || defined(__MINGW32__) /* windows */
 #  include <io.h>
@@ -51,36 +51,36 @@ typedef unsigned __int32 uint32_t;
 
 const int DEFAULT_PRECISION = 6;
 
-MBWriterIface *WriteSTL::factory( MBInterface* iface )
+WriterIface *WriteSTL::factory( Interface* iface )
   { return new WriteSTL( iface ); }
 
-WriteSTL::WriteSTL(MBInterface *impl) 
+WriteSTL::WriteSTL(Interface *impl) 
     : mbImpl(impl)
 {
   void* ptr = 0;
-  impl->query_interface( "MBWriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<MBWriteUtilIface*>(ptr);
+  impl->query_interface( "WriteUtilIface", &ptr );
+  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
 }
 
 WriteSTL::~WriteSTL() 
 {
-  mbImpl->release_interface("MBWriteUtilIface", mWriteIface);
+  mbImpl->release_interface("WriteUtilIface", mWriteIface);
 }
 
 
-MBErrorCode WriteSTL::write_file(const char *file_name, 
+ErrorCode WriteSTL::write_file(const char *file_name, 
                                  const bool overwrite,
                                  const FileOptions& opts,
-                                 const MBEntityHandle *ent_handles,
+                                 const EntityHandle *ent_handles,
                                  const int num_sets,
                                  const std::vector<std::string>& qa_list, 
-                                 const MBTag* tag_list,
+                                 const Tag* tag_list,
                                  int num_tags,
                                  int  )
 {
   char header[81];
-  MBRange triangles;
-  MBErrorCode rval;
+  Range triangles;
+  ErrorCode rval;
   
   if (tag_list && num_tags) {
     mWriteIface->report_error( "STL file does not support tag data\n" );
@@ -181,7 +181,7 @@ FILE* WriteSTL::open_file( const char* name, bool overwrite, bool binary )
   return result;
 }
 
-MBErrorCode WriteSTL::make_header( char header[81], 
+ErrorCode WriteSTL::make_header( char header[81], 
                                    const std::vector<std::string>& qa_list )
 {
   memset( header, 0, 81 );
@@ -201,21 +201,21 @@ MBErrorCode WriteSTL::make_header( char header[81],
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteSTL::get_triangles( const MBEntityHandle* set_array,
+ErrorCode WriteSTL::get_triangles( const EntityHandle* set_array,
                                      int set_array_length,
-                                     MBRange& triangles )
+                                     Range& triangles )
 {
   if (!set_array || set_array_length == 0)
   {
     return mbImpl->get_entities_by_type( 0, MBTRI, triangles );
   }
   
-  const MBEntityHandle* iter = set_array;
-  const MBEntityHandle* end = iter + set_array_length;
+  const EntityHandle* iter = set_array;
+  const EntityHandle* end = iter + set_array_length;
   for (; iter != end; ++iter)
   {
-    MBRange r;
-    MBErrorCode rval = mbImpl->get_entities_by_type( *iter, MBTRI, r, true );
+    Range r;
+    ErrorCode rval = mbImpl->get_entities_by_type( *iter, MBTRI, r, true );
     if (MB_SUCCESS != rval)
       return rval;
     triangles.merge( r );
@@ -224,7 +224,7 @@ MBErrorCode WriteSTL::get_triangles( const MBEntityHandle* set_array,
   return MB_SUCCESS;
 }
 
-MBErrorCode WriteSTL::get_triangle_data( const double coords[9],
+ErrorCode WriteSTL::get_triangle_data( const double coords[9],
                                          float v1[3],
                                          float v2[3],
                                          float v3[3],
@@ -257,9 +257,9 @@ MBErrorCode WriteSTL::get_triangle_data( const double coords[9],
 }
 
 
-MBErrorCode WriteSTL::ascii_write_triangles( FILE* file,
+ErrorCode WriteSTL::ascii_write_triangles( FILE* file,
                                              const char header[81],
-                                             const MBRange& triangles,
+                                             const Range& triangles,
                                              int prec )
 {
   const char solid_name[] = "MOAB";
@@ -271,14 +271,14 @@ MBErrorCode WriteSTL::ascii_write_triangles( FILE* file,
   if (EOF == fputs( myheader, file ) || EOF == fputs( "\n", file ))
     return MB_FILE_WRITE_ERROR;
   
-  MBErrorCode rval;
+  ErrorCode rval;
   double coords[9];
   float v1[3], v2[3], v3[3];
   float n[3];
-  for (MBRange::const_iterator iter = triangles.begin();
+  for (Range::const_iterator iter = triangles.begin();
        iter != triangles.end(); ++iter)
   {
-    const MBEntityHandle* conn;
+    const EntityHandle* conn;
     int num_vtx;
     
     rval = mbImpl->get_connectivity( *iter, conn, num_vtx );
@@ -317,18 +317,18 @@ struct BinTri
   char pad[2];
 };
 
-MBErrorCode WriteSTL::binary_write_triangles( FILE* file,
+ErrorCode WriteSTL::binary_write_triangles( FILE* file,
                                              const char header[81],
                                              ByteOrder byte_order,
-                                             const MBRange& triangles )
+                                             const Range& triangles )
 {
-  MBErrorCode rval;
+  ErrorCode rval;
   if (fwrite( header, 80, 1, file ) != 1)
     return MB_FILE_WRITE_ERROR;
   
     // default to little endian if byte_order == UNKNOWN_BYTE_ORDER
   const bool want_big_endian = (byte_order == STL_BIG_ENDIAN);
-  const bool am_big_endian = !MBSysUtil::little_endian();
+  const bool am_big_endian = !SysUtil::little_endian();
   const bool swap_bytes = (want_big_endian == am_big_endian);
     
   if (triangles.size() > INT_MAX) // can't write that many triangles
@@ -336,17 +336,17 @@ MBErrorCode WriteSTL::binary_write_triangles( FILE* file,
   
   uint32_t count = (uint32_t)triangles.size();
   if (swap_bytes)
-    MBSysUtil::byteswap(&count, 1);
+    SysUtil::byteswap(&count, 1);
   if (fwrite( &count, 4, 1, file ) != 1)
     return MB_FILE_WRITE_ERROR;
 
   double coords[9];
   BinTri tri;
   tri.pad[0] = tri.pad[1] = '\0';
-  for (MBRange::const_iterator iter = triangles.begin();
+  for (Range::const_iterator iter = triangles.begin();
        iter != triangles.end(); ++iter)
   {
-    const MBEntityHandle* conn;
+    const EntityHandle* conn;
     int num_vtx;
     
     rval = mbImpl->get_connectivity( *iter, conn, num_vtx );
@@ -365,10 +365,10 @@ MBErrorCode WriteSTL::binary_write_triangles( FILE* file,
     
     if (swap_bytes)
     {
-      MBSysUtil::byteswap( tri.normal, 3 );
-      MBSysUtil::byteswap( tri.vertex1, 3 );
-      MBSysUtil::byteswap( tri.vertex2, 3 );
-      MBSysUtil::byteswap( tri.vertex3, 3 );
+      SysUtil::byteswap( tri.normal, 3 );
+      SysUtil::byteswap( tri.vertex1, 3 );
+      SysUtil::byteswap( tri.vertex2, 3 );
+      SysUtil::byteswap( tri.vertex3, 3 );
     }
    
     if (1 != fwrite( &tri, 50, 1, file ))
@@ -378,3 +378,4 @@ MBErrorCode WriteSTL::binary_write_triangles( FILE* file,
   return MB_SUCCESS;
 }
 
+} // namespace moab

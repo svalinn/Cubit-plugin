@@ -18,32 +18,34 @@
 
 #define SMF_MAXLINE 4096
 
-#include "MBForward.hpp"
-#include "MBReaderIface.hpp"
+#include "moab/Forward.hpp"
+#include "moab/ReaderIface.hpp"
 
 #include "SMF_State.hpp"
 #include <iosfwd>
 #include <fstream>
 
-class MBReadUtilIface;
+namespace moab {
+
+class ReadUtilIface;
 class FileTokenizer;
 
-class ReadSmf : public MBReaderIface
+class ReadSmf : public ReaderIface
 {
    
 public:
 
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
 
     //! load a file
-  MBErrorCode load_file( const char *file_name,
-                         const MBEntityHandle* file_set,
+  ErrorCode load_file( const char *file_name,
+                         const EntityHandle* file_set,
                          const FileOptions&,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int subset_list_length = 0,
-                         const MBTag* file_id_tag = 0 );
+                         const Tag* file_id_tag = 0 );
 
-  MBErrorCode read_tag_values( const char* file_name,
+  ErrorCode read_tag_values( const char* file_name,
                                const char* tag_name,
                                const FileOptions& opts,
                                std::vector<int>& tag_values_out,
@@ -51,7 +53,7 @@ public:
                                int subset_list_length = 0 );
   
     //! Constructor
-  ReadSmf(MBInterface* impl = NULL);
+  ReadSmf(Interface* impl = NULL);
 
    //! Destructor
   virtual ~ReadSmf();
@@ -84,20 +86,20 @@ protected:
     void mmult(std::vector<std::string> &);
     void mload(std::vector<std::string> &);
 
-    MBErrorCode parse_line(char *line);
+    ErrorCode parse_line(char *line);
 private:
 
-  MBReadUtilIface* readMeshIface;
+  ReadUtilIface* readMeshIface;
 
   //------------member variables ------------//
 
 
      //! interface instance
     //! interface instance
-  MBInterface* mdbImpl;
+  Interface* mdbImpl;
 
     //! Meshset Handle for the mesh that is currently being read
-  MBEntityHandle mCurrentMeshHandle;
+  EntityHandle mCurrentMeshHandle;
 
     //! A field which, if present and having a single integer for storage, should be used to partition the mesh by range. Defaults to MATERIAL_SET_TAG_NAME
   std::string mPartitionTagName;
@@ -115,6 +117,8 @@ private:
   int _numElementsInFile;
    
 };
+
+} // namespace moab
 
 #endif
 

@@ -14,14 +14,17 @@
  */
 
 #include "FileTokenizer.hpp"
-#include "MBReadUtilIface.hpp"
+#include "moab/ReadUtilIface.hpp"
 #include <cstring>
 #include <cctype>
 #include <string>
 #include <cstdlib>
+
+namespace moab {
+
 using namespace std;
 
-FileTokenizer::FileTokenizer( FILE* file_ptr, MBReadUtilIface* rif_ptr )
+FileTokenizer::FileTokenizer( FILE* file_ptr, ReadUtilIface* rif_ptr )
   : filePtr( file_ptr ),
     readUtilPtr( rif_ptr ),
     nextToken( buffer ),
@@ -485,3 +488,5 @@ bool FileTokenizer::get_binary( size_t size, void* mem )
   return size == fread( mem, 1, size, filePtr );
 }
 
+
+} // namespace moab

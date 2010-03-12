@@ -16,7 +16,9 @@
 #ifndef GMSH_UTIL_HPP
 #define GMSH_UTIL_HPP
 
-#include "MBEntityType.h"
+#include "moab/EntityType.hpp"
+
+namespace moab {
 
 //! Structure defining relation between MOAB and VTK element
 //! types.  VTK had different types for quadratic than linear
@@ -26,7 +28,7 @@ struct GmshElemType
 {
   const char* name;      //!< String name for use in error messages
   unsigned gmsh_type;    //!< GMsh integer type
-  MBEntityType mb_type;  //!< MOAB type
+  EntityType mb_type;  //!< MOAB type
   unsigned num_nodes;    //!< Number of nodes (0 for polygon)
   const int* node_order; //!< Gmsh element node ordering, indexed by
                          //!< the Gmsh node position and containing
@@ -49,8 +51,10 @@ public:
   static const unsigned numGmshElemType;
   
     //! Get the Gmsh type corresponding to a tuple of the MOAB type and number of nodes.
-    //! num_nodes is ignored for POLYGON type.  Returns -1 for unsupported types.
-  static int get_gmsh_type( MBEntityType type, unsigned num_nodes );
+    //! num_nodes is ignored for MBPOLYGON type.  Returns -1 for unsupported types.
+  static int get_gmsh_type( EntityType type, unsigned num_nodes );
 };
+
+} // namespace moab
 
 #endif

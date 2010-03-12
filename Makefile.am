@@ -10,8 +10,7 @@ noinst_LTLIBRARIES = libmoabio.la
 libmoabio_la_LIBADD = $(NETCDF_LIBS) $(HDF5_LIBS) 
 
 AM_CPPFLAGS += -DIS_BUILDING_MB \
-               -I..  -I$(srcdir)/.. -I$(srcdir)/../parallel \
-               -I../moab -I$(srcdir)/../moab -I$(srcdir)/../parallel/moab -I$(srcdir)/moab
+               -I..  -I$(srcdir)/.. -I$(srcdir)/../parallel
 
 if NETCDF_FILE
   MOAB_NETCDF_SRCS = ReadNCDF.cpp  ReadNCDF.hpp \

@@ -5,25 +5,27 @@
 #include "assert.h"
 
 #include "ReadIDEAS.hpp"
-#include "MBInterface.hpp"
-#include "MBInternals.hpp"
-#include "MBReadUtilIface.hpp"
+#include "moab/Interface.hpp"
+#include "Internals.hpp"
+#include "moab/ReadUtilIface.hpp"
 #include "FileTokenizer.hpp"
-#include "MBRange.hpp"
+#include "moab/Range.hpp"
 
-MBReaderIface* ReadIDEAS::factory( MBInterface* iface )
+namespace moab {
+
+ReaderIface* ReadIDEAS::factory( Interface* iface )
   { return new ReadIDEAS( iface ); }
 
-ReadIDEAS::ReadIDEAS(MBInterface* impl)
+ReadIDEAS::ReadIDEAS(Interface* impl)
     : MBI(impl)
 {
   void* ptr = 0;
-  impl->query_interface("MBReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  impl->query_interface("ReadUtilIface", &ptr);
+  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 }
 
 
-MBErrorCode ReadIDEAS::read_tag_values( const char* /* file_name */,
+ErrorCode ReadIDEAS::read_tag_values( const char* /* file_name */,
                                         const char* /* tag_name */,
                                         const FileOptions& /* opts */,
                                         std::vector<int>& /* tag_values_out */,
@@ -34,12 +36,12 @@ MBErrorCode ReadIDEAS::read_tag_values( const char* /* file_name */,
 }
 
 
-MBErrorCode ReadIDEAS::load_file(const char* fname, 
-                                 const MBEntityHandle* , 
+ErrorCode ReadIDEAS::load_file(const char* fname, 
+                                 const EntityHandle* , 
                                  const FileOptions& options,
-                                 const MBReaderIface::IDTag* subset_list,
+                                 const ReaderIface::IDTag* subset_list,
                                  int subset_list_length,
-                                 const MBTag* file_id_tag ) {
+                                 const Tag* file_id_tag ) {
 
   if (subset_list && subset_list_length) {
     readMeshIface->report_error( "Reading subset of files not supported for IDEAS." );
@@ -52,14 +54,14 @@ MBErrorCode ReadIDEAS::load_file(const char* fname,
     return MB_FILE_DOES_NOT_EXIST;
   }
 
-  MBErrorCode rval;
+  ErrorCode rval;
 
   char line[10000];
   file.getline(line, 10000);
   std::string s = line;
   if (s.find("-1") > s.length()) return MB_FAILURE;
 
-  MBEntityHandle first_vertex = 0;
+  EntityHandle first_vertex = 0;
 
   while (! file.eof() ) {
     file.getline(line, 10000);
@@ -88,7 +90,7 @@ MBErrorCode ReadIDEAS::load_file(const char* fname,
 
 }
 
-MBErrorCode ReadIDEAS::skip_header() {
+ErrorCode ReadIDEAS::skip_header() {
 
   // Go until finding a pair of -1 lines
   char *ctmp;
@@ -118,8 +120,8 @@ MBErrorCode ReadIDEAS::skip_header() {
 
 
 
-MBErrorCode ReadIDEAS::create_vertices(MBEntityHandle& first_vertex,
-                                       const MBTag* file_id_tag) {
+ErrorCode ReadIDEAS::create_vertices(EntityHandle& first_vertex,
+                                       const Tag* file_id_tag) {
 
   // Read two lines: first has some data, second has coordinates
   char line1[10000], line2[10000];
@@ -127,7 +129,7 @@ MBErrorCode ReadIDEAS::create_vertices(MBEntityHandle& first_vertex,
   char *ctmp1, *ctmp2;
   std::string s1, s2;
 
-  MBErrorCode rval;
+  ErrorCode rval;
 
   int top_of_block = file.tellg();
   unsigned int num_verts = 0;
@@ -157,7 +159,7 @@ MBErrorCode ReadIDEAS::create_vertices(MBEntityHandle& first_vertex,
   if (MB_SUCCESS != rval)
     return rval;
 
-  MBRange verts;
+  Range verts;
   verts.insert( first_vertex, first_vertex + num_verts - 1 );
   
   double *x = arrays[0];
@@ -192,20 +194,20 @@ MBErrorCode ReadIDEAS::create_vertices(MBEntityHandle& first_vertex,
 }
 
 
-MBErrorCode ReadIDEAS::create_tetrahedral_elements(MBEntityHandle vstart,
-                                                   const MBTag* file_id_tag) {
+ErrorCode ReadIDEAS::create_tetrahedral_elements(EntityHandle vstart,
+                                                   const Tag* file_id_tag) {
 
-  MBEntityHandle connect[4];
+  EntityHandle connect[4];
   char line1[10000], line2[10000];
   int il1, il2, id = 0;
   char *ctmp1, *ctmp2;
   std::string s1, s2;
   long verts[4];
 
-  MBErrorCode rval;
-  MBEntityHandle handle;
+  ErrorCode rval;
+  EntityHandle handle;
 
-  MBTag mat_prop_tag, phys_prop_tag;
+  Tag mat_prop_tag, phys_prop_tag;
   rval = MBI->tag_create( MAT_PROP_TABLE_TAG  , sizeof(int), MB_TAG_DENSE, mat_prop_tag, 0); 
   if (MB_SUCCESS != rval && MB_ALREADY_ALLOCATED != rval) return rval;
   rval = MBI->tag_create( PHYS_PROP_TABLE_TAG , sizeof(int), MB_TAG_DENSE, phys_prop_tag, 0); 
@@ -256,3 +258,5 @@ MBErrorCode ReadIDEAS::create_tetrahedral_elements(MBEntityHandle vstart,
   
   return MB_FAILURE;
 }
+
+} // namespace moab

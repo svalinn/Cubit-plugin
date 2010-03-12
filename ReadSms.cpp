@@ -21,13 +21,13 @@
 
 #include "ReadSms.hpp"
 #include "FileTokenizer.hpp" // for file tokenizer
-#include "MBInternals.hpp"
-#include "MBInterface.hpp"
-#include "MBReadUtilIface.hpp"
-#include "MBRange.hpp"
-#include "MBTagConventions.hpp"
-#include "MBParallelConventions.h"
-#include "MBCN.hpp"
+#include "Internals.hpp"
+#include "moab/Interface.hpp"
+#include "moab/ReadUtilIface.hpp"
+#include "moab/Range.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "moab/MBParallelConventions.h"
+#include "moab/MBCN.hpp"
 
 #include <errno.h>
 #include <string.h>
@@ -42,26 +42,28 @@
 
 #define CHECKN(a) if (n != (a)) return MB_FILE_WRITE_ERROR
 
-MBReaderIface* ReadSms::factory( MBInterface* iface )
+namespace moab {
+
+ReaderIface* ReadSms::factory( Interface* iface )
   { return new ReadSms(iface); }
 
-ReadSms::ReadSms(MBInterface* impl)
+ReadSms::ReadSms(Interface* impl)
     : mdbImpl(impl)
 {
   void* ptr = 0;
-  mdbImpl->query_interface("MBReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  mdbImpl->query_interface("ReadUtilIface", &ptr);
+  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 }
 
 ReadSms::~ReadSms()
 {
   if (readMeshIface) {
-    mdbImpl->release_interface("MBReadUtilIface", readMeshIface);
+    mdbImpl->release_interface("ReadUtilIface", readMeshIface);
     readMeshIface = 0;
   }
 }
 
-MBErrorCode ReadSms::read_tag_values(const char* /* file_name */,
+ErrorCode ReadSms::read_tag_values(const char* /* file_name */,
                                      const char* /* tag_name */,
                                      const FileOptions& /* opts */,
                                      std::vector<int>& /* tag_values_out */,
@@ -72,12 +74,12 @@ MBErrorCode ReadSms::read_tag_values(const char* /* file_name */,
 }
 
 
-MBErrorCode ReadSms::load_file( const char* filename, 
-                                const MBEntityHandle* ,
+ErrorCode ReadSms::load_file( const char* filename, 
+                                const EntityHandle* ,
                                 const FileOptions& ,
-                                const MBReaderIface::IDTag* subset_list,
+                                const ReaderIface::IDTag* subset_list,
                                 int subset_list_length,
-                                const MBTag* file_id_tag )
+                                const Tag* file_id_tag )
 {
   if (subset_list && subset_list_length) {
     readMeshIface->report_error( "Reading subset of files not supported for Sms." );
@@ -94,17 +96,17 @@ MBErrorCode ReadSms::load_file( const char* filename,
     return MB_FILE_DOES_NOT_EXIST;
   }
 
-  const MBErrorCode result = load_file_impl( file_ptr, file_id_tag );
+  const ErrorCode result = load_file_impl( file_ptr, file_id_tag );
   fclose( file_ptr );
 
   return result;
 }
 
-MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
+ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
 {
   bool warned = false;
   
-  MBErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, globalId );
+  ErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, globalId );
   if (MB_TAG_NOT_FOUND == result)
     result = mdbImpl->tag_create( GLOBAL_ID_TAG_NAME,
                                   sizeof(int), MB_TAG_SPARSE,
@@ -153,7 +155,7 @@ MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
 
     // create the vertices
   std::vector<double*> coord_arrays;
-  MBEntityHandle vstart = 0;
+  EntityHandle vstart = 0;
   result = readMeshIface->get_node_arrays( 3, nvertices, MB_START_ID, 
                                            vstart, coord_arrays );
   CHECK("Failed to get node arrays.");
@@ -164,8 +166,8 @@ MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
   if (MB_SUCCESS != result)
     return result;
   
-  MBEntityHandle this_gent, new_handle;
-  std::vector<MBEntityHandle> gentities[4];
+  EntityHandle this_gent, new_handle;
+  std::vector<EntityHandle> gentities[4];
   int gent_id, dum_int;
   int gent_type, num_connections;
   
@@ -215,8 +217,8 @@ MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
 // *******************************
 
   int vert1, vert2, num_pts;
-  std::vector<MBEntityHandle> everts(2);
-  MBEntityHandle estart, *connect;
+  std::vector<EntityHandle> everts(2);
+  EntityHandle estart, *connect;
   result = readMeshIface->get_element_array(nedges, 2, MBEDGE, 1, estart, connect);
   CHECK("Failed to create array of edges.");
   if (MB_SUCCESS != result) return result;
@@ -285,9 +287,9 @@ MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
 // *******************************
 //	Read Faces
 // *******************************
-  std::vector<MBEntityHandle> bound_ents, bound_verts, new_faces;
+  std::vector<EntityHandle> bound_ents, bound_verts, new_faces;
   int bound_id;
-  MBRange shverts;
+  Range shverts;
   new_faces.resize(nfaces);
   int num_bounding;
     
@@ -328,7 +330,7 @@ MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
       shverts.clear();
     }
 
-    result = mdbImpl->create_element((MBEntityType)(MBTRI+num_bounding-3),
+    result = mdbImpl->create_element((EntityType)(MBTRI+num_bounding-3),
                                      &bound_verts[0], bound_verts.size(), 
                                      new_faces[i]);
     CHECK("Failed to create edge.");
@@ -377,7 +379,7 @@ MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
   int sense[MB_MAX_SUB_ENTITIES];
   bound_verts.resize(MB_MAX_SUB_ENTITIES);
 
-  std::vector<MBEntityHandle> regions;
+  std::vector<EntityHandle> regions;
   if (file_id_tag)
     regions.resize( nregions );
   for(int i = 0; i < nregions; i++)
@@ -399,7 +401,7 @@ MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
       bound_ents[j] = new_faces[abs(bound_id)-1];
     }
 
-    MBEntityType etype;
+    EntityType etype;
     result = readMeshIface->get_ordered_vertices(&bound_ents[0], sense, 
                                                  num_bounding,
                                                  3, &bound_verts[0], etype);
@@ -431,13 +433,13 @@ MBErrorCode ReadSms::load_file_impl( FILE* file_ptr, const MBTag* file_id_tag )
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadSms::get_set(std::vector<MBEntityHandle> *sets,
+ErrorCode ReadSms::get_set(std::vector<EntityHandle> *sets,
                              int set_dim, int set_id,
-                             MBTag dim_tag,
-                             MBEntityHandle &this_set,
-                             const MBTag* file_id_tag) 
+                             Tag dim_tag,
+                             EntityHandle &this_set,
+                             const Tag* file_id_tag) 
 {
-  MBErrorCode result = MB_SUCCESS;
+  ErrorCode result = MB_SUCCESS;
   
   if (set_dim < 0 || set_dim > 3)
     return MB_FILE_WRITE_ERROR;
@@ -474,7 +476,7 @@ MBErrorCode ReadSms::get_set(std::vector<MBEntityHandle> *sets,
   return result;
 }
 
-MBErrorCode ReadSms::read_parallel_info(FILE *file_ptr) 
+ErrorCode ReadSms::read_parallel_info(FILE *file_ptr) 
 {
   return MB_FAILURE;
     /*
@@ -484,7 +486,7 @@ MBErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
   
     // read interfaces
   int iface_id, iface_dim, iface_own, num_iface_corners;
-  MBEntityHandle this_iface;
+  EntityHandle this_iface;
   std::vector<int> *iface_corners;
   for (int i = 0; i < num_ifaces; i++) {
     fscanf(file_ptr, "%d %d %d %d", &iface_id, &iface_dim, &iface_own,
@@ -509,14 +511,16 @@ MBErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
     */
 }
 
-MBErrorCode ReadSms::add_entities( MBEntityHandle start,
-                                   MBEntityHandle count,
-                                   const MBTag* file_id_tag )
+ErrorCode ReadSms::add_entities( EntityHandle start,
+                                   EntityHandle count,
+                                   const Tag* file_id_tag )
 {
   if (!count || !file_id_tag)
     return MB_FAILURE;
 
-  MBRange range;
+  Range range;
   range.insert( start, start + count - 1 );
   return readMeshIface->assign_ids( *file_id_tag, range, 1 );
 }
+
+} // namespace moab

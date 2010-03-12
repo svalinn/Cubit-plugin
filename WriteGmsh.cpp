@@ -1,10 +1,10 @@
 #include "WriteGmsh.hpp"
-#include "MBCN.hpp"
-#include "MBTagConventions.hpp"
-#include "MBParallelConventions.h"
-#include "MBInterface.hpp"
-#include "MBRange.hpp"
-#include "MBWriteUtilIface.hpp"
+#include "moab/MBCN.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "moab/MBParallelConventions.h"
+#include "moab/Interface.hpp"
+#include "moab/Range.hpp"
+#include "moab/WriteUtilIface.hpp"
 #include "FileOptions.hpp"
 #include "GmshUtil.hpp"
 
@@ -12,22 +12,24 @@
 #include <map>
 #include <set>
 
+namespace moab {
+
 const int DEFAULT_PRECISION = 10;
 
-MBWriterIface *WriteGmsh::factory( MBInterface* iface )
+WriterIface *WriteGmsh::factory( Interface* iface )
   { return new WriteGmsh( iface ); }
 
-WriteGmsh::WriteGmsh(MBInterface *impl) 
+WriteGmsh::WriteGmsh(Interface *impl) 
     : mbImpl(impl)
 {
   void* ptr = 0;
-  impl->query_interface("MBWriteUtilIface", &ptr);
-  mWriteIface = reinterpret_cast<MBWriteUtilIface*>(ptr);
+  impl->query_interface("WriteUtilIface", &ptr);
+  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
 }
 
 WriteGmsh::~WriteGmsh() 
 {
-  mbImpl->release_interface("MBWriteUtilIface", mWriteIface);
+  mbImpl->release_interface("WriteUtilIface", mWriteIface);
 }
 
 
@@ -45,18 +47,18 @@ struct ElemInfo {
 };
   
     //! writes out a file
-MBErrorCode WriteGmsh::write_file(const char *file_name,
+ErrorCode WriteGmsh::write_file(const char *file_name,
                                   const bool overwrite,
                                   const FileOptions& options,
-                                  const MBEntityHandle *output_list,
+                                  const EntityHandle *output_list,
                                   const int num_sets,
                                   const std::vector<std::string>& ,
-                                  const MBTag* ,
+                                  const Tag* ,
                                   int ,
                                   int )
 {
-  MBErrorCode rval;
-  MBTag global_id = 0, block_tag = 0, geom_tag = 0, prtn_tag = 0;
+  ErrorCode rval;
+  Tag global_id = 0, block_tag = 0, geom_tag = 0, prtn_tag = 0;
 
   if (!overwrite)
   {
@@ -74,12 +76,12 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
   
   
     // Define arrays to hold entity sets of interest
-  MBRange sets[3];
-  MBTag set_tags[] = { block_tag, geom_tag, prtn_tag };
-  MBTag set_ids[] = { block_tag, 0 /*global_id*/, prtn_tag };
+  Range sets[3];
+  Tag set_tags[] = { block_tag, geom_tag, prtn_tag };
+  Tag set_ids[] = { block_tag, 0 /*global_id*/, prtn_tag };
   
     // Get entities to write
-  MBRange elements, nodes;
+  Range elements, nodes;
   if (!output_list)
   {
     rval = mbImpl->get_entities_by_dimension( 0, 0, nodes, false );
@@ -87,7 +89,7 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
       return rval;
     for (int d = 1; d < 3; ++d)
     {
-      MBRange tmp_range;
+      Range tmp_range;
       rval = mbImpl->get_entities_by_dimension( 0, d, tmp_range, false );
       if (MB_SUCCESS != rval)
         return rval;
@@ -105,10 +107,10 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
   {
     for (int i = 0; i < num_sets; ++i)
     {
-      MBEntityHandle set = output_list[i];
+      EntityHandle set = output_list[i];
       for (int d = 1; d < 3; ++d)
       {
-        MBRange tmp_range, tmp_nodes;
+        Range tmp_range, tmp_nodes;
         rval = mbImpl->get_entities_by_dimension( set, d, tmp_range, true );
         if (rval != MB_SUCCESS)
           return rval;
@@ -122,7 +124,7 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
       for (int s = 0; s < 3; ++s)
         if (set_tags[s])
         {
-          MBRange tmp_range;
+          Range tmp_range;
           rval = mbImpl->get_entities_by_type_and_tag( set, MBENTITYSET, set_tags+s, 0, 1, tmp_range );
           if (MB_SUCCESS != rval) return rval;
           sets[s].merge( tmp_range );
@@ -149,7 +151,7 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
             mbImpl->tag_get_data( global_id, elements, &global_id_array[0] ) )
   {
     id_iter = global_id_array.begin();
-    for (MBRange::iterator i = elements.begin(); i != elements.end(); ++i, ++id_iter)
+    for (Range::iterator i = elements.begin(); i != elements.end(); ++i, ++id_iter)
       *id_iter = mbImpl->id_from_handle( *i );
   }
   
@@ -161,12 +163,12 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
       max_id = *id_iter;
   
     // Initialize ElemInfo struct for each element
-  std::map<MBEntityHandle,ElemInfo> elem_sets; // per-element info
+  std::map<EntityHandle,ElemInfo> elem_sets; // per-element info
   std::set<int> elem_global_ids;               // temporary for finding duplicate IDs
   id_iter = global_id_array.begin();
     // Iterate backwards to give highest-dimension entities first dibs for
     // a conflicting ID.
-  for (MBRange::reverse_iterator i = elements.rbegin(); i != elements.rend(); ++i)
+  for (Range::reverse_iterator i = elements.rbegin(); i != elements.rend(); ++i)
   {
     int id = *id_iter; ++id_iter;
     if (!elem_global_ids.insert(id).second)
@@ -176,9 +178,9 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
     ei.count = 0;
     ei.id = id;
     
-    MBEntityType type = mbImpl->type_from_handle( *i );
+    EntityType type = mbImpl->type_from_handle( *i );
     int num_vtx;
-    const MBEntityHandle* conn;
+    const EntityHandle* conn;
     rval = mbImpl->get_connectivity( *i, conn, num_vtx );
     if (MB_SUCCESS != rval)
       return rval;
@@ -203,7 +205,7 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
     if (!set_tags[s])
       continue;
       
-    for (MBRange::iterator i = sets[s].begin(); i != sets[s].end(); ++i)
+    for (Range::iterator i = sets[s].begin(); i != sets[s].end(); ++i)
     {
       int id;
       if (set_ids[s]) 
@@ -217,13 +219,13 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
         id = mbImpl->id_from_handle( *i );
       }
       
-      MBRange elems;
+      Range elems;
       rval = mbImpl->get_entities_by_handle( *i, elems );
       if (MB_SUCCESS != rval)
         return rval;
 
       elems = intersect( elems,  elements );
-      for (MBRange::iterator j = elems.begin(); j != elems.end(); ++j)
+      for (Range::iterator j = elems.begin(); j != elems.end(); ++j)
         elem_sets[*j].set( s, id );
     }
   }
@@ -255,7 +257,7 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
   if (MB_SUCCESS != rval)
     return rval;
   std::vector<double>::iterator c = coords.begin();
-  for (MBRange::iterator i = nodes.begin(); i != nodes.end(); ++i)
+  for (Range::iterator i = nodes.begin(); i != nodes.end(); ++i)
   {
     out << mbImpl->id_from_handle( *i );
     out << " " << *c; ++c;
@@ -272,11 +274,11 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
     // Write elements
   out << "$Elements" << std::endl;
   out << elem_sets.size() << std::endl;
-  for (std::map<MBEntityHandle,ElemInfo>::iterator i = elem_sets.begin();
+  for (std::map<EntityHandle,ElemInfo>::iterator i = elem_sets.begin();
        i != elem_sets.end(); ++i)
   {
     int num_vtx;
-    const MBEntityHandle* conn;
+    const EntityHandle* conn;
     rval = mbImpl->get_connectivity( i->first, conn, num_vtx );
     if (MB_SUCCESS != rval)
       return rval;
@@ -305,5 +307,7 @@ MBErrorCode WriteGmsh::write_file(const char *file_name,
     // done
   return MB_SUCCESS;
 }
+
+} // namespace moab
 
 

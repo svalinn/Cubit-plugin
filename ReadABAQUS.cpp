@@ -29,15 +29,17 @@
 #include <stdio.h>
 #include <cmath>
 
-#include "MBCN.hpp"
-#include "MBRange.hpp"
-#include "MBInterface.hpp"
-#include "MBTagConventions.hpp"
-#include "MBInternals.hpp"
-#include "MBReadUtilIface.hpp"
-#include "MBAffineXform.hpp"
+#include "moab/MBCN.hpp"
+#include "moab/Range.hpp"
+#include "moab/Interface.hpp"
+#include "moab/MBTagConventions.hpp"
+#include "Internals.hpp"
+#include "moab/ReadUtilIface.hpp"
+#include "AffineXform.hpp"
 // #include "abaqus_order.h"
 #include "FileOptions.hpp"
+
+namespace moab {
 
 #define ABQ_AMBIGUOUS "AMBIGUOUS"
 #define ABQ_UNDEFINED "UNDEFINED"
@@ -45,20 +47,20 @@
 
 #define MB_RETURN_IF_FAIL if (MB_SUCCESS != status) return status
 
-MBReaderIface* ReadABAQUS::factory( MBInterface* iface )
+ReaderIface* ReadABAQUS::factory( Interface* iface )
   { return new ReadABAQUS( iface ); }
 
 
 
-ReadABAQUS::ReadABAQUS(MBInterface* impl)
+ReadABAQUS::ReadABAQUS(Interface* impl)
   : mdbImpl(impl)
 {
   assert(impl != NULL);
   reset();
   
   void* ptr = 0;
-  impl->query_interface( "MBReadUtilIface", &ptr );
-  readMeshIface = reinterpret_cast<MBReadUtilIface*>(ptr);
+  impl->query_interface( "ReadUtilIface", &ptr );
+  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 
   // initialize in case tag_get_handle fails below
   mMaterialSetTag  = 0;
@@ -86,9 +88,9 @@ ReadABAQUS::ReadABAQUS(MBInterface* impl)
   mHasMidNodesTag  = get_tag(HAS_MID_NODES_TAG_NAME,4*sizeof(int),MB_TAG_SPARSE,MB_TYPE_INTEGER,def_val);
 
   mSetTypeTag        = get_tag(ABAQUS_SET_TYPE_TAG_NAME,          sizeof(int),           MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mPartHandleTag     = get_tag(ABAQUS_PART_HANDLE_TAG_NAME,       sizeof(MBEntityHandle),MB_TAG_SPARSE,MB_TYPE_HANDLE);
-  mInstanceHandleTag = get_tag(ABAQUS_INSTANCE_HANDLE_TAG_NAME,   sizeof(MBEntityHandle),MB_TAG_DENSE, MB_TYPE_HANDLE);
-  mAssemblyHandleTag = get_tag(ABAQUS_ASSEMBLY_HANDLE_TAG_NAME,   sizeof(MBEntityHandle),MB_TAG_DENSE, MB_TYPE_HANDLE);
+  mPartHandleTag     = get_tag(ABAQUS_PART_HANDLE_TAG_NAME,       sizeof(EntityHandle),MB_TAG_SPARSE,MB_TYPE_HANDLE);
+  mInstanceHandleTag = get_tag(ABAQUS_INSTANCE_HANDLE_TAG_NAME,   sizeof(EntityHandle),MB_TAG_DENSE, MB_TYPE_HANDLE);
+  mAssemblyHandleTag = get_tag(ABAQUS_ASSEMBLY_HANDLE_TAG_NAME,   sizeof(EntityHandle),MB_TAG_DENSE, MB_TYPE_HANDLE);
   mInstancePIDTag    = get_tag(ABAQUS_INSTANCE_PART_ID_TAG_NAME,  sizeof(int),           MB_TAG_SPARSE,MB_TYPE_INTEGER);
   mInstanceGIDTag    = get_tag(ABAQUS_INSTANCE_GLOBAL_ID_TAG_NAME,sizeof(int),           MB_TAG_SPARSE,MB_TYPE_INTEGER);
   mLocalIDTag        = get_tag(ABAQUS_LOCAL_ID_TAG_NAME,          sizeof(int),           MB_TAG_DENSE, MB_TYPE_INTEGER);
@@ -105,7 +107,7 @@ void ReadABAQUS::reset()
 
 ReadABAQUS::~ReadABAQUS() 
 {
-  std::string iface_name = "MBReadUtilIface";
+  std::string iface_name = "ReadUtilIface";
   mdbImpl->release_interface(iface_name, readMeshIface);
   if (NULL != abFile)
     abFile.close();
@@ -113,13 +115,13 @@ ReadABAQUS::~ReadABAQUS()
 
 /* 
 
-MBErrorCode ReadABAQUS::check_file_stats()
+ErrorCode ReadABAQUS::check_file_stats()
 * check for existence of file
 * initialize meshsets, and offsets if necessary
 
 */
 
-MBErrorCode ReadABAQUS::read_tag_values( const char* /* file_name */,
+ErrorCode ReadABAQUS::read_tag_values( const char* /* file_name */,
 					 const char* /* tag_name */,
 					 const FileOptions& /* opts */,
 					 std::vector<int>& /* tag_values_out */,
@@ -131,14 +133,14 @@ MBErrorCode ReadABAQUS::read_tag_values( const char* /* file_name */,
 
 
 
-MBErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
-				  const MBEntityHandle* file_set_ptr,
+ErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
+				  const EntityHandle* file_set_ptr,
 				  const FileOptions& opts,
-				  const MBReaderIface::IDTag* subset_list,
+				  const ReaderIface::IDTag* subset_list,
 				  int subset_list_length,
-				  const MBTag* file_id_tag)
+				  const Tag* file_id_tag)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
   // open file
   lineNo = 0;
@@ -148,7 +150,7 @@ MBErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 
   bool in_unsupported = false;
 
-  MBEntityHandle file_set;
+  EntityHandle file_set;
   status = mdbImpl->create_meshset( MESHSET_SET, file_set );
   if (MB_SUCCESS != status)
     return status;
@@ -204,7 +206,7 @@ MBErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 
   // temporary??? delete parts
   // get all node sets in part
-  MBRange part_sets;
+  Range part_sets;
   int tag_val = ABQ_PART_SET;
   void* tag_data[] = {&tag_val};
   status = mdbImpl->get_entities_by_type_and_tag(file_set,
@@ -213,11 +215,11 @@ MBErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 						 tag_data, 1, part_sets);
   MB_RETURN_IF_FAIL;
   
-  for (MBRange::iterator part_set = part_sets.begin();
+  for (Range::iterator part_set = part_sets.begin();
        part_set != part_sets.end();
        part_set++)
     {
-      MBRange ent_sets;
+      Range ent_sets;
       tag_val = ABQ_NODE_SET;
       tag_data[0] = &tag_val;
 
@@ -242,7 +244,7 @@ MBErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
       status = mdbImpl->delete_entities(ent_sets);
       MB_RETURN_IF_FAIL;
 
-      MBRange node_list,ele_list;
+      Range node_list,ele_list;
       status = get_set_elements(*part_set,ele_list);
       MB_RETURN_IF_FAIL;
 
@@ -267,7 +269,7 @@ MBErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 }
   
 
-MBErrorCode ReadABAQUS::read_heading(MBEntityHandle file_set)
+ErrorCode ReadABAQUS::read_heading(EntityHandle file_set)
 {
   
   std::vector<std::string> tokens;
@@ -284,9 +286,9 @@ MBErrorCode ReadABAQUS::read_heading(MBEntityHandle file_set)
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadABAQUS::read_assembly(MBEntityHandle file_set)
+ErrorCode ReadABAQUS::read_assembly(EntityHandle file_set)
 {
-  MBErrorCode status = MB_SUCCESS;
+  ErrorCode status = MB_SUCCESS;
 
   std::vector<std::string> tokens;
   std::map<std::string,std::string> params;
@@ -345,7 +347,7 @@ MBErrorCode ReadABAQUS::read_assembly(MBEntityHandle file_set)
     }
 
 
-  MBEntityHandle assembly_set;
+  EntityHandle assembly_set;
   
   status = add_entity_set(file_set,ABQ_ASSEMBLY_SET,assembly_name,assembly_set);
 
@@ -410,9 +412,9 @@ MBErrorCode ReadABAQUS::read_assembly(MBEntityHandle file_set)
 }
 
 
-MBErrorCode ReadABAQUS::read_instance(MBEntityHandle assembly_set,MBEntityHandle file_set)
+ErrorCode ReadABAQUS::read_instance(EntityHandle assembly_set,EntityHandle file_set)
 {
-  MBErrorCode status = MB_SUCCESS;
+  ErrorCode status = MB_SUCCESS;
 
   std::vector<std::string> tokens;
   std::map<std::string,std::string> params;
@@ -555,7 +557,7 @@ MBErrorCode ReadABAQUS::read_instance(MBEntityHandle assembly_set,MBEntityHandle
       
    }
 
-  MBEntityHandle instance_set;
+  EntityHandle instance_set;
   
   status = create_instance_of_part(file_set,assembly_set,part_name,
 				   instance_name,instance_set,translation,rotation);
@@ -566,9 +568,9 @@ MBErrorCode ReadABAQUS::read_instance(MBEntityHandle assembly_set,MBEntityHandle
 }
 
 
-MBErrorCode ReadABAQUS::read_part(MBEntityHandle file_set)
+ErrorCode ReadABAQUS::read_part(EntityHandle file_set)
 {
-  MBErrorCode status = MB_SUCCESS;
+  ErrorCode status = MB_SUCCESS;
 
   std::vector<std::string> tokens;
   std::map<std::string,std::string> params;
@@ -627,7 +629,7 @@ MBErrorCode ReadABAQUS::read_part(MBEntityHandle file_set)
     }
 
 
-  MBEntityHandle part_set;
+  EntityHandle part_set;
   
   status = add_entity_set(file_set,ABQ_PART_SET,part_name,part_set);
 
@@ -697,9 +699,9 @@ MBErrorCode ReadABAQUS::read_part(MBEntityHandle file_set)
   return MB_SUCCESS;
 }  
 
-MBErrorCode ReadABAQUS::read_solid_section(MBEntityHandle parent_set)
+ErrorCode ReadABAQUS::read_solid_section(EntityHandle parent_set)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
   std::vector<std::string> tokens;
   std::map<std::string,std::string> params;
@@ -762,7 +764,7 @@ MBErrorCode ReadABAQUS::read_solid_section(MBEntityHandle parent_set)
 	}
     }
   
-  MBEntityHandle set_handle;
+  EntityHandle set_handle;
   status = get_set_by_name(parent_set,ABQ_ELEMENT_SET,elset_name,set_handle);
 
   status = mdbImpl->tag_set_data(mMatNameTag,&set_handle,1,mat_name.c_str());
@@ -784,9 +786,9 @@ MBErrorCode ReadABAQUS::read_solid_section(MBEntityHandle parent_set)
 
 }
 
-MBErrorCode ReadABAQUS::read_element_set(MBEntityHandle parent_set, MBEntityHandle file_set, MBEntityHandle assembly_set)
+ErrorCode ReadABAQUS::read_element_set(EntityHandle parent_set, EntityHandle file_set, EntityHandle assembly_set)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
   std::vector<std::string> tokens;
   std::map<std::string,std::string> params;
@@ -803,13 +805,13 @@ MBErrorCode ReadABAQUS::read_element_set(MBEntityHandle parent_set, MBEntityHand
   std::string elset_name;
   bool generate_elset = false;
   std::string instance_name;
-  MBEntityHandle element_container_set = parent_set;
+  EntityHandle element_container_set = parent_set;
 
   // tokenize last line read
   tokenize(readline,tokens,",\n");
   extract_keyword_parameters(tokens,params);
   
-  MBRange element_range;
+  Range element_range;
   
   // search for required parameters
   for (std::map<std::string,abaqus_elset_params>::iterator thisParam=requiredParams.begin();
@@ -861,7 +863,7 @@ MBErrorCode ReadABAQUS::read_element_set(MBEntityHandle parent_set, MBEntityHand
   
   
   std::vector<int> element_list;
-  MBRange tmp_element_range;
+  Range tmp_element_range;
 
   next_line_type = get_next_line_type();
   
@@ -912,7 +914,7 @@ MBErrorCode ReadABAQUS::read_element_set(MBEntityHandle parent_set, MBEntityHand
   
   element_range.merge(tmp_element_range);
 
-  MBEntityHandle element_set;
+  EntityHandle element_set;
   
   status = add_entity_set(parent_set,ABQ_ELEMENT_SET,elset_name,element_set);
   MB_RETURN_IF_FAIL;
@@ -943,9 +945,9 @@ MBErrorCode ReadABAQUS::read_element_set(MBEntityHandle parent_set, MBEntityHand
 
 
 
-MBErrorCode ReadABAQUS::read_node_set(MBEntityHandle parent_set,MBEntityHandle file_set, MBEntityHandle assembly_set)
+ErrorCode ReadABAQUS::read_node_set(EntityHandle parent_set,EntityHandle file_set, EntityHandle assembly_set)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
   std::vector<std::string> tokens;
   std::map<std::string,std::string> params;
@@ -964,13 +966,13 @@ MBErrorCode ReadABAQUS::read_node_set(MBEntityHandle parent_set,MBEntityHandle f
   bool make_from_elset = false;
   bool generate_nset = false;
   std::string elset_name, instance_name;
-  MBEntityHandle node_container_set = parent_set;
+  EntityHandle node_container_set = parent_set;
 
   // tokenize last line read
   tokenize(readline,tokens,",\n");
   extract_keyword_parameters(tokens,params);
 
-  MBRange node_range;
+  Range node_range;
   
   // search for required parameters
   for (std::map<std::string,abaqus_nset_params>::iterator thisParam=requiredParams.begin();
@@ -1038,7 +1040,7 @@ MBErrorCode ReadABAQUS::read_node_set(MBEntityHandle parent_set,MBEntityHandle f
   else
     {
       std::vector<int> node_list;
-      MBRange tmp_node_range;
+      Range tmp_node_range;
 
       next_line_type = get_next_line_type();
       
@@ -1092,7 +1094,7 @@ MBErrorCode ReadABAQUS::read_node_set(MBEntityHandle parent_set,MBEntityHandle f
       
     }
   
-  MBEntityHandle node_set;
+  EntityHandle node_set;
   
   status = add_entity_set(parent_set,ABQ_NODE_SET,nset_name,node_set);
   MB_RETURN_IF_FAIL;
@@ -1119,9 +1121,9 @@ MBErrorCode ReadABAQUS::read_node_set(MBEntityHandle parent_set,MBEntityHandle f
 
 }
 
-MBErrorCode ReadABAQUS::read_element_list(MBEntityHandle parent_set)
+ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
   std::vector<std::string> tokens;
   std::map<std::string,std::string> params;
@@ -1136,7 +1138,7 @@ MBErrorCode ReadABAQUS::read_element_list(MBEntityHandle parent_set)
 
   std::map<std::string,abaqus_element_type> elementTypes;
   std::map<abaqus_element_type,unsigned int> nodes_per_element;
-  std::map<abaqus_element_type,MBEntityType> entityTypeMap;
+  std::map<abaqus_element_type,EntityType> entityTypeMap;
   elementTypes["DC3D8"]                 = abq_eletype_dc3d8;
   nodes_per_element[abq_eletype_dc3d8]  = 8;
   entityTypeMap[abq_eletype_dc3d8]      = MBHEX;
@@ -1242,8 +1244,8 @@ MBErrorCode ReadABAQUS::read_element_list(MBEntityHandle parent_set)
   int num_elements = element_ids.size();
 
   // get and fill element arrays
-  MBEntityHandle start_element = 0;
-  MBEntityHandle *connect;
+  EntityHandle start_element = 0;
+  EntityHandle *connect;
 
   status = readMeshIface->get_element_array( num_elements, nodes_per_element[element_type],
 					     entityTypeMap[element_type], MB_START_ID,
@@ -1253,7 +1255,7 @@ MBErrorCode ReadABAQUS::read_element_list(MBEntityHandle parent_set)
 
   // ASSUME: elements must be defined after nodes!
   // get list of node entity handles and node IDs
-  MBRange node_list;
+  Range node_list;
   status = mdbImpl->get_entities_by_dimension(parent_set, 0, node_list);
   MB_RETURN_IF_FAIL;
   
@@ -1261,14 +1263,14 @@ MBErrorCode ReadABAQUS::read_element_list(MBEntityHandle parent_set)
   status = mdbImpl->tag_get_data(mLocalIDTag,node_list,&node_ids[0]);
   MB_RETURN_IF_FAIL;
 
-  std::map<int,MBEntityHandle> nodeIdMap;
+  std::map<int,EntityHandle> nodeIdMap;
   for (unsigned int idx=0;idx<node_list.size();idx++)
     nodeIdMap[node_ids[idx]] = node_list[idx];
 
   for (unsigned int node=0;node<connect_list.size();node++)
     connect[node] = nodeIdMap[connect_list[node]];
 
-  MBRange element_range(start_element, start_element+num_elements-1);
+  Range element_range(start_element, start_element+num_elements-1);
 
   // add elements to file_set
   // status = mdbImpl->add_entities(file_set,element_range);
@@ -1286,7 +1288,7 @@ MBErrorCode ReadABAQUS::read_element_list(MBEntityHandle parent_set)
 
   if (make_element_set)
     {
-      MBEntityHandle element_set;
+      EntityHandle element_set;
 
       status = add_entity_set(parent_set,ABQ_ELEMENT_SET,element_set_name,element_set);
       MB_RETURN_IF_FAIL;
@@ -1306,9 +1308,9 @@ MBErrorCode ReadABAQUS::read_element_list(MBEntityHandle parent_set)
 
 }
  
-MBErrorCode ReadABAQUS::read_node_list(MBEntityHandle parent_set)
+ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
   std::vector<std::string> tokens;
   std::map<std::string,std::string> params;
@@ -1404,7 +1406,7 @@ MBErrorCode ReadABAQUS::read_node_list(MBEntityHandle parent_set)
 
   // get and fill coordinate arrays
   std::vector<double*> coord_arrays(3);
-  MBEntityHandle start_node = 0;
+  EntityHandle start_node = 0;
   status = readMeshIface->get_node_arrays(3, num_nodes,MB_START_ID,
 					  start_node,coord_arrays);
   MB_RETURN_IF_FAIL;
@@ -1418,7 +1420,7 @@ MBErrorCode ReadABAQUS::read_node_list(MBEntityHandle parent_set)
       coord_arrays[2][idx] = coord_list[idx*3+2];
     }
   
-  MBRange node_range(start_node, start_node+num_nodes-1);
+  Range node_range(start_node, start_node+num_nodes-1);
   // add nodes to file_set
   // status = mdbImpl->add_entities(file_set,node_range);
   // MB_RETURN_IF_FAIL;
@@ -1435,7 +1437,7 @@ MBErrorCode ReadABAQUS::read_node_list(MBEntityHandle parent_set)
 
   if (make_node_set)
     {
-      MBEntityHandle node_set;
+      EntityHandle node_set;
       
       status = add_entity_set(parent_set,ABQ_NODE_SET,node_set_name,node_set);
       MB_RETURN_IF_FAIL;
@@ -1455,12 +1457,12 @@ MBErrorCode ReadABAQUS::read_node_list(MBEntityHandle parent_set)
 
 // SET CREATION & ACCESS UTILITIES
 
-MBErrorCode ReadABAQUS::get_elements_by_id(MBEntityHandle parent_set,
+ErrorCode ReadABAQUS::get_elements_by_id(EntityHandle parent_set,
 					   std::vector<int> element_ids_subset,
-					   MBRange &element_range)
+					   Range &element_range)
 {
-  MBErrorCode status;
-  MBRange all_elements;
+  ErrorCode status;
+  Range all_elements;
 
   status = get_set_elements(parent_set,all_elements);
   MB_RETURN_IF_FAIL;
@@ -1469,7 +1471,7 @@ MBErrorCode ReadABAQUS::get_elements_by_id(MBEntityHandle parent_set,
   status = mdbImpl->tag_get_data(mLocalIDTag,all_elements,&element_ids[0]);
   MB_RETURN_IF_FAIL;
 
-  std::map<int,MBEntityHandle> elementIdMap;
+  std::map<int,EntityHandle> elementIdMap;
   for (unsigned int idx=0;idx<all_elements.size();idx++)
     elementIdMap[element_ids[idx]] = all_elements[idx];
 
@@ -1481,13 +1483,13 @@ MBErrorCode ReadABAQUS::get_elements_by_id(MBEntityHandle parent_set,
   return MB_SUCCESS;
 
 }
-MBErrorCode ReadABAQUS::get_nodes_by_id(MBEntityHandle parent_set,
+ErrorCode ReadABAQUS::get_nodes_by_id(EntityHandle parent_set,
 					std::vector<int> node_ids_subset,
-					MBRange &node_range)
+					Range &node_range)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
-  MBRange all_nodes;
+  Range all_nodes;
   status = mdbImpl->get_entities_by_type(parent_set,MBVERTEX,all_nodes);
   MB_RETURN_IF_FAIL;
 
@@ -1495,7 +1497,7 @@ MBErrorCode ReadABAQUS::get_nodes_by_id(MBEntityHandle parent_set,
   status = mdbImpl->tag_get_data(mLocalIDTag,all_nodes,&node_ids[0]);
   MB_RETURN_IF_FAIL;
   
-  std::map<int,MBEntityHandle> nodeIdMap;
+  std::map<int,EntityHandle> nodeIdMap;
   for (unsigned int idx=0;idx<all_nodes.size();idx++)
     nodeIdMap[node_ids[idx]] = all_nodes[idx];
 
@@ -1511,18 +1513,18 @@ MBErrorCode ReadABAQUS::get_nodes_by_id(MBEntityHandle parent_set,
 }
 
 
-MBErrorCode ReadABAQUS::get_set_by_name(MBEntityHandle parent_set,
+ErrorCode ReadABAQUS::get_set_by_name(EntityHandle parent_set,
 					int ABQ_set_type,
 					std::string set_name,
-					MBEntityHandle &set_handle)
+					EntityHandle &set_handle)
 {
-  MBErrorCode status;
+  ErrorCode status;
   
   char this_set_name[ABAQUS_SET_NAME_LENGTH];
   
   set_handle = 0;
 
-  MBRange sets;
+  Range sets;
   void* tag_data[] = {&ABQ_set_type};
   status = mdbImpl->get_entities_by_type_and_tag(parent_set,
 						 MBENTITYSET,
@@ -1534,7 +1536,7 @@ MBErrorCode ReadABAQUS::get_set_by_name(MBEntityHandle parent_set,
       return status;
     }
   
-  for (MBRange::iterator this_set=sets.begin();
+  for (Range::iterator this_set=sets.begin();
        this_set != sets.end() && 0 == set_handle;
        this_set++)
     {
@@ -1555,12 +1557,12 @@ MBErrorCode ReadABAQUS::get_set_by_name(MBEntityHandle parent_set,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadABAQUS::get_set_elements(MBEntityHandle set_handle,
-					 MBRange &element_range)
+ErrorCode ReadABAQUS::get_set_elements(EntityHandle set_handle,
+					 Range &element_range)
 {
-  MBErrorCode status;
+  ErrorCode status;
   
-  MBRange dim_ent_list;
+  Range dim_ent_list;
 
   // could have elements of multiple dimensions in this set???
   for (int dim=1;dim<=3;dim++)
@@ -1575,14 +1577,14 @@ MBErrorCode ReadABAQUS::get_set_elements(MBEntityHandle set_handle,
   return MB_SUCCESS;
 }
 
-MBErrorCode ReadABAQUS::get_set_elements_by_name(MBEntityHandle parent_set,
+ErrorCode ReadABAQUS::get_set_elements_by_name(EntityHandle parent_set,
 						 int ABQ_set_type,
 						 std::string set_name,
-						 MBRange &element_range)
+						 Range &element_range)
 {
-  MBErrorCode status;
+  ErrorCode status;
   
-  MBEntityHandle set_handle;
+  EntityHandle set_handle;
   status = get_set_by_name(parent_set,ABQ_set_type,set_name,set_handle);
   MB_RETURN_IF_FAIL;
   
@@ -1599,19 +1601,19 @@ MBErrorCode ReadABAQUS::get_set_elements_by_name(MBEntityHandle parent_set,
 }
   
 
-MBErrorCode ReadABAQUS::get_set_nodes(MBEntityHandle parent_set,
+ErrorCode ReadABAQUS::get_set_nodes(EntityHandle parent_set,
 				      int ABQ_set_type,
 				      std::string set_name,
-				      MBRange &node_range)
+				      Range &node_range)
 {
-  MBErrorCode status;
+  ErrorCode status;
   
-  MBEntityHandle set_handle;
+  EntityHandle set_handle;
   status = get_set_by_name(parent_set,ABQ_set_type,set_name,set_handle);
   MB_RETURN_IF_FAIL;
 
-  MBRange ent_list;
-  MBRange dim_ent_list;
+  Range ent_list;
+  Range dim_ent_list;
   // could have elements of multiple dimensions in this set???
   for (int dim=0;dim<=3;dim++)
     {
@@ -1634,10 +1636,10 @@ MBErrorCode ReadABAQUS::get_set_nodes(MBEntityHandle parent_set,
 }
   
 
-MBTag ReadABAQUS::get_tag(const char* tag_name, 
+Tag ReadABAQUS::get_tag(const char* tag_name, 
 			  int tag_size,
-			  MBTagType tag_type,
-			  MBDataType tag_data_type)
+			  TagType tag_type,
+			  DataType tag_data_type)
 {
   int def_val = 0;
   
@@ -1645,13 +1647,13 @@ MBTag ReadABAQUS::get_tag(const char* tag_name,
 
 }
 
-MBTag ReadABAQUS::get_tag(const char* tag_name, 
+Tag ReadABAQUS::get_tag(const char* tag_name, 
 			  int tag_size,
-			  MBTagType tag_type,
-			  MBDataType tag_data_type,
+			  TagType tag_type,
+			  DataType tag_data_type,
 			  const void* def_val)
 {
-  MBTag retval;
+  Tag retval;
 
   if (MB_TAG_NOT_FOUND == mdbImpl->tag_get_handle(tag_name, retval) )
     mdbImpl->tag_create(tag_name,tag_size,tag_type,tag_data_type,retval,def_val);
@@ -1661,17 +1663,17 @@ MBTag ReadABAQUS::get_tag(const char* tag_name,
   
 }
 
-MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
-						const MBEntityHandle assembly_set,
+ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
+						const EntityHandle assembly_set,
 						const std::string part_name,
 						const std::string instance_name,
-						MBEntityHandle &instance_set,
+						EntityHandle &instance_set,
 						const std::vector<double> &translation,
 						const std::vector<double> &rotation)
 {
-  MBErrorCode status;
+  ErrorCode status;
 
-  MBEntityHandle part_set;
+  EntityHandle part_set;
   status = get_set_by_name(file_set,ABQ_PART_SET,part_name,part_set);
   MB_RETURN_IF_FAIL;
 
@@ -1695,7 +1697,7 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
   // ---- NODES ---- 
 
   // get all nodes and IDs
-  MBRange part_node_list;
+  Range part_node_list;
   status = mdbImpl->get_entities_by_dimension(part_set,0,part_node_list);
   MB_RETURN_IF_FAIL;
 
@@ -1703,13 +1705,13 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
   status = mdbImpl->tag_get_data(mLocalIDTag,part_node_list,&node_ids[0]);
   MB_RETURN_IF_FAIL;
 
-  std::map<int,MBEntityHandle> nodeIdMap;
+  std::map<int,EntityHandle> nodeIdMap;
   for (unsigned int idx=0;idx<part_node_list.size();idx++)
     nodeIdMap[node_ids[idx]] = part_node_list[idx];
 
   // create new nodes
   std::vector<double*> coord_arrays(3);
-  MBEntityHandle start_node = 0;
+  EntityHandle start_node = 0;
   status = readMeshIface->get_node_arrays(3, part_node_list.size(),MB_START_ID,
 					  start_node,coord_arrays);
   MB_RETURN_IF_FAIL;
@@ -1725,9 +1727,9 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
   rot_axis[1] = rotation[4]-rotation[1];
   rot_axis[2] = rotation[5]-rotation[2];
   
-  MBAffineXform rotationXform;
+  AffineXform rotationXform;
   if (rotation[6] != 0)
-    rotationXform = MBAffineXform::rotation(rotation[6]*DEG2RAD,rot_axis);
+    rotationXform = AffineXform::rotation(rotation[6]*DEG2RAD,rot_axis);
 
   // translate to new position
   for (unsigned int idx=0;idx<part_node_list.size();idx++)
@@ -1748,7 +1750,7 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
 
     }
 
-  MBRange instance_node_list(start_node, start_node+part_node_list.size()-1);
+  Range instance_node_list(start_node, start_node+part_node_list.size()-1);
 
   // (DO NOT) add nodes to file_set
   // status = mdbImpl->add_entities(file_set,instance_node_list);
@@ -1767,19 +1769,19 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
   MB_RETURN_IF_FAIL;
 
   // tag nodes with their instance handle
-  std::vector<MBEntityHandle> tmp_instance_handles;
+  std::vector<EntityHandle> tmp_instance_handles;
   tmp_instance_handles.assign(part_node_list.size(),instance_set);
   status = mdbImpl->tag_set_data(mInstanceHandleTag,instance_node_list,&tmp_instance_handles[0]);
   MB_RETURN_IF_FAIL;
 
   // create a map of old handles to new handles!!!
-  std::map<MBEntityHandle,MBEntityHandle> p2i_nodes;
+  std::map<EntityHandle,EntityHandle> p2i_nodes;
   for (unsigned int idx=0;idx<part_node_list.size();idx++)
     p2i_nodes[part_node_list[idx]]=instance_node_list[idx];
   
   //  ---- ELEMENTS ----
   
-  MBRange part_element_list;
+  Range part_element_list;
   status = get_set_elements(part_set,part_element_list);
   MB_RETURN_IF_FAIL;
 
@@ -1787,31 +1789,31 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
   status = mdbImpl->tag_get_data(mLocalIDTag,part_element_list,&part_element_ids[0]);
   MB_RETURN_IF_FAIL;
 
-  std::map<int,MBEntityHandle> elementIdMap;
+  std::map<int,EntityHandle> elementIdMap;
   for (unsigned int idx=0;idx<part_element_list.size();idx++)
       elementIdMap[part_element_ids[idx]] = part_element_list[idx];
 
   // create new elements
-  MBRange instance_element_list;
+  Range instance_element_list;
   instance_element_list.clear();
 
   // cross-referencing storage and pointers/iterators
-  std::map<MBEntityHandle,MBEntityHandle> p2i_elements;
+  std::map<EntityHandle,EntityHandle> p2i_elements;
   std::vector<int> instance_element_ids;
   std::vector<int>::iterator part_element_id = part_element_ids.begin();
 
-  for (MBRange::iterator part_element=part_element_list.begin();
+  for (Range::iterator part_element=part_element_list.begin();
        part_element != part_element_list.end();
        part_element++,part_element_id++)
     {
-      MBEntityType element_type = mdbImpl->type_from_handle(*part_element);
-      std::vector<MBEntityHandle> part_connectivity,instance_connectivity;
-      MBEntityHandle new_element;
+      EntityType element_type = mdbImpl->type_from_handle(*part_element);
+      std::vector<EntityHandle> part_connectivity,instance_connectivity;
+      EntityHandle new_element;
       status = mdbImpl->get_connectivity(&(*part_element),1,part_connectivity);
       MB_RETURN_IF_FAIL;
 
       instance_connectivity.clear();
-      for (std::vector<MBEntityHandle>::iterator connectivity_node=part_connectivity.begin();
+      for (std::vector<EntityHandle>::iterator connectivity_node=part_connectivity.begin();
 	   connectivity_node != part_connectivity.end();
 	   connectivity_node++)
 	instance_connectivity.push_back(p2i_nodes[*connectivity_node]);
@@ -1848,7 +1850,7 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
   // ----- NODE SETS -----
 
   // get all node sets in part
-  MBRange part_node_sets;
+  Range part_node_sets;
   int tag_val = ABQ_NODE_SET;
   void* tag_data[] = {&tag_val};
   status = mdbImpl->get_entities_by_type_and_tag(part_set,
@@ -1857,8 +1859,8 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
 						 tag_data, 1, part_node_sets);
   MB_RETURN_IF_FAIL;
 
-  MBRange part_node_set_list, instance_node_set_list;
-  for (MBRange::iterator part_node_set = part_node_sets.begin();
+  Range part_node_set_list, instance_node_set_list;
+  for (Range::iterator part_node_set = part_node_sets.begin();
        part_node_set != part_node_sets.end();
        part_node_set++)
     {
@@ -1871,12 +1873,12 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
       status = mdbImpl->get_entities_by_dimension(*part_node_set,0,part_node_set_list);
 
       instance_node_set_list.clear();
-      for (MBRange::iterator set_node = part_node_set_list.begin();
+      for (Range::iterator set_node = part_node_set_list.begin();
 	   set_node != part_node_set_list.end();
 	   set_node++)
 	instance_node_set_list.insert(p2i_nodes[*set_node]);
 
-      MBEntityHandle instance_node_set;
+      EntityHandle instance_node_set;
       
       status = add_entity_set(instance_set,ABQ_NODE_SET,node_set_name,instance_node_set);
       MB_RETURN_IF_FAIL;
@@ -1901,7 +1903,7 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
   // ----- ELEMENT SETS -----
 
   // get all element sets in part
-  MBRange part_element_sets;
+  Range part_element_sets;
   tag_val = ABQ_ELEMENT_SET;
   tag_data[0] = &tag_val;
   status = mdbImpl->get_entities_by_type_and_tag(part_set,
@@ -1910,8 +1912,8 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
 						 tag_data, 1, part_element_sets);
   MB_RETURN_IF_FAIL;
 
-  MBRange part_element_set_list, instance_element_set_list;
-  for (MBRange::iterator part_element_set = part_element_sets.begin();
+  Range part_element_set_list, instance_element_set_list;
+  for (Range::iterator part_element_set = part_element_sets.begin();
        part_element_set != part_element_sets.end();
        part_element_set++)
     {
@@ -1924,12 +1926,12 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
       status = get_set_elements(*part_element_set,part_element_set_list);
 
       instance_element_set_list.clear();
-      for (MBRange::iterator set_element = part_element_set_list.begin();
+      for (Range::iterator set_element = part_element_set_list.begin();
 	   set_element != part_element_set_list.end();
 	   set_element++)
 	instance_element_set_list.insert(p2i_elements[*set_element]);
 
-      MBEntityHandle instance_element_set;
+      EntityHandle instance_element_set;
       status = add_entity_set(instance_set,ABQ_ELEMENT_SET,element_set_name,instance_element_set);
       MB_RETURN_IF_FAIL;
 
@@ -1983,12 +1985,12 @@ MBErrorCode ReadABAQUS::create_instance_of_part(const MBEntityHandle file_set,
 }
 
 
-MBErrorCode ReadABAQUS::add_entity_set(MBEntityHandle parent_set,
+ErrorCode ReadABAQUS::add_entity_set(EntityHandle parent_set,
 				       int ABQ_Set_Type,
 				       std::string set_name,
-				       MBEntityHandle &entity_set)
+				       EntityHandle &entity_set)
 {
-  MBErrorCode status;
+  ErrorCode status;
   
   status = mdbImpl->create_meshset(MESHSET_SET, entity_set);
   MB_RETURN_IF_FAIL;
@@ -2221,3 +2223,6 @@ void ReadABAQUS::report_error( const char* message )
 {
   readMeshIface->report_error( "Error at line %d: %s\n", lineNo, message );
 }
+
+} // namespace moab
+

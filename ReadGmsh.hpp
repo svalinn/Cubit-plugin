@@ -23,30 +23,32 @@
 #ifndef READ_GMSH_HPP
 #define READ_GMSH_HPP
 
-#include "MBForward.hpp"
-#include "MBReaderIface.hpp"
-#include "MBRange.hpp"
+#include "moab/Forward.hpp"
+#include "moab/ReaderIface.hpp"
+#include "moab/Range.hpp"
 
-class MBReadUtilIface;
+namespace moab {
+
+class ReadUtilIface;
 struct GmshElemType;
 
 // Base class for binary and ASCII readers
-class ReadGmsh : public MBReaderIface
+class ReadGmsh : public ReaderIface
 {
    
 public:
 
     //! factory method 
-  static MBReaderIface* factory( MBInterface* );
+  static ReaderIface* factory( Interface* );
 
-  MBErrorCode load_file( const char *file_name,
-                         const MBEntityHandle* file_set,
+  ErrorCode load_file( const char *file_name,
+                         const EntityHandle* file_set,
                          const FileOptions& opts,
-                         const MBReaderIface::IDTag* subset_list = 0,
+                         const ReaderIface::IDTag* subset_list = 0,
                          int subset_list_length = 0,
-                         const MBTag* file_id_tag = 0 );
+                         const Tag* file_id_tag = 0 );
 
-  MBErrorCode read_tag_values( const char* file_name,
+  ErrorCode read_tag_values( const char* file_name,
                                const char* tag_name,
                                const FileOptions& opts,
                                std::vector<int>& tag_values_out,
@@ -54,37 +56,38 @@ public:
                                int subset_list_length = 0 );
   
     //! Constructor
-  ReadGmsh(MBInterface* impl = NULL);
+  ReadGmsh(Interface* impl = NULL);
 
    //! Destructor
   virtual ~ReadGmsh();
 
 private:
 
-  MBErrorCode create_elements( const GmshElemType& type,
+  ErrorCode create_elements( const GmshElemType& type,
                                const std::vector<int>& elem_ids,
                                const std::vector<int>& matl_ids,
                                const std::vector<int>& geom_ids,
                                const std::vector<int>& prtn_ids,
-                               const std::vector<MBEntityHandle>& connectivity,
-                               const MBTag* file_id_tag );
+                               const std::vector<EntityHandle>& connectivity,
+                               const Tag* file_id_tag );
 
-  MBErrorCode create_sets( MBEntityType element_type,
-                           const MBRange& elements,
+  ErrorCode create_sets( EntityType element_type,
+                           const Range& elements,
                            const std::vector<int>& set_ids,
                            int set_type );
   
-  MBErrorCode create_geometric_topology();
+  ErrorCode create_geometric_topology();
   
 
-  MBReadUtilIface* readMeshIface;
+  ReadUtilIface* readMeshIface;
 
     //! interface instance
-  MBInterface* mdbImpl;
+  Interface* mdbImpl;
   
-  MBTag globalId;
-  MBRange geomSets;
+  Tag globalId;
+  Range geomSets;
 };
 
+} // namespace moab
 
 #endif

@@ -32,35 +32,37 @@
 #ifndef WRITE_STL_HPP
 #define WRITE_STL_HPP
 
-#include "MBForward.hpp"
-#include "MBWriterIface.hpp"
+#include "moab/Forward.hpp"
+#include "moab/WriterIface.hpp"
 
 #include <stdio.h>
 
-class MBWriteUtilIface;
+namespace moab {
 
-class WriteSTL : public MBWriterIface
+class WriteUtilIface;
+
+class WriteSTL : public WriterIface
 {
  
 public:
   
     //! factory method forSTL writer
-  static MBWriterIface* factory( MBInterface* );
+  static WriterIface* factory( Interface* );
 
    //! Constructor
-  WriteSTL(MBInterface *impl);
+  WriteSTL(Interface *impl);
 
    //! Destructor
   virtual ~WriteSTL();
   
     //! writes out a file
-  MBErrorCode write_file(const char *file_name,
+  ErrorCode write_file(const char *file_name,
                          const bool overwrite,
                          const FileOptions& opts,
-                         const MBEntityHandle *output_list,
+                         const EntityHandle *output_list,
                          const int num_sets,
                          const std::vector<std::string>& qa_list,
-                         const MBTag* tag_list,
+                         const Tag* tag_list,
                          int num_tags,
                          int export_dimension);  
 
@@ -69,45 +71,46 @@ protected:
   enum ByteOrder { STL_BIG_ENDIAN, STL_LITTLE_ENDIAN, STL_UNKNOWN_BYTE_ORDER };
   
     //! Write list of triangles to an STL file.  
-  MBErrorCode ascii_write_triangles( FILE* file,
+  ErrorCode ascii_write_triangles( FILE* file,
                                      const char header[82],
-                                     const MBRange& triangles,
+                                     const Range& triangles,
                                      int precision );
     //! Write list of triangles to an STL file.  
-  MBErrorCode binary_write_triangles( FILE* file,
+  ErrorCode binary_write_triangles( FILE* file,
                                       const char header[82],
                                       ByteOrder byte_order,
-                                      const MBRange& triangles );
+                                      const Range& triangles );
 
     //! Given an array of vertex coordinates for a triangle,
     //! pass back individual point coordinates as floats and 
     //! calculate triangle normal.
-  MBErrorCode get_triangle_data( const double vtx_coords[9],
+  ErrorCode get_triangle_data( const double vtx_coords[9],
                                  float v1[3],
                                  float v2[3],
                                  float v3[3],
                                  float n[3] );
                                        
     //! interface instance
-  MBInterface *mbImpl;
-  MBWriteUtilIface* mWriteIface;
+  Interface *mbImpl;
+  WriteUtilIface* mWriteIface;
   
 private:
 
     //! Construct 80-byte, null-terminated description string from
     //! qa_list.  Unused space in header will be null-char padded.
-  MBErrorCode make_header( char header[82], const std::vector<std::string>& qa_list );
+  ErrorCode make_header( char header[82], const std::vector<std::string>& qa_list );
   
     //! Get triangles to write from input array of entity sets.  If
     //! no sets, gets all triangles.
-  MBErrorCode get_triangles( const MBEntityHandle* set_array,
+  ErrorCode get_triangles( const EntityHandle* set_array,
                              int set_array_length,
-                             MBRange& triangles );  
+                             Range& triangles );  
   
     //! Open a file, respecting passed overwrite value and
     //! subclass-specified value for need_binary_io().
   FILE* open_file( const char* name, bool overwrite, bool binary );
 };
 
+} // namespace moab
 
 #endif
