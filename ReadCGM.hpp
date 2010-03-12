@@ -97,7 +97,8 @@ private:
     //! interface instance
   MBInterface* mdbImpl;
 
-  MBTag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag;
+  MBTag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag, 
+        geometry_resabs_tag;
 };
 
 #endif

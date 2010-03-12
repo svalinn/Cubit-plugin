@@ -59,7 +59,8 @@ MBReaderIface* ReadCGM::factory( MBInterface* iface )
 { return new ReadCGM( iface ); }
 
 ReadCGM::ReadCGM(MBInterface *impl)
-  : geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0)
+  : geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), 
+    geometry_resabs_tag(0)
 {
   assert(NULL != impl);
   mdbImpl = impl;
@@ -87,6 +88,9 @@ ReadCGM::ReadCGM(MBInterface *impl)
   assert(!rval);
   rval = mdbImpl->tag_create("FACETING_TOL", sizeof(double), MB_TAG_SPARSE,
 			     MB_TYPE_DOUBLE, faceting_tol_tag, 0, true );
+  assert(!rval);
+  rval = mdbImpl->tag_create("GEOMETRY_RESABS", sizeof(double), MB_TAG_SPARSE,
+			     MB_TYPE_DOUBLE, geometry_resabs_tag, 0, true );
   assert(!rval);
 }
 
@@ -145,9 +149,11 @@ MBErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if(MB_SUCCESS == opts.match_option(name,value)) 
     act_att = false; 
 
-  // tag the file_set with the faceting_tol
+  // tag the file_set with the faceting_tol and geometry absolute resolution
   if (file_set) {
     rval = mdbImpl->tag_set_data( faceting_tol_tag, file_set, 1, &faceting_tol );
+    if(MB_SUCCESS != rval) return rval;
+    rval = mdbImpl->tag_set_data( geometry_resabs_tag, file_set, 1, &GEOMETRY_RESABS );
     if(MB_SUCCESS != rval) return rval;
   }
 
