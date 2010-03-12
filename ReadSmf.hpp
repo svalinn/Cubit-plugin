@@ -58,7 +58,7 @@ public:
 
 
   typedef void (ReadSmf::*read_cmd)( std::vector<std::string> & argv);
-  struct cmd_entry { char *name; read_cmd cmd; };
+  struct cmd_entry { std::string name; read_cmd cmd; };
   void init();
 
 protected:

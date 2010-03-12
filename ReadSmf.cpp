@@ -21,7 +21,6 @@
 
 #include <assert.h>
 #include <stdlib.h>
-#include <string.h>
 #include <iostream>
 
 #include "ReadSmf.hpp"
@@ -54,7 +53,7 @@ ReadSmf::cmd_entry ReadSmf::read_cmds[] = {
     { "scale", &ReadSmf::scale },
     { "rot", &ReadSmf::rot },
 
-    { NULL, NULL }
+    { "", NULL }
 };
 
 MBAffineXform mat_from_args(std::vector<std::string> & argv)
@@ -292,8 +291,8 @@ MBErrorCode ReadSmf::parse_line(char *line)
 	cmd_entry *entry = &read_cmds[0];
 	bool handled = 0;
 
-	while( entry->name && !handled )
-	    if( streq(entry->name, cmd) )
+	while( entry->name.length() && !handled )
+	    if( streq(entry->name.c_str() , cmd) )
 	    {
 		(this->*(entry->cmd))(argv);
 		handled = 1;
@@ -339,7 +338,7 @@ void ReadSmf::face(std::vector<std::string> & argv )
 {
     int vert[3];
 
-    for(int i=0; i<argv.size(); i++)
+    for(unsigned int i=0; i<argv.size(); i++)
 	vert[i] = atoi(argv[i].c_str());
 
     state->face(vert, ivar);
