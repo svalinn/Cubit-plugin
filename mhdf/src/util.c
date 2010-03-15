@@ -378,7 +378,6 @@ mhdf_readwrite( hid_t data_id, int read,
   else {
     VALGRIND_CHECK_MEM_IS_DEFINED( array, counts[0]*counts[1]*H5Tget_size(type) );
     rval = H5Dwrite( data_id, type, mem_id, slab_id, io_prop, array );
-    VALGRIND_MAKE_MEM_UNDEFINED( array, counts[0]*counts[1]*H5Tget_size(type) );
   }
   H5Sclose( slab_id );
   H5Sclose( mem_id );
