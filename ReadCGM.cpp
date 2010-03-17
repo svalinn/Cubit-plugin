@@ -36,7 +36,7 @@
 #include "moab/Core.hpp"
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 #include "FileOptions.hpp"
 
 #include "moab/GeomTopoTool.hpp"

@@ -28,8 +28,8 @@
 #include "moab/Interface.hpp"
 #include "moab/ReadUtilIface.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBTagConventions.hpp"
-#include "moab/MBParallelConventions.h"
+#include "MBTagConventions.hpp"
+#include "MBParallelConventions.h"
 #include "moab/CN.hpp"
 #include "GmshUtil.hpp"
 

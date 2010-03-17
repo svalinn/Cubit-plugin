@@ -23,7 +23,7 @@
 
 #include "moab/Forward.hpp"
 #include "moab/ReaderIface.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 #include "moab/Range.hpp"
 
 #include <stdio.h>

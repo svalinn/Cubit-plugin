@@ -34,7 +34,7 @@
 
 #define MB_VTK_MATERIAL_SETS
 #ifdef MB_VTK_MATERIAL_SETS
-#  include "moab/MBTagConventions.hpp"
+#  include "MBTagConventions.hpp"
 #  include <map>
 
 namespace moab {

@@ -29,7 +29,7 @@
 #include "moab/Range.hpp"
 #include "FileOptions.hpp"
 #include "FileTokenizer.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
 
 namespace moab {

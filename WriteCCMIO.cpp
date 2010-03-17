@@ -42,7 +42,7 @@
 #include "assert.h"
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 #include "moab/WriteUtilIface.hpp"
 
 namespace moab {

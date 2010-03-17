@@ -27,7 +27,7 @@
 
 #include "moab/ReadUtilIface.hpp"
 #include "moab/GeomTopoTool.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
 #include "Internals.hpp"
 #include "moab/HigherOrderFactory.hpp"

@@ -49,7 +49,7 @@
 #include <H5Ppublic.h>
 #include "moab/Interface.hpp"
 #include "Internals.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
 #include "WriteHDF5.hpp"
 #include "moab/WriteUtilIface.hpp"

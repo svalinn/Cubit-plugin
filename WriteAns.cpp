@@ -40,7 +40,7 @@
 #include "assert.h"
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 
 #define INS_ID(stringvar, prefix, id) \
           sprintf(stringvar, prefix, id)

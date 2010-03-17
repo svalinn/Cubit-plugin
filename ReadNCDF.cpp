@@ -35,7 +35,7 @@
 #include "moab/Range.hpp"
 #include "moab/Interface.hpp"
 #include "ExoIIUtil.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 #include "Internals.hpp"
 #include "moab/ReadUtilIface.hpp"
 #include "exodus_order.h"

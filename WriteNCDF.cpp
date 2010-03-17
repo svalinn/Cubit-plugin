@@ -40,7 +40,7 @@
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
 #include "moab/CN.hpp"
-#include "moab/MBTagConventions.hpp"
+#include "MBTagConventions.hpp"
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
 #include "moab/WriteUtilIface.hpp"
