@@ -39,7 +39,7 @@
 
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "moab/MBTagConventions.hpp"
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
@@ -380,17 +380,17 @@ ErrorCode WriteNCDF::gather_mesh_information(
     Range::iterator entity_iter = dummy_range.end();
     entity_iter = dummy_range.end();
     entity_iter--;
-    int this_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
+    int this_dim = CN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
     entity_iter = dummy_range.begin();
     while (entity_iter != dummy_range.end() &&
-           MBCN::Dimension(TYPE_FROM_HANDLE(*entity_iter)) != this_dim)
+           CN::Dimension(TYPE_FROM_HANDLE(*entity_iter)) != this_dim)
       entity_iter++;
     
     if (entity_iter != dummy_range.end())
       std::copy(entity_iter, dummy_range.end(), range_inserter(block_data.elements));
 
     assert(block_data.elements.begin() == block_data.elements.end() ||
-           MBCN::Dimension(TYPE_FROM_HANDLE(*(block_data.elements.begin()))) == this_dim);
+           CN::Dimension(TYPE_FROM_HANDLE(*(block_data.elements.begin()))) == this_dim);
     
     // end of -- wait a minute, we are doing some filtering here that doesn't make sense at this level CJS
    
@@ -424,7 +424,7 @@ ErrorCode WriteNCDF::gather_mesh_information(
     else if(entity_type == MBEDGE)
       dimension = 2;
     else
-      dimension = MBCN::Dimension(entity_type);
+      dimension = CN::Dimension(entity_type);
 
     if( dimension > highest_dimension_of_element_blocks )
       highest_dimension_of_element_blocks = dimension;
@@ -662,7 +662,7 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
     else //then "side" is probably a quad/tri on a hex/tet mesh
     {
       std::vector<EntityHandle> parents;
-      int dimension = MBCN::Dimension( TYPE_FROM_HANDLE(*iter));
+      int dimension = CN::Dimension( TYPE_FROM_HANDLE(*iter));
 
         //get the adjacent parent element of "side"
       if( mdbImpl->get_adjacencies( &(*iter), 1, dimension+1, false, parents) != MB_SUCCESS ) {
@@ -702,7 +702,7 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
     if( sideset_data.elements.size() != 0 )
     {
         // distribution factors
-      int num_nodes = MBCN::VerticesPerEntity(TYPE_FROM_HANDLE(*iter));
+      int num_nodes = CN::VerticesPerEntity(TYPE_FROM_HANDLE(*iter));
       if( has_dist_factors )
       {
         std::copy(dist_fac_iter, dist_fac_iter + num_nodes, 
@@ -962,7 +962,7 @@ ErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_dat
       return result;
     }
     
-    // if necessary, convert from EXODUS to MBCN node order
+    // if necessary, convert from EXODUS to CN node order
     const EntityType elem_type = ExoIIUtil::ExoIIElementMBEntity[block.element_type];
     assert( block.elements.all_of_type( elem_type ) );
     const int* reorder = exodus_elem_order_map[elem_type][block.number_nodes_per_element];
@@ -1928,9 +1928,9 @@ ErrorCode WriteNCDF::get_sideset_elems(EntityHandle sideset, int current_sense,
     // need to step forward on list until we reach the right dimension
   Range::iterator dum_it = ss_elems.end();
   dum_it--;
-  int target_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*dum_it));
+  int target_dim = CN::Dimension(TYPE_FROM_HANDLE(*dum_it));
   dum_it = ss_elems.begin();
-  while (target_dim != MBCN::Dimension(TYPE_FROM_HANDLE(*dum_it)) &&
+  while (target_dim != CN::Dimension(TYPE_FROM_HANDLE(*dum_it)) &&
          dum_it != ss_elems.end()) 
     dum_it++;
 

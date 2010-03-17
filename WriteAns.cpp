@@ -37,7 +37,6 @@
 
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBCN.hpp"
 #include "assert.h"
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"

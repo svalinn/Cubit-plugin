@@ -38,7 +38,7 @@
 
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "assert.h"
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
@@ -375,17 +375,17 @@ ErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
     Range::iterator entity_iter = dummy_range.end();
     entity_iter = dummy_range.end();
     entity_iter--;
-    int this_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
+    int this_dim = CN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
     entity_iter = dummy_range.begin();
     while (entity_iter != dummy_range.end() &&
-           MBCN::Dimension(TYPE_FROM_HANDLE(*entity_iter)) != this_dim)
+           CN::Dimension(TYPE_FROM_HANDLE(*entity_iter)) != this_dim)
       entity_iter++;
     
     if (entity_iter != dummy_range.end())
       std::copy(entity_iter, dummy_range.end(), range_inserter(*(matset_data.elements)));
 
     assert(matset_data.elements->begin() == matset_data.elements->end() ||
-           MBCN::Dimension(TYPE_FROM_HANDLE(*(matset_data.elements->begin()))) == this_dim);
+           CN::Dimension(TYPE_FROM_HANDLE(*(matset_data.elements->begin()))) == this_dim);
     
       // get the matset's id
     if(mbImpl->tag_get_data(mMaterialSetTag, &(*vector_iter), 1, &id) != MB_SUCCESS ) {
@@ -410,7 +410,7 @@ ErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
       return MB_FAILURE;
     }
 
-    int dimension = MBCN::Dimension(entity_type);
+    int dimension = CN::Dimension(entity_type);
 
     if( dimension > highest_dimension_of_element_matsets )
       highest_dimension_of_element_matsets = dimension;
@@ -587,7 +587,7 @@ ErrorCode WriteCCMIO::get_valid_sides(Range &elems, const int sense,
     else //then "side" is probably a quad/tri on a hex/tet mesh
     {
       std::vector<EntityHandle> parents;
-      int dimension = MBCN::Dimension( TYPE_FROM_HANDLE(*iter));
+      int dimension = CN::Dimension( TYPE_FROM_HANDLE(*iter));
 
         //get the adjacent parent element of "side"
       if( mbImpl->get_adjacencies( &(*iter), 1, dimension+1, false, parents) != MB_SUCCESS ) {
@@ -802,7 +802,7 @@ ErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to re
   std::vector<EntityHandle> tmp_face_cells, storage;
   std::vector<int> iface_connect, iface_cells;
   std::vector<int> eface_connect, eface_cells;
-  EntityHandle tmp_connect[MBCN::MAX_NODES_PER_ELEMENT]; // tmp connect vector
+  EntityHandle tmp_connect[CN::MAX_NODES_PER_ELEMENT]; // tmp connect vector
   const EntityHandle *connectc; int num_connectc; // cell connectivity
   const EntityHandle *connectf; int num_connectf; // face connectivity
   i = 0;
@@ -828,16 +828,16 @@ ErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to re
       // if polyh, write faces directly
     bool is_polyh = (MBPOLYHEDRON == etype);
 
-    int num_faces = MBCN::NumSubEntities(etype, 2);
-      // for each face (from MBCN)
+    int num_faces = CN::NumSubEntities(etype, 2);
+      // for each face (from CN)
     for (int f = 0; f < num_faces; f++) {
         // if this face marked, skip
       if (!is_polyh && ((markt >> f) & 0x1)) continue;
         
         // get face connect
       if (!is_polyh) {
-          // (from MBCN)
-        MBCN::SubEntityConn(connectc, etype, 2, f, tmp_connect, num_connectf);
+          // (from CN)
+        CN::SubEntityConn(connectc, etype, 2, f, tmp_connect, num_connectf);
         connectf = tmp_connect;
       }
       else {
@@ -861,7 +861,7 @@ ErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to re
       if (!is_polyh && is_internal) {
           // make sure 1st is forward sense
         int side_num, sense, offset;
-        MBCN::SideNumber(etype, connectc, connectf, num_connectf,
+        CN::SideNumber(etype, connectc, connectf, num_connectf,
                          2, side_num, sense, offset);
         if (sense == 1 && tmp_face_cells[0] != *rit) {
           assert(2 == tmp_face_cells.size());
@@ -896,7 +896,7 @@ ErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to re
         }
           // get side number
         int side_num, sense, offset;
-        MBCN::SideNumber(TYPE_FROM_HANDLE(other_cell), connecto, connectf, num_connectf,
+        CN::SideNumber(TYPE_FROM_HANDLE(other_cell), connecto, connectf, num_connectf,
                          2, side_num, sense, offset);
           // set mark for this face
         short int tmp_mark, tmp_mark2;
@@ -1004,9 +1004,9 @@ ErrorCode WriteCCMIO::get_neuset_elems(EntityHandle neuset, int current_sense,
     // need to step forward on list until we reach the right dimension
   Range::iterator dum_it = neuset_elems.end();
   dum_it--;
-  int target_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*dum_it));
+  int target_dim = CN::Dimension(TYPE_FROM_HANDLE(*dum_it));
   dum_it = neuset_elems.begin();
-  while (target_dim != MBCN::Dimension(TYPE_FROM_HANDLE(*dum_it)) &&
+  while (target_dim != CN::Dimension(TYPE_FROM_HANDLE(*dum_it)) &&
          dum_it != neuset_elems.end()) 
     dum_it++;
 

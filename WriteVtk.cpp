@@ -36,7 +36,7 @@
 
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "moab/MBTagConventions.hpp"
 #include "moab/WriteUtilIface.hpp"
 #include "Internals.hpp"
@@ -156,7 +156,7 @@ ErrorCode WriteVtk::gather_mesh( const EntityHandle* set_list,
       // filter out unsupported element types
     EntityType et = MBEDGE;
     for (et++; et < MBENTITYSET; et++) {
-      if (VtkUtil::get_vtk_type(et, MBCN::VerticesPerEntity(et))) continue;
+      if (VtkUtil::get_vtk_type(et, CN::VerticesPerEntity(et))) continue;
       Range::iterator 
         eit = elems.lower_bound(elems.begin(), elems.end(), CREATE_HANDLE(et, 0, e)),
         ep1it = elems.lower_bound(elems.begin(), elems.end(), CREATE_HANDLE(et+1, 0, e));
@@ -255,7 +255,7 @@ ErrorCode WriteVtk::write_elems( std::ostream& stream,
   for (Range::const_iterator i = elems.begin(); i != elems.end(); ++i)
   {
     EntityType type = mbImpl->type_from_handle(*i);
-    if (!VtkUtil::get_vtk_type(type, MBCN::VerticesPerEntity(type))) continue;
+    if (!VtkUtil::get_vtk_type(type, CN::VerticesPerEntity(type))) continue;
     const EntityHandle* conn;
     int conn_len;
     rval = mbImpl->get_connectivity( *i, conn, conn_len );
@@ -285,7 +285,7 @@ ErrorCode WriteVtk::write_elems( std::ostream& stream,
     const VtkElemType* vtk_type = VtkUtil::get_vtk_type( type, conn_len );
     if (!vtk_type) {
       writeTool->report_error( "Vtk file format does not support elements "
-        "of type %s (%d) with %d nodes.\n", MBCN::EntityTypeName(type), 
+        "of type %s (%d) with %d nodes.\n", CN::EntityTypeName(type), 
         (int)type, conn_len);
       return MB_FAILURE;
     }

@@ -27,7 +27,7 @@
 #include "moab/Range.hpp"
 #include "moab/MBTagConventions.hpp"
 #include "moab/MBParallelConventions.h"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 
 #include <errno.h>
 #include <string.h>
@@ -409,7 +409,7 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
         
       // make the element
     result = mdbImpl->create_element(etype, &bound_verts[0], 
-                                     MBCN::VerticesPerEntity(etype), new_handle);
+                                     CN::VerticesPerEntity(etype), new_handle);
     CHECK("Failed to create region.");
     if (MB_SUCCESS != result) return result;
 

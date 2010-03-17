@@ -21,7 +21,7 @@
 
 
 #include "WriteSTL.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
 #include "moab/WriteUtilIface.hpp"

@@ -29,7 +29,6 @@
 #include <stdio.h>
 #include <cmath>
 
-#include "moab/MBCN.hpp"
 #include "moab/Range.hpp"
 #include "moab/Interface.hpp"
 #include "moab/MBTagConventions.hpp"

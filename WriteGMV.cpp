@@ -27,7 +27,7 @@
 #include "moab/Interface.hpp"
 #include "Internals.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "moab/MBTagConventions.hpp"
 #include "moab/WriteUtilIface.hpp"
 #include <fstream>
@@ -192,8 +192,8 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
     if (MB_SUCCESS != result) return result;
   }
   else {
-    for (otype = MBCN::TypeDimensionMap[user_dimension].first;
-         otype <= MBCN::TypeDimensionMap[user_dimension].second; otype++) {
+    for (otype = CN::TypeDimensionMap[user_dimension].first;
+         otype <= CN::TypeDimensionMap[user_dimension].second; otype++) {
       if (otype == MBPOLYGON || otype == MBPOLYHEDRON) continue;
       dum_range.clear();
       result = mbImpl->get_entities_by_type(output_set, otype, dum_range, true);
@@ -248,8 +248,8 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
     
     ofile << "cells " << elements.size() << std::endl;
   
-    for (EntityType otype = MBCN::TypeDimensionMap[user_dimension].first;
-         otype <= MBCN::TypeDimensionMap[user_dimension].second; otype++) {
+    for (EntityType otype = CN::TypeDimensionMap[user_dimension].first;
+         otype <= CN::TypeDimensionMap[user_dimension].second; otype++) {
 
       if (otype == MBPOLYGON || otype == MBPOLYHEDRON) continue;
       
@@ -270,7 +270,7 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
       std::copy(lower, upper, range_inserter(sub_range));
 
         // make sure the connectivity array is big enough
-      int verts_per = MBCN::VerticesPerEntity(otype);
+      int verts_per = CN::VerticesPerEntity(otype);
       if (connect.size() < verts_per*sub_range.size())
         connect.reserve(verts_per*sub_range.size());
     

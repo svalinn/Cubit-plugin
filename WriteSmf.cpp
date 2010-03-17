@@ -36,7 +36,7 @@
 
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "moab/MBTagConventions.hpp"
 #include "moab/WriteUtilIface.hpp"
 #include "Internals.hpp"

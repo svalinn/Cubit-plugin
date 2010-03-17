@@ -1,5 +1,5 @@
 #include "WriteGmsh.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "moab/MBTagConventions.hpp"
 #include "moab/MBParallelConventions.h"
 #include "moab/Interface.hpp"
@@ -190,7 +190,7 @@ ErrorCode WriteGmsh::write_file(const char *file_name,
     {
       mWriteIface->report_error( "Gmem file format does not support element "
                                  " of type %s with %d vertices.\n",
-                                 MBCN::EntityTypeName( type ), num_vtx );
+                                 CN::EntityTypeName( type ), num_vtx );
       return MB_FILE_WRITE_ERROR;
     }
   }

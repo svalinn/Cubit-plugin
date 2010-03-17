@@ -28,7 +28,7 @@
 #include "moab/ReadUtilIface.hpp"
 #include "moab/GeomTopoTool.hpp"
 #include "moab/MBTagConventions.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "Internals.hpp"
 #include "moab/HigherOrderFactory.hpp"
 #include "exodus_order.h"
@@ -89,9 +89,9 @@ const int Tqdcfr::cub_elem_num_verts[] = {
   8, 8, 9, 20, 27, 12, // hexes (incl. hexshell at end)
   0};
 
-// Define node-order map from Cubit to MBCN.  Table is indexed
+// Define node-order map from Cubit to CN.  Table is indexed
 // by EntityType and number of nodes.  Entries are NULL if Cubit order
-// is the same as MBCN ordering.  Non-null entries contain the
+// is the same as CN ordering.  Non-null entries contain the
 // index into the MOAB node order for the corresponding vertex
 // in the Cubit connectivity list.  Thus for a 27-node hex:
 // moab_conn[ cub_hex27_order[i] ] = cubit_conn[ i ];
@@ -790,7 +790,7 @@ ErrorCode Tqdcfr::read_block(const double data_version,
     // the mid-element node if there is one.  Need to reconsturct additional
     // connectivity entries from mid-nodes of adjacent lower-order entities.
   int node_per_elem = cub_elem_num_verts[blockh->blockElemType];
-  if (MBCN::VerticesPerEntity(blockh->blockEntityType) == node_per_elem)
+  if (CN::VerticesPerEntity(blockh->blockEntityType) == node_per_elem)
     return MB_SUCCESS;
   
     // Can't use Interface::convert_entities because block could contain
@@ -802,7 +802,7 @@ ErrorCode Tqdcfr::read_block(const double data_version,
   mdbImpl->get_entities_by_type( blockh->setHandle, blockh->blockEntityType, entities, true );
   
   int mid_nodes[4];
-  MBCN::HasMidNodes( blockh->blockEntityType, node_per_elem, mid_nodes );
+  CN::HasMidNodes( blockh->blockEntityType, node_per_elem, mid_nodes );
   HigherOrderFactory ho_fact( dynamic_cast<Core*>(mdbImpl), 0 );
   return ho_fact.convert( entities, !!mid_nodes[1], !!mid_nodes[2], !!mid_nodes[3] );
 }
@@ -1009,7 +1009,7 @@ ErrorCode Tqdcfr::get_mesh_entities(const unsigned int this_type,
         if (mdbImpl->type_from_handle(this_ent) != MBMAXTYPE) ent_list->push_back(this_ent);
       }
       else {
-        std::cout << "Warning: didn't find " << MBCN::EntityTypeName(this_ent_type) 
+        std::cout << "Warning: didn't find " << CN::EntityTypeName(this_ent_type) 
                   << " " << *vit << std::endl;
       }
     }
@@ -1216,10 +1216,10 @@ ErrorCode Tqdcfr::read_elements(Tqdcfr::ModelEntry *model,
 
       // get MB element type from cub file's 
     EntityType elem_type = mp_type_to_mb_type[int_type];
-    max_dim = (max_dim < MBCN::Dimension(elem_type) ? MBCN::Dimension(elem_type) : max_dim);
+    max_dim = (max_dim < CN::Dimension(elem_type) ? CN::Dimension(elem_type) : max_dim);
 
     if (debug)
-      std::cout << "type " << MBCN::EntityTypeName(elem_type) << ":";
+      std::cout << "type " << CN::EntityTypeName(elem_type) << ":";
 
     const int* node_order = cub_elem_order_map[elem_type][nodes_per_elem];
     if (!node_order)
@@ -1568,7 +1568,7 @@ ErrorCode Tqdcfr::GeomHeader::read_info_header(const unsigned int model_offset,
       int num_elem = instance->uint_buf[2];
       EntityType elem_type = mp_type_to_mb_type[int_type];
       geom_headers[i].maxDim = std::max(geom_headers[i].maxDim, 
-                                        (int)MBCN::Dimension(elem_type));
+                                        (int)CN::Dimension(elem_type));
       if (j < geom_headers[i].elemTypeCt-1) 
         instance->FREADI(num_elem + num_elem*nodes_per_elem);
     }
@@ -1689,7 +1689,7 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
       // accordingly
     int num_verts = cub_elem_num_verts[block_headers[i].blockElemType];
     block_headers[i].blockEntityType = block_type_to_mb_type[block_headers[i].blockElemType];
-    if (num_verts != MBCN::VerticesPerEntity(block_headers[i].blockEntityType)) {
+    if (num_verts != CN::VerticesPerEntity(block_headers[i].blockEntityType)) {
         // not a linear element; try to find hasMidNodes values
       int has_mid_nodes[] = {0, 0, 0, 0};
       if (0 == instance->hasMidNodesTag) {
@@ -1698,7 +1698,7 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
         if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
       }
       
-      MBCN::HasMidNodes(block_headers[i].blockEntityType, num_verts, has_mid_nodes);
+      CN::HasMidNodes(block_headers[i].blockEntityType, num_verts, has_mid_nodes);
 
         // now set the tag on this set
       result = instance->mdbImpl->tag_set_data(instance->hasMidNodesTag, &block_headers[i].setHandle, 1,

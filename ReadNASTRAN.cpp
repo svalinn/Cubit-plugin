@@ -30,7 +30,7 @@
 #include "FileOptions.hpp"
 #include "FileTokenizer.hpp"
 #include "moab/MBTagConventions.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 
 namespace moab {
 
@@ -368,7 +368,7 @@ ErrorCode ReadNASTRAN::read_element( const std::vector<std::string> tokens,
   }
 
   // the size of the connectivity array depends on the element type
-  int n_conn = MBCN::VerticesPerEntity(element_type);
+  int n_conn = CN::VerticesPerEntity(element_type);
   EntityHandle conn_verts[27];
   assert(n_conn <= (int)(sizeof(conn_verts)/sizeof(EntityHandle)));
   

@@ -35,7 +35,7 @@
 #include "Internals.hpp"
 #include "moab/MBTagConventions.hpp"
 #include "ReadHDF5.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "FileOptions.hpp"
 #ifdef HDF5_PARALLEL
 #  include "ReadParallel.hpp"
@@ -373,7 +373,7 @@ DEBUGOUT("Reading element connectivity.\n");
 
   std::vector<int> polyhedra; // need to do these last so that faces are loaded
   for (i = 0; i < fileInfo->num_elem_desc; ++i) {
-    if (MBCN::EntityTypeFromName(fileInfo->elems[i].type) == MBPOLYHEDRON) {
+    if (CN::EntityTypeFromName(fileInfo->elems[i].type) == MBPOLYHEDRON) {
       polyhedra.push_back(i);
       continue;
     }
@@ -571,7 +571,7 @@ DEBUGOUT( "READING NODES" );
   
     // if input contained any polyhedra, need to get faces
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    EntityType type = MBCN::EntityTypeFromName( fileInfo->elems[i].type );
+    EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
     if (type != MBPOLYHEDRON)
       continue;
     
@@ -586,7 +586,7 @@ DEBUGOUT( "READING NODES" );
   Range nodes;
   intersect( fileInfo->nodes, file_ids, nodes );
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    EntityType type = MBCN::EntityTypeFromName( fileInfo->elems[i].type );
+    EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
     if (type <= MBVERTEX || type >= MBENTITYSET) {
       assert( false ); // for debug code die for unknown element tyoes
       continue; // for release code, skip unknown element types
@@ -636,8 +636,8 @@ DEBUGOUT( "READING ELEMENTS" );
     case 0: // ELEMENTS=EXPLICIT : read only specified element IDS
     for (int dim = 1; dim <= 3; ++dim) {
       for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-        EntityType type = MBCN::EntityTypeFromName( fileInfo->elems[i].type );
-        if (MBCN::Dimension(type) == dim) {
+        EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
+        if (CN::Dimension(type) == dim) {
           Range subset;
           intersect( fileInfo->elems[i].desc, file_ids, subset );
           rval = read_elems( fileInfo->elems[i],  subset );
@@ -651,8 +651,8 @@ DEBUGOUT( "READING ELEMENTS" );
     case 1: // ELEMENTS=NODES : read all elements for which all nodes have been read
     for (int dim = 1; dim <= 3; ++dim) {
       for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-        EntityType type = MBCN::EntityTypeFromName( fileInfo->elems[i].type );
-        if (MBCN::Dimension(type) == dim) {
+        EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
+        if (CN::Dimension(type) == dim) {
           rval = read_node_adj_elems( fileInfo->elems[i] );
           if (MB_SUCCESS != rval)
             return error(rval);
@@ -1011,7 +1011,7 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
   ErrorCode rval = MB_SUCCESS;
   mhdf_Status status;
   
-  EntityType type = MBCN::EntityTypeFromName( elems.type );
+  EntityType type = CN::EntityTypeFromName( elems.type );
   if (type == MBMAXTYPE)
   {
     readUtil->report_error( "Unknown element type: \"%s\".\n", elems.type );
@@ -1089,7 +1089,7 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group,
   const int node_per_elem = group.desc.vals_per_ent;
   long start_id = group.desc.start_id;
   long remaining = group.desc.count;
-  const EntityType type = MBCN::EntityTypeFromName( group.type );
+  const EntityType type = CN::EntityTypeFromName( group.type );
   
     // figure out how many elements we can read in each pass
   long* const buffer = reinterpret_cast<long*>( dataBuffer );
@@ -1244,7 +1244,7 @@ ErrorCode ReadHDF5::read_poly( const mhdf_ElemDesc& elems, const Range& file_ids
     }
   };
   
-  EntityType type = MBCN::EntityTypeFromName( elems.type );
+  EntityType type = CN::EntityTypeFromName( elems.type );
   if (type == MBMAXTYPE)
   {
     readUtil->report_error( "Unknown element type: \"%s\".\n", elems.type );
@@ -1284,7 +1284,7 @@ ErrorCode ReadHDF5::read_poly( const char* elem_group )
     readUtil->report_error( mhdf_message( &status ) );
     return error(MB_FAILURE);
   }
-  EntityType type = MBCN::EntityTypeFromName( name );
+  EntityType type = CN::EntityTypeFromName( name );
 
   long count, first_id, data_len;
   hid_t handles[2];
@@ -1297,7 +1297,7 @@ ErrorCode ReadHDF5::read_poly( const char* elem_group )
   }
 
   ElemSet empty_set;
-  empty_set.type = MBCN::EntityTypeFromName( name );
+  empty_set.type = CN::EntityTypeFromName( name );
   empty_set.type2 = elem_group;
   
   EntityHandle h;
@@ -1372,8 +1372,8 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
     // determine largest element dimension
   int max_dim = 0;
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    type = MBCN::EntityTypeFromName( fileInfo->elems[i].type );
-    int dim = MBCN::Dimension(type);
+    type = CN::EntityTypeFromName( fileInfo->elems[i].type );
+    int dim = CN::Dimension(type);
     if (dim > max_dim) {
       EntityHandle start = (EntityHandle)fileInfo->elems[i].desc.start_id;
       Range::iterator it = file_ids.lower_bound( start );
@@ -1400,8 +1400,8 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
   
     // read all node-adjacent elements of smaller dimensions
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    EntityType type = MBCN::EntityTypeFromName( fileInfo->elems[i].type );
-    if (MBCN::Dimension(type) < max_dim) {
+    EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
+    if (CN::Dimension(type) < max_dim) {
       rval = read_node_adj_elems( fileInfo->elems[i] );
       if (MB_SUCCESS != rval)
         return error(rval);
@@ -1413,8 +1413,8 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
     // but then the lower-dimension elements will be read a second time when 
     // reading node-adjacent elements.
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    type = MBCN::EntityTypeFromName( fileInfo->elems[i].type );
-    if (MBCN::Dimension(type) == max_dim) {
+    type = CN::EntityTypeFromName( fileInfo->elems[i].type );
+    if (CN::Dimension(type) == max_dim) {
       Range subset;
       intersect( fileInfo->elems[i].desc, elem_ids, subset );
       if (!subset.empty()) {
@@ -1446,8 +1446,8 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
     if (avail > count)
       count = avail;
     EntityHandle start_h = rit->value + offset;
-    int d = MBCN::Dimension( TYPE_FROM_HANDLE( start_h ) );
-    if (MBCN::Dimension( TYPE_FROM_HANDLE( start_h + count - 1 ) ) != d) 
+    int d = CN::Dimension( TYPE_FROM_HANDLE( start_h ) );
+    if (CN::Dimension( TYPE_FROM_HANDLE( start_h + count - 1 ) ) != d) 
       count = start - LAST_HANDLE( TYPE_FROM_HANDLE(start_h) ) + 1;
     
     elem_ids.erase( elem_ids.begin(), elem_ids.begin() + count );
@@ -1463,7 +1463,7 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
     // remove any vertex handles
   all_elems.erase( all_elems.begin(), all_elems.upper_bound( MBVERTEX ) );
     // remove any set handles and any handles for elements >= max_dim
-  all_elems.erase( all_elems.lower_bound( MBCN::TypeDimensionMap[max_dim].first ), all_elems.end() );
+  all_elems.erase( all_elems.lower_bound( CN::TypeDimensionMap[max_dim].first ), all_elems.end() );
     // remove explicit elements < max_dim
   if (!explicit_elems[1].empty() && max_dim > 1)
     all_elems = subtract( all_elems,  explicit_elems[1] );

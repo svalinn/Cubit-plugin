@@ -16,7 +16,7 @@
 #include "ExoIIUtil.hpp"
 #include "Internals.hpp"
 #include "moab/Interface.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include <string.h>
 
 namespace moab {
@@ -306,9 +306,9 @@ ExoIIElementType ExoIIUtil::static_get_element_type(Interface *mdbImpl,
         else if( indiv_entity_type == MBEDGE )
           dimension = 2;
         else
-          dimension = MBCN::Dimension(indiv_entity_type);
+          dimension = CN::Dimension(indiv_entity_type);
           
-        return get_element_type_from_num_verts(MBCN::VerticesPerEntity(indiv_entity_type), 
+        return get_element_type_from_num_verts(CN::VerticesPerEntity(indiv_entity_type), 
                                                indiv_entity_type, dimension);
       }
       else return EXOII_MAX_ELEM_TYPE;

@@ -50,7 +50,7 @@
 #include "moab/Interface.hpp"
 #include "Internals.hpp"
 #include "moab/MBTagConventions.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "WriteHDF5.hpp"
 #include "moab/WriteUtilIface.hpp"
 #include "FileOptions.hpp"
@@ -252,7 +252,7 @@ ErrorCode WriteHDF5::assign_ids( const Range& entities, id_t id )
     const EntityHandle n = pi->second - pi->first + 1;
 #ifdef DEBUG
     printf( "Assigning %s %lu to %lu to file IDs [%lu,%lu]\n",
-      MBCN::EntityTypeName(TYPE_FROM_HANDLE(pi->first)),
+      CN::EntityTypeName(TYPE_FROM_HANDLE(pi->first)),
       (unsigned long)(ID_FROM_HANDLE(pi->first)),
       (unsigned long)(ID_FROM_HANDLE(pi->first)+n-1),
       (unsigned long)id,
@@ -274,7 +274,7 @@ const char* WriteHDF5::ExportSet::name() const
     case MBENTITYSET:
       return mhdf_set_type_handle();
     default:
-      sprintf( buffer, "%s%d", MBCN::EntityTypeName( type ), num_nodes );
+      sprintf( buffer, "%s%d", CN::EntityTypeName( type ), num_nodes );
       return buffer;
   }
 }
@@ -602,7 +602,7 @@ ErrorCode WriteHDF5::initialize_mesh( const Range ranges[5] )
   {
     ExportSet set;
     set.max_num_ents = set.max_num_adjs = 0;
-    const int dim = MBCN::Dimension(type);
+    const int dim = CN::Dimension(type);
 
       // Group entities by connectivity length
     bins.clear();
@@ -2280,7 +2280,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   const char* type_names[MBMAXTYPE];
   memset( type_names, 0, MBMAXTYPE * sizeof(char*) );
   for (EntityType i = MBEDGE; i < MBENTITYSET; ++i)
-    type_names[i] = MBCN::EntityTypeName( i );
+    type_names[i] = CN::EntityTypeName( i );
  
     // Create the file
   filePtr = mhdf_createFile( filename, overwrite, type_names, MBMAXTYPE, &status );
@@ -2442,7 +2442,7 @@ ErrorCode WriteHDF5::create_elem_tables( EntityType mb_type,
   mhdf_Status status;
   hid_t handle;
   
-  sprintf( name, "%s%d", MBCN::EntityTypeName(mb_type), nodes_per_elem );
+  sprintf( name, "%s%d", CN::EntityTypeName(mb_type), nodes_per_elem );
   mhdf_addElement( filePtr, name, mb_type, &status );
   CHK_MHDF_ERR_0(status);
   
@@ -2833,13 +2833,13 @@ void WriteHDF5::print_id_map( std::ostream& s, const char* pfx ) const
 {
   RangeMap<EntityHandle,id_t>::const_iterator i;
   for (i = idMap.begin(); i != idMap.end(); ++i) {
-    const char* n1 = MBCN::EntityTypeName(TYPE_FROM_HANDLE(i->begin));
+    const char* n1 = CN::EntityTypeName(TYPE_FROM_HANDLE(i->begin));
     EntityID id = ID_FROM_HANDLE(i->begin);
     if (i->count == 1) {
       s << pfx << n1 << " " << id << " -> " << i->value << std::endl;
     }
     else {
-      const char* n2 = MBCN::EntityTypeName(TYPE_FROM_HANDLE(i->begin + i->count - 1));
+      const char* n2 = CN::EntityTypeName(TYPE_FROM_HANDLE(i->begin + i->count - 1));
       if (n1 == n2) {
         s << pfx << n1 << " " << id << "-" << id + i->count-1
           << " -> " << i->value << "-" << i->value + i->count-1 << std::endl;

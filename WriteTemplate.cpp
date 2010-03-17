@@ -36,7 +36,7 @@
 
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "assert.h"
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
@@ -263,17 +263,17 @@ ErrorCode WriteTEMPLATE::gather_mesh_information(MeshInfo &mesh_info,
     Range::iterator entity_iter = dummy_range.end();
     entity_iter = dummy_range.end();
     entity_iter--;
-    int this_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
+    int this_dim = CN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
     entity_iter = dummy_range.begin();
     while (entity_iter != dummy_range.end() &&
-           MBCN::Dimension(TYPE_FROM_HANDLE(*entity_iter)) != this_dim)
+           CN::Dimension(TYPE_FROM_HANDLE(*entity_iter)) != this_dim)
       entity_iter++;
     
     if (entity_iter != dummy_range.end())
       std::copy(entity_iter, dummy_range.end(), range_inserter(*(matset_data.elements)));
 
     assert(matset_data.elements->begin() == matset_data.elements->end() ||
-           MBCN::Dimension(TYPE_FROM_HANDLE(*(matset_data.elements->begin()))) == this_dim);
+           CN::Dimension(TYPE_FROM_HANDLE(*(matset_data.elements->begin()))) == this_dim);
     
     // get the matset's id
     if(mbImpl->tag_get_data(mMaterialSetTag, &(*vector_iter), 1, &id) != MB_SUCCESS ) {
@@ -298,7 +298,7 @@ ErrorCode WriteTEMPLATE::gather_mesh_information(MeshInfo &mesh_info,
       return MB_FAILURE;
     }
 
-    int dimension = MBCN::Dimension(entity_type);
+    int dimension = CN::Dimension(entity_type);
 
     if( dimension > highest_dimension_of_element_matsets )
       highest_dimension_of_element_matsets = dimension;
@@ -475,7 +475,7 @@ ErrorCode WriteTEMPLATE::get_valid_sides(Range &elems, const int sense,
     else //then "side" is probably a quad/tri on a hex/tet mesh
     {
       std::vector<EntityHandle> parents;
-      int dimension = MBCN::Dimension( TYPE_FROM_HANDLE(*iter));
+      int dimension = CN::Dimension( TYPE_FROM_HANDLE(*iter));
 
         //get the adjacent parent element of "side"
       if( mbImpl->get_adjacencies( &(*iter), 1, dimension+1, false, parents) != MB_SUCCESS ) {
@@ -714,9 +714,9 @@ ErrorCode WriteTEMPLATE::get_neuset_elems(EntityHandle neuset, int current_sense
     // need to step forward on list until we reach the right dimension
   Range::iterator dum_it = neuset_elems.end();
   dum_it--;
-  int target_dim = MBCN::Dimension(TYPE_FROM_HANDLE(*dum_it));
+  int target_dim = CN::Dimension(TYPE_FROM_HANDLE(*dum_it));
   dum_it = neuset_elems.begin();
-  while (target_dim != MBCN::Dimension(TYPE_FROM_HANDLE(*dum_it)) &&
+  while (target_dim != CN::Dimension(TYPE_FROM_HANDLE(*dum_it)) &&
          dum_it != neuset_elems.end()) 
     dum_it++;
 

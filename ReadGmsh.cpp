@@ -30,7 +30,7 @@
 #include "moab/Range.hpp"
 #include "moab/MBTagConventions.hpp"
 #include "moab/MBParallelConventions.h"
-#include "moab/MBCN.hpp"
+#include "moab/CN.hpp"
 #include "GmshUtil.hpp"
 
 #include <errno.h>
@@ -509,7 +509,7 @@ ErrorCode ReadGmsh::create_sets( EntityType type,
       
       if (1 == set_type) // geometry
       {
-        int dim = MBCN::Dimension( type );
+        int dim = CN::Dimension( type );
         result = mdbImpl->tag_set_data( tag_handles[1], &set, 1, &dim );
         if (MB_SUCCESS != result)
           return result;
@@ -521,7 +521,7 @@ ErrorCode ReadGmsh::create_sets( EntityType type,
       set = *sets.begin();
       if (1 == set_type) // geometry
       {
-        int dim = MBCN::Dimension( type );
+        int dim = CN::Dimension( type );
           // Get dimension of set
         int dim2;
         result = mdbImpl->tag_get_data( tag_handles[1], &set, 1, &dim2 );
