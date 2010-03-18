@@ -376,8 +376,8 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
 // *******************************
 //	Read Regions
 // *******************************
-  int sense[MB_MAX_SUB_ENTITIES];
-  bound_verts.resize(MB_MAX_SUB_ENTITIES);
+  int sense[MAX_SUB_ENTITIES];
+  bound_verts.resize(MAX_SUB_ENTITIES);
 
   std::vector<EntityHandle> regions;
   if (file_id_tag)
