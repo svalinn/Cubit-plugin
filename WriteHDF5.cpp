@@ -469,7 +469,6 @@ tprint("Gathering Mesh\n");
   else
   {
     std::vector<EntityHandle> passed_export_list(set_array, set_array+num_sets);
-    VALGRIND_MAKE_VEC_UNDEFINED( passed_export_list );
     result = gather_mesh_info( passed_export_list );
     if (MB_SUCCESS != result) 
       return result;
