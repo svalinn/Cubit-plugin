@@ -21,13 +21,11 @@
 #include "netcdf.hh"
 
 #include <algorithm>
-#include <time.h>
 #include <string>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <cmath>
-#include <memory>
 #include <sstream>
 #include <map>
 
@@ -49,18 +47,18 @@ namespace moab {
           sprintf(stringvar, prefix, id)
           
 #define GET_DIM(ncdim, name, val) \
-          if (dimension_exists(name)) {\
+          if (dimension_exists(name)) { \
             ncdim = ncFile->get_dim(name); \
             if (!ncdim->is_valid()) {\
                readMeshIface->report_error("ReadNCDF:: name wasn't valid.");\
                return MB_FAILURE;\
             }\
             val = ncdim->size();\
-          } else val = 0;
+          } else val = 0; 
 
 #define GET_DIMB(ncdim, name, varname, id, val) \
           INS_ID(name, varname, id); \
-          if (dimension_exists(name)) {\
+          if (dimension_exists(name)) { \
             ncdim = ncFile->get_dim(name); \
             if (!ncdim->is_valid()) {\
                readMeshIface->report_error("ReadNCDF:: name wasn't valid.");\
@@ -195,15 +193,16 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
     return MB_UNSUPPORTED_OPERATION;
   }
 
+  NcError ncError(NcError::verbose_nonfatal);
+
       // open netcdf/exodus file
-  ncFile = new NcFile(file_name);
-  if (NULL == ncFile || !ncFile->is_valid())
+  NcFile fileObject(file_name, NcFile::ReadOnly);
+  ncFile = &fileObject;
+  if (!ncFile->is_valid())
   {
     readMeshIface->report_error("ReadNCDF:: problem opening Netcdf/Exodus II file %s",file_name);
     return MB_FILE_DOES_NOT_EXIST;
   }
-    // delete file when we return from this function
-  std::auto_ptr<NcFile> deleter(ncFile);
 
     // 1. Read the header
   ErrorCode rval = read_exodus_header( );
@@ -229,7 +228,6 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
     prop = sidesets;
   }
   else {  
-    delete ncFile;
     ncFile = 0;
     return MB_TAG_NOT_FOUND;
   }
@@ -238,20 +236,20 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
     NcVar *nc_var = ncFile->get_var( prop );
     if (NULL == nc_var || !nc_var->is_valid()) {
       readMeshIface->report_error("Problem getting prop variable.");
-      rval = MB_FAILURE;
+      return MB_FAILURE;
     }
     else {
       id_array.resize( count );
       NcBool status = nc_var->get(&id_array[0], count);
       if (0 == status) {
         readMeshIface->report_error("Problem getting element id vector.");
-        rval = MB_FAILURE;
+        return MB_FAILURE;
       }
     }
   }
   
   ncFile = 0;
-  return rval;
+  return MB_SUCCESS;
 }
 
 
@@ -264,6 +262,8 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
                                 const Tag* file_id_tag)
 {
   ErrorCode status;
+
+  NcError ncError(NcError::verbose_nonfatal);
 
   int num_blocks = 0;
   const int* blocks_to_load = 0;
@@ -295,14 +295,13 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
   // 0. Open the file.
 
       // open netcdf/exodus file
-  ncFile = new NcFile(exodus_file_name);
-  if (NULL == ncFile || !ncFile->is_valid())
+  NcFile fileObject(exodus_file_name, NcFile::ReadOnly);
+  ncFile = &fileObject;
+  if (!ncFile->is_valid())
   {
     readMeshIface->report_error("ReadNCDF:: problem opening Netcdf/Exodus II file %s",exodus_file_name);
     return MB_FILE_DOES_NOT_EXIST;
   }
-    // delete file when we return from this function
-  std::auto_ptr<NcFile> deleter(ncFile);
 
     // 1. Read the header
   status = read_exodus_header();
@@ -354,6 +353,20 @@ ErrorCode ReadNCDF::read_exodus_header()
   CPU_WORD_SIZE = sizeof(double);  // With ExodusII version 2, all floats
   IO_WORD_SIZE = sizeof(double);   // should be changed to doubles
   
+    // NetCDF doesn't check its own limits on file read, so check
+    // them here so it doesn't corrupt memory any more than absolutely
+    // necessary.
+  if (ncFile->num_dims() > NC_MAX_DIMS) {
+    readMeshIface->report_error("ReadNCDF: File contains %d dims but NetCDF library supports only %d\n",
+                                (int)ncFile->num_dims(), (int)NC_MAX_DIMS);
+    return MB_FAILURE;
+  }
+  if (ncFile->num_vars() > NC_MAX_VARS) {
+    readMeshIface->report_error("ReadNCDF: File contains %d vars but NetCDF library supports only %d\n",
+                                (int)ncFile->num_vars(), (int)NC_MAX_VARS);
+    return MB_FAILURE;
+  }
+  
     // get the attributes
 
     // get the word size, scalar value
@@ -374,7 +387,6 @@ ErrorCode ReadNCDF::read_exodus_header()
   delete temp_att;
 
     // float version = temp_att->as_float(0);
-  
 
     // read in initial variables
   NcDim *temp_dim;
@@ -621,11 +633,11 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
 
     // allocate an array to read in connectivity data
     readMeshIface->get_element_array(
-        (*this_it).numElements,
+        this_it->numElements,
         verts_per_element,
         mb_type,
-        (*this_it).startExoId,
-        (*this_it).startMBId,
+        this_it->startExoId,
+        this_it->startMBId,
         conn);
         
         // create a range for this sequence of elements
@@ -1669,14 +1681,13 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
 
 
       // open netcdf/exodus file
-  ncFile = new NcFile(exodus_file_name);
-  if (NULL == ncFile || !ncFile->is_valid())
+  NcFile fileObject( exodus_file_name, NcFile::ReadOnly );
+  ncFile = &fileObject;
+  if (!ncFile->is_valid())
   {
     readMeshIface->report_error("ReadNCDF:: problem opening Netcdf/Exodus II file %s",exodus_file_name);
     return MB_FILE_DOES_NOT_EXIST;
   }
-    // delete file when we return from this function
-  std::auto_ptr<NcFile> deleter(ncFile);
 
   rval = read_exodus_header();
   if (MB_SUCCESS != rval)
