@@ -29,8 +29,13 @@ static void* realloc_data( struct mhdf_FileDesc** data, size_t append_bytes, mhd
   void* result_ptr;
   struct mhdf_FileDesc* const input_ptr = *data;
   unsigned char* mem_ptr = (unsigned char*)input_ptr;
-  size_t new_size, orig_size = input_ptr->offset - mem_ptr;
+  size_t new_size, occupied_size = input_ptr->offset - mem_ptr;
   
+  /* input_ptr->offset - input_ptr == currently occupied size
+     input_ptr->total_size         == currently allocated size
+   */
+  
+  /* if the end of the allocated space is before the end of the required space */
   if (mem_ptr + input_ptr->total_size < input_ptr->offset + append_bytes) {
     if (append_bytes < input_ptr->total_size)
       new_size = 2 * input_ptr->total_size;
@@ -40,11 +45,15 @@ static void* realloc_data( struct mhdf_FileDesc** data, size_t append_bytes, mhd
     if (mhdf_isError( status ))
       return 0;
 
-    if (*data != input_ptr)
+    /* if realloc moved us to a different location in memory,
+     * we need to update all of the internal pointers to
+     * new locations relative to the start of the struct */
+    if (*data != input_ptr) {
       mhdf_fixFileDesc( *data, input_ptr );
-      
-    mem_ptr = (unsigned char*)(*data);
-    (*data)->offset = mem_ptr + orig_size;
+      mem_ptr = (unsigned char*)(*data);
+      (*data)->offset = mem_ptr + occupied_size;
+    }
+    (*data)->total_size = new_size;
   }
   
   result_ptr = (*data)->offset;
@@ -53,7 +62,7 @@ static void* realloc_data( struct mhdf_FileDesc** data, size_t append_bytes, mhd
 }
 
 #define FIX_OFFSET( TYPE, FIELD ) \
-  copy_ptr->FIELD = (TYPE)( ((char*)(copy_ptr->FIELD) - (char*)orig_addr) + (char*)copy_ptr )  
+  if (copy_ptr->FIELD != NULL) copy_ptr->FIELD = (TYPE)( ((char*)(copy_ptr->FIELD) - (char*)orig_addr) + (char*)copy_ptr )  
 
   
 void 
@@ -467,10 +476,9 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
     free( result );
     return NULL;
   }
-  result->num_tag_desc = num_tag_names;
   
     /* allocate array of tag descriptors */
-  size = result->num_tag_desc * sizeof(struct mhdf_TagDesc);
+  size = num_tag_names * sizeof(struct mhdf_TagDesc);
   ptr = realloc_data( &result, size, status );
   if (NULL == ptr) {
     free( elem_handles );
@@ -479,6 +487,8 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   }
   memset( ptr, 0, size );
   result->tags = ptr;
+  result->num_tag_desc = num_tag_names;
+  memset( result->tags, 0, size );
   
     /* Initialize each tag descriptor */
   for (i = 0; i < result->num_tag_desc; ++i) {
