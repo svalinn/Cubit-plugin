@@ -329,6 +329,7 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
     // read blocks...
     // ***********************
   if (debug) std::cout << "Reading blocks... ";
+  Range ho_entities;
   for (unsigned int blindex = 0; 
        blindex < mesh_model->feModelHeader.blockArray.numEntities;
        blindex++) {
@@ -337,6 +338,8 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
     if (MB_SUCCESS != result)
       return result;
   }
+  
+  
   if (debug) std::cout << mesh_model->feModelHeader.blockArray.numEntities 
                        << " read successfully." << std::endl;;
   
@@ -739,8 +742,8 @@ ErrorCode Tqdcfr::process_sideset_11(std::vector<EntityHandle> &ss_entities,
 }
 
 ErrorCode Tqdcfr::read_block(const double data_version,
-                               Tqdcfr::ModelEntry *model,
-                               Tqdcfr::BlockHeader *blockh)  
+                             Tqdcfr::ModelEntry *model,
+                             Tqdcfr::BlockHeader *blockh)  
 {
   if (blockh->memCt == 0) return MB_SUCCESS;
   
@@ -798,13 +801,21 @@ ErrorCode Tqdcfr::read_block(const double data_version,
     // contains an entity set, but we still need to call it on any elements
     // directly in the block (rather than a geometry subset).  So bypass
     // Interface and call HOFactory directly with an Range of entities.
-  Range entities;
+  Range ho_entities, entities;
   mdbImpl->get_entities_by_type( blockh->setHandle, blockh->blockEntityType, entities, true );
+  if (CN::Dimension(blockh->blockEntityType) > 2) {
+    result = mdbImpl->get_adjacencies(entities, 2, false, ho_entities, Interface::UNION);
+    if (MB_SUCCESS != result) return result;
+  }
+  if (CN::Dimension(blockh->blockEntityType) > 1) {
+    result = mdbImpl->get_adjacencies(entities, 1, false, ho_entities, Interface::UNION);
+    if (MB_SUCCESS != result) return result;
+  }
+  entities.merge(ho_entities);
   
-  int mid_nodes[4];
-  CN::HasMidNodes( blockh->blockEntityType, node_per_elem, mid_nodes );
   HigherOrderFactory ho_fact( dynamic_cast<Core*>(mdbImpl), 0 );
-  return ho_fact.convert( entities, !!mid_nodes[1], !!mid_nodes[2], !!mid_nodes[3] );
+  return ho_fact.convert( entities, !!blockh->hasMidNodes[1], !!blockh->hasMidNodes[2], 
+                          !!blockh->hasMidNodes[3] );
 }
 
 ErrorCode Tqdcfr::read_group(const unsigned int group_index,
@@ -1691,18 +1702,19 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     block_headers[i].blockEntityType = block_type_to_mb_type[block_headers[i].blockElemType];
     if (num_verts != CN::VerticesPerEntity(block_headers[i].blockEntityType)) {
         // not a linear element; try to find hasMidNodes values
-      int has_mid_nodes[] = {0, 0, 0, 0};
+      for (int j = 0; j < 4; j++) block_headers[i].hasMidNodes[j] = 0;
       if (0 == instance->hasMidNodesTag) {
         result = instance->mdbImpl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, 
-                                               MB_TYPE_INTEGER, instance->hasMidNodesTag, has_mid_nodes);
+                                               MB_TYPE_INTEGER, instance->hasMidNodesTag, block_headers[i].hasMidNodes);
         if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
       }
       
-      CN::HasMidNodes(block_headers[i].blockEntityType, num_verts, has_mid_nodes);
+      CN::HasMidNodes(block_headers[i].blockEntityType, num_verts, 
+                      block_headers[i].hasMidNodes);
 
         // now set the tag on this set
       result = instance->mdbImpl->tag_set_data(instance->hasMidNodesTag, &block_headers[i].setHandle, 1,
-                                               has_mid_nodes);
+                                               block_headers[i].hasMidNodes);
       if (MB_SUCCESS != result) return result;
     }
   }

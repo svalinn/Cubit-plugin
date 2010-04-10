@@ -165,6 +165,8 @@ public:
 
     EntityType blockEntityType;
 
+    int hasMidNodes[4];
+
     void print();
 
     static ErrorCode read_info_header(const double data_version,
