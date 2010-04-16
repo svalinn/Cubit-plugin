@@ -284,10 +284,15 @@ ErrorCode WriteVtk::write_elems( std::ostream& stream,
       // Get VTK type
     const VtkElemType* vtk_type = VtkUtil::get_vtk_type( type, conn_len );
     if (!vtk_type) {
-      writeTool->report_error( "Vtk file format does not support elements "
-        "of type %s (%d) with %d nodes.\n", CN::EntityTypeName(type), 
-        (int)type, conn_len);
-      return MB_FAILURE;
+        // try connectivity with 1 fewer node
+      vtk_type = VtkUtil::get_vtk_type( type, conn_len-1 );
+      if (vtk_type) conn_len--;
+      else {
+        writeTool->report_error( "Vtk file format does not support elements "
+                                 "of type %s (%d) with %d nodes.\n", CN::EntityTypeName(type), 
+                                 (int)type, conn_len);
+        return MB_FAILURE;
+      }
     }
 
       // Get IDs from vertex handles
