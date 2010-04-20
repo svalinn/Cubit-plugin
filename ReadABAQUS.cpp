@@ -375,7 +375,7 @@ ErrorCode ReadABAQUS::read_assembly(EntityHandle file_set)
 	    default:
 	      in_unsupported = true;
 	      // std::cout << "\tIgnoring unsupported keyword in this ASSEMBLY: "
-	      //		<< readline << std::endl;
+	      //           << readline << std::endl;
 	      next_line_type = get_next_line_type();
 	      break;
 	    }
@@ -387,7 +387,7 @@ ErrorCode ReadABAQUS::read_assembly(EntityHandle file_set)
 	  if (!in_unsupported)
 	    {
 	      // std::cout << "Internal Error: Data lines not allowed in ASSEMBLY keyword."
-	      //		<< std::endl << readline << std::endl;
+	      //           << std::endl << readline << std::endl;
 	      return MB_FAILURE;
 	    }
 	  next_line_type = get_next_line_type();
@@ -467,11 +467,11 @@ ErrorCode ReadABAQUS::read_instance(EntityHandle assembly_set,EntityHandle file_
 	{
 	case abq_instance_ambiguous:
 	  // std::cout << "\t\tIgnoring ambiguous INSTANCE parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  //           << "=" << (*thisParam).second << std::endl;
 	  break;
 	default:
 	  // std::cout << "\t\tIgnoring unsupported INSTANCE parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	}
     }
@@ -486,6 +486,10 @@ ErrorCode ReadABAQUS::read_instance(EntityHandle assembly_set,EntityHandle file_
   bool end_instance = false;
   bool in_unsupported = false;
 
+  EntityHandle instance_set;
+  status = add_entity_set(assembly_set,ABQ_INSTANCE_SET,instance_name,instance_set);
+  MB_RETURN_IF_FAIL;
+
   while (next_line_type != abq_eof && !end_instance)
     {
       switch(next_line_type)
@@ -496,14 +500,31 @@ ErrorCode ReadABAQUS::read_instance(EntityHandle assembly_set,EntityHandle file_
 	    {
 	    case abq_end_instance:
 	      end_instance = true;
+	      next_line_type = get_next_line_type();
+	      break;
+	    case abq_node:
+	      status = read_node_list(instance_set,assembly_set);
+	      break;
+	    case abq_element:
+	      status = read_element_list(instance_set,assembly_set);
+	      break;
+	    case abq_nset:
+	      status = read_node_set(instance_set,file_set,assembly_set);
+	      break;
+	    case abq_elset:
+	      status = read_element_set(instance_set,file_set,assembly_set);
+	      break;
+	    case abq_solid_section:
+	      status = read_solid_section(instance_set);
 	      break;
 	    default:
 	      in_unsupported = true;
 	      // std::cout << "\t\tIgnoring unsupported keyword in this INSTANCE: "
-	      //		<< readline << std::endl;
+	      // 		<< readline << std::endl;
 	      next_line_type = get_next_line_type();
 	      break;
 	    }
+          break;
 	case abq_comment_line:
 	  next_line_type = get_next_line_type();
 	  break;
@@ -556,8 +577,6 @@ ErrorCode ReadABAQUS::read_instance(EntityHandle assembly_set,EntityHandle file_
       
    }
 
-  EntityHandle instance_set;
-  
   status = create_instance_of_part(file_set,assembly_set,part_name,
 				   instance_name,instance_set,translation,rotation);
   MB_RETURN_IF_FAIL;
@@ -618,11 +637,11 @@ ErrorCode ReadABAQUS::read_part(EntityHandle file_set)
 	{
 	case abq_part_ambiguous:
 	  // std::cout << "\tIgnoring ambiguous PART parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	default:
 	  // std::cout << "\tIgnoring unsupported PART parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	}
     }
@@ -666,7 +685,7 @@ ErrorCode ReadABAQUS::read_part(EntityHandle file_set)
 	    default:
 	      in_unsupported = true;
 	      // std::cout << "\tIgnoring unsupported keyword in this PART: "
-	      //		<< readline << std::endl;
+	      //         	<< readline << std::endl;
 	      next_line_type = get_next_line_type();
 	      break;
 	    }
@@ -754,11 +773,11 @@ ErrorCode ReadABAQUS::read_solid_section(EntityHandle parent_set)
 	{
 	case abq_solid_section_ambiguous:
 	  // std::cout << "\t\tIgnoring ambiguous SOLID_SECTION parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	default:
 	  // std::cout << "\t\tIgnoring unsupported SOLID_SECTION parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	}
     }
@@ -851,11 +870,11 @@ ErrorCode ReadABAQUS::read_element_set(EntityHandle parent_set, EntityHandle fil
 	  break;
 	case abq_elset_ambiguous:
 	  // std::cout << "\t\tIgnoring ambiguous ELSET parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	default:
 	  // std::cout << "\t\tIgnoring unsupported ELSET parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	}
     }
@@ -1016,11 +1035,11 @@ ErrorCode ReadABAQUS::read_node_set(EntityHandle parent_set,EntityHandle file_se
 	  break;
 	case abq_nset_ambiguous:
 	  // std::cout << "\t\tIgnoring ambiguous NSET parameter: " << (*thisParam).first
-	  // 	    << "=" << (*thisParam).second << std::endl;
+	  //  	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	default:
 	  // std::cout << "\t\tIgnoring unsupported NSET parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	}
     }
@@ -1120,7 +1139,7 @@ ErrorCode ReadABAQUS::read_node_set(EntityHandle parent_set,EntityHandle file_se
 
 }
 
-ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set)
+ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set, EntityHandle assembly_set)
 {
   ErrorCode status;
 
@@ -1209,11 +1228,11 @@ ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set)
 	  break;
 	case abq_element_ambiguous:
 	  // std::cout << "\t\tIgnoring ambiguous ELEMENT parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	default:
 	  // std::cout << "\t\tIgnoring unsupported ELEMENT parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	}
     }
@@ -1283,6 +1302,17 @@ ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set)
   status = mdbImpl->tag_set_data(mLocalIDTag,element_range,&element_ids[0]);
   MB_RETURN_IF_FAIL;
 
+  if (assembly_set)
+    {
+      status = mdbImpl->add_entities(assembly_set,element_range);
+      MB_RETURN_IF_FAIL;
+      
+      std::vector<EntityHandle> tmp_assembly_handles;
+      tmp_assembly_handles.assign(element_range.size(),assembly_set);
+      status = mdbImpl->tag_set_data(mAssemblyHandleTag,element_range,&(tmp_assembly_handles[0]));
+      MB_RETURN_IF_FAIL;
+    }
+
   // these elements don't know their instance_set (probably not defined)
 
   if (make_element_set)
@@ -1307,7 +1337,7 @@ ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set)
 
 }
  
-ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set)
+ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set, EntityHandle assembly_set)
 {
   ErrorCode status;
 
@@ -1352,11 +1382,11 @@ ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set)
 	  break;
 	case abq_node_ambiguous:
 	  // std::cout << "\t\tIgnoring ambiguous NODE parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	default:
 	  // std::cout << "\t\tIgnoring unsupported NODE parameter: " << (*thisParam).first
-	  //	    << "=" << (*thisParam).second << std::endl;
+	  // 	    << "=" << (*thisParam).second << std::endl;
 	  break;
 	}
     }
@@ -1399,7 +1429,7 @@ ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set)
       break;
     default:
       // std::cout << "Treating undefined coordinate system: " << coord_system 
-      //		<< " as rectangular/Cartesian." << std::endl;
+      // 		<< " as rectangular/Cartesian." << std::endl;
       break;
     }
 
@@ -1432,6 +1462,17 @@ ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set)
   status = mdbImpl->tag_set_data(mLocalIDTag,node_range,&node_ids[0]);
   MB_RETURN_IF_FAIL;
 
+  if (assembly_set)
+    {
+      status = mdbImpl->add_entities(assembly_set,node_range);
+      MB_RETURN_IF_FAIL;
+      
+      std::vector<EntityHandle> tmp_assembly_handles;
+      tmp_assembly_handles.assign(node_range.size(),assembly_set);
+      status = mdbImpl->tag_set_data(mAssemblyHandleTag,node_range,&(tmp_assembly_handles[0]));
+      MB_RETURN_IF_FAIL;
+    }
+
   // these nodes don't know their instance_set (probably not defined)
 
   if (make_node_set)
@@ -1450,6 +1491,7 @@ ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set)
       // * assembly_set (probably not defined)
 
     }      
+  
   
   return MB_SUCCESS;
 }
@@ -1592,7 +1634,7 @@ ErrorCode ReadABAQUS::get_set_elements_by_name(EntityHandle parent_set,
 
   if (element_range.size() == 0)
     {
-      //std::cout << "No elements were found in set " << set_name << std::endl;
+      // std::cout << "No elements were found in set " << set_name << std::endl;
     }
 
   return MB_SUCCESS;
@@ -1676,9 +1718,6 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
   status = get_set_by_name(file_set,ABQ_PART_SET,part_name,part_set);
   MB_RETURN_IF_FAIL;
 
-  status = add_entity_set(assembly_set,ABQ_INSTANCE_SET,instance_name,instance_set);
-  MB_RETURN_IF_FAIL;
-
   // cross-reference
   status = mdbImpl->tag_set_data(mPartHandleTag,&instance_set,1,&part_set);
   MB_RETURN_IF_FAIL;
@@ -1693,6 +1732,11 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
   instance_id = ++num_assembly_instances[assembly_set];
   status = mdbImpl->tag_set_data(mInstanceGIDTag,&instance_set,1,&instance_id);
 
+  // create maps to cross-reference the part and instance versions of each entity
+  std::map<EntityHandle,EntityHandle> p2i_nodes, 
+                                      p2i_elements;
+
+
   // ---- NODES ---- 
 
   // get all nodes and IDs
@@ -1700,152 +1744,143 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
   status = mdbImpl->get_entities_by_dimension(part_set,0,part_node_list);
   MB_RETURN_IF_FAIL;
 
-  std::vector<int> node_ids(part_node_list.size());
-  status = mdbImpl->tag_get_data(mLocalIDTag,part_node_list,&node_ids[0]);
-  MB_RETURN_IF_FAIL;
+  if (0 < part_node_list.size()) {
+    std::vector<int> node_ids(part_node_list.size());
+    status = mdbImpl->tag_get_data(mLocalIDTag,part_node_list,&node_ids[0]);
+    MB_RETURN_IF_FAIL;
 
-  std::map<int,EntityHandle> nodeIdMap;
-  for (unsigned int idx=0;idx<part_node_list.size();idx++)
-    nodeIdMap[node_ids[idx]] = part_node_list[idx];
+    std::map<int,EntityHandle> nodeIdMap;
+    for (unsigned int idx=0;idx<part_node_list.size();idx++)
+      nodeIdMap[node_ids[idx]] = part_node_list[idx];
 
-  // create new nodes
-  std::vector<double*> coord_arrays(3);
-  EntityHandle start_node = 0;
-  status = readMeshIface->get_node_arrays(3, part_node_list.size(),MB_START_ID,
-					  start_node,coord_arrays);
-  MB_RETURN_IF_FAIL;
+    // create new nodes
+    std::vector<double*> coord_arrays(3);
+    EntityHandle start_node = 0;
+    status = readMeshIface->get_node_arrays(3, part_node_list.size(),MB_START_ID,
+					    start_node,coord_arrays);
+    MB_RETURN_IF_FAIL;
+    
+    if (0 == start_node) return MB_FAILURE;
+    
+    // copy coordinates into new coord_arrays
+    status = mdbImpl->get_coords(part_node_list,coord_arrays[0],coord_arrays[1],coord_arrays[2]);
+    
+    // rotate to new position
+    double rot_axis[3];
+    rot_axis[0] = rotation[3]-rotation[0];
+    rot_axis[1] = rotation[4]-rotation[1];
+    rot_axis[2] = rotation[5]-rotation[2];
+    
+    AffineXform rotationXform;
+    if (rotation[6] != 0)
+      rotationXform = AffineXform::rotation(rotation[6]*DEG2RAD,rot_axis);
+    
+    // translate to new position
+    for (unsigned int idx=0;idx<part_node_list.size();idx++)
+      {
+	double coords[3];
+	
+	// transform to new location and then shift origin of rotation
+	for (unsigned int dim=0;dim<3;dim++)
+	  coords[dim] = coord_arrays[dim][idx] + translation[dim] - rotation[dim];
+	
+	// rotate around this origin
+	if (rotation[6] != 0)
+	  rotationXform.xform_vector(coords);
+	
+	// transform irigin of rotation back
+	for (unsigned int dim=0;dim<3;dim++)
+	  coord_arrays[dim][idx] = coords[dim] + rotation[dim];
+	
+      }
+    
+    Range instance_node_list(start_node, start_node+part_node_list.size()-1);
+    
+    // (DO NOT) add nodes to file_set
+    // status = mdbImpl->add_entities(file_set,instance_node_list);
+    // MB_RETURN_IF_FAIL;
+    
+    // add nodes to this instance_set
+    status = mdbImpl->add_entities(instance_set,instance_node_list);
+    MB_RETURN_IF_FAIL;
+    
+    // add nodes to this assembly_set
+    status = mdbImpl->add_entities(assembly_set,instance_node_list);
+    MB_RETURN_IF_FAIL;
+    
+    // tag nodes with their local ID's
+    status = mdbImpl->tag_set_data(mLocalIDTag,instance_node_list,&node_ids[0]);
+    MB_RETURN_IF_FAIL;
 
-  if (0 == start_node) return MB_FAILURE;
+    // create a map of old handles to new handles!!!
+    for (unsigned int idx=0;idx<part_node_list.size();idx++)
+      p2i_nodes[part_node_list[idx]]=instance_node_list[idx];
+  }
 
-  // copy coordinates into new coord_arrays
-  status = mdbImpl->get_coords(part_node_list,coord_arrays[0],coord_arrays[1],coord_arrays[2]);
-
-  // rotate to new position
-  double rot_axis[3];
-  rot_axis[0] = rotation[3]-rotation[0];
-  rot_axis[1] = rotation[4]-rotation[1];
-  rot_axis[2] = rotation[5]-rotation[2];
-  
-  AffineXform rotationXform;
-  if (rotation[6] != 0)
-    rotationXform = AffineXform::rotation(rotation[6]*DEG2RAD,rot_axis);
-
-  // translate to new position
-  for (unsigned int idx=0;idx<part_node_list.size();idx++)
-    {
-      double coords[3];
-
-      // transform to new location and then shift origin of rotation
-      for (unsigned int dim=0;dim<3;dim++)
-	coords[dim] = coord_arrays[dim][idx] + translation[dim] - rotation[dim];
-
-      // rotate around this origin
-      if (rotation[6] != 0)
-	rotationXform.xform_vector(coords);
-
-      // transform irigin of rotation back
-      for (unsigned int dim=0;dim<3;dim++)
-	coord_arrays[dim][idx] = coords[dim] + rotation[dim];
-
-    }
-
-  Range instance_node_list(start_node, start_node+part_node_list.size()-1);
-
-  // (DO NOT) add nodes to file_set
-  // status = mdbImpl->add_entities(file_set,instance_node_list);
-  // MB_RETURN_IF_FAIL;
-
-  // add nodes to this instance_set
-  status = mdbImpl->add_entities(instance_set,instance_node_list);
-  MB_RETURN_IF_FAIL;
-
-  // add nodes to this assembly_set
-  status = mdbImpl->add_entities(assembly_set,instance_node_list);
-  MB_RETURN_IF_FAIL;
-
-  // tag nodes with their local ID's
-  status = mdbImpl->tag_set_data(mLocalIDTag,instance_node_list,&node_ids[0]);
-  MB_RETURN_IF_FAIL;
-
-  // tag nodes with their instance handle
-  std::vector<EntityHandle> tmp_instance_handles;
-  tmp_instance_handles.assign(part_node_list.size(),instance_set);
-  status = mdbImpl->tag_set_data(mInstanceHandleTag,instance_node_list,&tmp_instance_handles[0]);
-  MB_RETURN_IF_FAIL;
-
-  // create a map of old handles to new handles!!!
-  std::map<EntityHandle,EntityHandle> p2i_nodes;
-  for (unsigned int idx=0;idx<part_node_list.size();idx++)
-    p2i_nodes[part_node_list[idx]]=instance_node_list[idx];
-  
   //  ---- ELEMENTS ----
   
   Range part_element_list;
   status = get_set_elements(part_set,part_element_list);
   MB_RETURN_IF_FAIL;
 
-  std::vector<int> part_element_ids(part_element_list.size());
-  status = mdbImpl->tag_get_data(mLocalIDTag,part_element_list,&part_element_ids[0]);
-  MB_RETURN_IF_FAIL;
-
-  std::map<int,EntityHandle> elementIdMap;
-  for (unsigned int idx=0;idx<part_element_list.size();idx++)
+  if (0 < part_element_list.size()) {
+    std::vector<int> part_element_ids(part_element_list.size());
+    status = mdbImpl->tag_get_data(mLocalIDTag,part_element_list,&part_element_ids[0]);
+    MB_RETURN_IF_FAIL;
+    
+    std::map<int,EntityHandle> elementIdMap;
+    for (unsigned int idx=0;idx<part_element_list.size();idx++)
       elementIdMap[part_element_ids[idx]] = part_element_list[idx];
+    
+    // create new elements
+    Range instance_element_list;
+    instance_element_list.clear();
+    
+    // cross-referencing storage and pointers/iterators
+    std::vector<int> instance_element_ids;
+    std::vector<int>::iterator part_element_id = part_element_ids.begin();
+    
+    for (Range::iterator part_element=part_element_list.begin();
+	 part_element != part_element_list.end();
+	 part_element++,part_element_id++)
+      {
+	EntityType element_type = mdbImpl->type_from_handle(*part_element);
+	std::vector<EntityHandle> part_connectivity,instance_connectivity;
+	EntityHandle new_element;
+	status = mdbImpl->get_connectivity(&(*part_element),1,part_connectivity);
+	MB_RETURN_IF_FAIL;
+	
+	instance_connectivity.clear();
+	for (std::vector<EntityHandle>::iterator connectivity_node=part_connectivity.begin();
+	     connectivity_node != part_connectivity.end();
+	     connectivity_node++)
+	  instance_connectivity.push_back(p2i_nodes[*connectivity_node]);
+	
+	status = mdbImpl->create_element(element_type,&instance_connectivity[0],instance_connectivity.size(),new_element);
+	MB_RETURN_IF_FAIL;
+	
+	instance_element_list.insert(new_element);
+	p2i_elements[*part_element] = new_element;
+	instance_element_ids.push_back(*part_element_id);
+      }
+    
+    // (DO NOT) add elements to file_set
+    // status = mdbImpl->add_entities(file_set,instance_element_list);
+    // MB_RETURN_IF_FAIL;
+    
+    // add elements to this instance_set
+    status = mdbImpl->add_entities(instance_set,instance_element_list);
+    MB_RETURN_IF_FAIL;
+    
+    // add elements to this assembly_set
+    status = mdbImpl->add_entities(assembly_set,instance_element_list);
+    MB_RETURN_IF_FAIL;
+    
+    // tag elements with their local ID's
+    status = mdbImpl->tag_set_data(mLocalIDTag,instance_element_list,&(instance_element_ids[0]));
+    MB_RETURN_IF_FAIL;
+  }
 
-  // create new elements
-  Range instance_element_list;
-  instance_element_list.clear();
-
-  // cross-referencing storage and pointers/iterators
-  std::map<EntityHandle,EntityHandle> p2i_elements;
-  std::vector<int> instance_element_ids;
-  std::vector<int>::iterator part_element_id = part_element_ids.begin();
-
-  for (Range::iterator part_element=part_element_list.begin();
-       part_element != part_element_list.end();
-       part_element++,part_element_id++)
-    {
-      EntityType element_type = mdbImpl->type_from_handle(*part_element);
-      std::vector<EntityHandle> part_connectivity,instance_connectivity;
-      EntityHandle new_element;
-      status = mdbImpl->get_connectivity(&(*part_element),1,part_connectivity);
-      MB_RETURN_IF_FAIL;
-
-      instance_connectivity.clear();
-      for (std::vector<EntityHandle>::iterator connectivity_node=part_connectivity.begin();
-	   connectivity_node != part_connectivity.end();
-	   connectivity_node++)
-	instance_connectivity.push_back(p2i_nodes[*connectivity_node]);
-      
-      status = mdbImpl->create_element(element_type,&instance_connectivity[0],instance_connectivity.size(),new_element);
-      MB_RETURN_IF_FAIL;
-
-      instance_element_list.insert(new_element);
-      p2i_elements[*part_element] = new_element;
-      instance_element_ids.push_back(*part_element_id);
-    }
-
-  // (DO NOT) add elements to file_set
-  // status = mdbImpl->add_entities(file_set,instance_element_list);
-  // MB_RETURN_IF_FAIL;
-
-  // add elements to this instance_set
-  status = mdbImpl->add_entities(instance_set,instance_element_list);
-  MB_RETURN_IF_FAIL;
-
-  // add elements to this assembly_set
-  status = mdbImpl->add_entities(assembly_set,instance_element_list);
-  MB_RETURN_IF_FAIL;
-
-  // tag elements with their local ID's
-  status = mdbImpl->tag_set_data(mLocalIDTag,instance_element_list,&(instance_element_ids[0]));
-  MB_RETURN_IF_FAIL;
-
-  // tag elements with their instance handle
-  tmp_instance_handles.assign(part_element_list.size(),instance_set);
-  status = mdbImpl->tag_set_data(mInstanceHandleTag,instance_element_list,&(tmp_instance_handles[0]));
-  MB_RETURN_IF_FAIL;
-  
   // ----- NODE SETS -----
 
   // get all node sets in part
@@ -1889,9 +1924,6 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
       MB_RETURN_IF_FAIL;
       
       status = mdbImpl->tag_set_data(mPartHandleTag,&instance_node_set,1,&part_set);
-      MB_RETURN_IF_FAIL;
-
-      status = mdbImpl->tag_set_data(mInstanceHandleTag,&instance_node_set,1,&instance_set);
       MB_RETURN_IF_FAIL;
 
       status = mdbImpl->tag_set_data(mAssemblyHandleTag,&instance_node_set,1,&assembly_set);
@@ -1947,9 +1979,6 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
       status = mdbImpl->tag_set_data(mPartHandleTag,&instance_element_set,1,&part_set);
       MB_RETURN_IF_FAIL;
 
-      status = mdbImpl->tag_set_data(mInstanceHandleTag,&instance_element_set,1,&instance_set);
-      MB_RETURN_IF_FAIL;
-
       status = mdbImpl->tag_set_data(mAssemblyHandleTag,&instance_element_set,1,&assembly_set);
       MB_RETURN_IF_FAIL;
 
@@ -1978,8 +2007,57 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
 
     }
 
-  
+  // tag everything with their instance handle
+  // some nodes are assigned outside of this routine so query final list of all
+  // instance nodes, elements, etc
+  Range instance_entity_list;
+  status = mdbImpl->get_entities_by_dimension(instance_set,0,instance_entity_list);
+  MB_RETURN_IF_FAIL;
 
+  std::vector<EntityHandle> tmp_instance_handles;
+  tmp_instance_handles.assign(instance_entity_list.size(),instance_set);
+  status = mdbImpl->tag_set_data(mInstanceHandleTag,instance_entity_list,&tmp_instance_handles[0]);
+  MB_RETURN_IF_FAIL;
+
+  instance_entity_list.clear();
+  status = get_set_elements(instance_set,instance_entity_list);
+  MB_RETURN_IF_FAIL;
+
+  tmp_instance_handles.clear();
+  tmp_instance_handles.assign(instance_entity_list.size(),instance_set);
+  status = mdbImpl->tag_set_data(mInstanceHandleTag,instance_entity_list,&tmp_instance_handles[0]);
+  MB_RETURN_IF_FAIL;
+  
+  // get all node sets in instance
+  instance_entity_list.clear();
+  tag_val = ABQ_NODE_SET;
+  tag_data[0] = &tag_val;
+  status = mdbImpl->get_entities_by_type_and_tag(instance_set,
+						 MBENTITYSET,
+						 &mSetTypeTag,
+						 tag_data, 1, instance_entity_list);
+  MB_RETURN_IF_FAIL;
+  
+  tmp_instance_handles.clear();
+  tmp_instance_handles.assign(instance_entity_list.size(),instance_set);
+  status = mdbImpl->tag_set_data(mInstanceHandleTag,instance_entity_list,&tmp_instance_handles[0]);
+  MB_RETURN_IF_FAIL;
+  
+  // get all element sets in part
+  instance_entity_list.clear();
+  tag_val = ABQ_ELEMENT_SET;
+  tag_data[0] = &tag_val;
+  status = mdbImpl->get_entities_by_type_and_tag(instance_set,
+						 MBENTITYSET,
+						 &mSetTypeTag,
+						 tag_data, 1, instance_entity_list);
+  MB_RETURN_IF_FAIL;
+  
+  tmp_instance_handles.clear();
+  tmp_instance_handles.assign(instance_entity_list.size(),instance_set);
+  status = mdbImpl->tag_set_data(mInstanceHandleTag,instance_entity_list,&tmp_instance_handles[0]);
+  MB_RETURN_IF_FAIL;
+  
   return MB_SUCCESS;
 }
 

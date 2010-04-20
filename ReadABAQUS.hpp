@@ -53,13 +53,18 @@ Overview of supported sructure
 * File:
    * Heading
    * Part
-      * Nodes
+      * Nodes 
       * Elements
       * Node Sets
       * Element Sets
       * Solid Sections
    * Assembly
       * Instance
+        * Nodes 
+        * Elements
+        * Node Sets
+        * Element Sets
+        * Solid Sections
       * Node Sets
 
 
@@ -77,6 +82,13 @@ transformation. To create a full copy:
   the set of elements among the duplicates are assigned to the new
   element set; the corresponding material is also assigned go the new
   element sets
+
+It is also possible for an "instance" to contain the complete
+definition of the mesh, copying nothing from the "part" (the "part"
+may have no mesh defined).  It is unclear whether an "instance" can
+combine mesh from the "part" definition with mesh contained only in
+the "instance" definition. (Not appropriately documented in ABAUQUS
+Reference Manual.)
 
 In order to provide convenient access to the data and mesh structures
 the following data model is used:
@@ -131,6 +143,8 @@ the following data model is used:
          name of entitity set
        • mPartHandleTag (handle)
          pointer to part in which this node set exists
+	 (only defined for node sets that are in an instance and 
+          derive from a part)
        • mInstanceHandleTag (handle)
          pointer back to instance set in which this node set exists
          (NULL if this node_set is not in an instance)
@@ -145,6 +159,8 @@ the following data model is used:
          name of entitity set
        • mPartHandleTag (handle)
          pointer to part in which this element set exists
+	 (only defined for node sets that are in an instance and 
+          derive from a part)
        • mInstanceHandleTag (handle)
          pointer back to instance set in which this element set exists
          (NULL if this node_set is not in an instance)
@@ -339,19 +355,21 @@ private:
   ErrorCode read_part(EntityHandle file_set);
   ErrorCode read_assembly(EntityHandle file_set);
   ErrorCode read_unsupported(EntityHandle file_set);
-  ErrorCode read_node_list(EntityHandle parent_set);
-  ErrorCode read_element_list(EntityHandle parent_set);
+  ErrorCode read_node_list(EntityHandle parent_set,
+			   EntityHandle assembly_set = 0);
+  ErrorCode read_element_list(EntityHandle parent_set,
+			      EntityHandle assembly_set = 0);
   ErrorCode read_node_set(EntityHandle parent_set,
-			    EntityHandle file_set = 0,
-			    EntityHandle assembly_set = 0);
+			  EntityHandle file_set = 0,
+			  EntityHandle assembly_set = 0);
   ErrorCode read_element_set(EntityHandle parent_set,
-			    EntityHandle file_set = 0,
-			    EntityHandle assembly_set = 0);
+			     EntityHandle file_set = 0,
+			     EntityHandle assembly_set = 0);
   ErrorCode read_solid_section(EntityHandle parent_set);
   ErrorCode read_instance(EntityHandle assembly_set,
-			    EntityHandle file_set);
+			  EntityHandle file_set);
   
-
+  
   ErrorCode get_elements_by_id(EntityHandle parent_set,
 				 std::vector<int> element_ids_subset,
 				 Range &element_range);
