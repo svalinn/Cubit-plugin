@@ -1850,7 +1850,9 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   // search is O(logn) but MOAB tag search is O(n). For 150k nodes this 
   // is 5 minutes faster. The MAX_NODE_DIST is the farthest that we will search
   // for a node. Note that the exodus file is single precision.
-  const double MAX_NODE_DIST = 1e-3;
+  // For the 1/12th symmetry 85 pin model, the max node dist could not be less
+  // than 1e-1 (March 26, 2010).
+  const double MAX_NODE_DIST = 1e-1;
   std::cout << "  exodus file contains " << numberNodes_loading << " nodes." 
             << std::endl;
   for(int i=0; i<numberNodes_loading; ++i) {
@@ -1912,7 +1914,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
       average_magnitude += magnitude;
     } else {
       ++lost;
-      //std::cout << "cannot match exo vert=" << exo_coords << std::endl;
+      std::cout << "cannot match exo vert " << exo_id << " " << exo_coords << std::endl;
     }
   }
   
