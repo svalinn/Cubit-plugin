@@ -371,7 +371,12 @@ ErrorCode ReadNCDF::read_exodus_header()
 
     // get the word size, scalar value
   NcAtt *temp_att = ncFile->get_att("floating_point_word_size");
-  if (!temp_att->is_valid() || temp_att->type() != ncInt || temp_att->num_vals() != 1) {
+  if (NULL == temp_att || !temp_att->is_valid()) {
+    readMeshIface->report_error("ReadNCDF:: Problem getting floating_point_word_size attribute.");
+    delete temp_att;
+    return MB_FAILURE;
+  }
+  if (temp_att->type() != ncInt || temp_att->num_vals() != 1) {
     readMeshIface->report_error("ReadNCDF:: Word size didn't have type int or size 1.");
     return MB_FAILURE;
   }
@@ -380,7 +385,12 @@ ErrorCode ReadNCDF::read_exodus_header()
 
     // exodus version
   temp_att = ncFile->get_att("version");
-  if (!temp_att->is_valid() || temp_att->type() != ncFloat || temp_att->num_vals() != 1) {
+  if (NULL == temp_att || !temp_att->is_valid()) {
+    readMeshIface->report_error("ReadNCDF:: Problem getting version attribute.");
+    delete temp_att;
+    return MB_FAILURE;
+  }
+  if (temp_att->type() != ncFloat || temp_att->num_vals() != 1) {
     readMeshIface->report_error("ReadNCDF:: Version didn't have type float or size 1.");
     return MB_FAILURE;
   }
@@ -403,7 +413,12 @@ ErrorCode ReadNCDF::read_exodus_header()
     // title
   char *title = new char[max_line_length+1];
   temp_att = ncFile->get_att("title");
-  if (temp_att->is_valid() && temp_att->num_vals() == 1) {
+  if (NULL == temp_att || !temp_att->is_valid()) {
+    readMeshIface->report_error("ReadNCDF:: Problem getting title attribute.");
+    delete temp_att;
+    return MB_FAILURE;
+  }
+  if (temp_att->num_vals() == 1) {
     char *dum_str = temp_att->as_string(0);
     strcpy(title, dum_str);
     delete dum_str;
