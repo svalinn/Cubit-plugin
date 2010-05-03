@@ -28,8 +28,13 @@
 namespace moab {
 
 class ReadUtilIface;
-class FileTokenizer;
+class AffineXform;
 
+/**\brief Read SMF (Simple Model Format) files.
+ *
+ * File format is documented at:
+ * http://people.sc.fsu.edu/~burkardt/data/smf/smf.txt
+ */
 class ReadSmf : public ReaderIface
 {
    
@@ -59,34 +64,43 @@ public:
   virtual ~ReadSmf();
 
 
-  typedef void (ReadSmf::*read_cmd)( std::vector<std::string> & argv);
-  struct cmd_entry { std::string name; read_cmd cmd; };
+  typedef ErrorCode (ReadSmf::*read_cmd)( std::vector<std::string> & argv);
+  struct cmd_entry { const char* name; read_cmd cmd; };
   void init();
 
 protected:
 
 
-    void annotation(char *cmd,  std::vector<std::string> & argv);
+    ErrorCode annotation(char *cmd,  std::vector<std::string> & argv);
+    void bad_annotation(const char* cmd);
 
-    void vertex(std::vector<std::string> &);
-    void v_normal( std::vector<std::string> &);
-    void v_color(std::vector<std::string> &);
-    void f_color(std::vector<std::string> &);
-    void face(std::vector<std::string> &);
+    ErrorCode vertex(std::vector<std::string> &);
+    ErrorCode v_normal( std::vector<std::string> &);
+    ErrorCode v_color(std::vector<std::string> &);
+    ErrorCode f_color(std::vector<std::string> &);
+    ErrorCode face(std::vector<std::string> &);
 
-    void begin(std::vector<std::string> &);
-    void end(std::vector<std::string> &);
-    void set(std::vector<std::string> &);
-    void inc(std::vector<std::string> &);
-    void dec(std::vector<std::string> &);
+    ErrorCode begin(std::vector<std::string> &);
+    ErrorCode end(std::vector<std::string> &);
+    ErrorCode set(std::vector<std::string> &);
+    ErrorCode inc(std::vector<std::string> &);
+    ErrorCode dec(std::vector<std::string> &);
 
-    void trans(std::vector<std::string> &);
-    void scale(std::vector<std::string> &);
-    void rot(std::vector<std::string> &);
-    void mmult(std::vector<std::string> &);
-    void mload(std::vector<std::string> &);
+    ErrorCode trans(std::vector<std::string> &);
+    ErrorCode scale(std::vector<std::string> &);
+    ErrorCode rot(std::vector<std::string> &);
+    ErrorCode mmult(std::vector<std::string> &);
+    ErrorCode mload(std::vector<std::string> &);
 
     ErrorCode parse_line(char *line);
+    
+    ErrorCode parse_doubles( int count,
+                             const std::vector<std::string> & argv,
+                             double results[] );
+    ErrorCode parse_mat( const std::vector<std::string> & argv,
+                         AffineXform& mat_out );
+    ErrorCode check_length( int count, const std::vector<std::string> & argv );
+    
 private:
 
   ReadUtilIface* readMeshIface;
@@ -106,8 +120,8 @@ private:
  
   // these are from SMF_reader from qslim/gfx/SMF/smf.h  
   static cmd_entry read_cmds[];
-  char *line;
-  SMF_State *state;
+  char line[SMF_MAXLINE];
+  std::vector<SMF_State> state;
   SMF_ivars ivar;
   int _numNodes;
   int _numFaces;
@@ -115,6 +129,9 @@ private:
   std::vector<int> _connec; // 3*num of elements; we might not know them;
   int _numNodesInFile;
   int _numElementsInFile;
+  size_t lineNo;
+  size_t commandNo;
+  int versionMajor, versionMinor;
    
 };
 

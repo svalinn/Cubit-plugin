@@ -16,8 +16,6 @@ struct SMF_ivars
 class SMF_State
 {
 private:
-    SMF_State *next;
-
     //
     // Standard state variables
     int first_vertex;
@@ -25,10 +23,9 @@ private:
     AffineXform xform;
 
 public:
-    SMF_State(const SMF_ivars& ivar,SMF_State *link=NULL);
-    SMF_State *pop() { return next; }
+    SMF_State(const SMF_ivars& ivar,SMF_State *next = 0);
 
-    void set(std::vector<std::string> & argv);
+    void set_vertex_correction(int i);
     void inc(const char *var, int delta=1);
     void dec(const char *var, int delta=1);
 

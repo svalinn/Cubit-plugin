@@ -8,9 +8,8 @@ static inline int streq(const char *a,const char *b) { return std::strcmp(a,b)==
 
 namespace moab {
 
-SMF_State::SMF_State(const SMF_ivars& ivar, SMF_State *link)
+SMF_State::SMF_State(const SMF_ivars& ivar, SMF_State *next)
 {
-    next = link;
     first_vertex = ivar.next_vertex;
     if( next )
     {
@@ -47,13 +46,8 @@ void SMF_State::face( int * verts, const SMF_ivars& ivar)
     }
 }
 
-void SMF_State::set( std::vector<std::string> & argv)
-{
-    const char *cmd = argv[0].c_str();
-
-    if( streq(cmd, "vertex_correction") )
-	vertex_correction = atoi(argv[1].c_str());
-}
+void SMF_State::set_vertex_correction( int i )
+  { vertex_correction = i; }
 
 void SMF_State::mmult(const AffineXform &M)
 {
