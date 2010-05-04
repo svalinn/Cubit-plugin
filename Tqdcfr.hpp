@@ -388,6 +388,7 @@ private:
         INVALID_ELEMENT_TYPE};
   static const EntityType block_type_to_mb_type[];
   static const int cub_elem_num_verts[];
+  static const int cub_elem_num_verts_len;
 
     //! mapping from mesh packet type to moab type
   static const EntityType mp_type_to_mb_type[];

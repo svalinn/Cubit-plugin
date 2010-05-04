@@ -88,6 +88,8 @@ const int Tqdcfr::cub_elem_num_verts[] = {
   5, 5, 8, 13, 18, // pyramids
   8, 8, 9, 20, 27, 12, // hexes (incl. hexshell at end)
   0};
+const int Tqdcfr::cub_elem_num_verts_len = 
+  sizeof(cub_elem_num_verts)/sizeof(cub_elem_num_verts[0]);
 
 // Define node-order map from Cubit to CN.  Table is indexed
 // by EntityType and number of nodes.  Entries are NULL if Cubit order
@@ -1680,6 +1682,12 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
       // 4 new trishell element types
     if (data_version <= 1.0 && block_headers[i].blockElemType >= 15)
       block_headers[i].blockElemType += 4;
+    
+    if (block_headers[i].blockElemType >= (unsigned)cub_elem_num_verts_len) {
+      std::cerr << "Invalid block element type: " << block_headers[i].blockElemType << std::endl;
+      instance->readUtilIface->report_error( "Invalid block element type: %d", block_headers[i].blockElemType );
+      return MB_FAILURE;
+    }
 
       // set the material set tag and id tag both to id
     result = instance->mdbImpl->tag_set_data(instance->blockTag, &(block_headers[i].setHandle), 1, 
