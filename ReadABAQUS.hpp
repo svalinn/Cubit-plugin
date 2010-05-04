@@ -291,6 +291,7 @@ enum abaqus_element_type { abq_eletype_unsupported = 0,
 			   abq_eletype_c3d8r,
 			   abq_eletype_dcc3d8, 
 			   abq_eletype_c3d4,
+			   abq_eletype_dc3d4,
                            abq_eletype_ds4};
 
 enum abaqus_nset_params { abq_nset_undefined = 0,

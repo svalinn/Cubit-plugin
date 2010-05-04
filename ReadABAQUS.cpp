@@ -1169,6 +1169,10 @@ ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set, EntityHandle as
   nodes_per_element[abq_eletype_c3d4]   = 4;
   entityTypeMap[abq_eletype_c3d4]       = MBTET;
   
+  elementTypes["DC3D4"]                 = abq_eletype_dc3d4;
+  nodes_per_element[abq_eletype_dc3d4]  = 4;
+  entityTypeMap[abq_eletype_dc3d4]      = MBTET;
+  
   elementTypes["C3D8R"]                 = abq_eletype_c3d8r;
   nodes_per_element[abq_eletype_c3d8r]  = 8;
   entityTypeMap[abq_eletype_c3d8r]      = MBHEX;
