@@ -263,6 +263,21 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
   if (-1 == md_index) data_version = 1.0;
   else data_version = modelMetaData.metadataEntries[md_index].mdDblValue;
   
+  if (MB_SUCCESS != opts.get_null_option("IGNORE_VERSION")) {
+    md_index = modelMetaData.get_md_entry(2, "CubitVersion");
+    if (md_index >= 0 && !modelMetaData.metadataEntries[md_index].mdStringValue.empty()) {
+      int major, minor;
+      if (2 == sscanf( modelMetaData.metadataEntries[md_index].mdStringValue.c_str(), "%d.%d",
+         &major, &minor)) {
+        if (major > 10 || minor > 2) {
+          readUtilIface->report_error( "Unsupported Cubit version: %d.%d\n", major, minor );
+          return MB_FAILURE;
+        }
+      }
+    }
+  }
+  
+  
     // ***********************
     // read mesh...
     // ***********************
