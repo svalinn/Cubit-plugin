@@ -179,7 +179,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     // Handle parallel options
   std::string junk;
   bool use_mpio = (MB_SUCCESS == opts.get_null_option("USE_MPIO"));
-  rval = opts.match_option("PARALLEL", "NATIVE");
+  rval = opts.match_option("PARALLEL", "READ_PART");
   bool parallel = (rval != MB_ENTITY_NOT_FOUND);
   bool native_parallel = (rval == MB_SUCCESS);
   if (use_mpio && !parallel) {
