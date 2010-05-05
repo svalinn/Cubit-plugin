@@ -1,5 +1,6 @@
 #include "IODebugTrack.hpp"
 #include <iostream>
+#include <vector>
 #include <assert.h>
 
 #ifdef USE_MPI
@@ -120,7 +121,7 @@ void IODebugTrack::all_reduce()
   std::vector<int> displs(commsize);
   MPI_Gather( &count, 1, MPI_INT, 
               &displs[0], 1, MPI_INT,
-              MPI_COMM_WORLD );
+              0, MPI_COMM_WORLD );
   int total = 0;
   for (int i = 0; i < commsize; ++i) {
     int tmp = displs[i];
@@ -132,7 +133,7 @@ void IODebugTrack::all_reduce()
   std::vector<DRange> send(dataSet.size()), recv(total);
   std::copy( dataSet.begin(), dataSet.end(), send.begin() );
   MPI_Gatherv( &send[0], 3*send.size(), MPI_UNSIGNED_LONG,
-               &recv[0], &counts[0], &dspls[0], MPI_UNSIGNED_LONG,
+               &recv[0], &counts[0], &displs[0], MPI_UNSIGNED_LONG,
                0, MPI_COMM_WORLD );
   
   if (0 == mpiRank) {
