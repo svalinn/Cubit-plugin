@@ -223,7 +223,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     dbgOut.set_rank(rank);
 
       // Open the file in serial on root to read summary
-    dbgOut.print( 1, "Getting file summary" );
+    dbgOut.print( 1, "Getting file summary\n" );
     fileInfo = 0;
     unsigned long size = 0;
     if (rank == 0) {
@@ -242,7 +242,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       }
     }
       // Broadcast the size of the struct (zero indicates an error)
-    dbgOut.print( 1, "Communicating file summary" );
+    dbgOut.print( 1, "Communicating file summary\n" );
     int err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
     if (err || !size)
       return MB_FAILURE;
@@ -264,7 +264,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     indepIO = native_parallel ? H5P_DEFAULT : collIO;
 
       // re-open file in parallel
-    dbgOut.printf( 1, "Re-opening \"%s\" for parallel IO", filename );
+    dbgOut.printf( 1, "Re-opening \"%s\" for parallel IO\n", filename );
     filePtr = mhdf_openFileWithOpt( filename, 0, NULL, file_prop, &status );
     H5Pclose( file_prop );
     if (!filePtr)
@@ -495,9 +495,17 @@ ErrorCode ReadHDF5::get_subset_ids( const ReaderIface::IDTag* subset_list,
     
     if (subset_list[i].num_parts) {
         // check that the tag only identified sets
-      if ((unsigned long)fileInfo->sets.start_id > tmp_file_ids.front() ||
-          tmp_file_ids.back() >= (unsigned long)fileInfo->sets.start_id + fileInfo->sets.count) {
-        return error(MB_TYPE_OUT_OF_RANGE);
+      if ((unsigned long)fileInfo->sets.start_id > tmp_file_ids.front()) {
+        dbgOut.print(1,"Ignoreing non-set entities with partition set tag\n");
+        tmp_file_ids.erase( tmp_file_ids.begin(), 
+                            tmp_file_ids.lower_bound( 
+                              (EntityHandle)fileInfo->sets.start_id ) );
+      }
+      unsigned long set_end = (unsigned long)fileInfo->sets.start_id + fileInfo->sets.count;
+      if (tmp_file_ids.back() >= set_end) {
+        dbgOut.print(1,"Ignoreing non-set entities with partition set tag\n");
+        tmp_file_ids.erase( tmp_file_ids.upper_bound( (EntityHandle)set_end ),
+                            tmp_file_ids.end() );
       }
       
       Range::iterator s = tmp_file_ids.begin();
