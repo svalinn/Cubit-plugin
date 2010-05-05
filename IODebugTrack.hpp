@@ -30,6 +30,7 @@ class IODebugTrack {
     std::ostream& ostr;
     unsigned long maxSize;
     int mpiRank;
+    bool haveMPI;
     
     void record_io( DRange data );
 

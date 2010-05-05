@@ -36,10 +36,15 @@ IODebugTrack::IODebugTrack( bool enabled,
             ostr(std::cerr),
             maxSize(table_size) 
 {
-#ifdef USE_MPI
-  MPI_Comm_rank( MPI_COMM_WORLD, &mpiRank );
-#else
   mpiRank = 0;
+  haveMPI = false;
+#ifdef USE_MPI
+  int have_init = 0;
+  MPI_Initialized(&have_init);
+  if (have_init) {
+    haveMPI = true;
+    MPI_Comm_rank( MPI_COMM_WORLD, &mpiRank );
+  }
 #endif
 }
 
@@ -112,7 +117,7 @@ void IODebugTrack::record_io( DRange ins )
 void IODebugTrack::all_reduce()
 {
 #ifdef USE_MPI
-  if (!enableOutput)
+  if (!enableOutput || !haveMPI)
     return;
 
   int commsize;
