@@ -34,6 +34,7 @@
 #include "moab/Range.hpp"
 #include "moab/ReaderIface.hpp"
 #include "moab/RangeMap.hpp"
+#include "DebugOutput.hpp"
 
 namespace moab {
 
@@ -78,6 +79,7 @@ protected:
   ErrorCode read_tag_values_partial( int tag_index, const Range& file_ids,
                                        std::vector<int>& results );
 
+
 private:
   ErrorCode init();
   
@@ -118,6 +120,12 @@ private:
   //! Both are H5P_DEFAULT for serial IO and collective
   //! when reading the entire file on all processors.
   hid_t indepIO, collIO;
+  
+  //! Use IODebugTrack instances to verify reads.  
+  //! Enable with the DEBUG_OVERLAPS option.
+  bool debugTrack;
+  //! Debug output. Verbosity controlled with DEBUG_FORMAT option.
+  DebugOutput dbgOut;
   
   ErrorCode set_up_read( const char* file_name, const FileOptions& opts );
   ErrorCode clean_up_read( const FileOptions& opts );

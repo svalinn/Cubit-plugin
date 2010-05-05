@@ -50,16 +50,10 @@
 #include <limits>
 #include <functional>
 
+#include "IODebugTrack.hpp"
+
 namespace moab {
 
-#undef DEBUG
-
-#ifdef DEBUG
-#  define DEBUGOUT(A) fputs( A, stderr )
-#  include <stdio.h>
-#else
-#  define DEBUGOUT(A)
-#endif
 
 #define READ_HDF5_BUFFER_SIZE (40*1024*1024)
 
@@ -68,6 +62,7 @@ namespace moab {
 # include <unistd.h>
 # include <errno.h>
 #endif
+
 
 // This function doesn't do anything useful.  It's just a nice
 // place to set a break point to determine why the reader fails.
@@ -107,7 +102,9 @@ ReadHDF5::ReadHDF5( Interface* iface )
     readUtil( 0 ),
     handleType( 0 ),
     indepIO( H5P_DEFAULT ),
-    collIO( H5P_DEFAULT )
+    collIO( H5P_DEFAULT ),
+    debugTrack( false ),
+    dbgOut(stderr)
 {
 }
 
@@ -142,6 +139,7 @@ ErrorCode ReadHDF5::init()
   
   idMap.clear();
   fileInfo = 0;
+  debugTrack = false;
   
   return MB_SUCCESS;
 }
@@ -157,7 +155,7 @@ ReadHDF5::~ReadHDF5()
 }
 
 ErrorCode ReadHDF5::set_up_read( const char* filename,
-                                   const FileOptions& opts )
+                                 const FileOptions& opts )
 {
   ErrorCode rval;
   mhdf_Status status;
@@ -165,6 +163,18 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
 
   if (MB_SUCCESS != init())
     return error(MB_FAILURE);
+  
+  // Set up debug output
+  int tmpval;
+  if (MB_SUCCESS == opts.get_int_option("DEBUG_FORMAT", 1, tmpval)) {
+    dbgOut.set_verbosity(tmpval);
+    dbgOut.set_prefix("H5M ");
+  }
+  
+  // Enable some extra checks for reads.  Note: amongst other things this
+  // will print errors if the entire file is not read, so if doing a 
+  // partial read that is not a parallel read, this should be disabled.
+  debugTrack = (MB_SUCCESS == opts.get_null_option("DEBUG_OVERLAPS"));
     
     // Handle parallel options
   std::string junk;
@@ -210,8 +220,10 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       myPcomm = new ParallelComm(iFace);
     }
     const int rank = myPcomm->proc_config().proc_rank();
+    dbgOut.set_rank(rank);
 
       // Open the file in serial on root to read summary
+    dbgOut.print( 1, "Getting file summary" );
     fileInfo = 0;
     unsigned long size = 0;
     if (rank == 0) {
@@ -230,6 +242,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       }
     }
       // Broadcast the size of the struct (zero indicates an error)
+    dbgOut.print( 1, "Communicating file summary" );
     int err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
     if (err || !size)
       return MB_FAILURE;
@@ -251,6 +264,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     indepIO = native_parallel ? H5P_DEFAULT : collIO;
 
       // re-open file in parallel
+    dbgOut.printf( 1, "Re-opening \"%s\" for parallel IO", filename );
     filePtr = mhdf_openFileWithOpt( filename, 0, NULL, file_prop, &status );
     H5Pclose( file_prop );
     if (!filePtr)
@@ -358,8 +372,7 @@ ErrorCode ReadHDF5::load_file_impl( const FileOptions& opts )
   std::string tagname;
   int i;
 
-DEBUGOUT("Reading Nodes.\n");
-  
+  dbgOut.print(1, "Reading all nodes...\n");
   Range ids;
   if (fileInfo->nodes.count) {
     ids.insert( fileInfo->nodes.start_id,
@@ -369,8 +382,8 @@ DEBUGOUT("Reading Nodes.\n");
       return error(rval);
   }
 
-DEBUGOUT("Reading element connectivity.\n");
 
+  dbgOut.print(1, "Reading all element connectivity...\n");
   std::vector<int> polyhedra; // need to do these last so that faces are loaded
   for (i = 0; i < fileInfo->num_elem_desc; ++i) {
     if (CN::EntityTypeFromName(fileInfo->elems[i].type) == MBPOLYHEDRON) {
@@ -389,8 +402,7 @@ DEBUGOUT("Reading element connectivity.\n");
       return error(rval);
   }
   
-DEBUGOUT("Reading sets.\n");
-  
+  dbgOut.print(1, "Reading all sets...\n");
   ids.clear();
   if (fileInfo->sets.count) {
     ids.insert( fileInfo->sets.start_id,
@@ -401,8 +413,7 @@ DEBUGOUT("Reading sets.\n");
     }
   }
   
-DEBUGOUT("Reading adjacencies.\n");
-
+  dbgOut.print(1, "Reading all adjacencies...\n");
   for (i = 0; i < fileInfo->num_elem_desc; ++i) {
     if (!fileInfo->elems[i].have_adj)
       continue;
@@ -423,8 +434,7 @@ DEBUGOUT("Reading adjacencies.\n");
       return error(MB_FAILURE);
   }
 
-DEBUGOUT("Reading tags.\n");
-  
+  dbgOut.print(1, "Reading all tags...\n");
   for (i = 0; i < fileInfo->num_tag_desc; ++i) {
     rval = read_tag( i );
     if (MB_SUCCESS != rval)
@@ -523,14 +533,16 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
 {
   mhdf_Status status;
   
-DEBUGOUT( "RETREIVING TAGGED ENTITIES" );
+  dbgOut.print( 1, "RETREIVING TAGGED ENTITIES\n" );
     
   Range file_ids;
   ErrorCode rval = get_subset_ids( subset_list, subset_list_length, file_ids );
   if (MB_SUCCESS != rval)
     return error(rval);
+    
+  dbgOut.print_ints( 1, "Set file IDs for partial read: ", file_ids );
   
-DEBUGOUT( "GATHERING ADDITIONAL ENTITIES" );
+  dbgOut.print( 1, "GATHERING ADDITIONAL ENTITIES\n" );
   
   const char* const set_opts[] = { "NONE", "SETS", "CONTENTS" };
   int child_mode;
@@ -566,8 +578,9 @@ DEBUGOUT( "GATHERING ADDITIONAL ENTITIES" );
   if (MB_SUCCESS != rval)
     return error(rval);
 
+  dbgOut.print_ints( 2, "File IDs for partial read: ", file_ids );
     
-DEBUGOUT( "READING NODES" );
+  dbgOut.print( 1, "READING NODES\n" );
   
     // if input contained any polyhedra, need to get faces
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
@@ -609,7 +622,7 @@ DEBUGOUT( "READING NODES" );
     return error(rval);
 
  
-DEBUGOUT( "READING ELEMENTS" );
+  dbgOut.print( 1, "READING ELEMENTS\n" );
  
     // decide if we need to read additional elements
   int side_mode;
@@ -669,7 +682,7 @@ DEBUGOUT( "READING ELEMENTS" );
   }
   
   
-DEBUGOUT( "READING SETS" );
+  dbgOut.print( 1, "READING SETS\n" );
     
     // If reading contained/child sets but not their contents then find
     // them now. If we were also reading their contents we would
@@ -694,7 +707,7 @@ DEBUGOUT( "READING SETS" );
     return error(rval);
 
   
-DEBUGOUT( "READING ADJACENCIES" );
+  dbgOut.print( 1, "READING ADJACENCIES\n" );
     
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
     if (fileInfo->elems[i].have_adj &&
@@ -711,7 +724,7 @@ DEBUGOUT( "READING ADJACENCIES" );
     }
   }
   
-DEBUGOUT( "READING TAGS" );
+  dbgOut.print( 1, "READING TAGS\n" );
   
   for (int i = 0; i < fileInfo->num_tag_desc; ++i) {
     rval = read_tag( i );
@@ -925,6 +938,7 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
   mhdf_Status status;
   const int dim = fileInfo->nodes.vals_per_ent;
   Range range;
+  IODebugTrack debug_track(debugTrack, "NodeCoords");
   
   if (node_file_ids.empty())
     return MB_SUCCESS;
@@ -961,6 +975,8 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
   {
     long count = p->second - p->first + 1;
     long offset = p->first - fileInfo->nodes.start_id;
+    
+    debug_track.record_io( offset, count );
     for (int i = 0; i < dim; ++i) {
       mhdf_readNodeCoordWithOpt( data_id, offset, count, i, arrays[i], indepIO, &status );
       if (is_error(status)) {
@@ -987,6 +1003,7 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
     return error(MB_FAILURE);
   }
   
+  debug_track.all_reduce();
   return MB_SUCCESS;
 }
 
@@ -1010,6 +1027,7 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
 {
   ErrorCode rval = MB_SUCCESS;
   mhdf_Status status;
+  IODebugTrack debug_track( debugTrack, elems.handle );
   
   EntityType type = CN::EntityTypeFromName( elems.type );
   if (type == MBMAXTYPE)
@@ -1041,6 +1059,7 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
     if (!idMap.insert( p->first, handle, count ).second) 
       { rval = MB_FAILURE; break; }
 
+    debug_track.record_io( p->first - first_id, count );
     mhdf_readConnectivityWithOpt( data_id, p->first - first_id, count, handleType, array, indepIO, &status );
     if (is_error(status)) 
       break;
@@ -1059,6 +1078,7 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
   mhdf_closeData( filePtr, data_id, &status );
   if (is_error(status) && MB_SUCCESS == rval)
     rval = error(MB_FAILURE);
+  debug_track.all_reduce();
   return rval;
 }
 
@@ -1084,6 +1104,7 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group,
 {
   mhdf_Status status;
   ErrorCode rval;
+  IODebugTrack debug_track( debugTrack, std::string(group.handle) );
 
     // copy data to local variables (makes other code clearer)
   const int node_per_elem = group.desc.vals_per_ent;
@@ -1099,6 +1120,7 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group,
   while (remaining) {
       // read a block of connectivity data
     const long count = std::min( remaining, buffer_size );
+    debug_track.record_io( offset, count );
     mhdf_readConnectivityWithOpt( table_handle, offset, count, H5T_NATIVE_LONG, buffer, collIO, &status );
     if (is_error(status))
       return error(MB_FAILURE);
@@ -1159,6 +1181,7 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group,
     start_id += count;
   }
   
+  debug_track.all_reduce();
   return MB_SUCCESS;
 }
   
@@ -1183,7 +1206,9 @@ ErrorCode ReadHDF5::read_elems( int i, const Range& elems_in, Range& nodes )
   hid_t table = mhdf_openConnectivitySimple( filePtr, fileInfo->elems[i].handle, &status );
   if (is_error(status))
     return error(MB_FAILURE);
-    
+  
+  IODebugTrack debug_track( debugTrack, fileInfo->elems[i].handle );
+  
   Range elements( elems_in );
   while (!elements.empty()) {
     EntityHandle file_id = elements.front();
@@ -1194,6 +1219,7 @@ ErrorCode ReadHDF5::read_elems( int i, const Range& elems_in, Range& nodes )
     elements.erase( elements.begin(), elements.begin()+count );
     
       // read element connectivity
+    debug_track.record_io( offset, count );
     mhdf_readConnectivityWithOpt( table, offset, count, handleType, buffer, indepIO, &status );
     if (is_error(status)) {
       mhdf_closeData( filePtr, table, &status );
@@ -1207,6 +1233,7 @@ ErrorCode ReadHDF5::read_elems( int i, const Range& elems_in, Range& nodes )
   }
   
   mhdf_closeData( filePtr, table, &status );
+  debug_track.all_reduce();
   return is_error(status) ? error(MB_FAILURE) : MB_SUCCESS;
 }
 
