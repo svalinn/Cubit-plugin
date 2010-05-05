@@ -46,6 +46,8 @@ endif
 libmoabio_la_SOURCES = \
   exodus_order.h \
   patran_order.h \
+  IODebugTrack.cpp \
+  IODebugTrack.hpp \
   ExoIIUtil.cpp \
   ExoIIUtil.hpp \
   FileTokenizer.cpp \
