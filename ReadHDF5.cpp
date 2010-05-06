@@ -166,7 +166,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   
   // Set up debug output
   int tmpval;
-  if (MB_SUCCESS == opts.get_int_option("DEBUG_FORMAT", 1, tmpval)) {
+  if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
     dbgOut.set_verbosity(tmpval);
     dbgOut.set_prefix("H5M ");
   }
@@ -174,7 +174,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   // Enable some extra checks for reads.  Note: amongst other things this
   // will print errors if the entire file is not read, so if doing a 
   // partial read that is not a parallel read, this should be disabled.
-  debugTrack = (MB_SUCCESS == opts.get_null_option("DEBUG_OVERLAPS"));
+  debugTrack = (MB_SUCCESS == opts.get_null_option("DEBUG_BINIO"));
     
     // Handle parallel options
   std::string junk;
