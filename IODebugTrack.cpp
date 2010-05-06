@@ -1,4 +1,5 @@
 #include "IODebugTrack.hpp"
+#include "moab/Range.hpp"
 #include <iostream>
 #include <vector>
 #include <assert.h>
@@ -58,19 +59,44 @@ IODebugTrack::~IODebugTrack()
     return;
   }
   
-  std::list<DRange>::const_iterator j, i = dataSet.begin();
-  if (i->begin > 0) {
-    ostr << PFX << tableName << " : [0," << i->begin-1 << "] : No Data Written!" << std::endl;
-    ostr.flush();
+  std::list<DRange>::const_iterator i;
+  if (!maxSize) {
+    for (i = dataSet.begin(); i != dataSet.end(); ++i)
+      if (i->end >= maxSize)
+        maxSize = i->end + 1;
   }
-  j = i;
-  for (++j; j != dataSet.end(); ++i, ++j) 
-    if (i->end + 1 != j->begin) {
-      ostr << PFX << tableName << " : [" << i->end + 1 << "," << j->begin-1 << "] : No Data Written!" << std::endl;
-      ostr.flush();
+  Range processed;
+  Range::iterator h = processed.begin();
+  bool wrote_zero = false;
+  for (i = dataSet.begin(); i != dataSet.end(); ++i) {
+    // ranges cannot contain zero
+    assert(i->begin <= i->end);
+    if (i->begin)
+      h = processed.insert( h, i->begin, i->end );
+    else {
+      wrote_zero = true;
+      if (i->end)
+        h = processed.insert( h, i->begin+1, i->end );
     }
-  if (maxSize && i->end + 1 < maxSize) {
-    ostr << PFX << tableName << " : [" << i->end + 1 << "," << maxSize - 1 << "] : No Data Written!" << std::endl;
+  }
+    
+    // ranges cannot contain zero
+  Range unprocessed;
+  if (maxSize > 1) 
+    unprocessed.insert( 1, maxSize - 1 );
+  unprocessed = subtract( unprocessed, processed );
+  if (unprocessed.empty())
+    return;
+  
+  Range::const_pair_iterator j;
+  for (j = unprocessed.const_pair_begin(); j != unprocessed.const_pair_end(); ++j) {
+    unsigned long b = j->first;
+    unsigned long e = j->second;
+    if (b == 1 && !wrote_zero)
+      b = 0;
+    
+    ostr << PFX << tableName << " : range not read/written: ["
+         << b << "," << e << "]" << std::endl;
     ostr.flush();
   }
 }
@@ -90,6 +116,13 @@ void IODebugTrack::record_io( DRange ins )
 
     // only root should get non-local data
   assert(!mpiRank || ins.rank == (unsigned)mpiRank);
+  assert( ins.begin <= ins.end );
+
+    // test for out-of-bounds write
+  if (maxSize && ins.end >= maxSize)
+    ostr << ": Out of bounds write on rank " << mpiRank 
+         << ": [" << ins.begin << "," << ins.end << "] >= " << maxSize
+         << std::endl;
 
     // test for overlap with all existing ranges
   std::list<DRange>::iterator i;
