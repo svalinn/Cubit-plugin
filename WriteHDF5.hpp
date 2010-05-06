@@ -32,10 +32,12 @@
 #include "moab/Range.hpp"
 #include "moab/WriterIface.hpp"
 #include "moab/RangeMap.hpp"
+#include "DebugOutput.hpp"
 
 namespace moab {
 
 class WriteUtilIface;
+class IODebugTrack;
 
 /* If this define is not set, node->entity adjacencies will not be written */
 #undef MB_H5M_WRITE_NODE_ADJACENCIES
@@ -102,13 +104,13 @@ protected:
 
 
   /** Functions that the parallel version overrides*/
-  virtual ErrorCode write_shared_set_descriptions( hid_t ) 
+  virtual ErrorCode write_shared_set_descriptions( hid_t, IODebugTrack* ) 
     { return MB_SUCCESS;}
-  virtual ErrorCode write_shared_set_contents( hid_t )
+  virtual ErrorCode write_shared_set_contents( hid_t, IODebugTrack* )
     { return MB_SUCCESS;}
-  virtual ErrorCode write_shared_set_children( hid_t )
+  virtual ErrorCode write_shared_set_children( hid_t, IODebugTrack* )
     { return MB_SUCCESS;}
-  virtual ErrorCode write_shared_set_parents( hid_t )
+  virtual ErrorCode write_shared_set_parents( hid_t, IODebugTrack* )
     { return MB_SUCCESS;}
   virtual ErrorCode write_finished();
   virtual void tprint( const char* fmt, ... )
@@ -270,6 +272,12 @@ protected:
   //! For serial, should be H5P_DEFAULTS.
   //! For parallel, may request collective IO.
   hid_t writeProp;
+  
+  //! Utility to log debug output
+  DebugOutput dbgOut;
+  
+  //! Look for overlapping and/or missing writes
+  bool debugTrack;
 
   void print_id_map() const;
   void print_id_map( std::ostream& str, const char* prefix = "" ) const;
@@ -470,7 +478,8 @@ private:
                             hid_t& hdf_type );
                             
   //! Write ID table for sparse tag
-  ErrorCode write_sparse_ids( const SparseTag& tag_data, hid_t table_handle );
+  ErrorCode write_sparse_ids( const SparseTag& tag_data, hid_t table_handle, 
+                              size_t table_size, const char* name = 0 );
   
   //! Write varialbe-length tag data
   ErrorCode write_var_len_tag( const SparseTag& tag_info );
