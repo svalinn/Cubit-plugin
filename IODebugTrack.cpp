@@ -155,19 +155,17 @@ void IODebugTrack::all_reduce()
 
   int commsize;
   MPI_Comm_size( MPI_COMM_WORLD, &commsize);
-  int count = dataSet.size();
-  std::vector<int> displs(commsize);
+  int count = 3*dataSet.size();
+  std::vector<int> displs(commsize), counts(commsize);
   MPI_Gather( &count, 1, MPI_INT, 
-              &displs[0], 1, MPI_INT,
+              &counts[0], 1, MPI_INT,
               0, MPI_COMM_WORLD );
-  int total = 0;
-  for (int i = 0; i < commsize; ++i) {
-    int tmp = displs[i];
-    displs[i] = 3*total;
-    total += tmp;
-  }
+  displs[0] = 0;
+  for (int i = 1; i < commsize; ++i) 
+    displs[i] = displs[i-1] + counts[i-1];
+  int total = (displs.back() + counts.back()) / 3;
+  count /= 3;
               
-  std::vector<int> counts(commsize);
   std::vector<DRange> send(dataSet.size()), recv(total);
   std::copy( dataSet.begin(), dataSet.end(), send.begin() );
   MPI_Gatherv( &send[0], 3*send.size(), MPI_UNSIGNED_LONG,
@@ -178,7 +176,9 @@ void IODebugTrack::all_reduce()
     for (int i = count; i < total; ++i)
       record_io( recv[i] );
   }
-  dataSet.clear();  
+  else {
+    dataSet.clear();
+  }
 #endif
 }
     
