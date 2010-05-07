@@ -223,7 +223,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     dbgOut.set_rank(rank);
 
       // Open the file in serial on root to read summary
-    dbgOut.print( 1, "Getting file summary\n" );
+    dbgOut.tprint( 1, "Getting file summary\n" );
     fileInfo = 0;
     unsigned long size = 0;
     if (rank == 0) {
@@ -242,7 +242,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       }
     }
       // Broadcast the size of the struct (zero indicates an error)
-    dbgOut.print( 1, "Communicating file summary\n" );
+    dbgOut.tprint( 1, "Communicating file summary\n" );
     int err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
     if (err || !size)
       return MB_FAILURE;
@@ -264,7 +264,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     indepIO = native_parallel ? H5P_DEFAULT : collIO;
 
       // re-open file in parallel
-    dbgOut.printf( 1, "Re-opening \"%s\" for parallel IO\n", filename );
+    dbgOut.tprintf( 1, "Re-opening \"%s\" for parallel IO\n", filename );
     filePtr = mhdf_openFileWithOpt( filename, 0, NULL, file_prop, &status );
     H5Pclose( file_prop );
     if (!filePtr)
@@ -372,7 +372,7 @@ ErrorCode ReadHDF5::load_file_impl( const FileOptions& opts )
   std::string tagname;
   int i;
 
-  dbgOut.print(1, "Reading all nodes...\n");
+  dbgOut.tprint(1, "Reading all nodes...\n");
   Range ids;
   if (fileInfo->nodes.count) {
     ids.insert( fileInfo->nodes.start_id,
@@ -383,7 +383,7 @@ ErrorCode ReadHDF5::load_file_impl( const FileOptions& opts )
   }
 
 
-  dbgOut.print(1, "Reading all element connectivity...\n");
+  dbgOut.tprint(1, "Reading all element connectivity...\n");
   std::vector<int> polyhedra; // need to do these last so that faces are loaded
   for (i = 0; i < fileInfo->num_elem_desc; ++i) {
     if (CN::EntityTypeFromName(fileInfo->elems[i].type) == MBPOLYHEDRON) {
@@ -402,7 +402,7 @@ ErrorCode ReadHDF5::load_file_impl( const FileOptions& opts )
       return error(rval);
   }
   
-  dbgOut.print(1, "Reading all sets...\n");
+  dbgOut.tprint(1, "Reading all sets...\n");
   ids.clear();
   if (fileInfo->sets.count) {
     ids.insert( fileInfo->sets.start_id,
@@ -413,7 +413,7 @@ ErrorCode ReadHDF5::load_file_impl( const FileOptions& opts )
     }
   }
   
-  dbgOut.print(1, "Reading all adjacencies...\n");
+  dbgOut.tprint(1, "Reading all adjacencies...\n");
   for (i = 0; i < fileInfo->num_elem_desc; ++i) {
     if (!fileInfo->elems[i].have_adj)
       continue;
@@ -434,7 +434,7 @@ ErrorCode ReadHDF5::load_file_impl( const FileOptions& opts )
       return error(MB_FAILURE);
   }
 
-  dbgOut.print(1, "Reading all tags...\n");
+  dbgOut.tprint(1, "Reading all tags...\n");
   for (i = 0; i < fileInfo->num_tag_desc; ++i) {
     rval = read_tag( i );
     if (MB_SUCCESS != rval)
@@ -541,7 +541,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
 {
   mhdf_Status status;
   
-  dbgOut.print( 1, "RETREIVING TAGGED ENTITIES\n" );
+  dbgOut.tprint( 1, "RETREIVING TAGGED ENTITIES\n" );
     
   Range file_ids;
   ErrorCode rval = get_subset_ids( subset_list, subset_list_length, file_ids );
@@ -550,7 +550,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     
   dbgOut.print_ints( 1, "Set file IDs for partial read: ", file_ids );
   
-  dbgOut.print( 1, "GATHERING ADDITIONAL ENTITIES\n" );
+  dbgOut.tprint( 1, "GATHERING ADDITIONAL ENTITIES\n" );
   
   const char* const set_opts[] = { "NONE", "SETS", "CONTENTS" };
   int child_mode;
@@ -588,7 +588,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
 
   dbgOut.print_ints( 2, "File IDs for partial read: ", file_ids );
     
-  dbgOut.print( 1, "READING NODES\n" );
+  dbgOut.tprint( 1, "READING NODES\n" );
   
     // if input contained any polyhedra, need to get faces
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
@@ -630,7 +630,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     return error(rval);
 
  
-  dbgOut.print( 1, "READING ELEMENTS\n" );
+  dbgOut.tprint( 1, "READING ELEMENTS\n" );
  
     // decide if we need to read additional elements
   int side_mode;
@@ -690,7 +690,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   }
   
   
-  dbgOut.print( 1, "READING SETS\n" );
+  dbgOut.tprint( 1, "READING SETS\n" );
     
     // If reading contained/child sets but not their contents then find
     // them now. If we were also reading their contents we would
@@ -715,7 +715,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     return error(rval);
 
   
-  dbgOut.print( 1, "READING ADJACENCIES\n" );
+  dbgOut.tprint( 1, "READING ADJACENCIES\n" );
     
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
     if (fileInfo->elems[i].have_adj &&
@@ -732,7 +732,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     }
   }
   
-  dbgOut.print( 1, "READING TAGS\n" );
+  dbgOut.tprint( 1, "READING TAGS\n" );
   
   for (int i = 0; i < fileInfo->num_tag_desc; ++i) {
     rval = read_tag( i );
