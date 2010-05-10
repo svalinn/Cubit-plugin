@@ -350,16 +350,23 @@ ErrorCode ReadHDF5::load_file( const char* filename,
   else
     rval = load_file_impl( opts );
     
-  if (MB_SUCCESS == rval && file_id_tag)
+  if (MB_SUCCESS == rval && file_id_tag) {
+    dbgOut.tprint( 1, "Storing file IDs in tag\n" );
     rval = store_file_ids( *file_id_tag );
+  }
   
-  if (MB_SUCCESS == rval && 0 != file_set)
+  if (MB_SUCCESS == rval && 0 != file_set) {
+    dbgOut.tprint( 1, "Reading QA records\n" );
     rval = read_qa( *file_set );
-    
+  }
+  
+  
+  dbgOut.tprint( 1, "Cleaining up\n" );
   ErrorCode rval2 = clean_up_read( opts );
   if (rval == MB_SUCCESS && rval2 != MB_SUCCESS)
     rval = rval2;
   
+  dbgOut.tprint(1, "Read finished.\n");
   return rval;
 }
   
@@ -441,6 +448,7 @@ ErrorCode ReadHDF5::load_file_impl( const FileOptions& opts )
       return error(rval);
   }
   
+  dbgOut.tprint(1, "Core read finished.  Cleaning up...\n");
   return MB_SUCCESS;
 }
 
@@ -739,6 +747,8 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     if (MB_SUCCESS != rval)
       return error(rval);
   }
+  
+  dbgOut.tprint( 1, "PARTIAL READ COMPLETE.\n" );
   
   return MB_SUCCESS;
 }
