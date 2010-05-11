@@ -2583,6 +2583,8 @@ ErrorCode ReadHDF5::read_adjacencies( hid_t table, long table_len )
 
 ErrorCode ReadHDF5::read_tag( int tag_index )
 {
+  dbgOut.tprintf(2, "Reading tag \"%s\"\n", fileInfo->tags[tag_index].name );
+
   ErrorCode rval;
   mhdf_Status status;
   Tag tag = 0;
@@ -2590,6 +2592,8 @@ ErrorCode ReadHDF5::read_tag( int tag_index )
   rval = create_tag( fileInfo->tags[tag_index], tag, read_type ); 
   if (MB_SUCCESS != rval)
     return error(rval);
+
+  dbgOut.tprintf(3, "Read metadata for tag \"%s\"\n", fileInfo->tags[tag_index].name );
 
   if (fileInfo->tags[tag_index].have_sparse) {
     hid_t handles[3];
@@ -2603,11 +2607,15 @@ ErrorCode ReadHDF5::read_tag( int tag_index )
       return error(MB_FAILURE);
     }
 
-    if (fileInfo->tags[tag_index].size > 0)
+    if (fileInfo->tags[tag_index].size > 0) {
+      dbgOut.tprintf(3, "Read sparse data for tag \"%s\"\n", fileInfo->tags[tag_index].name );
       rval = read_sparse_tag( tag, read_type, handles[0], handles[1], num_ent );
-    else
+    }
+    else {
+      dbgOut.tprintf(3, "Read var-len sparse data for tag \"%s\"\n", fileInfo->tags[tag_index].name );
       rval = read_var_len_tag( tag, read_type, handles[0], handles[1], handles[2], num_ent, num_val );
-
+    }
+    
     mhdf_closeData( filePtr, handles[0], &status );
     if (MB_SUCCESS == rval && is_error(status))
       rval = MB_FAILURE;
@@ -2645,6 +2653,8 @@ ErrorCode ReadHDF5::read_tag( int tag_index )
     else {
       return error(MB_FAILURE);
     }
+    
+    dbgOut.tprintf(3, "Read dense data block for tag \"%s\" on \"%s\"\n", fileInfo->tags[tag_index].name, name );
     
     hid_t handle = mhdf_openDenseTagData( filePtr, 
                                           fileInfo->tags[tag_index].name,
