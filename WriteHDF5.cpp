@@ -1811,6 +1811,20 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
     mb_size = 1;
 
   dbgOut.printf( 2, "Tag: \"%s\"\n", name.c_str() );
+
+
+  if (mb_data_type == MB_TYPE_HANDLE) {
+    hsize_t len = mb_size / sizeof(EntityHandle);
+    if (len == 1)
+      value_type = id_type;
+    else {
+#if defined(H5Tarray_create_vers) && H5Tarray_create_vers > 1  
+      value_type = H5Tarray_create( id_type, 1, &len );
+#else
+      value_type = H5Tarray_create( id_type, 1, &len, 0 );
+#endif
+    }
+  }
   
     //open tables to write info
   mhdf_openSparseTagData( filePtr,
@@ -1824,6 +1838,14 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
     // fixed-length tag
   assert( table_size == data_size );
 
+  if (value_type <= 0) {
+    value_type = H5Dget_type( tables[1] );
+    if (value_type < 0) {
+      rval = MB_FAILURE;
+      CHK_MB_ERR_2( rval, tables, status );
+    }
+  }
+
     // Write IDs for tagged entities
   rval = write_sparse_ids( tag_data, tables[0], table_size, name.c_str() );
   CHK_MB_ERR_2( rval, tables, status );
@@ -1835,23 +1857,6 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
   size_t chunk_size = bufferSize / mb_size;
   assert( chunk_size > 0 );
   char* tag_buffer = (char*)dataBuffer;
-
-  if (mb_data_type == MB_TYPE_HANDLE) {
-    hsize_t len = mb_size / sizeof(EntityHandle);
-    if (len == 1)
-      value_type = id_type;
-    else {
-#if defined(H5Tarray_create_vers) && H5Tarray_create_vers > 1  
-      value_type = H5Tarray_create( id_type, 1, &len );
-#else
-      value_type = H5Tarray_create( id_type, 1, &len, 0 );
-#endif
-      if (value_type < 0) {
-        mhdf_closeData( filePtr, tables[1], &status );
-        return MB_FAILURE;
-      }
-    }
-  }
   
     // Write the tag values
   size_t remaining = tag_data.range.size();
@@ -1893,6 +1898,7 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
       // write the data
     dbgOut.print(2,"  writing sparse tag value chunk.\n");
     track.record_io( offset, count );
+    assert(value_type > 0);
     mhdf_writeSparseTagValuesWithOpt( tables[1], offset, count,
                                       value_type, tag_buffer, writeProp, &status );
     if (mhdf_isError(&status) && value_type && value_type != id_type)
@@ -1907,6 +1913,7 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
   while (num_writes--) {
     assert(writeProp != H5P_DEFAULT);
     dbgOut.print(2,"  writing empty sparse tag value chunk.\n");
+    assert(value_type > 0);
     mhdf_writeSparseTagValuesWithOpt( tables[1], offset, 0,
                                       value_type, 0, writeProp, &status );
     CHK_MHDF_ERR_0( status );
@@ -1947,6 +1954,7 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data )
                                   file_type,
                                   hdf_type ))
     return MB_FAILURE;
+  bool close_hdf_type = false;
   
   if (mb_data_type == MB_TYPE_BIT) //can't do variable-length bit tags
     return MB_FAILURE;
@@ -1966,6 +1974,16 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data )
                           &status);
   CHK_MHDF_ERR_0(status);
   assert( tag_data.range.size() + tag_data.offset <= (unsigned long)table_size );
+
+
+  if (hdf_type <= 0) {
+    hdf_type = H5Dget_type( tables[1] );
+    if (hdf_type < 0) {
+      rval = MB_FAILURE;
+      CHK_MB_ERR_3( rval, tables, status );
+    }
+    close_hdf_type = true;
+  }
 
     // Write IDs for tagged entities
   rval = write_sparse_ids( tag_data, tables[0], table_size, name.c_str() );
@@ -2036,6 +2054,7 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data )
         if (bytes) { // bytes might be zero if tag value is larger than buffer
           dbgOut.print(2,"  writing var-length sparse tag value chunk.\n");
           track_dat.record_io( data_offset, bytes/type_size );
+          assert(hdf_type > 0);
           mhdf_writeSparseTagValues( tables[1], data_offset, 
                                      bytes / type_size, 
                                      hdf_type, data_buffer, 
@@ -2058,6 +2077,7 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data )
         }
         dbgOut.print(2,"  writing var-length sparse tag value chunk.\n");
         track_dat.record_io( data_offset, size / type_size );
+        assert(hdf_type > 0);
         mhdf_writeSparseTagValues( tables[1], data_offset, 
                                    size / type_size, hdf_type, ptr,
                                    &status );
@@ -2092,12 +2112,17 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data )
       // write out tag data buffer
     dbgOut.print(2,"  writing final var-length sparse tag value chunk.\n");
     track_dat.record_io( data_offset, bytes/type_size );
+    assert(hdf_type > 0);
     mhdf_writeSparseTagValues( tables[1], data_offset, bytes / type_size,
                                hdf_type, data_buffer, &status );
     CHK_MHDF_ERR_2(status, tables + 1);
     data_offset += bytes / type_size;
   }
   assert( offset == data_offset );
+  
+  if (close_hdf_type) {
+    H5Tclose( hdf_type );
+  }
   
   mhdf_closeData( filePtr, tables[1], &status );
   CHK_MHDF_ERR_1(status, tables[2]);

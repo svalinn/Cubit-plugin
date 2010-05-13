@@ -193,6 +193,7 @@ static hid_t get_tag_type( FileHandle* file_ptr,
   return type_id;
 }
 
+
 /** Helper function to write default and mesh values for tag 
  *\param tag_id       The file object upon which to attach the attribute
  *\param attrib_name  The name of the attribute object
@@ -548,6 +549,44 @@ hid_t create_tag_common( mhdf_FileHandle file_handle,
   return tag_id;
 }
 
+
+hid_t
+mhdf_getTagDataType( mhdf_FileHandle file_handle, 
+                     const char* tag_name, 
+                     mhdf_Status* status )
+{
+  API_BEGIN;
+  FileHandle* file_ptr;
+  hid_t result;
+  char* path;
+
+    /* Validate input */
+  
+  file_ptr = (FileHandle*)file_handle;
+  if (!mhdf_check_valid_file( file_ptr, status ))
+    return -1;
+
+  if (!tag_name || !*tag_name)
+  {
+    mhdf_setFail( status, "Invalid tag name" );
+    return -1;
+  }
+
+    /* Create path string for tag object */
+
+  path = mhdf_name_to_path_copy( tag_name, status );
+  if (!path) 
+  { 
+    return -1; 
+  }
+  
+  result = get_tag_type( file_ptr, path, status );
+  
+  free(path);
+  API_END;
+  return result;
+}
+  
 
 void
 mhdf_createTag( mhdf_FileHandle file_handle,
@@ -1753,27 +1792,8 @@ mhdf_writeSparseTagValuesWithOpt( hid_t table_id,
                            hid_t io_prop,
                            mhdf_Status* status )
 {
-  hid_t type_id;
   API_BEGIN;
-  
-  if (tag_type > 0)
-  {
-    type_id = tag_type;
-  }
-  else
-  {
-    type_id = H5Dget_type( table_id );
-    if (type_id < 0)
-    {
-      mhdf_setFail( status, "Internal error calling H5Dget_type.  Bad handle?" );
-      return;
-    }
-  }
-  
-  mhdf_write_data( table_id, offset, count, type_id, tag_data, io_prop, status );
-
-  if (tag_type < 1)
-    H5Tclose( type_id );
+  mhdf_write_data( table_id, offset, count, tag_type, tag_data, io_prop, status );
   API_END;
 }
 
@@ -1849,27 +1869,8 @@ mhdf_readSparseTagValuesWithOpt( hid_t table_id,
                           hid_t io_prop,
                           mhdf_Status* status )
 {
-  hid_t type_id;
   API_BEGIN;
-  
-  if (tag_type > 0)
-  {
-    type_id = tag_type;
-  }
-  else
-  {
-    type_id = H5Dget_type( table_id );
-    if (type_id < 0)
-    {
-      mhdf_setFail( status, "Internal error calling H5Dget_type.  Bad handle?" );
-      return;
-    }
-  }
-  
-  mhdf_read_data( table_id, offset, count, type_id, tag_data, io_prop, status );
-
-  if (tag_type < 1)
-    H5Tclose( type_id );
+  mhdf_read_data( table_id, offset, count, tag_type, tag_data, io_prop, status );
   API_END;
 }
 

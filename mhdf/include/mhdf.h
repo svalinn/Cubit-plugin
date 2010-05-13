@@ -1829,6 +1829,13 @@ mhdf_createTag( mhdf_FileHandle file_handle,
                 hid_t mhdf_base_type,
                 mhdf_Status* status );
 
+/**\brief Get handle to HDF5 type object for tag data */
+hid_t
+mhdf_getTagDataType( mhdf_FileHandle file_handle, 
+                     const char* tag_name, 
+                     mhdf_Status* status );
+
+
 /** \brief Add variable-length tag to file
  *
  * Add a new tag to the file.  This function must be called

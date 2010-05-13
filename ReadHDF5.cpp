@@ -2613,6 +2613,7 @@ ErrorCode ReadHDF5::read_tag( int tag_index )
   mhdf_Status status;
   Tag tag = 0;
   hid_t read_type;
+  bool table_type;
   rval = create_tag( fileInfo->tags[tag_index], tag, read_type ); 
   if (MB_SUCCESS != rval)
     return error(rval);
@@ -2630,6 +2631,19 @@ ErrorCode ReadHDF5::read_tag( int tag_index )
       if (read_type) H5Tclose( read_type );
       return error(MB_FAILURE);
     }
+    
+    table_type = false;
+    if (read_type == 0) {
+      read_type = H5Dget_type( handles[1] );
+      if (read_type == 0) {
+        mhdf_closeData( filePtr, handles[0], &status );
+        mhdf_closeData( filePtr, handles[0], &status );
+        if (fileInfo->tags[tag_index].size <= 0) 
+          mhdf_closeData( filePtr, handles[2], &status );
+        return error(MB_FAILURE);
+      }
+      table_type = true;
+    }
 
     if (fileInfo->tags[tag_index].size > 0) {
       dbgOut.tprintf(3, "Read sparse data for tag \"%s\"\n", fileInfo->tags[tag_index].name );
@@ -2638,6 +2652,11 @@ ErrorCode ReadHDF5::read_tag( int tag_index )
     else {
       dbgOut.tprintf(3, "Read var-len sparse data for tag \"%s\"\n", fileInfo->tags[tag_index].name );
       rval = read_var_len_tag( tag, read_type, handles[0], handles[1], handles[2], num_ent, num_val );
+    }
+
+    if (table_type) {
+      H5Tclose(read_type);
+      read_type = 0;
     }
     
     mhdf_closeData( filePtr, handles[0], &status );
@@ -2696,8 +2715,24 @@ ErrorCode ReadHDF5::read_tag( int tag_index )
       rval = error(MB_FAILURE);
       break;
     }
+    
+    table_type = false;
+    if (read_type == 0) {
+      read_type = H5Dget_type( handle );
+      if (read_type == 0) {
+        mhdf_closeData( filePtr, handle, &status );
+        return error(MB_FAILURE);
+      }
+      table_type = true;
+    }
 
     rval = read_dense_tag( tag, read_type, handle, desc->start_id, count );
+    
+    if (table_type) {
+      H5Tclose( read_type );
+      read_type = 0;
+    }
+    
     mhdf_closeData( filePtr, handle, &status );
     if (MB_SUCCESS != rval)
       break;
@@ -3095,6 +3130,7 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
         memmove( idbuf, idbuf + i, sizeof(EntityHandle)*keep );
         long count2 = std::min( remaining - keep, count - keep );
         assert_range( idbuf+keep, count2 );
+        dbgOut.printf(3,"Reading a few more entities\n");
         mhdf_readSparseTagEntitiesWithOpt( id_table, next_offset, count2, handleType, 
                                            idbuf+keep, indepIO, &status );
         if (is_error(status))
@@ -3116,6 +3152,8 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
       
         // read tag values 
       assert_range( databuf + i*read_size, (j-i)*read_size );
+      dbgOut.printf(3,"Reading block %d ([%ld,%ld]) values\n",blkcount,offset,offset+count-1);
+      assert(hdf_read_type > 0);
       mhdf_readSparseTagValuesWithOpt( value_table, offset + i, j - i,
                                        hdf_read_type, databuf + i*read_size, 
                                        indepIO, &status );
@@ -3320,6 +3358,7 @@ ErrorCode ReadHDF5::read_var_len_tag( Tag tag_handle,
         }
 
           // Read the tag data
+        assert(hdf_read_type > 0);
         mhdf_readSparseTagValuesWithOpt( val_table, prev_end_idx + 1,
                                          val_count, hdf_read_type, memptr, 
                                          indepIO, &status );
