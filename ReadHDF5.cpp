@@ -94,6 +94,19 @@ static void intersect( const mhdf_EntDesc& group, const Range& range, Range& res
   result.merge( s, e );
 }
 
+#define debug_barrier() debug_barrier_line(__LINE__)
+void ReadHDF5::debug_barrier_line(int lineno)
+{
+#ifdef USE_MPI
+  const unsigned threshold = 2;
+  static unsigned long count = 0;
+  if (dbgOut.get_verbosity() >= threshold) {
+    dbgOut.printf( threshold, "*********** Debug Barrier %lu (@%d)***********\n", ++count, lineno);
+    MPI_Barrier( myPcomm->proc_config().proc_comm() );
+  }
+#endif
+}
+
 ReaderIface* ReadHDF5::factory( Interface* iface )
   { return new ReadHDF5( iface ); }
 
@@ -144,6 +157,7 @@ ErrorCode ReadHDF5::init()
   idMap.clear();
   fileInfo = 0;
   debugTrack = false;
+  myPcomm = 0;
   
   return MB_SUCCESS;
 }
@@ -185,7 +199,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   bool use_mpio = (MB_SUCCESS == opts.get_null_option("USE_MPIO"));
   rval = opts.match_option("PARALLEL", "READ_PART");
   bool parallel = (rval != MB_ENTITY_NOT_FOUND);
-  bool native_parallel = (rval == MB_SUCCESS);
+  nativeParallel = (rval == MB_SUCCESS);
   if (use_mpio && !parallel) {
     readUtil->report_error( "'USE_MPIO' option specified w/out 'PARALLEL' option" );
     return MB_NOT_IMPLEMENTED;
@@ -207,7 +221,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   if (!dataBuffer)
     return error(MB_MEMORY_ALLOCATION_FAILED);
   
-  if (use_mpio || native_parallel) {
+  if (use_mpio || nativeParallel) {
 #ifndef HDF5_PARALLEL
     readUtil->report_error("MOAB not configured with parallel HDF5 support");
     free(dataBuffer);
@@ -219,7 +233,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       readUtil->report_error("Invalid value for PARALLEL_COMM option");
       return rval;
     }
-    ParallelComm* myPcomm = ParallelComm::get_pcomm(iFace, pcomm_no);
+    myPcomm = ParallelComm::get_pcomm(iFace, pcomm_no);
     if (0 == myPcomm) {
       myPcomm = new ParallelComm(iFace);
     }
@@ -265,7 +279,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     H5Pset_fapl_mpio(file_prop, myPcomm->proc_config().proc_comm(), MPI_INFO_NULL);
     collIO = H5Pcreate(H5P_DATASET_XFER);
     H5Pset_dxpl_mpio(collIO, H5FD_MPIO_COLLECTIVE);
-    indepIO = native_parallel ? H5P_DEFAULT : collIO;
+    indepIO = nativeParallel ? H5P_DEFAULT : collIO;
 
       // re-open file in parallel
     dbgOut.tprintf( 1, "Re-opening \"%s\" for parallel IO\n", filename );
@@ -553,6 +567,20 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
 {
   mhdf_Status status;
   
+  for (int i = 0; i < subset_list_length; ++i) {
+    dbgOut.printf( 1, "Select by \"%s\" with num_tag_values = %d, num_parts = %d, part_number = %d\n",
+                   subset_list[i].tag_name, subset_list[i].num_tag_values, 
+                   subset_list[i].num_parts, subset_list[i].part_number );
+    if (subset_list[i].num_tag_values) {
+      assert(0 != subset_list[i].tag_values);
+      dbgOut.printf( 1, "  \"%s\" values = { %d",
+        subset_list[i].tag_name, subset_list[i].tag_values[0] );
+      for (int j = 1; j < subset_list[i].num_tag_values; ++j)
+        dbgOut.printf( 1, ", %d", subset_list[i].tag_values[j] );
+      dbgOut.printf(1," }\n");
+    }
+  }
+  
   dbgOut.tprint( 1, "RETREIVING TAGGED ENTITIES\n" );
     
   Range file_ids;
@@ -560,7 +588,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   if (MB_SUCCESS != rval)
     return error(rval);
     
-  dbgOut.print_ints( 1, "Set file IDs for partial read: ", file_ids );
+  dbgOut.print_ints( 2, "Set file IDs for partial read: ", file_ids );
   
   dbgOut.tprint( 1, "GATHERING ADDITIONAL ENTITIES\n" );
   
@@ -599,14 +627,18 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     return error(rval);
 
   dbgOut.print_ints( 2, "File IDs for partial read: ", file_ids );
+  debug_barrier();
     
-  dbgOut.tprint( 1, "READING NODES\n" );
+  dbgOut.tprint( 1, "GATHERING NODE IDS\n" );
   
     // if input contained any polyhedra, need to get faces
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
     EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
     if (type != MBPOLYHEDRON)
       continue;
+    
+    debug_barrier();
+    dbgOut.print( 2, "    Getting polyhedra faces\n" );
     
     Range polyhedra;
     intersect( fileInfo->elems[i].desc, file_ids, polyhedra );
@@ -627,12 +659,18 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     if (MBPOLYHEDRON == type)
       continue;
     
+    debug_barrier();
+    dbgOut.printf( 2, "    Getting element node IDs for: %s\n", fileInfo->elems[i].handle );
+    
     Range subset;
     intersect( fileInfo->elems[i].desc, file_ids, subset );
     rval = read_elems( i, subset, nodes );
     if (MB_SUCCESS != rval)
       return error(rval);
   }
+    
+  debug_barrier();
+  dbgOut.tprint( 1, "READING NODE COORDINATES\n" );
   
     // Read node coordinates and create vertices in MOAB
     // NOTE:  This populates the RangeMap with node file ids,
@@ -642,6 +680,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     return error(rval);
 
  
+  debug_barrier();
   dbgOut.tprint( 1, "READING ELEMENTS\n" );
  
     // decide if we need to read additional elements
@@ -671,6 +710,8 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
       for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
         EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
         if (CN::Dimension(type) == dim) {
+          debug_barrier();
+          dbgOut.printf( 2, "    Reading element connectivity for: %s\n", fileInfo->elems[i].handle );
           Range subset;
           intersect( fileInfo->elems[i].desc, file_ids, subset );
           rval = read_elems( fileInfo->elems[i],  subset );
@@ -686,6 +727,8 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
       for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
         EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
         if (CN::Dimension(type) == dim) {
+          debug_barrier();
+          dbgOut.printf( 2, "    Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle );
           rval = read_node_adj_elems( fileInfo->elems[i] );
           if (MB_SUCCESS != rval)
             return error(rval);
@@ -695,13 +738,15 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     break;
     
     case 2: // ELEMENTS=SIDES : read explicitly specified elems and any sides of those elems
+    debug_barrier();
+    dbgOut.print( 2, "    Reading elements and sides\n");
     rval = read_elements_and_sides( file_ids );
     if (MB_SUCCESS != rval)
       return error(rval);
     break;
   }
   
-  
+  debug_barrier();
   dbgOut.tprint( 1, "READING SETS\n" );
     
     // If reading contained/child sets but not their contents then find
@@ -767,6 +812,8 @@ ErrorCode ReadHDF5::search_tag_values( int tag_index,
   const mhdf_TagDesc& tag = fileInfo->tags[tag_index];
   long size;
   long start_id;
+
+  debug_barrier();
    
     // do dense data
     
@@ -932,6 +979,9 @@ ErrorCode ReadHDF5::search_tag_values( hid_t tag_table,
                                          const std::vector<int>& sorted_values,
                                          std::vector<EntityHandle>& value_indices )
 {
+
+  debug_barrier();
+
   mhdf_Status status;
   size_t chunk_size = bufferSize / sizeof(unsigned);
   unsigned * buffer = reinterpret_cast<unsigned*>(dataBuffer);
@@ -958,6 +1008,9 @@ ErrorCode ReadHDF5::search_tag_values( hid_t tag_table,
 
 ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
 {
+
+  debug_barrier();
+
   ErrorCode rval;
   mhdf_Status status;
   const int dim = fileInfo->nodes.vals_per_ent;
@@ -1049,6 +1102,9 @@ ErrorCode ReadHDF5::read_elems( int i, const Range& file_ids )
 
 ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_ids )
 {
+
+  debug_barrier();
+
   ErrorCode rval = MB_SUCCESS;
   mhdf_Status status;
   IODebugTrack debug_track( debugTrack, elems.handle );
@@ -1126,6 +1182,9 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group )
 ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group, 
                                            hid_t table_handle )
 {
+
+  debug_barrier();
+
   mhdf_Status status;
   ErrorCode rval;
   IODebugTrack debug_track( debugTrack, std::string(group.handle) );
@@ -1297,6 +1356,9 @@ ErrorCode ReadHDF5::read_poly( const mhdf_ElemDesc& elems, const Range& file_ids
       return MB_SUCCESS;
     }
   };
+
+  debug_barrier();
+
   
   EntityType type = CN::EntityTypeFromName( elems.type );
   if (type == MBMAXTYPE)
@@ -1436,6 +1498,18 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
     }
   }
   
+    // Need to do some communication here to make sure that
+    // things work correctly if some proc ended up w/ no entities
+#ifdef USE_MPI
+  if (nativeParallel) {
+    int send_val = max_dim;
+    MPI_Allreduce( &send_val, &max_dim, 1, MPI_INT, MPI_MAX, 
+                   myPcomm->proc_config().proc_comm() );
+  }
+#endif
+
+  dbgOut.printf(3, "read_elements_and_sides: max_dim = %d\n", max_dim);
+  
     // Get Range of element IDs only
   Range elem_ids( file_ids );
   Range::iterator s, e;
@@ -1456,6 +1530,7 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
     EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
     if (CN::Dimension(type) < max_dim) {
+      dbgOut.printf(3, "   Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle);
       rval = read_node_adj_elems( fileInfo->elems[i] );
       if (MB_SUCCESS != rval)
         return error(rval);
@@ -1471,14 +1546,18 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
     if (CN::Dimension(type) == max_dim) {
       Range subset;
       intersect( fileInfo->elems[i].desc, elem_ids, subset );
-      if (!subset.empty()) {
+      if (!subset.empty() || nativeParallel) {
         subtract( elem_ids,  subset );
+        dbgOut.printf(3, "   Reading connectivity for: %s\n", fileInfo->elems[i].handle);
         rval = read_elems( fileInfo->elems[i],  subset );
         if (MB_SUCCESS != rval)
           return error(rval); 
       } 
     }
   } 
+
+  debug_barrier();
+  dbgOut.print(3, "  Deleting entities\n");
       
     // delete anything we read in that we should not have
     // (e.g. an edge spanning two disjoint blocks of elements)
@@ -1577,6 +1656,9 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
 
 ErrorCode ReadHDF5::read_sets( const Range& file_ids )
 {
+
+  debug_barrier();
+
   mhdf_Status status;
   ErrorCode rval;
   if (fileInfo->sets.count == 0 || file_ids.empty()) {
@@ -2546,6 +2628,9 @@ ErrorCode ReadHDF5::read_adjacencies( hid_t table, long table_len )
 {
   ErrorCode rval;
   mhdf_Status status;
+
+  debug_barrier();
+
   
   EntityHandle* buffer = (EntityHandle*)dataBuffer;
   size_t chunk_size = bufferSize / sizeof(EntityHandle);
@@ -2608,6 +2693,9 @@ ErrorCode ReadHDF5::read_adjacencies( hid_t table, long table_len )
 ErrorCode ReadHDF5::read_tag( int tag_index )
 {
   dbgOut.tprintf(2, "Reading tag \"%s\"\n", fileInfo->tags[tag_index].name );
+
+  debug_barrier();
+
 
   ErrorCode rval;
   mhdf_Status status;
@@ -3152,7 +3240,8 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
       
         // read tag values 
       assert_range( databuf + i*read_size, (j-i)*read_size );
-      dbgOut.printf(3,"Reading block %d ([%ld,%ld]) values\n",blkcount,offset,offset+count-1);
+      assert(j >= i);
+      dbgOut.printf(3,"Reading block %d values ([%ld,%ld])\n",blkcount,offset+i,offset+j-1);
       assert(hdf_read_type > 0);
       mhdf_readSparseTagValuesWithOpt( value_table, offset + i, j - i,
                                        hdf_read_type, databuf + i*read_size, 

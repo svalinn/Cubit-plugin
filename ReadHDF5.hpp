@@ -38,6 +38,8 @@
 
 namespace moab {
 
+class ParallelComm;
+
 class ReadHDF5 : public ReaderIface
 {
 public:
@@ -121,11 +123,15 @@ private:
   //! when reading the entire file on all processors.
   hid_t indepIO, collIO;
   
+  ParallelComm* myPcomm;
+  
   //! Use IODebugTrack instances to verify reads.  
   //! Enable with the DEBUG_OVERLAPS option.
   bool debugTrack;
   //! Debug output. Verbosity controlled with DEBUG_FORMAT option.
   DebugOutput dbgOut;
+  //! Doing true parallel read (PARALLEL=READ_PART)
+  bool nativeParallel;
   
   ErrorCode set_up_read( const char* file_name, const FileOptions& opts );
   ErrorCode clean_up_read( const FileOptions& opts );
@@ -436,6 +442,8 @@ private:
      * each tag value is a single integer.
      */
   ErrorCode find_int_tag( const char* name, int& index_out );
+  
+  void debug_barrier_line(int lineno);
 };
 
 } // namespace moab
