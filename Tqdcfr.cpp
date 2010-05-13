@@ -971,7 +971,7 @@ ErrorCode Tqdcfr::get_entities(const unsigned int this_type,
   
   if (this_type >= GROUP && this_type <= VERTEX)
     result = get_ref_entities(this_type, id_buf, id_buf_size, entities);
-  else if (this_type >= MBHEX && this_type <= NODE)
+  else if (this_type >= HEX && this_type <= NODE)
     result = get_mesh_entities(this_type, id_buf, id_buf_size, entities, excl_entities);
 
   return result;
