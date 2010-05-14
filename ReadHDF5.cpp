@@ -385,6 +385,12 @@ ErrorCode ReadHDF5::load_file( const char* filename,
     rval = rval2;
   
   dbgOut.tprint(1, "Read finished.\n");
+  
+  if (H5P_DEFAULT != collIO)
+    H5Pclose( collIO );
+  if (H5P_DEFAULT != indepIO)
+    H5Pclose( indepIO );
+  
   return rval;
 }
   
