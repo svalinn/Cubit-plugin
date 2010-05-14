@@ -364,7 +364,10 @@ mhdf_readwrite( hid_t data_id, int read,
     return 0;
   }
   
-  mem_id = H5Screate_simple( dims, counts, NULL );
+  if (count)
+    mem_id = H5Screate_simple( dims, counts, NULL );
+  else 
+    mem_id = H5Screate(H5S_NULL); 
   if (mem_id < 0)
   {
     H5Sclose( slab_id );
