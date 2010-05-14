@@ -366,8 +366,18 @@ mhdf_readwrite( hid_t data_id, int read,
   
   if (count)
     mem_id = H5Screate_simple( dims, counts, NULL );
-  else 
+  else {
+#if H5_VERS_MAJOR > 1 || H5_VERS_MINOR >= 8
     mem_id = H5Screate(H5S_NULL); 
+#else
+    mem_id = H5Screate( H5S_SIMPLE );
+    if (mem_id && 0 > H5Sselect_none( mem_id )) {
+      H5Sclose( mem_id );
+      mem_id = -1;
+    }
+#endif
+  }
+  
   if (mem_id < 0)
   {
     H5Sclose( slab_id );
