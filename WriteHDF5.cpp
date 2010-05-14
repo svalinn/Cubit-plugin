@@ -217,6 +217,12 @@ do if (MB_SUCCESS != (A)) {                     \
   return (A);                                   \
 } while(false)
 
+
+#define debug_barrier() debug_barrier_line(__LINE__)
+void WriteHDF5::debug_barrier_line(int )
+{
+}
+
 bool WriteHDF5::convert_handle_tag( const EntityHandle* source,
                                     EntityHandle* dest, size_t count ) const
 {
@@ -291,6 +297,8 @@ WriteHDF5::WriteHDF5( Interface* iface )
     writeSetContents(false),
     writeSetChildren(false),
     writeSetParents(false),
+    parallelWrite(false),
+    collectiveIO(false),
     writeProp( H5P_DEFAULT ),
     dbgOut("H5M ", stderr)
 {
@@ -339,22 +347,6 @@ ErrorCode WriteHDF5::write_finished()
   return MB_SUCCESS;
 }
 
-void WriteHDF5::tprint( const char* fmt, ... )
-{
-  if (dbgOut.get_verbosity()) {
-    static const clock_t t0 = clock();
-    va_list args;
-    va_start(args, fmt);
-    char buffer[128]; 
-    size_t n = snprintf( buffer, sizeof(buffer), "%6.2f: ", (double)(clock()-t0)/CLOCKS_PER_SEC );
-    vsnprintf( buffer+n, sizeof(buffer)-n, fmt, args );
-    dbgOut.print(1,buffer);
-    va_end(args);
-  }
-}
-
-
-
 WriteHDF5::~WriteHDF5()
 {
   if (!writeUtil) // init() failed.
@@ -375,6 +367,9 @@ ErrorCode WriteHDF5::write_file( const char* filename,
                                    int user_dimension )
 {
   mhdf_Status status;
+  
+  parallelWrite = false;
+  collectiveIO = false;
 
   // Enable debug output
   int tmpval = 0;
@@ -458,7 +453,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   if (MB_SUCCESS != init())
     return MB_FAILURE;
 
-tprint("Gathering Mesh\n");
+  dbgOut.tprint(1,"Gathering Mesh\n");
   
     // Gather mesh to export
   exportList.clear();
@@ -478,7 +473,7 @@ tprint("Gathering Mesh\n");
   //if (nodeSet.range.size() == 0)
   //  return MB_ENTITY_NOT_FOUND;
   
-tprint("Checking ID space\n");
+  dbgOut.tprint(1,"Checking ID space\n");
 
     // Make sure ID space is sufficient
   elem_count = nodeSet.range.size() + setSet.range.size();
@@ -491,7 +486,7 @@ tprint("Checking ID space\n");
     return MB_FAILURE;
   }
 
-tprint( "Creating File\n" );  
+  dbgOut.tprint(1, "Creating File\n" );  
 
     // Figure out the dimension in which to write the mesh.  
   int mesh_dim;
@@ -511,6 +506,10 @@ tprint( "Creating File\n" );
     int pcomm_no = 0;
     opts.get_int_option("PARALLEL_COMM", pcomm_no);
     result = parallel_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension, pcomm_no );
+   
+      // Just store Boolean value based on string option here.
+      // Later, in parallel_open_file, we'll set writeProp accordingly.
+    collectiveIO =  (MB_SUCCESS == opts.get_null_option("COLLECTIVE"));
   }
   else {
     result = serial_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension );
@@ -518,47 +517,57 @@ tprint( "Creating File\n" );
   if (MB_SUCCESS != result)
     return result;
 
-tprint("Writing Nodes.\n");
+  dbgOut.tprint(1,"Writing Nodes.\n");
   
     // Write node coordinates
-  if (!nodeSet.range.empty()) {
+  if (!nodeSet.range.empty() || collectiveIO) {
     result = write_nodes();
-    if (MB_SUCCESS != result)
+    if (MB_SUCCESS != result) {
+      if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
       return result;
+    }
   }
 
-tprint("Writing connectivity.\n");
+  dbgOut.tprint(1,"Writing connectivity.\n");
   
     // Write element connectivity
   for (ex_itor = exportList.begin(); ex_itor != exportList.end(); ++ex_itor) {
     result = write_elems( *ex_itor );
-    if (MB_SUCCESS != result)
+    if (MB_SUCCESS != result) {
+      if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
       return result;
+    }
   }
 
-tprint("Writing sets.\n");
+  dbgOut.tprint(1,"Writing sets.\n");
   
     // Write meshsets
   result = write_sets();
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
     return result;
+  }
 
-tprint("Writing adjacencies.\n");
+  dbgOut.tprint(1,"Writing adjacencies.\n");
   
     // Write adjacencies
   // Tim says don't save node adjacencies!
 #ifdef MB_H5M_WRITE_NODE_ADJACENCIES
   result = write_adjacencies( nodeSet );
-  if (MB_SUCCESS != result) 
+  if (MB_SUCCESS != result) {
+    if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
     return result;
+  }
 #endif
   for (ex_itor = exportList.begin(); ex_itor != exportList.end(); ++ex_itor) {
     result = write_adjacencies( *ex_itor );
-    if (MB_SUCCESS != result)
+    if (MB_SUCCESS != result) {
+      if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
       return result;
+    }
   }
 
-tprint("Writing tags.\n");
+  dbgOut.tprint(1,"Writing tags.\n");
   
 
     // Write tags
@@ -569,8 +578,10 @@ tprint("Writing tags.\n");
         result = write_var_len_tag( *t_itor );
       else
         result = write_sparse_tag( *t_itor );
-      if (MB_SUCCESS != result)
+      if (MB_SUCCESS != result) {
+        if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
         return result;
+      }
     }
   
   return MB_SUCCESS;
@@ -760,6 +771,8 @@ ErrorCode WriteHDF5::write_nodes( )
   rval = iFace->get_dimension( mesh_dim );
   CHK_MB_ERR_0(rval);
   
+  debug_barrier();
+  dbgOut.print(3, "Opening Node Coords\n");
   node_table = mhdf_openNodeCoords( filePtr, &num_nodes, &dim, &first_id, &status );
   CHK_MHDF_ERR_0(status);
   IODebugTrack track( debugTrack, "nodes", num_nodes );
@@ -777,6 +790,7 @@ ErrorCode WriteHDF5::write_nodes( )
 
   long offset = nodeSet.offset;
   Range::const_iterator iter = nodeSet.range.begin();
+  dbgOut.printf(3, "Reading %lu nodes in %lu blocks\n",remaining, (remaining+(chunk_size/2))/chunk_size);
   while (remaining)
   {
     VALGRIND_MAKE_MEM_UNDEFINED( dataBuffer, bufferSize );
@@ -798,7 +812,7 @@ ErrorCode WriteHDF5::write_nodes( )
       }
     
       dbgOut.printf(3,"  writing %c node chunk %ld of %ld, %ld values at %ld\n",
-             (char)('x'+d), num_writes - remaining_writes + 1, num_writes, count, offset );
+             (char)('X'+d), num_writes - remaining_writes + 1, num_writes, count, offset );
       if (d == 0) track.record_io( offset, count );
       mhdf_writeNodeCoordWithOpt( node_table, offset, count, d, buffer, writeProp, &status );
       CHK_MHDF_ERR_1(status, node_table);
@@ -810,13 +824,15 @@ ErrorCode WriteHDF5::write_nodes( )
   }
   
   // Do empty writes if necessary for parallel collective IO
-  while (remaining_writes--) {
-    assert(writeProp != H5P_DEFAULT);
-    for (int d = 0; d < dim; ++d) {
-      dbgOut.printf(3,"  writing (empty) %d node chunk %ld of %ld.\n",
-             (char)('x'+d), num_writes - remaining_writes + 1, num_writes );
-      mhdf_writeNodeCoordWithOpt( node_table, offset, 0, d, 0, writeProp, &status );
-      CHK_MHDF_ERR_1(status, node_table);
+  if (collectiveIO) {
+    while (remaining_writes--) {
+      assert(writeProp != H5P_DEFAULT);
+      for (int d = 0; d < dim; ++d) {
+        dbgOut.printf(3,"  writing (empty) %d node chunk %ld of %ld.\n",
+               (char)('X'+d), num_writes - remaining_writes + 1, num_writes );
+        mhdf_writeNodeCoordWithOpt( node_table, offset, 0, d, 0, writeProp, &status );
+        CHK_MHDF_ERR_1(status, node_table);
+      }
     }
   }
   
@@ -889,14 +905,16 @@ ErrorCode WriteHDF5::write_elems( ExportSet& elems )
   }
   
   // Do empty writes if necessary for parallel collective IO
-  while (remaining_writes--) {
-    assert(writeProp != H5P_DEFAULT);
-    dbgOut.printf(2,"  writing (empty) connectivity chunk %ld of %ld.\n",
-           num_writes - remaining_writes + 1, num_writes );
-    mhdf_writeConnectivityWithOpt( elem_table, offset, 0, id_type, 0, writeProp, &status );
-    CHK_MHDF_ERR_1(status, elem_table);
+  if (collectiveIO) {
+    while (remaining_writes--) {
+      assert(writeProp != H5P_DEFAULT);
+      dbgOut.printf(2,"  writing (empty) connectivity chunk %ld of %ld.\n",
+             num_writes - remaining_writes + 1, num_writes );
+      mhdf_writeConnectivityWithOpt( elem_table, offset, 0, id_type, 0, writeProp, &status );
+      CHK_MHDF_ERR_1(status, elem_table);
+    }
   }
-
+  
   mhdf_closeData( filePtr, elem_table, &status );
   CHK_MHDF_ERR_0(status);
  
@@ -1514,12 +1532,14 @@ ErrorCode WriteHDF5::write_adjacencies( const ExportSet& elements )
   }
 
   // Do empty writes if necessary for parallel collective IO
-  while (num_writes > 0) {
-    --num_writes;
-    assert(writeProp != H5P_DEFAULT);
-    dbgOut.print(2,"  writing empty adjacency chunk.\n");
-    mhdf_writeAdjacencyWithOpt( table, offset, 0, id_type, 0, writeProp, &status );
-    CHK_MHDF_ERR_1(status, table );
+  if (collectiveIO) {
+    while (num_writes > 0) {
+      --num_writes;
+      assert(writeProp != H5P_DEFAULT);
+      dbgOut.print(2,"  writing empty adjacency chunk.\n");
+      mhdf_writeAdjacencyWithOpt( table, offset, 0, id_type, 0, writeProp, &status );
+      CHK_MHDF_ERR_1(status, table );
+    }
   }
   
   mhdf_closeData( filePtr, table, &status );
@@ -1775,14 +1795,16 @@ ErrorCode WriteHDF5::write_sparse_ids( const SparseTag& tag_data,
   } // while (remaining)
 
   // Do empty writes if necessary for parallel collective IO
-  while (num_writes--) {
-    assert(writeProp != H5P_DEFAULT);
-    dbgOut.print(3,"  writing empty sparse tag entity chunk.\n");
-    mhdf_writeSparseTagEntitiesWithOpt( id_table, offset, 0, id_type, 
-                                        0, writeProp, &status );
-    CHK_MHDF_ERR_0( status );
+  if (collectiveIO) {
+    while (num_writes--) {
+      assert(writeProp != H5P_DEFAULT);
+      dbgOut.print(3,"  writing empty sparse tag entity chunk.\n");
+      mhdf_writeSparseTagEntitiesWithOpt( id_table, offset, 0, id_type, 
+                                          0, writeProp, &status );
+      CHK_MHDF_ERR_0( status );
+    }
   }
-
+  
   track.all_reduce();
   return MB_SUCCESS;
 }
@@ -1910,13 +1932,15 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
   } // while (remaining)
 
   // Do empty writes if necessary for parallel collective IO
-  while (num_writes--) {
-    assert(writeProp != H5P_DEFAULT);
-    dbgOut.print(2,"  writing empty sparse tag value chunk.\n");
-    assert(value_type > 0);
-    mhdf_writeSparseTagValuesWithOpt( tables[1], offset, 0,
-                                      value_type, 0, writeProp, &status );
-    CHK_MHDF_ERR_0( status );
+  if (collectiveIO) {
+    while (num_writes--) {
+      assert(writeProp != H5P_DEFAULT);
+      dbgOut.print(2,"  writing empty sparse tag value chunk.\n");
+      assert(value_type > 0);
+      mhdf_writeSparseTagValuesWithOpt( tables[1], offset, 0,
+                                        value_type, 0, writeProp, &status );
+      CHK_MHDF_ERR_0( status );
+    }
   }
   
   if (value_type && value_type != id_type)
@@ -2457,7 +2481,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   } // if(!setSet.range.empty())
   
   
-  tprint( "Gathering Tags\n" );
+  dbgOut.tprint( 1, "Gathering Tags\n" );
   
   rval = gather_tags( user_tag_list, num_user_tags );
   CHK_MB_ERR_0(rval);

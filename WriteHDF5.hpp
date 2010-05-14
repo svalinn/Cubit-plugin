@@ -113,7 +113,7 @@ protected:
   virtual ErrorCode write_shared_set_parents( hid_t, IODebugTrack* )
     { return MB_SUCCESS;}
   virtual ErrorCode write_finished();
-  virtual void tprint( const char* fmt, ... )
+  virtual void debug_barrier_line(int lineno);
 #ifdef __GNUC__
 __attribute__((format(printf,2,3)))
 #endif
@@ -267,6 +267,8 @@ protected:
 
   //! True if doing parallel write
   bool parallelWrite;
+  //! True if using collective IO calls for parallel write
+  bool collectiveIO;
   
   //! Property set to pass to H5Dwrite calls. 
   //! For serial, should be H5P_DEFAULTS.

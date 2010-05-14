@@ -22,6 +22,106 @@
 extern "C" {
 #endif
 
+/** \mainpage H5M File Format API 
+ *
+ *\section Intro Introduction
+ *
+ * MOAB's native file format is based on the HDF5 file format.  
+ * The most common file extension used for such files is .h5m.
+ * A .h5m file can be identified by the top-level \c tstt group
+ * in an HDF5 file.
+ *
+ * The API implemented by this library is a wrapper on top of the
+ * underlying HDF5 library.  It provides the following features:
+ * - Enforces and hides MOAB's expected file layout 
+ * - Provides a somewhat higher-level API
+ * - Provides some backwards compatibility for file layout changes
+ *
+ *
+ *\section Overview H5M File Layout
+ *
+ * The H5M file format relies on the use of a unique ID space for
+ * all vertices, elements, and entity sets stored in the file.  This
+ * ID space is defined by the application.  IDs must be unique over all
+ * entity types (a vertex and an entity set may not have the same ID.)
+ * There are no other requirements imposed by the format on the ID space.
+ *
+ * Elements, with the exception of polyhedra, are defined by a list of 
+ * vertex IDs.  Polyhedra are defined by a list of face IDs.  Element 
+ * types are defined by the combination of a topology identifier (e.g. 
+ * hexahedral topology) and the number of nodes in the element.  
+ *
+ *\section Root The \c tstt Group
+ *
+ * All file data is stored in the \c tstt group in the HDF5 root group.
+ * The \c tstt group may have an optional scalar integer attribute 
+ * named \c max_id .  This attribute, if present, should contain the
+ * value of the largest file ID used internally to the file.  It can
+ * be used to verify that the code reading the file is using an integer
+ * type of sufficient size to store the file IDs.
+ *
+ * The \c tstt group contains four sub-groups a datatype object and a 
+ * dataset object.  The three sub-groups are: \c nodes, \c elements, 
+ * \c sets, and \c tags.  The dataset is named \c history .
+ *
+ * The \c elemtypes datatype is an enumeration of the elem topologies
+ * used in the file.  The element topologies understood by MOAB are:
+ * - \c Edge
+ * - \c Tri
+ * - \c Quad
+ * - \c Polygon
+ * - \c Tet
+ * - \c Pyramid
+ * - \c Prism
+ * - \c Knife
+ * - \c Hex
+ * - \c Polyhedron
+ * 
+ *\section History The \c history DataSet
+ *
+ * The \c history DataSet is a list of variable-length strings with
+ * appliation-defined meaning.  
+ *
+ *\section Nodes The \c nodes Group
+ *
+ * The \c nodes group contains a single DataSet and an optional
+ * subgroup.  The \c tags subgroup is described in the 
+ * \ref Dense "section on dense tag storage".  
+ *
+ * The \c coordinates
+ * DataSet contains the coordinates of all vertices in the mesh.
+ * The DataSet should contain floating point values and have a dimenions 
+ * \f$ n \times d \f$, where \c n is the number of vertices and \c d
+ * is the number of coordinate values for each vertex.
+ *
+ * The \c coodinates DataSet must have an integer attribute named \c start_id .
+ * The vertices are then defined to have file IDs begining with this value
+ * and increasing sequentially in the order that they are defined in the
+ * \c coordinates table.
+ *
+ *\section Elements The \c elements Group 
+ *
+ * The \c elements Group contains an application-defined number of 
+ * subgroups.  Each subgroup defines one or more mesh elements that
+ * have the same topology and length of connectivity (number of nodes
+ * for any topology other than \c Polyhedron.)  The names of the subgroups
+ * are application defined.  MOAB uses a combination of the element
+ * topology name and connectivity length (e.g. "Hex8".).  
+ *
+ * Each subgroup must have an attribute named \c element_type that 
+ * contains one of the enumerated element topology values defined 
+ * in the \c elemtypes datatype described in a \ref Root "previous section".
+ *
+ * Each subgroup contains a single DataSet named \c connectivity and an 
+ * optional subgroup named \c tags.  The \c tags subgroup is  described in the 
+ * \ref Dense "section on dense tag storage". 
+ *
+ * The \c connectivty DataSet is a \f$ n \times m \f$ array of integer
+ * values.  
+ *
+ * 
+ */
+ 
 /**
  *\defgroup mhdf MHDF API for reading/writing TSTT-format HDF5 mesh files.
  */
@@ -2195,11 +2295,10 @@ mhdf_writeSparseTagEntitiesWithOpt( hid_t id_handle,
  *                     \ref mhdf_openSparseTagData.
  *\param offset        The offset at which to begin writing.
  *\param count         The number of tag values to write.
- *\param hdf_tag_data_type The type of the data in memory.  If this is specified,
- *                     it must be possible for the HDF library to convert
+ *\param hdf_tag_data_type The type of the data in memory.  
+ *                     It must be possible for the HDF library to convert
  *                     between this type and the type the tag data is stored
- *                     as.  If zero, the tag storage type will be assumed.
- *                     This should always be zero for opaque data.
+ *                     as.  
  *\param tag_data      The list of tag values to write.
  *\param status        Passed back status of API call.
  */
