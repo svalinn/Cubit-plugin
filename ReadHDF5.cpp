@@ -292,6 +292,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       H5Pclose( indepIO ); 
       if (collIO != indepIO)
         H5Pclose( collIO );
+      collIO = indepIO = H5P_DEFAULT;
       return error(MB_FAILURE);
     }
 #endif
@@ -342,6 +343,7 @@ ErrorCode ReadHDF5::clean_up_read( const FileOptions& )
     H5Pclose( indepIO );
   if (collIO != indepIO)
     H5Pclose( collIO );
+  collIO = indepIO = H5P_DEFAULT;
 
   mhdf_Status status;
   mhdf_closeFile( filePtr, &status );
@@ -390,6 +392,7 @@ ErrorCode ReadHDF5::load_file( const char* filename,
     H5Pclose( collIO );
   if (H5P_DEFAULT != indepIO)
     H5Pclose( indepIO );
+  collIO = indepIO = H5P_DEFAULT;
   
   return rval;
 }
