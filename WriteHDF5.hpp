@@ -114,11 +114,6 @@ protected:
     { return MB_SUCCESS;}
   virtual ErrorCode write_finished();
   virtual void debug_barrier_line(int lineno);
-#ifdef __GNUC__
-__attribute__((format(printf,2,3)))
-#endif
-  ;
-
  
   //! Gather tags
   ErrorCode gather_tags( const Tag* user_tag_list, int user_tag_list_length );
