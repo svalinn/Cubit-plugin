@@ -124,6 +124,13 @@ static hid_t get_id_type()
   // This is the HDF5 type used to store file IDs
 const hid_t WriteHDF5::id_type = get_id_type();
 
+
+// This function doesn't do anything useful.  It's just a nice
+// place to set a break point to determine why the reader fails.
+static inline ErrorCode error( ErrorCode rval )
+  { return rval; }
+
+
   // Some macros to handle error checking.  The
   // CHK_MHDF__ERR* macros check the value of an mhdf_Status 
   // object.  The CHK_MB_ERR_* check the value of an ErrorCode.
@@ -139,7 +146,7 @@ const hid_t WriteHDF5::id_type = get_id_type();
 do if ( mhdf_isError( &(A) )) {                             \
     writeUtil->report_error( "%s\n", mhdf_message( &(A) ) );\
     myassert(0);                                            \
-    return MB_FAILURE;                                      \
+    return error(MB_FAILURE);                               \
 } while(false)                                               
 
 #define CHK_MHDF_ERR_1( A, B )                              \
@@ -147,7 +154,7 @@ do if ( mhdf_isError( &(A) )) {                             \
     writeUtil->report_error( "%s\n", mhdf_message( &(A) ) );\
     myassert(0);                                            \
     mhdf_closeData( filePtr, (B), &(A) );                   \
-    return MB_FAILURE;                                      \
+    return error(MB_FAILURE);                               \
 } while(false)                                               
 
 #define CHK_MHDF_ERR_2( A, B )                              \
@@ -156,7 +163,7 @@ do if ( mhdf_isError( &(A) )) {                             \
     myassert(0);                                            \
     mhdf_closeData( filePtr, (B)[0], &(A) );                \
     mhdf_closeData( filePtr, (B)[1], &(A) );                \
-    return MB_FAILURE;                                      \
+    return error(MB_FAILURE);                               \
 } while(false)                                               
 
 #define CHK_MHDF_ERR_3( A, B )                              \
@@ -166,7 +173,7 @@ do if ( mhdf_isError( &(A) )) {                             \
     mhdf_closeData( filePtr, (B)[0], &(A) );                \
     mhdf_closeData( filePtr, (B)[1], &(A) );                \
     mhdf_closeData( filePtr, (B)[2], &(A) );                \
-    return MB_FAILURE;                                      \
+    return error(MB_FAILURE);                               \
 } while(false)                                               
 
 #define CHK_MHDF_ERR_2C( A, B, C, D )                       \
@@ -175,18 +182,18 @@ do if ( mhdf_isError( &(A) )) {                             \
     myassert(0);                                            \
     mhdf_closeData( filePtr, (B), &(A) );                   \
     if (C) mhdf_closeData( filePtr, (D), &(A) );            \
-    return MB_FAILURE;                                      \
+    return error(MB_FAILURE);                               \
 } while(false)                                               
 
 
 #define CHK_MB_ERR_0( A ) \
-do if (MB_SUCCESS != (A)) return (A); while(false)
+do if (MB_SUCCESS != (A)) return error(A); while(false)
 
 #define CHK_MB_ERR_1( A, B, C )         \
 do if (MB_SUCCESS != (A)) {             \
   mhdf_closeData( filePtr, (B), &(C) ); \
   myassert(0);                          \
-  return (A);                           \
+  return error(A);                      \
 } while(false)
 
 #define CHK_MB_ERR_2( A, B, C )            \
@@ -195,7 +202,7 @@ do if (MB_SUCCESS != (A)) {                \
   mhdf_closeData( filePtr, (B)[1], &(C) ); \
   write_finished();                        \
   myassert(0);                             \
-  return (A);                              \
+  return error(A);                         \
 } while(false)
 
 #define CHK_MB_ERR_3( A, B, C )            \
@@ -205,7 +212,7 @@ do if (MB_SUCCESS != (A)) {                \
   mhdf_closeData( filePtr, (B)[2], &(C) ); \
   write_finished();                        \
   myassert(0);                             \
-  return (A);                              \
+  return error(A);                         \
 } while(false)
 
 #define CHK_MB_ERR_2C( A, B, C, D, E )          \
@@ -214,7 +221,7 @@ do if (MB_SUCCESS != (A)) {                     \
   if (C) mhdf_closeData( filePtr, (D), &(E) );  \
   write_finished();                             \
   myassert(0);                                  \
-  return (A);                                   \
+  return error(A);                              \
 } while(false)
 
 
@@ -257,7 +264,7 @@ ErrorCode WriteHDF5::assign_ids( const Range& entities, id_t id )
       (unsigned long)id,
       (unsigned long)(id+n-1));
     if (!idMap.insert( pi->first, id, n ).second)
-      return MB_FAILURE;
+      return error(MB_FAILURE);
     id += n;
   }
   return MB_SUCCESS;
@@ -329,7 +336,7 @@ ErrorCode WriteHDF5::init()
   if (MB_SUCCESS != rval)
   {
     writeUtil = 0;
-    return rval;
+    return error(rval);
   }
 
   writeUtil = reinterpret_cast<WriteUtilIface*>(ptr);
@@ -391,17 +398,21 @@ ErrorCode WriteHDF5::write_file( const char* filename,
     // Allocate internal buffer to use when gathering data to write.
   dataBuffer = (char*)malloc( bufferSize );
   if (!dataBuffer)
-    return MB_MEMORY_ALLOCATION_FAILED;
+    return error(MB_MEMORY_ALLOCATION_FAILED);
 
     // Clear filePtr so we know if it is open upon failure
   filePtr = 0;
 
     // Do actual write.
+  writeProp = H5P_DEFAULT;
   ErrorCode result = write_file_impl( filename, overwrite, opts, 
                                         set_array, num_sets, 
                                         qa_records, 
                                         tag_list, num_tags,
                                         user_dimension );
+    // close writeProp if it was opened
+  if (writeProp != H5P_DEFAULT)
+    H5Pclose(writeProp);
   
     // Free memory buffer
   free( dataBuffer );
@@ -451,7 +462,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   EntityHandle elem_count, max_id;
   
   if (MB_SUCCESS != init())
-    return MB_FAILURE;
+    return error(MB_FAILURE);
 
   dbgOut.tprint(1,"Gathering Mesh\n");
   
@@ -467,11 +478,11 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     std::vector<EntityHandle> passed_export_list(set_array, set_array+num_sets);
     result = gather_mesh_info( passed_export_list );
     if (MB_SUCCESS != result) 
-      return result;
+      return error(result);
   }
   
   //if (nodeSet.range.size() == 0)
-  //  return MB_ENTITY_NOT_FOUND;
+  //  return error(MB_ENTITY_NOT_FOUND);
   
   dbgOut.tprint(1,"Checking ID space\n");
 
@@ -483,7 +494,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   if (elem_count > max_id)
   {
     writeUtil->report_error("ID space insufficient for mesh size.\n");
-    return MB_FAILURE;
+    return error(result);
   }
 
   dbgOut.tprint(1, "Creating File\n" );  
@@ -505,27 +516,25 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   if (parallelWrite) {
     int pcomm_no = 0;
     opts.get_int_option("PARALLEL_COMM", pcomm_no);
-    result = parallel_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension, pcomm_no );
-   
       // Just store Boolean value based on string option here.
-      // Later, in parallel_open_file, we'll set writeProp accordingly.
+      // parallel_create_file will set writeProp accordingly.
     collectiveIO =  (MB_SUCCESS == opts.get_null_option("COLLECTIVE"));
+    dbgOut.printf(2,"'COLLECTIVE' option = %s\n", collectiveIO ? "YES" : "NO" );
+    result = parallel_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension, pcomm_no );
   }
   else {
     result = serial_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension );
   }
   if (MB_SUCCESS != result)
-    return result;
+    return error(result);
 
   dbgOut.tprint(1,"Writing Nodes.\n");
   
     // Write node coordinates
-  if (!nodeSet.range.empty() || collectiveIO) {
+  if (!nodeSet.range.empty() || parallelWrite) {
     result = write_nodes();
-    if (MB_SUCCESS != result) {
-      if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
-      return result;
-    }
+    if (MB_SUCCESS != result)
+      return error(result);
   }
 
   dbgOut.tprint(1,"Writing connectivity.\n");
@@ -533,20 +542,16 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     // Write element connectivity
   for (ex_itor = exportList.begin(); ex_itor != exportList.end(); ++ex_itor) {
     result = write_elems( *ex_itor );
-    if (MB_SUCCESS != result) {
-      if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
-      return result;
-    }
+    if (MB_SUCCESS != result)
+      return error(result);
   }
 
   dbgOut.tprint(1,"Writing sets.\n");
   
     // Write meshsets
   result = write_sets();
-  if (MB_SUCCESS != result) {
-    if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
-    return result;
-  }
+  if (MB_SUCCESS != result)
+    return error(result);
 
   dbgOut.tprint(1,"Writing adjacencies.\n");
   
@@ -554,17 +559,13 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   // Tim says don't save node adjacencies!
 #ifdef MB_H5M_WRITE_NODE_ADJACENCIES
   result = write_adjacencies( nodeSet );
-  if (MB_SUCCESS != result) {
-    if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
-    return result;
-  }
+  if (MB_SUCCESS != result)
+    return error(result);
 #endif
   for (ex_itor = exportList.begin(); ex_itor != exportList.end(); ++ex_itor) {
     result = write_adjacencies( *ex_itor );
-    if (MB_SUCCESS != result) {
-      if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
-      return result;
-    }
+    if (MB_SUCCESS != result)
+      return error(result);
   }
 
   dbgOut.tprint(1,"Writing tags.\n");
@@ -578,10 +579,8 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
         result = write_var_len_tag( *t_itor );
       else
         result = write_sparse_tag( *t_itor );
-      if (MB_SUCCESS != result) {
-        if (writeProp != H5P_DEFAULT) H5Pclose(writeProp);
-        return result;
-      }
+      if (MB_SUCCESS != result)
+        return error(result);
     }
   
   return MB_SUCCESS;
@@ -592,14 +591,14 @@ ErrorCode WriteHDF5::initialize_mesh( const Range ranges[5] )
   ErrorCode rval;
   
   if (!ranges[0].all_of_type(MBVERTEX))
-    return MB_FAILURE;
+    return error(MB_FAILURE);
   nodeSet.range = ranges[0];
   nodeSet.type = MBVERTEX;
   nodeSet.num_nodes = 1;
   nodeSet.max_num_ents = nodeSet.max_num_adjs = 0;
   
   if (!ranges[4].all_of_type(MBENTITYSET))
-    return MB_FAILURE;
+    return error(MB_FAILURE);
   setSet.range = ranges[4];
   setSet.type = MBENTITYSET;
   setSet.num_nodes = 0;
@@ -626,12 +625,12 @@ ErrorCode WriteHDF5::initialize_mesh( const Range ranges[5] )
       int len, firstlen;
       rval = iFace->get_connectivity( *i, conn, firstlen );
       if (MB_SUCCESS != rval)
-        return rval;
+        return error(rval);
       
       for (++i; i != p.second; ++i) {
         rval = iFace->get_connectivity( *i, conn, len );
         if (MB_SUCCESS != rval)
-          return rval;
+          return error(rval);
         
         if (len != firstlen)
           break;
@@ -739,23 +738,23 @@ ErrorCode WriteHDF5::gather_all_mesh( )
 
   rval = iFace->get_entities_by_type( 0, MBVERTEX, ranges[0] );
   if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
 
   rval = iFace->get_entities_by_dimension( 0, 1, ranges[1] );
   if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
 
   rval = iFace->get_entities_by_dimension( 0, 2, ranges[2] );
   if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
 
   rval = iFace->get_entities_by_dimension( 0, 3, ranges[3] );
   if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
 
   rval = iFace->get_entities_by_type( 0, MBENTITYSET, ranges[4] );
   if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
 
   return initialize_mesh( ranges );
 }
@@ -790,7 +789,7 @@ ErrorCode WriteHDF5::write_nodes( )
 
   long offset = nodeSet.offset;
   Range::const_iterator iter = nodeSet.range.begin();
-  dbgOut.printf(3, "Reading %lu nodes in %lu blocks\n",remaining, (remaining+(chunk_size/2))/chunk_size);
+  dbgOut.printf(3, "Writing %ld nodes in %ld blocks of %d\n", remaining, (remaining+chunk_size-1)/chunk_size, chunk_size);
   while (remaining)
   {
     VALGRIND_MAKE_MEM_UNDEFINED( dataBuffer, bufferSize );
@@ -828,8 +827,8 @@ ErrorCode WriteHDF5::write_nodes( )
     while (remaining_writes--) {
       assert(writeProp != H5P_DEFAULT);
       for (int d = 0; d < dim; ++d) {
-        dbgOut.printf(3,"  writing (empty) %d node chunk %ld of %ld.\n",
-               (char)('X'+d), num_writes - remaining_writes + 1, num_writes );
+        dbgOut.printf(3,"  writing (empty) %c node chunk %ld of %ld.\n",
+               (char)('X'+d), num_writes - remaining_writes, num_writes );
         mhdf_writeNodeCoordWithOpt( node_table, offset, 0, d, 0, writeProp, &status );
         CHK_MHDF_ERR_1(status, node_table);
       }
@@ -851,13 +850,20 @@ ErrorCode WriteHDF5::write_elems( ExportSet& elems )
   int nodes_per_elem;
   long table_size;
 
+  debug_barrier();
+  dbgOut.printf(2,"Writing %lu elements of type %s%d\n",
+    (unsigned long)elems.range.size(),
+    CN::EntityTypeName(elems.type), elems.num_nodes );
+  dbgOut.print(3,"Writing elements",elems.range);
+
   hid_t elem_table = mhdf_openConnectivity( filePtr, 
                                             elems.name(), 
                                             &nodes_per_elem,
                                             &table_size,
                                             &first_id,
                                             &status );
-  IODebugTrack track( debugTrack, elems.name(), table_size );
+  IODebugTrack track( debugTrack, elems.name() && strlen(elems.name()) 
+    ? elems.name() : "<ANONYMOUS ELEM SET?>", table_size );
                                             
   CHK_MHDF_ERR_0(status);
   assert ((unsigned long)first_id <= elems.first_id);
@@ -891,7 +897,7 @@ ErrorCode WriteHDF5::write_elems( ExportSet& elems )
     
     for (long i = 0; i < count*nodes_per_elem; ++i)
       if (0 == (buffer[i] = idMap.find( buffer[i] )))
-        return MB_FAILURE;
+        return error(MB_FAILURE);
     
     dbgOut.printf(3,"  writing node connectivity %ld of %ld, %ld values at %ld\n",
            num_writes - remaining_writes + 1, num_writes, count, offset );
@@ -908,7 +914,7 @@ ErrorCode WriteHDF5::write_elems( ExportSet& elems )
   if (collectiveIO) {
     while (remaining_writes--) {
       assert(writeProp != H5P_DEFAULT);
-      dbgOut.printf(2,"  writing (empty) connectivity chunk %ld of %ld.\n",
+      dbgOut.printf(3,"  writing (empty) connectivity chunk %ld of %ld.\n",
              num_writes - remaining_writes + 1, num_writes );
       mhdf_writeConnectivityWithOpt( elem_table, offset, 0, id_type, 0, writeProp, &status );
       CHK_MHDF_ERR_1(status, elem_table);
@@ -963,6 +969,8 @@ ErrorCode WriteHDF5::write_parents_children( bool children )
   std::vector<EntityHandle> handle_list;
   
   assert(writeSets);
+  
+  debug_barrier();
 
   if (children)
     table = mhdf_openSetChildren( filePtr, &table_size, &status );
@@ -1048,6 +1056,10 @@ ErrorCode WriteHDF5::write_sets( )
     return MB_SUCCESS;
   
   /* Write set description table and set contents table */
+  
+  debug_barrier();
+  dbgOut.printf(2,"Writing %lu non-shared sets\n", (unsigned long)setSet.range.size() );
+  dbgOut.print(3,"Non-shared sets", setSet.range );
   
   /* Create the table */
   set_table = mhdf_openSetMeta( filePtr, &meta_size, &first_id, &status );
@@ -1441,7 +1453,7 @@ inline ErrorCode WriteHDF5::get_adjacencies( EntityHandle entity,
   int num_adj;
   ErrorCode rval = writeUtil->get_adjacencies( entity, adj_array, num_adj );
   if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
   
   size_t j = 0;
   adj.resize( num_adj );
@@ -1460,6 +1472,8 @@ ErrorCode WriteHDF5::write_adjacencies( const ExportSet& elements )
   Range::const_iterator iter;
   const Range::const_iterator end = elements.range.end();
   std::vector<id_t> adj_list;
+  
+  debug_barrier();
   
   /* Count Adjacencies */
   long count = 0;
@@ -1575,11 +1589,11 @@ ErrorCode WriteHDF5::write_tag( Tag tag_handle )
   {
     rval = iFace->tag_get_data( type_handle, 0, 0, &hdf_tag_type );
     if (rval != MB_SUCCESS)
-      return rval;
+      return error(rval);
     have_type = true;
   }
   else if (MB_TAG_NOT_FOUND != rval)
-    return rval;
+    return error(rval);
   
   mem_size = tag_size;
   switch ( tag_type )
@@ -1599,7 +1613,7 @@ ErrorCode WriteHDF5::write_tag( Tag tag_handle )
       sparse = true;
       break;
     default:
-      return MB_FAILURE;
+      return error(MB_FAILURE);
   }
   
   assert( 2*tag_size + sizeof(long) < (unsigned long)bufferSize );
@@ -1608,13 +1622,13 @@ ErrorCode WriteHDF5::write_tag( Tag tag_handle )
   if (MB_ENTITY_NOT_FOUND == rval)
     have_default = false;
   else if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
   rval = iFace->tag_get_data( tag_handle, 0, 0, dataBuffer + mem_size );
   bool have_global = true;
   if (MB_TAG_NOT_FOUND == rval)
     have_global = false;
   else if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
   
   if (have_type)
   {
@@ -1653,7 +1667,7 @@ ErrorCode WriteHDF5::write_tag( Tag tag_handle )
   //
   rval = write_sparse_tag( tag_handle hdf_tag_type );
     
-  return rval;
+  return error(rval);
 }
 
 
@@ -1675,7 +1689,7 @@ ErrorCode WriteHDF5::write_dense_tag( Tag handle,
   
   if (!setSet.range.empty())
     rval = write_dense_tag( setSet, handle, type );
-  return rval;
+  return error(rval);
 }
 
 ErrorCode WriteHDF5::write_dense_tag( ExportSet& set,
@@ -1694,7 +1708,7 @@ ErrorCode WriteHDF5::write_dense_tag( ExportSet& set,
   if (MB_SUCCESS != iFace->tag_get_name( handle, name )    ||
       MB_SUCCESS != iFace->tag_get_type( handle, mb_type ) ||
       MB_SUCCESS != iFace->tag_get_size( handle, tag_size ))
-    return MB_FAILURE;
+    return error(MB_FAILURE);
   
   if (mb_type == MB_TAG_BIT)
     tag_size = 1;
@@ -1748,7 +1762,7 @@ ErrorCode WriteHDF5::write_sparse_ids( const SparseTag& tag_data,
   ErrorCode rval;
   mhdf_Status status;
 
-  std::string tname(name ? name : "");
+  std::string tname(name ? name : "<UNKNOWN TAG?>");
   tname += " - Ids";
   IODebugTrack track( debugTrack, tname, table_size );
 
@@ -1762,7 +1776,7 @@ ErrorCode WriteHDF5::write_sparse_ids( const SparseTag& tag_data,
   long offset = tag_data.offset;
   long num_writes = (remaining + chunk_size - 1)/chunk_size;
   if (tag_data.max_num_ents) {
-    assert(tag_data.max_num_ents >= remaining);
+    assert(tag_data.max_num_ents >= (unsigned long)remaining);
     num_writes = (tag_data.max_num_ents + chunk_size - 1)/chunk_size;
   }
   Range::const_iterator iter = tag_data.range.begin();
@@ -1826,13 +1840,14 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
       MB_SUCCESS != iFace->tag_get_type( tag_data.tag_id, mb_type ) ||
       MB_SUCCESS != iFace->tag_get_size( tag_data.tag_id, mb_size ) ||
       MB_SUCCESS != iFace->tag_get_data_type( tag_data.tag_id, mb_data_type ))
-    return MB_FAILURE;
+    return error(MB_FAILURE);
   if (mb_size <= 0)
-    return MB_FAILURE;
+    return error(MB_FAILURE);
   if (mb_type == MB_TAG_BIT)
     mb_size = 1;
 
-  dbgOut.printf( 2, "Tag: \"%s\"\n", name.c_str() );
+  debug_barrier();
+  dbgOut.printf( 2, "Writing tag: \"%s\"\n", name.c_str() );
 
 
   if (mb_data_type == MB_TYPE_HANDLE) {
@@ -1886,7 +1901,7 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
   Range::const_iterator iter = tag_data.range.begin();
   long num_writes = (remaining + chunk_size - 1)/chunk_size;
   if (tag_data.max_num_ents) {
-    assert( tag_data.max_num_ents >= (long)remaining );
+    assert( tag_data.max_num_ents >= remaining );
     num_writes = (tag_data.max_num_ents + chunk_size - 1)/chunk_size;
   }
   while (remaining)
@@ -1909,7 +1924,7 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data )
       mhdf_closeData( filePtr, tables[1], &status );
       if (value_type && value_type != id_type)
         H5Tclose( value_type );
-      return rval;
+      return error(rval);
     }
     
       // Convert EntityHandles to file ids
@@ -1963,7 +1978,7 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data )
   
     //get tag properties from moab
   if (MB_SUCCESS != iFace->tag_get_name( tag_data.tag_id, name ))
-    return MB_FAILURE;
+    return error(MB_FAILURE);
     
     // get type and size information
   int mb_size, type_size, file_size;
@@ -1977,13 +1992,13 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data )
                                   file_size,
                                   file_type,
                                   hdf_type ))
-    return MB_FAILURE;
+    return error(MB_FAILURE);
   bool close_hdf_type = false;
   
   if (mb_data_type == MB_TYPE_BIT) //can't do variable-length bit tags
-    return MB_FAILURE;
+    return error(MB_FAILURE);
   if (mb_size != MB_VARIABLE_LENGTH)
-    return MB_FAILURE;
+    return error(MB_FAILURE);
   if (mb_data_type == MB_TYPE_HANDLE && hdf_type == 0)
     hdf_type = id_type;
 
@@ -2353,7 +2368,7 @@ ErrorCode WriteHDF5::parallel_create_file( const char* ,
                                     int,
                                     int  )
 {
-  return MB_NOT_IMPLEMENTED;
+  return error(MB_NOT_IMPLEMENTED);
 }
 
 ErrorCode WriteHDF5::serial_create_file( const char* filename,
@@ -2667,7 +2682,7 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
   if (MB_VARIABLE_DATA_LENGTH == rval)
     num_bytes = MB_VARIABLE_LENGTH;
   else if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
 
   switch (moab_type)
   {
@@ -2702,18 +2717,18 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
       int hsize;
       rval = iFace->tag_get_size( type_handle, hsize );
       if (hsize != sizeof(hid_t))
-        return MB_FAILURE;
+        return error(MB_FAILURE);
       
       rval = iFace->tag_get_data( type_handle, 0, 0, &hdf_type );
       if (rval != MB_SUCCESS)
-        return rval;
+        return error(rval);
         
       elem_size = H5Tget_size(hdf_type);
       if (elem_size != num_bytes)
-        return MB_FAILURE;
+        return error(MB_FAILURE);
     }
     else {
-      return rval;
+      return error(rval);
     }
   }
   
@@ -2722,7 +2737,7 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
   }
   else {
     if (0 != (num_bytes % elem_size))
-      return MB_FAILURE;
+      return error(MB_FAILURE);
     file_size = num_bytes / elem_size;
   }
   
@@ -2750,7 +2765,7 @@ ErrorCode WriteHDF5::get_tag_data_length( const SparseTag& tag_info, unsigned lo
       // get tag sizes for entities
     rval = iFace->tag_get_data( tag_info.tag_id, subrange, ptr_buffer, size_buffer );
     if (MB_SUCCESS != rval)
-      return rval;
+      return error(rval);
       // sum lengths
     for (size_t i = 0; i < step; ++i)
       result += size_buffer[i];
@@ -2761,14 +2776,14 @@ ErrorCode WriteHDF5::get_tag_data_length( const SparseTag& tag_info, unsigned lo
   assert( subrange.size() == remaining );
   rval = iFace->tag_get_data( tag_info.tag_id, subrange, ptr_buffer, size_buffer );
   if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
   for (size_t i= 0; i < remaining; ++i)
     result += size_buffer[i];
     
   DataType type;
   rval = iFace->tag_get_data_type( tag_info.tag_id, type );
   if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
   switch (type) {
     case MB_TYPE_INTEGER: result /= sizeof(int);            break;
     case MB_TYPE_DOUBLE:  result /= sizeof(double);         break;
@@ -2776,7 +2791,7 @@ ErrorCode WriteHDF5::get_tag_data_length( const SparseTag& tag_info, unsigned lo
     case MB_TYPE_OPAQUE:                                    break;
       // We fail for MB_TYPE_BIT because MOAB currently does
       // not support variable-length bit tags.
-    default:          return MB_FAILURE;
+    default:          return error(MB_FAILURE);
   }
     
   return MB_SUCCESS;
@@ -2806,7 +2821,7 @@ ErrorCode WriteHDF5::create_tag( Tag tag_id,
     case MB_TAG_SPARSE:  storage = mhdf_SPARSE_TYPE; break;
     case MB_TAG_BIT:     storage = mhdf_BIT_TYPE;    break;
     case MB_TAG_MESH:    storage = mhdf_MESH_TYPE;   break;
-    default: return MB_FAILURE;
+    default: return error(MB_FAILURE);
   }
   rval = iFace->tag_get_name( tag_id, tag_name ); CHK_MB_ERR_0(rval);
   rval = get_tag_size( tag_id, mb_type, tag_size, elem_size, mhdf_size, mhdf_type, hdf_type );
@@ -2821,7 +2836,7 @@ ErrorCode WriteHDF5::create_tag( Tag tag_id,
     def_val_len = 0;
   }
   else if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
     
     // get mesh value
   rval = iFace->tag_get_data( tag_id, 0, 0, &mesh_value, &mesh_val_len );
@@ -2830,7 +2845,7 @@ ErrorCode WriteHDF5::create_tag( Tag tag_id,
     mesh_val_len = 0;
   }
   else if (MB_SUCCESS != rval)
-    return rval;
+    return error(rval);
   
     // for handle-type tags, need to convert from handles to file ids
   if (MB_TYPE_HANDLE == mb_type) {

@@ -216,7 +216,7 @@ public:
     bool write;
     //! If doing parallel IO, largest number of tag values to write
     //! for any processor (needed to do collective IO).  Zero if unused.
-    long max_num_ents;
+    unsigned long max_num_ents;
     
     
     bool operator<(const SparseTag&) const;
