@@ -162,7 +162,7 @@ ErrorCode ReadIDEAS::create_vertices(EntityHandle& first_vertex,
   file.seekg( top_of_block );
   
   std::vector<double*> arrays;
-  rval = readMeshIface->get_node_arrays( 3, num_verts, 0, first_vertex, arrays );
+  rval = readMeshIface->get_node_coords( 3, num_verts, 0, first_vertex, arrays );
   if (MB_SUCCESS != rval)
     return rval;
 

@@ -441,7 +441,7 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
 
   EntityHandle node_handle = 0;
   std::vector<double*> arrays;
-  readMeshIface->get_node_arrays(3, numberNodes_loading, 
+  readMeshIface->get_node_coords(3, numberNodes_loading, 
       MB_START_ID, node_handle, arrays);
   
   vertexOffset = ID_FROM_HANDLE( node_handle ) - MB_START_ID;
@@ -647,7 +647,7 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
     const EntityType mb_type = ExoIIUtil::ExoIIElementMBEntity[(*this_it).elemType];
 
     // allocate an array to read in connectivity data
-    readMeshIface->get_element_array(
+    readMeshIface->get_element_connect(
         this_it->numElements,
         verts_per_element,
         mb_type,

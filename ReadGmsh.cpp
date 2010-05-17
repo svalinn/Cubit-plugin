@@ -151,7 +151,7 @@ ErrorCode ReadGmsh::load_file( const char* filename,
     // allocate nodes
   std::vector<double*> coord_arrays;
   EntityHandle handle = 0;
-  result = readMeshIface->get_node_arrays( 3, num_nodes, MB_START_ID, 
+  result = readMeshIface->get_node_coords( 3, num_nodes, MB_START_ID, 
                                            handle, coord_arrays );
   if (MB_SUCCESS != result)
     return result;
@@ -356,7 +356,7 @@ ErrorCode ReadGmsh::create_elements( const GmshElemType& type,
     // Create the element sequence
   EntityHandle handle = 0;
   EntityHandle* conn_array;
-  result = readMeshIface->get_element_array( num_elem, node_per_elem, type.mb_type,
+  result = readMeshIface->get_element_connect( num_elem, node_per_elem, type.mb_type,
                                              MB_START_ID, 
                                              handle, conn_array );
   if (MB_SUCCESS != result)

@@ -131,7 +131,7 @@ ErrorCode ReadNASTRAN::load_file(const char                  *filename,
   // Now that the number of vertices is known, create the vertices.
   EntityHandle start_vert = NULL;
   std::vector<double*> coord_arrays(3);
-  result = readMeshIface->get_node_arrays( 3, entity_count[0], MB_START_ID,
+  result = readMeshIface->get_node_coords( 3, entity_count[0], MB_START_ID,
 					   start_vert, coord_arrays );
   if(MB_SUCCESS != result) return result;
   if(0 == start_vert) return MB_FAILURE; // check for NULL

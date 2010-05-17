@@ -554,7 +554,7 @@ ErrorCode WriteSLAC::write_nodes(const int num_nodes, const Range& nodes, const 
   if( num_coords_to_fill == 3 ) 
     coord_arrays[2] = new double[num_nodes];
  
-  result = mWriteIface->get_node_arrays(dimension, num_nodes, nodes, 
+  result = mWriteIface->get_node_coords(dimension, num_nodes, nodes, 
                                         mGlobalIdTag, 0, coord_arrays);
   if(result != MB_SUCCESS)
   {

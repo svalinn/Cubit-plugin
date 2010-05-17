@@ -156,7 +156,7 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
     // create the vertices
   std::vector<double*> coord_arrays;
   EntityHandle vstart = 0;
-  result = readMeshIface->get_node_arrays( 3, nvertices, MB_START_ID, 
+  result = readMeshIface->get_node_coords( 3, nvertices, MB_START_ID, 
                                            vstart, coord_arrays );
   CHECK("Failed to get node arrays.");
   if (MB_SUCCESS != result)
@@ -219,7 +219,7 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
   int vert1, vert2, num_pts;
   std::vector<EntityHandle> everts(2);
   EntityHandle estart, *connect;
-  result = readMeshIface->get_element_array(nedges, 2, MBEDGE, 1, estart, connect);
+  result = readMeshIface->get_element_connect(nedges, 2, MBEDGE, 1, estart, connect);
   CHECK("Failed to create array of edges.");
   if (MB_SUCCESS != result) return result;
     

@@ -71,49 +71,13 @@ public:
                           int num_tags,
                           int export_dimension);
   
-//! struct used to hold data for each block to be output; used by
-//! initialize_file to initialize the file header for increased speed
-  struct MaterialSetData
-  {
-    int id;
-    int number_elements;
-    int number_nodes_per_element;
-    int number_attributes;
-    ExoIIElementType element_type;
-    EntityType moab_type;
-    Range *elements;
-  };
-
-//! struct used to hold data for each nodeset to be output; used by
-//! initialize_file to initialize the file header for increased speed
-  struct DirichletSetData
-  {
-    int id;
-    int number_nodes;
-    std::vector< EntityHandle > nodes;
-    std::vector< double > node_dist_factors;
-  
-  };
-
-//! struct used to hold data for each sideset to be output; used by
-//! initialize_file to initialize the file header for increased speed
-  struct NeumannSetData
-  {
-    int id;
-    int number_elements;
-    std::vector<EntityHandle> elements;
-    std::vector<int> side_numbers;
-    EntityHandle mesh_set_handle;
-  };
-
-
 protected:
 
     //! number of dimensions in this file
   //int number_dimensions();
 
     //! open a file for writing
-  ErrorCode open_file(const char *filename);
+  ErrorCode open_file(const char *filename, bool overwrite);
 
   //! contains the general information about a mesh
   class MeshInfo
@@ -132,6 +96,36 @@ protected:
           num_dirsets(0), num_neusets(0)
       {}
     
+  };
+
+    // material set information
+  class MaterialSetData
+  {
+  public:
+    Range elems; // elements in material set
+    EntityHandle setHandle; // handle of the material set
+    EntityType entityType; // entity type of these elements
+    int verts_per_element; // number of vertices in each element
+    int matsetId; // id of this matset, from MATERIAL_SET tag
+
+    MaterialSetData() 
+            : setHandle(0), entityType(MBMAXTYPE), verts_per_element(0), matsetId(-1)
+        {}
+  };
+  
+    // neumann set information
+  class NeumannSetData
+  {
+  public:
+    Range elems; // elements in neumann set
+    EntityHandle setHandle; // handle of the neumann set
+    EntityType entityType; // entity type of these elements
+    int verts_per_element; // number of vertices in each element
+    int neusetId; // id of this matset, from NEUMANN_SET tag
+
+    NeumannSetData() 
+            : setHandle(0), entityType(MBMAXTYPE), verts_per_element(0), neusetId(-1)
+        {}
   };
   
 private:
@@ -158,25 +152,45 @@ private:
 
   Tag mEntityMark;   //used to say whether an entity will be exported
 
-  ErrorCode gather_mesh_information(MeshInfo &mesh_info,
-                                      std::vector<MaterialSetData> &matset_info,
-                                      std::vector<NeumannSetData> &neuset_info,
-                                      std::vector<DirichletSetData> &dirset_info,
-                                      std::vector<EntityHandle> &matsets,
-                                      std::vector<EntityHandle> &neusets,
-                                      std::vector<EntityHandle> &dirsets);
+  int mDimension; // dimension of entities being exported
+
+  bool mWholeMesh; // if true, whole mesh is being output
+
+    //! some CCMIO descriptors
+  CCMIOID rootID, topologyID, stateID, problemID, verticesID;
+
+    //! gathers elements in each matset, and all the vertices used by them;
+    //! marks the vertices with the mEntityMark bit flag
+  ErrorCode gather_matset_info(std::vector<EntityHandle> &matsets,
+                               std::vector<MaterialSetData> &matset_data,
+                               Range &all_verts);
   
+    //! gathers elements in each neuset
+  ErrorCode gather_neuset_info(std::vector<EntityHandle> &neusets,
+                               std::vector<NeumannSetData> &neuset_data,
+                               Range &all_facets);
+  
+  ErrorCode close_and_compress(const char *filename);
+    
   ErrorCode initialize_file(MeshInfo &mesh_info);
 
-  ErrorCode write_nodes(CCMIOID rootID, const Range& nodes, 
-                          const int dimension, int *&vgids);
+    //! write vertices to file
+  ErrorCode write_nodes(const Range& nodes, const int dimension);
+  
+    //! write cells and internal/boundary faces, using vgids and verts input
+  ErrorCode write_cells_and_faces(std::vector<WriteCCMIO::MaterialSetData> &matset_data,
+                                  std::vector<EntityHandle> &neusets,
+                                  Range &verts);
+
+    //! write external faces, including connectivity and connected cells
+  ErrorCode write_external_faces(int set_num, Range &facets);
   
     // get global ids for these entities; allocates gids and passes back,
     // caller is responsible for deleting
   ErrorCode get_gids(const Range &ents, int *&gids,
                        int &minid, int &maxid);
   
-  ErrorCode write_matsets(MeshInfo &mesh_info, 
+  ErrorCode write_meshes(MeshInfo &mesh_info, 
                             std::vector<MaterialSetData> &matset_data,
                             std::vector<NeumannSetData> &neuset_data,
                             Range &verts,
@@ -192,7 +206,19 @@ private:
   
   ErrorCode transform_coords(const int dimension, const int num_nodes, double *coords);
 
-  ErrorCode write_problem_description(CCMIOID rootID, CCMIOID stateID);
+  ErrorCode write_problem_description();
+
+    // get the material, dirichlet, neumann, and partition sets to be written,
+    // either from input sets or in the whole mesh
+  ErrorCode get_sets(const EntityHandle *ent_handles,
+                     int num_sets,
+                     std::vector<EntityHandle> &matsets,
+                     std::vector<EntityHandle> &dirsets,
+                     std::vector<EntityHandle> &neusets,
+                     std::vector<EntityHandle> &partsets);
+  
+    //! create nodes in CCMIO file structure
+  ErrorCode create_ccmio_structure();
 };
 
 } // namespace moab

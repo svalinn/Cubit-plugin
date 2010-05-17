@@ -803,7 +803,7 @@ ErrorCode WriteHDF5::write_nodes( )
     {
       if (d < mesh_dim)
       {
-        rval = writeUtil->get_node_array( d, iter, end, count, buffer );
+        rval = writeUtil->get_node_coords( d, iter, end, count, buffer );
         CHK_MB_ERR_1(rval, node_table, status);
       }
       else
@@ -884,7 +884,7 @@ ErrorCode WriteHDF5::write_elems( ExportSet& elems )
   
     Range::iterator next = iter;
     next += count;
-    rval = writeUtil->get_element_array( iter, next, elems.num_nodes, 
+    rval = writeUtil->get_element_connect( iter, next, elems.num_nodes, 
                                          count * elems.num_nodes, buffer );
     CHK_MB_ERR_1(rval, elem_table, status);
     iter = next;

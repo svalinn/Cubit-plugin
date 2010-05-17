@@ -314,7 +314,7 @@ ErrorCode ReadTetGen::read_node_file( std::istream& file,
     // allocate vertices
   std::vector<double*> coords;
   EntityHandle start_handle;
-  rval = readTool->get_node_arrays( dim, num_vtx, 1, start_handle, coords );
+  rval = readTool->get_node_coords( dim, num_vtx, 1, start_handle, coords );
   if (MB_SUCCESS != rval)
     return rval;
   
@@ -423,7 +423,7 @@ ErrorCode ReadTetGen::read_elem_file( EntityType type,
   
     // allocate elements
   EntityHandle start_handle, *conn_array;
-  rval = readTool->get_element_array( num_elem, node_per_elem, type, 1, start_handle, conn_array );
+  rval = readTool->get_element_connect( num_elem, node_per_elem, type, 1, start_handle, conn_array );
   if (MB_SUCCESS != rval)
     return rval;
   elems.insert( start_handle, start_handle + num_elem - 1 );

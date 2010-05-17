@@ -1045,7 +1045,7 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
   
   EntityHandle handle;
   std::vector<double*> arrays(dim);
-  rval = readUtil->get_node_arrays( dim, (int)node_file_ids.size(), 0, handle, arrays );
+  rval = readUtil->get_node_coords( dim, (int)node_file_ids.size(), 0, handle, arrays );
   if (MB_SUCCESS != rval)
   {
     mhdf_closeData( filePtr, data_id, &status );
@@ -1134,7 +1134,7 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
     
     EntityHandle handle;
     EntityHandle* array;
-    rval = readUtil->get_element_array( (int)count,
+    rval = readUtil->get_element_connect( (int)count,
                                          nodes_per_elem,
                                          type,
                                          0,
@@ -1242,7 +1242,7 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group,
       // create elements
     EntityHandle handle;
     EntityHandle* array;
-    rval = readUtil->get_element_array( (int)num_elem,
+    rval = readUtil->get_element_connect( (int)num_elem,
                                          node_per_elem,
                                          type,
                                          0,

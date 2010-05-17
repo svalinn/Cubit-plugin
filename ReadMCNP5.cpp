@@ -760,7 +760,7 @@ ErrorCode ReadMCNP5::create_vertices( std::vector<double> planes[3],
   int n_verts = planes[0].size() * planes[1].size() * planes[2].size();
   if (debug) std::cout << "n_verts=" << n_verts << std::endl;
   std::vector<double*> coord_arrays(3);
-  result = readMeshIface->get_node_arrays( 3, n_verts, MB_START_ID, 
+  result = readMeshIface->get_node_coords( 3, n_verts, MB_START_ID, 
                                            start_vert, coord_arrays );
   if(MB_SUCCESS != result) return result;
   assert(0 != start_vert); // check for NULL
@@ -815,7 +815,7 @@ ErrorCode ReadMCNP5::create_elements( bool                debug,
   unsigned int n_elements = (planes[0].size()-1) * (planes[1].size()-1) 
                                                  * (planes[2].size()-1);
   EntityHandle *connect;
-  result = readMeshIface->get_element_array( n_elements, 8, MBHEX, MB_START_ID, 
+  result = readMeshIface->get_element_connect( n_elements, 8, MBHEX, MB_START_ID, 
                                              start_element, connect );
   if(MB_SUCCESS != result) return result;
   assert(0 != start_element); // check for NULL

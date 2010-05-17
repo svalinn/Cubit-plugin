@@ -219,7 +219,7 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
   coord_arrays.push_back(zcoord);
   
     // fill them in, writing id tags at the same time
-  result = mWriteIface->get_node_arrays(3, num_verts, all_verts, mGlobalIdTag, 1, coord_arrays);
+  result = mWriteIface->get_node_coords(3, num_verts, all_verts, mGlobalIdTag, 1, coord_arrays);
   if (MB_SUCCESS != result) return result;
 
   int i, j;
@@ -275,7 +275,7 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
         connect.reserve(verts_per*sub_range.size());
     
         // get the connectivity
-      result = mWriteIface->get_element_array(sub_range.size(),
+      result = mWriteIface->get_element_connect(sub_range.size(),
                                               verts_per,
                                               mGlobalIdTag, sub_range,
                                               mGlobalIdTag, 1, &connect[0]);

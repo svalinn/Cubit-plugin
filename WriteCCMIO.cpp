@@ -1,18 +1,44 @@
-/**
- * MOAB, a Mesh-Oriented datABase, is a software component for creating,
- * storing and accessing finite element mesh data.
- * 
- * Copyright 2004 Sandia Corporation.  Under the terms of Contract
- * DE-AC04-94AL85000 with Sandia Coroporation, the U.S. Government
- * retains certain rights in this software.
- * 
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- * 
+/*
+ * CCMIO file structure
+ *
+ * Root
+ *   State(kCCMIOState)
+ *     Processor*
+ *       VerticesID
+ *       TopologyID
+ *       InitialID
+ *       SolutionID
+ *   Vertices*
+ *     ->WriteVerticesx, WriteMap
+ *   Topology*
+ *     Boundary faces*(kCCMIOBoundaryFaces)
+ *        ->WriteFaces, WriteFaceCells, WriteMap
+ *     Internal faces(kCCMIOInternalFaces)
+ *     Cells (kCCMIOCells)
+ *        ->WriteCells (mapID), WriteMap, WriteCells
+ *   Solution
+ *     Phase
+ *       Field
+ *         FieldData
+ *   Problem(kCCMIOProblemDescription)
+ *     CellType* (kCCMIOCellType)
+ *       Index (GetEntityIndex), MaterialId(WriteOpti), MaterialType(WriteOptstr),
+ *         PorosityId(WriteOpti), SpinId(WriteOpti), GroupId(WriteOpti)
+ *
+ * MaterialType (CCMIOWriteOptstr in readexample)
+ * constants (see readexample)
+ * lagrangian data (CCMIOWriteLagrangianData)
+ * vertices label (CCMIOEntityDescription)
+ * restart info: char solver[], iteratoins, time, char timeUnits[], angle
+ *      (CCMIOWriteRestartInfo, kCCMIORestartData), reference data?
+ * phase:
+ *   field: char name[], dims, CCMIODataType datatype, char units[]
+ *       dims = kCCMIOScalar (CCMIOWriteFieldDataf), 
+ *              kCCMIOVector (CCMIOWriteMultiDimensionalFieldData),
+ *              kCCMIOTensor
+ * MonitoringSets: num, name (CellSet, VertexSet, BoundarySet, BlockSet, SplineSet, CoupleSet)
+ *      CCMIOGetProstarSet, CCMIOWriteOpt1i,
  */
-
 
 #ifdef WIN32
 #ifdef _DEBUG
@@ -39,6 +65,7 @@
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
 #include "moab/CN.hpp"
+#include "moab/Skinner.hpp"
 #include "assert.h"
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
@@ -64,13 +91,19 @@ static const int ccm_types[] = {
 };
 
 #define INS_ID(stringvar, prefix, id)           \
-    sprintf(stringvar, prefix, id)
+sprintf(stringvar, prefix, id)
 
+#define CHKERR(a, b)                                 \
+    {if (MB_SUCCESS != a) {if (b) mWriteIface->report_error(b); return a;}}
+
+#define CHKCCMERR(a, b)                                 \
+    {if (kCCMIONoErr != a && kCCMIONoFileErr != a) {if (b) mWriteIface->report_error(b); return MB_FAILURE;}}
+  
 WriterIface* WriteCCMIO::factory( Interface* iface )
 { return new WriteCCMIO( iface ); }
 
 WriteCCMIO::WriteCCMIO(Interface *impl) 
-        : mbImpl(impl), mCurrentMeshHandle(0)
+        : mbImpl(impl), mCurrentMeshHandle(0), mWholeMesh(false)
 {
   assert(impl != NULL);
 
@@ -120,8 +153,15 @@ WriteCCMIO::WriteCCMIO(Interface *impl)
                               &dum_val);
   
 
-  impl->tag_create("WriteCCMIO element mark", 1, MB_TAG_BIT, mEntityMark, NULL);
+  impl->tag_create("__WriteCCMIO element mark", 1, MB_TAG_BIT, mEntityMark, NULL);
 
+  result = mbImpl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
+  if (MB_TAG_NOT_FOUND == result) {
+    int dum_val_array[] = {0, 0, 0, 0};
+    result = mbImpl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, mHasMidNodesTag,
+                                dum_val_array);
+  }
+  
 }
 
 WriteCCMIO::~WriteCCMIO() 
@@ -133,40 +173,153 @@ WriteCCMIO::~WriteCCMIO()
 
 }
 
-void WriteCCMIO::reset_matset(std::vector<WriteCCMIO::MaterialSetData> &matset_info)
-{
-  std::vector<WriteCCMIO::MaterialSetData>::iterator iter;
-  
-  for (iter = matset_info.begin(); iter != matset_info.end(); iter++)
-  {
-    delete (*iter).elements;
-  }
-}
-
 ErrorCode WriteCCMIO::write_file(const char *file_name, 
-                                   const bool /* overwrite (commented out to remove warning) */,
-                                   const FileOptions& opts,
-                                   const EntityHandle *ent_handles,
-                                   const int num_sets,
-                                   const std::vector<std::string>&,
-                                   const Tag* ,
-                                   int ,
-                                   int )
+                                 const bool overwrite,
+                                 const FileOptions& opts,
+                                 const EntityHandle *ent_handles,
+                                 const int num_sets,
+                                 const std::vector<std::string>&,
+                                 const Tag* ,
+                                 int ,
+                                 int )
 {
   assert(0 != mMaterialSetTag &&
          0 != mNeumannSetTag &&
          0 != mDirichletSetTag);
 
-    // check the file name
-  if (NULL == strstr(file_name, ".ccmio"))
-    return MB_FAILURE;
+  ErrorCode result;
+  
+    // check overwrite flag and file existence
+  if (!overwrite) {
+    FILE *file = fopen(file_name, "r");
+    if (file) {
+      fclose(file);
+      result = MB_FILE_WRITE_ERROR;
+      CHKERR(result, "File exists but overwrite set to false.");
+    }
+  }
+  
+  mDimension = 3;
 
   std::vector<EntityHandle> matsets, dirsets, neusets, partsets, entities;
 
-  fileName = file_name;
-  
-    // separate into material sets, dirichlet sets, neumann sets
+    // separate into material, dirichlet, neumann, partition sets
+  result = get_sets(ent_handles, num_sets, matsets, 
+                    dirsets, neusets, partsets);
+  CHKERR(result, "Failed to get material/etc. sets.");
 
+    // if entity handles were input but didn't contain matsets, return error
+  if (ent_handles && matsets.empty()) {
+    result = MB_FILE_WRITE_ERROR;
+    CHKERR(result, "Sets input to write but no material sets found.");
+  }
+
+    // otherwise, if no matsets, use root set
+  if (matsets.empty()) matsets.push_back(0);
+
+  std::vector<MaterialSetData> matset_info(matsets.size());
+  Range all_verts;
+  result = gather_matset_info(matsets, matset_info, all_verts);
+  CHKERR(result, "gathering nodes failed.");
+
+    // assign vertex gids
+  result = mWriteIface->assign_ids(all_verts, mGlobalIdTag, 1);
+  CHKERR(result, "Failed to assign vertex global ids.");
+
+    // try to open the file and establish state
+  result = open_file(file_name, overwrite);
+  CHKERR(result, "Couldn't open file or create state.");
+
+  result = create_ccmio_structure();
+  CHKERR(result, "Problem creating CCMIO file structure.");
+  
+  CCMIOSize_t i = CCMIOSIZEC(0);
+
+  result = write_nodes(all_verts, mDimension);
+  CHKERR(result, "write_nodes failed.");
+
+  result = write_cells_and_faces(matset_info, neusets, all_verts);
+  CHKERR(result, "write_cells_and_faces failed.");
+
+  result = write_problem_description();
+  CHKERR(result, "write_problem_description failed.");
+
+  result = close_and_compress(file_name);
+  CHKERR(result, "close or compress failed.");
+
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteCCMIO::create_ccmio_structure() 
+{
+    // create problem state and other CCMIO nodes under it
+  CCMIOError error = kCCMIONoErr;
+  
+  CCMIONewEntity(&error, rootID, kCCMIOProblemDescription, "Dummy description",
+                 &problemID);
+  CHKCCMERR(error, "Trouble creating problem node.");
+
+  CCMIONewEntity(&error, rootID, kCCMIOVertices, "Vertices", &verticesID);
+  CHKCCMERR(error, "Trouble creating vertices node.");
+
+  CCMIONewEntity(&error, rootID, kCCMIOTopology, "Topology", &topologyID);
+  CHKCCMERR(error, "Trouble creating topology node.");
+
+    // Create a new state (or re-use an existing one).
+  CCMIONewState(&error, rootID, kStateName, NULL, NULL, &stateID);
+  CHKCCMERR(error, "Trouble creating state.");
+
+//  for (; i < CCMIOSIZEC(partsets.size()); i++) {
+  CCMIOSize_t id = CCMIOSIZEC(0);
+  CCMIOID processorID;
+  if (CCMIONextEntity(NULL, stateID, kCCMIOProcessor, &id, &processorID) != kCCMIONoErr)
+    CCMIONewEntity(&error, stateID, kCCMIOProcessor, NULL, &processorID);
+
+    // Get rid of any data that may be in this processor (if the state was
+    // not new).
+  else
+    CCMIOClearProcessor(&error, stateID, processorID, TRUE, TRUE, TRUE, TRUE,
+                        TRUE);
+//  }
+  CHKCCMERR(error, "Trouble creating processor node.");
+
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteCCMIO::close_and_compress(const char *filename)
+{
+  CCMIOError error = kCCMIONoErr;
+  CCMIOCloseFile(&error, rootID);
+  CHKCCMERR(error, "File close failed.");
+
+    // The CCMIO library uses ADF to store the actual data.  Unfortunately,
+    // ADF leaks disk space;  deleting a node does not recover all the disk
+    // space.  Now that everything is successfully written it might be useful
+    // to call CCMIOCompress() here to ensure that the file is as small as
+    // possible.  Please see the Core API documentation for caveats on its
+    // usage.
+  CCMIOCompress(&error, const_cast<char*>(filename));
+  CHKCCMERR(error, "Error compressing file.");
+
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteCCMIO::open_file(const char *filename, bool overwrite) 
+{
+  CCMIOError error = kCCMIONoErr;
+  CCMIOOpenFile(&error, filename, kCCMIOWrite, &rootID);
+  CHKCCMERR(error, "Cannot open file.");
+
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteCCMIO::get_sets(const EntityHandle *ent_handles,
+                               int num_sets,
+                               std::vector<EntityHandle> &matsets,
+                               std::vector<EntityHandle> &dirsets,
+                               std::vector<EntityHandle> &neusets,
+                               std::vector<EntityHandle> &partsets) 
+{
   if (num_sets == 0) {
       // default to all defined sets
     Range this_range;
@@ -201,435 +354,123 @@ ErrorCode WriteCCMIO::write_file(const char *file_name,
     }
   }
 
-  ErrorCode result = mbImpl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
-  if (MB_TAG_NOT_FOUND == result) {
-    int dum_val_array[] = {0, 0, 0, 0};
-    result = mbImpl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, mHasMidNodesTag,
-                                dum_val_array);
-  }
-  
-    // if there is nothing to write just return.
-  if (matsets.empty() && dirsets.empty() && neusets.empty() && partsets.empty())
-    return MB_FILE_WRITE_ERROR;
-
-  std::vector<WriteCCMIO::MaterialSetData> matset_info;
-  std::vector<WriteCCMIO::DirichletSetData> dirset_info;
-  std::vector<WriteCCMIO::NeumannSetData> neuset_info;
-
-  MeshInfo mesh_info;
-  
-  matset_info.clear();
-  if(gather_mesh_information(mesh_info, matset_info, neuset_info, dirset_info,
-                             matsets, neusets, dirsets) != MB_SUCCESS)
-  {
-    reset_matset(matset_info);
-    return MB_FAILURE;
-  }
-
-
-    // try to open the file after gather mesh info succeeds
-  CCMIOSize_t i = CCMIOSIZEC(0);
-  CCMIOID stateID, processorID, rootID;
-  CCMIOError error = kCCMIONoErr;
-
-  CCMIOOpenFile(&error, file_name, kCCMIOWrite, &rootID);
-  if(kCCMIONoErr != error)
-  {
-    mWriteIface->report_error("Cannot open %s", file_name);
-    return MB_FAILURE;
-  }
-
-    // Create a new state (or re-use an existing one).
-  CCMIONewState(&error, rootID, kStateName, NULL, NULL, &stateID);
-  if (kCCMIONoErr != error) {
-    reset_matset(matset_info);
-    return MB_FAILURE;
-  }
-
-//  for (; i < CCMIOSIZEC(partsets.size()); i++) {
-  if (CCMIONextEntity(NULL, stateID, kCCMIOProcessor, &i, &processorID) != kCCMIONoErr)
-    CCMIONewEntity(&error, stateID, kCCMIOProcessor, NULL, &processorID);
-
-    // Get rid of any data that may be in this processor (if the state was
-    // not new).
-  else
-    CCMIOClearProcessor(&error, stateID, processorID, TRUE, TRUE, TRUE, TRUE,
-                        TRUE);
-//  }
-
-  int *vgids;
-  if( write_nodes(rootID, mesh_info.nodes, mesh_info.num_dim, vgids) 
-      != MB_SUCCESS )
-  {
-    reset_matset(matset_info);
-    return MB_FAILURE;
-  }
-
-  if( write_matsets(mesh_info, matset_info, neuset_info, mesh_info.nodes, vgids) )
-  {
-    reset_matset(matset_info);
-    return MB_FAILURE;
-  }
-
-  if (write_problem_description(rootID, stateID)) {
-    return MB_FAILURE;
-  }
-  
-  CCMIOCloseFile(&error, rootID);
-
-  if (error != kCCMIONoErr)
-  {
-    return MB_FAILURE;
-  }
-
-  // The CCMIO library uses ADF to store the actual data.  Unfortunately,
-  // ADF leaks disk space;  deleting a node does not recover all the disk
-  // space.  Now that everything is successfully written it might be useful
-  // to call CCMIOCompress() here to ensure that the file is as small as
-  // possible.  Please see the Core API documentation for caveats on its
-  // usage.
-  if (CCMIOCompress(NULL, const_cast<char*>(file_name)) != kCCMIONoErr)
-  {
-    std::cout << "Error compressing file.  Check that you have "
-              << "adequate disk space " << std::endl << "and that you have write "
-              << "permission to the current directory." << std::endl;
-    return MB_FAILURE;
-  }
-
   return MB_SUCCESS;
 }
-
-ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID) 
+      
+ErrorCode WriteCCMIO::write_problem_description() 
 {
-  // Write out a dummy problem description.  If we happen to know that
-  // there already is a problem description previously recorded that
-  // is valid we could skip this step.
-  CCMIOID problem, constants, id;
+    // Write out a dummy problem description.  If we happen to know that
+    // there already is a problem description previously recorded that
+    // is valid we could skip this step.
+  CCMIOID constants, id;
   CCMIOError error = kCCMIONoErr;
 
-  CCMIONewEntity(&error, rootID, kCCMIOProblemDescription, "Dummy description",
-                 &problem);
-  CCMIONewIndexedEntity(&error, problem, kCCMIOCellType, 1, "Dummy celltypes", &id);
+
+  CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, 1, "Dummy celltypes", &id);
   CCMIOWriteOptstr(&error, id, "MaterialType", "solid");
-  CCMIONewIndexedEntity(&error, problem, kCCMIOCellType, 2, "Dummy celltypes", &id);
+  CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, 2, "Dummy celltypes", &id);
   CCMIOWriteOptstr(&error, id, "MaterialType", "solid");
 
-  CCMIONewEntity(&error, problem, kCCMIOModelConstants, "Constant values",
+  CCMIONewEntity(&error, problemID, kCCMIOModelConstants, "Constant values",
                  &constants);
   CCMIOWriteOptf(&error, constants, "Gravity", 9.82);
   CCMIOWriteOptf(&error, constants, "B.P. of water", 373);
 
-  // We have problem description recorded but our state does not know
-  // about it.  So tell the state that it has a problem description.
-  CCMIOWriteState(&error, stateID, problem, "Example state");
+    // We have problem description recorded but our state does not know
+    // about it.  So tell the state that it has a problem description.
+  CCMIOWriteState(&error, stateID, problemID, "Example state");
+
+    // get cell types; reuse cell ids array
+//  for (i = 0, rit = all_elems.begin(); i < num_elems; i++, rit++) {
+//    egids[i] = ccm_types[mbImpl->type_from_handle(*rit)];
+//    assert(-1 != egids[i]);
+//  }
 
   return MB_SUCCESS;
 }
 
 
-ErrorCode WriteCCMIO::gather_mesh_information(MeshInfo &mesh_info,
-                                                std::vector<WriteCCMIO::MaterialSetData> &matset_info,
-                                                std::vector<WriteCCMIO::NeumannSetData> &neuset_info,
-                                                std::vector<WriteCCMIO::DirichletSetData> &dirset_info,
-                                                std::vector<EntityHandle> &matsets,
-                                                std::vector<EntityHandle> &neusets,
-                                                std::vector<EntityHandle> &dirsets)
+ErrorCode WriteCCMIO::gather_matset_info(std::vector<EntityHandle> &matsets,
+                                         std::vector<MaterialSetData> &matset_data,
+                                         Range &all_verts)
 {
-
-  std::vector<EntityHandle>::iterator vector_iter, end_vector_iter;
-
-  mesh_info.num_nodes = 0;
-  mesh_info.num_elements = 0;
-  mesh_info.num_matsets = 0;
-  
-  int id = 0;
-
-  vector_iter= matsets.begin();
-  end_vector_iter = matsets.end();
-
-  mesh_info.num_matsets = matsets.size();
-
-  std::vector<EntityHandle> parent_meshsets;
-
-    // clean out the bits for the element mark
-  mbImpl->tag_delete(mEntityMark);
-  mbImpl->tag_create("WriteCCMIO element mark", 1, MB_TAG_BIT, mEntityMark, NULL);
-
-  int highest_dimension_of_element_matsets = 0;
-
-  for(vector_iter = matsets.begin(); vector_iter != matsets.end(); vector_iter++)
-  {
-       
-    WriteCCMIO::MaterialSetData matset_data;
-    matset_data.elements = new Range;
-
-      //for the purpose of qa records, get the parents of these matsets 
-    if( mbImpl->get_parent_meshsets( *vector_iter, parent_meshsets ) != MB_SUCCESS )
-      return MB_FAILURE;
-
-      // get all Entity Handles in the mesh set
-    Range dummy_range;
-    mbImpl->get_entities_by_handle(*vector_iter, dummy_range, true );
-
-      // find the dimension of the last entity in this range
-    Range::iterator entity_iter = dummy_range.end();
-    entity_iter = dummy_range.end();
-    entity_iter--;
-    int this_dim = CN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
-    entity_iter = dummy_range.begin();
-    while (entity_iter != dummy_range.end() &&
-           CN::Dimension(TYPE_FROM_HANDLE(*entity_iter)) != this_dim)
-      entity_iter++;
-    
-    if (entity_iter != dummy_range.end())
-      std::copy(entity_iter, dummy_range.end(), range_inserter(*(matset_data.elements)));
-
-    assert(matset_data.elements->begin() == matset_data.elements->end() ||
-           CN::Dimension(TYPE_FROM_HANDLE(*(matset_data.elements->begin()))) == this_dim);
-    
-      // get the matset's id
-    if(mbImpl->tag_get_data(mMaterialSetTag, &(*vector_iter), 1, &id) != MB_SUCCESS ) {
-      mWriteIface->report_error("Couldn't get matset id from a tag for an element matset.");
-      return MB_FAILURE;
-    }
-    
-    matset_data.id = id; 
-    matset_data.number_attributes = 0;
- 
-      // iterate through all the elements in the meshset
-    Range::iterator elem_range_iter, end_elem_range_iter;
-    elem_range_iter = matset_data.elements->begin();
-    end_elem_range_iter = matset_data.elements->end();
-
-      // get the entity type for this matset, verifying that it's the same for all elements
-      // THIS ASSUMES HANDLES SORT BY TYPE!!!
-    EntityType entity_type = TYPE_FROM_HANDLE(*elem_range_iter);
-    end_elem_range_iter--;
-    if (entity_type != TYPE_FROM_HANDLE(*(end_elem_range_iter++))) {
-      mWriteIface->report_error("Entities in matset %i not of common type", id);
-      return MB_FAILURE;
-    }
-
-    int dimension = CN::Dimension(entity_type);
-
-    if( dimension > highest_dimension_of_element_matsets )
-      highest_dimension_of_element_matsets = dimension;
-
-    matset_data.moab_type = mbImpl->type_from_handle(*(matset_data.elements->begin()));
-    if (MBMAXTYPE == matset_data.moab_type) return MB_FAILURE;
-    
-    std::vector<EntityHandle> tmp_conn;
-    mbImpl->get_connectivity(&(*(matset_data.elements->begin())), 1, tmp_conn);
-    matset_data.element_type = 
-        ExoIIUtil::get_element_type_from_num_verts(tmp_conn.size(), entity_type, dimension);
-    
-    if (matset_data.element_type == EXOII_MAX_ELEM_TYPE) {
-      mWriteIface->report_error("Element type in matset %i didn't get set correctly", id);
-      return MB_FAILURE;
-    }
-    
-    matset_data.number_nodes_per_element = ExoIIUtil::VerticesPerElement[matset_data.element_type];
-
-      // number of nodes for this matset
-    matset_data.number_elements = matset_data.elements->size();
-
-      // total number of elements
-    mesh_info.num_elements += matset_data.number_elements;
-
-      // get the nodes for the elements
-    mWriteIface->gather_nodes_from_elements(*matset_data.elements, mEntityMark, mesh_info.nodes);
-
-    if(!neusets.empty())
-    {
-        // if there are neusets, keep track of which elements are being written out
-      for(Range::iterator iter = matset_data.elements->begin(); 
-          iter != matset_data.elements->end(); ++iter)
-      {
-        unsigned char bit = 0x1;
-        mbImpl->tag_set_data(mEntityMark, &(*iter), 1, &bit);
-      }
-    }
-
-    matset_info.push_back( matset_data );
-  
-  }
- 
-
-    //if user hasn't entered dimension, we figure it out
-  if( mesh_info.num_dim == 0 )
-  {
-      //never want 1 or zero dimensions
-    if( highest_dimension_of_element_matsets < 2 )
-      mesh_info.num_dim = 3;
-    else
-      mesh_info.num_dim = highest_dimension_of_element_matsets;
-  }
-
-  Range::iterator range_iter, end_range_iter;
-  range_iter = mesh_info.nodes.begin();
-  end_range_iter = mesh_info.nodes.end();
-
-  mesh_info.num_nodes = mesh_info.nodes.size(); 
-
-    //------dirsets--------
-  
-  vector_iter= dirsets.begin();
-  end_vector_iter = dirsets.end();
-
-  for(; vector_iter != end_vector_iter; vector_iter++)
-  {
-    
-    WriteCCMIO::DirichletSetData dirset_data;
-    dirset_data.id = 0;
-    dirset_data.number_nodes = 0;
-
-      // get the dirset's id
-    if(mbImpl->tag_get_data(mDirichletSetTag,&(*vector_iter), 1,&id) != MB_SUCCESS) {
-      mWriteIface->report_error("Couldn't get id tag for dirset %i", id);
-      return MB_FAILURE;
-    }
-    
-    dirset_data.id = id; 
-
-    std::vector<EntityHandle> node_vector;
-      //get the nodes of the dirset that are in mesh_info.nodes
-    if( mbImpl->get_entities_by_handle(*vector_iter, node_vector, true) != MB_SUCCESS ) {
-      mWriteIface->report_error("Couldn't get nodes in dirset %i", id);
-      return MB_FAILURE;
-    }
-
-    std::vector<EntityHandle>::iterator iter, end_iter;
-    iter = node_vector.begin();
-    end_iter= node_vector.end();
- 
-    int j=0; 
-    unsigned char node_marked = 0;
-    ErrorCode result;
-    for(; iter != end_iter; iter++)
-    {
-      if (TYPE_FROM_HANDLE(*iter) != MBVERTEX) continue;
-      result = mbImpl->tag_get_data(mEntityMark, &(*iter), 1, &node_marked);
-      if (MB_SUCCESS != result) {
-        mWriteIface->report_error("Couldn't get mark data.");
-        return result;
-      }
-      
-      if(node_marked == 0x1) dirset_data.nodes.push_back( *iter );    
-      j++;
-    } 
-    
-    dirset_data.number_nodes = dirset_data.nodes.size(); 
-    dirset_info.push_back( dirset_data );
-  }
-
-    //------neusets--------
-  vector_iter= neusets.begin();
-  end_vector_iter = neusets.end();
-
-  for(; vector_iter != end_vector_iter; vector_iter++)
-  {
-    WriteCCMIO::NeumannSetData neuset_data;
-
-      // get the neuset's id
-    if(mbImpl->tag_get_data(mNeumannSetTag,&(*vector_iter), 1,&id) != MB_SUCCESS)
-      return MB_FAILURE;
-
-    neuset_data.id = id; 
-    neuset_data.mesh_set_handle = *vector_iter; 
- 
-      //get the sides in two lists, one forward the other reverse; starts with forward sense
-      // by convention
-    Range forward_elems, reverse_elems;
-    if(get_neuset_elems(*vector_iter, 0, forward_elems, reverse_elems) == MB_FAILURE)
-      return MB_FAILURE;
-
-    ErrorCode result = get_valid_sides(forward_elems, 1, neuset_data);
-    if (MB_SUCCESS != result) {
-      mWriteIface->report_error("Couldn't get valid sides data.");
-      return result;
-    }
-    result = get_valid_sides(reverse_elems, -1, neuset_data);
-    if (MB_SUCCESS != result) {
-      mWriteIface->report_error("Couldn't get valid sides data.");
-      return result;
-    }
-    
-    neuset_data.number_elements = neuset_data.elements.size(); 
-    neuset_info.push_back( neuset_data );
-  }
-
-  return MB_SUCCESS;
-}
-
-ErrorCode WriteCCMIO::get_valid_sides(Range &elems, const int sense,
-                                        WriteCCMIO::NeumannSetData &neuset_data) 
-{
-    // this is where we see if underlying element of side set element is included in output 
-
-  unsigned char element_marked = 0;
   ErrorCode result;
-  for(Range::iterator iter = elems.begin(); iter != elems.end(); iter++)
-  {
-      // should insert here if "side" is a quad/tri on a quad/tri mesh
-    result = mbImpl->tag_get_data(mEntityMark, &(*iter), 1, &element_marked);
-    if (MB_SUCCESS != result) {
-      mWriteIface->report_error("Couldn't get mark data.");
-      return result;
-    }
+
+  if (1 == matsets.size() && 0 == matsets[0]) {
+      // whole mesh
+    mWholeMesh = true;
     
-    if(element_marked == 0x1)
-    {
-      neuset_data.elements.push_back( *iter );
+    result = mbImpl->get_entities_by_dimension(0, mDimension, matset_data[0].elems);
+    CHKERR(result, "Trouble getting all elements in mesh.");
+    result = mWriteIface->gather_nodes_from_elements(matset_data[0].elems,
+                                                     mEntityMark, all_verts);
+    CHKERR(result, "Trouble gathering nodes from elements.");
 
-        // TJT TODO: the sense should really be # edges + 1or2
-      neuset_data.side_numbers.push_back((sense == 1 ? 1 : 2));
-    }
-    else //then "side" is probably a quad/tri on a hex/tet mesh
-    {
-      std::vector<EntityHandle> parents;
-      int dimension = CN::Dimension( TYPE_FROM_HANDLE(*iter));
+    return result;
+  }
 
-        //get the adjacent parent element of "side"
-      if( mbImpl->get_adjacencies( &(*iter), 1, dimension+1, false, parents) != MB_SUCCESS ) {
-        mWriteIface->report_error("Couldn't get adjacencies for neuset.");
-        return MB_FAILURE;
-      }
-       
-      if(!parents.empty())     
-      {
-          //make sure the adjacent parent element will be output
-        for(unsigned int k=0; k<parents.size(); k++)
-        {
-          result = mbImpl->tag_get_data(mEntityMark, &(parents[k]), 1, &element_marked);
-          if (MB_SUCCESS != result) {
-            mWriteIface->report_error("Couldn't get mark data.");
-            return result;
-          }
-        
-          int side_no, this_sense, this_offset;
-          if(element_marked == 0x1 &&
-             mbImpl->side_number(parents[k], *iter, side_no, 
-                                 this_sense, this_offset) == MB_SUCCESS &&
-             this_sense == sense) {
-            neuset_data.elements.push_back(parents[k]);
-            neuset_data.side_numbers.push_back(side_no+1);
-            break;
-          }
-        }
-      }
-      else
-      {
-        mWriteIface->report_error("No parent element exists for element in neuset %i", neuset_data.id);
-        return MB_FAILURE;
-      }
-    }
+  std::vector<unsigned char> marks;
+  for(unsigned int i = 0; i < matsets.size(); i++)
+  {
+    EntityHandle this_set = matset_data[i].setHandle = matsets[i];
+    
+      // get all Entity Handles in the set
+    result = mbImpl->get_entities_by_dimension(this_set, mDimension, matset_data[i].elems, true);
+    CHKERR(result, "Trouble getting m-dimensional ents.");
+
+      // get all connected vertices
+    result = mWriteIface->gather_nodes_from_elements(matset_data[i].elems,
+                                                     mEntityMark, all_verts);
+    CHKERR(result, "Trouble getting vertices for a matset.");
+
+      // check for consistent entity type
+    EntityType start_type = mbImpl->type_from_handle(*matset_data[i].elems.begin());
+    if (start_type == mbImpl->type_from_handle(*matset_data[i].elems.rbegin()))
+      matset_data[i].entityType = start_type;
+
+      // mark elements in this matset
+    marks.resize(matset_data[i].elems.size(), 0x1);
+    result = mbImpl->tag_set_data(mEntityMark, matset_data[i].elems, &marks[0]);
+    CHKERR(result, "Couln't mark entities being output.");
+
+      // get id for this matset
+    result = mbImpl->tag_get_data(mGlobalIdTag, &this_set, 1, &matset_data[i].matsetId);
+    CHKERR(result, "Couln't get global id for material set.");
+  }
+  
+  if (all_verts.empty()) {
+    result = MB_FILE_WRITE_ERROR;
+    CHKERR(result, "No vertices from elements.");
+  }
+    
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteCCMIO::gather_neuset_info(std::vector<EntityHandle> &neusets,
+                                         std::vector<NeumannSetData> &neuset_data,
+                                         Range &all_facets)
+{
+  ErrorCode result;
+
+  std::vector<unsigned char> marks;
+  for(unsigned int i = 0; i < neusets.size(); i++)
+  {
+    EntityHandle this_set = neuset_data[i].setHandle = neusets[i];
+    
+      // get all Entity Handles of one less dimension than that being output 
+    result = mbImpl->get_entities_by_dimension(this_set, mDimension-1, neuset_data[i].elems, true);
+    CHKERR(result, "Trouble getting (m-1)-dimensional ents for neuset.");
+    
+    all_facets.merge(neuset_data[i].elems);
+
+    result = mbImpl->tag_get_data(mGlobalIdTag, &this_set, 1, &neuset_data[i].neusetId);
   }
 
   return MB_SUCCESS;
 }
 
 ErrorCode WriteCCMIO::get_gids(const Range &ents, int *&gids,
-                                 int &minid, int &maxid) 
+                               int &minid, int &maxid) 
 {
   int num_ents = ents.size();
   gids = new int[num_ents];
@@ -653,30 +494,35 @@ ErrorCode WriteCCMIO::get_gids(const Range &ents, int *&gids,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteCCMIO::write_nodes(CCMIOID rootID, const Range& nodes, 
-                                    const int dimension, int *&vgids)
+ErrorCode WriteCCMIO::write_nodes(const Range &verts, 
+                                  const int dimension)
 {
-    // get/write map (global ids) first
-  const int num_nodes = nodes.size();
-  int minid, maxid;
-  ErrorCode result = get_gids(nodes, vgids, minid, maxid);
-  if (MB_SUCCESS != result) return result;
+    // get/write map (global ids) first (gids already assigned)
+  unsigned int num_verts = verts.size();
+  std::vector<int> vgids(num_verts);
+  ErrorCode result = mbImpl->tag_get_data(mGlobalIdTag, verts, &vgids[0]);
+  CHKERR(result, "Failed to get global ids for vertices.");
   
   CCMIOID mapID;
   CCMIOError error;
   CCMIONewEntity(&error, rootID, kCCMIOMap, "Vertex map", &mapID);
-  CCMIOWriteMap(&error, mapID, CCMIOSIZEC(nodes.size()),
-                CCMIOSIZEC(maxid), vgids,
+
+  int maxid = *std::max_element(vgids.begin(), vgids.end());
+  
+    // write the gids
+  CCMIOWriteMap(&error, mapID, CCMIOSIZEC(num_verts),
+                CCMIOSIZEC(maxid), &vgids[0],
                 CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
+  CHKCCMERR(error, "Problem writing node map.");
 
     // get the vertex locations
-  double *coords = new double[dimension*num_nodes];
+  double *coords = new double[3*num_verts];
   std::vector<double*> coord_arrays(3);
   coord_arrays[0] = coords;
-  coord_arrays[1] = coords+num_nodes;
-  coord_arrays[2] = (dimension == 3 ? coords+2*num_nodes : NULL);
-  result = mWriteIface->get_node_arrays(dimension, num_nodes, nodes,
-                                        mGlobalIdTag, 0, coord_arrays);
+  coord_arrays[1] = coords+num_verts;
+  coord_arrays[2] = (dimension == 3 ? coords+2*num_verts : NULL);
+  result = mWriteIface->get_node_coords(-1, verts.begin(), verts.end(),
+                                        3*num_verts, coords);
   if(result != MB_SUCCESS)
   {
     delete [] coords;
@@ -684,25 +530,19 @@ ErrorCode WriteCCMIO::write_nodes(CCMIOID rootID, const Range& nodes,
   }
   
     // transform coordinates, if necessary
-  result = transform_coords(dimension, num_nodes, coords);
+  result = transform_coords(dimension, num_verts, coords);
   if(result != MB_SUCCESS)
   {
     delete [] coords;
-    return result;
+    CHKERR(result, "Trouble transforming vertex coordinates.");
   }
   
-
     // write the vertices
-  CCMIOID verticesID;
-  CCMIONewEntity(&error, rootID, kCCMIOVertices, "Vertices", &verticesID);
   CCMIOWriteVerticesd(&error, verticesID,
-                     CCMIOSIZEC(dimension*num_nodes), 1.0, mapID, coords,
-                     CCMIOINDEXC(1), CCMIOINDEXC(dimension));
-  if (error != kCCMIONoErr) {
-    mWriteIface->report_error("CCMIOWriteVertices failed.");
-    return result;
-  }
-    
+                      CCMIOSIZEC(dimension*num_verts), 1.0, mapID, coords,
+                      CCMIOINDEXC(1), CCMIOINDEXC(dimension));
+  CHKCCMERR(error, "CCMIOWriteVertices failed.");
+
     // clean up
   delete [] coords;
 
@@ -720,7 +560,7 @@ ErrorCode WriteCCMIO::transform_coords(const int dimension, const int num_nodes,
     mWriteIface->report_error("Couldn't get transform data.");
     return result;
   }
-      
+  
   double *tmp_coords = coords;
   for( int i=0; i<num_nodes; i++, tmp_coords += 1) {
     double vec1[3] = {0.0, 0.0, 0.0};
@@ -738,202 +578,247 @@ ErrorCode WriteCCMIO::transform_coords(const int dimension, const int num_nodes,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to remove warning) */,
-                                      std::vector<WriteCCMIO::MaterialSetData> &matset_data,
-                                      std::vector<WriteCCMIO::NeumannSetData> &/* neuset_data  */,
-                                        // (commented out to remove warning)
-                                      Range &verts,
-                                      const int *vgids)
+ErrorCode WriteCCMIO::write_cells_and_faces(std::vector<WriteCCMIO::MaterialSetData> &matset_data,
+                                            std::vector<EntityHandle> &neusets,
+                                            Range &verts)
 {
   std::vector<int> connect;
   ErrorCode result;
-  CCMIOID rootID, cellMapID, topologyID, id;
+  CCMIOID cellMapID, cells;
   
     // don't usually have anywhere near 31 nodes per element
   connect.reserve(31);
   Range::const_iterator rit;
 
+    //================================================
+    // get all elements being output, and gids for them
+    //================================================
   Range all_elems;
-  for (unsigned int i = 0; i < matset_data.size(); i++)
-    all_elems.merge(*(matset_data[i].elements));
-
+  unsigned int i;
+  for (i = 0; i < matset_data.size(); i++)
+    all_elems.merge(matset_data[i].elems);
+  unsigned int num_elems = all_elems.size();
   
-  const int num_elems = all_elems.size();
-  int *egids, minid, maxid;
-  result = get_gids(all_elems, egids, minid, maxid);
-  if (MB_SUCCESS != result) return result;
+    //================================================
+    // Assign global ids for elements being written
+    //================================================
+  result = mWriteIface->assign_ids(all_elems, mGlobalIdTag, 1);
+  CHKERR(result, "Failed to assign global ids for all elements being written.");
+  int *egids = new int[all_elems.size()];  
+  for (i = 0; i < all_elems.size(); i++) egids[i] = i;
+  int maxid = all_elems.size();
 
-    // Write the cells
+    //================================================
+    // Create/write the cell id map, and the cells in this topology node
+    //================================================
   CCMIOError error;
   CCMIONewEntity(&error, rootID, kCCMIOMap, "Cell map", &cellMapID);
   CCMIOWriteMap(&error, cellMapID, CCMIOSIZEC(all_elems.size()),
                 CCMIOSIZEC(maxid), egids,
                 CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
-  CCMIONewEntity(&error, rootID, kCCMIOTopology, "Topology", &topologyID);
-  CCMIONewEntity(&error, topologyID, kCCMIOCells, "Cells", &id);
 
-    // get cell types
-  int *ctypes = new int[all_elems.size()];
-  int i = 0;
-  rit = all_elems.begin();
-  for (; i < num_elems; i++, rit++) {
-    ctypes[i] = ccm_types[mbImpl->type_from_handle(*rit)];
-    assert(-1 != ctypes[i]);
-  }
-
-  CCMIOWriteCells(&error, id, cellMapID, ctypes,
+  CCMIONewEntity(&error, topologyID, kCCMIOCells, "Cells", &cells);
+  CCMIOWriteCells(&error, cells, cellMapID, egids,
                   CCMIOINDEXC(1), CCMIOINDEXC(num_elems));
-  delete [] ctypes;
 
-    // Write the faces
-    // first, allocate a tag of length 6 (max # faces per region, except
-    // for polyhedra)
-  Tag mark_tag;
-  short int def_val = 0;
-  result = mbImpl->tag_create("__mark", 1, MB_TAG_DENSE, MB_TYPE_OPAQUE, 
-                              mark_tag, &def_val);
-  if (MB_SUCCESS != result) {
-    mWriteIface->report_error("Couldn't create mark tag.");
-    return result;
-  }
+    //================================================
+    // get skin and neumann set faces
+    //================================================
+  Range neuset_facets, skin_facets;
+  std::vector<NeumannSetData> neuset_info;
   
-    // now faces
-  unsigned char markt;
+  result = gather_neuset_info(neusets, neuset_info, neuset_facets);
+  CHKERR(result, "Failed to get neumann set info.");
+
+  Skinner skinner(mbImpl);
+  result = skinner.find_skin(all_elems, mDimension-1, skin_facets);
+  CHKERR(result, "Failed to get skin facets.");
+
+    // remove neumann set facets from skin facets, we have to output these
+    // separately
+  skin_facets -= neuset_facets;
+    // make neuset_facets the union, and get ids for them
+  neuset_facets.merge(skin_facets);
+  result = mWriteIface->assign_ids(neuset_facets, mGlobalIdTag, 1);
+
+  int fmaxid = neuset_facets.size();
+
+    //================================================
+    // write external faces
+    //================================================
+  for (unsigned int i = 0; i < neusets.size(); i++) {
+    result = write_external_faces(neuset_info[i].neusetId, neuset_info[i].elems);
+    CHKERR(result, "Trouble writing Neumann set facets.");
+  }
+  result = write_external_faces(0, skin_facets);
+  CHKERR(result, "Trouble writing skin facets.");
+
+    //================================================
+    // now inernal faces; loop over elements, do each face on the element
+    //================================================
+    // mark tag, for face marking on each non-polyhedral element
+  Tag fmark_tag;
+  unsigned char mval = 0x0;
+  result = mbImpl->tag_create("__fmark", 1, MB_TAG_DENSE, MB_TYPE_OPAQUE, 
+                              fmark_tag, &mval);
+  CHKERR(result, "Couldn't create mark tag.");
+
   std::vector<EntityHandle> tmp_face_cells, storage;
   std::vector<int> iface_connect, iface_cells;
-  std::vector<int> eface_connect, eface_cells;
   EntityHandle tmp_connect[CN::MAX_NODES_PER_ELEMENT]; // tmp connect vector
   const EntityHandle *connectc; int num_connectc; // cell connectivity
   const EntityHandle *connectf; int num_connectf; // face connectivity
-  i = 0;
-  rit = all_elems.begin();
-  for (; i < num_elems; i++, rit++) {
-      // if not polyh, get mark
+
+  for (i = 0, rit = all_elems.begin(); i < num_elems; i++, rit++) {
     EntityType etype = TYPE_FROM_HANDLE(*rit);
+
+      //-----------------------
+      // if not polyh, get mark
+      //-----------------------
     if (MBPOLYHEDRON != etype && MBPOLYGON != etype) {
-      result = mbImpl->tag_get_data(mark_tag, &(*rit), 1, &markt);
+      result = mbImpl->tag_get_data(fmark_tag, &(*rit), 1, &mval);
       if (MB_SUCCESS != result) {
         mWriteIface->report_error("Couldn't get mark data.");
         return result;
       }
     }
 
-      // get connect
+      //-----------------------
+      // get cell connectivity, and whether it's a polyhedron
+      //-----------------------
     result = mbImpl->get_connectivity(*rit, connectc, num_connectc, false, &storage);
-    if (MB_SUCCESS != result) {
-      mWriteIface->report_error("Couldn't get entity connectivity.");
-      return result;
-    }
+    CHKERR(result, "Couldn't get entity connectivity.");
 
       // if polyh, write faces directly
     bool is_polyh = (MBPOLYHEDRON == etype);
 
-    int num_faces = CN::NumSubEntities(etype, 2);
-      // for each face (from CN)
-    for (int f = 0; f < num_faces; f++) {
+    int num_facets = (is_polyh ? num_connectc : 
+                     CN::NumSubEntities(etype, mDimension-1));
+
+      //----------------------------------------------------------
+      // loop over each facet of element, outputing it if not marked
+      //----------------------------------------------------------
+    for (int f = 0; f < num_facets; f++) {
+
+        //.............................................
         // if this face marked, skip
-      if (!is_polyh && ((markt >> f) & 0x1)) continue;
-        
-        // get face connect
+        //.............................................
+      if (!is_polyh && ((mval >> f) & 0x1)) continue;
+    
+        //.................
+        // get face connect and adj cells
+        //.................
       if (!is_polyh) {
           // (from CN)
-        CN::SubEntityConn(connectc, etype, 2, f, tmp_connect, num_connectf);
+        CN::SubEntityConn(connectc, etype, mDimension-1, f, tmp_connect, num_connectf);
         connectf = tmp_connect;
       }
       else {
-          // get face connectivity
+          // directly
         result = mbImpl->get_connectivity(connectc[f], connectf, num_connectf, false);
-        if (MB_SUCCESS != result) {
-          mWriteIface->report_error("Couldn't get polyhedron connectivity.");
-          return result;
-        }
-      }
-        
-        // get adj cells from face connect
-      tmp_face_cells.clear();
-      result = mbImpl->get_adjacencies(connectf, num_connectf, 3, false, tmp_face_cells);
-      if (MB_SUCCESS != result || tmp_face_cells.empty()) {
-        mWriteIface->report_error("Error getting adj hexes.");
-        return result;
+        CHKERR(result, "Couldn't get polyhedron connectivity.");
       }
 
-      bool is_internal = (tmp_face_cells.size() == 2);
-      if (!is_polyh && is_internal) {
+        //............................
+        // get adj cells from face connect (same for poly's and not, since both usually 
+        // go through vertices anyway)
+        //............................
+      tmp_face_cells.clear();
+      result = mbImpl->get_adjacencies(connectf, num_connectf, mDimension, false, tmp_face_cells);
+      CHKERR(result, "Error getting adj hexes.");
+
+        //...............................
+        // if this face only bounds one cell, skip, since we exported external faces
+        // before this loop
+        //...............................
+      if (tmp_face_cells.size() != 2) continue;
+      
+        //.................
+        // switch cells according to sense
+        //.................
+      bool switched = false;
+      int side_num, sense, offset;
+      if (!is_polyh) {
           // make sure 1st is forward sense
-        int side_num, sense, offset;
         CN::SideNumber(etype, connectc, connectf, num_connectf,
-                         2, side_num, sense, offset);
+                       mDimension-1, side_num, sense, offset);
         if (sense == 1 && tmp_face_cells[0] != *rit) {
-          assert(2 == tmp_face_cells.size());
           EntityHandle tmph = tmp_face_cells[0]; 
           tmp_face_cells[1] = tmp_face_cells[0]; 
           tmp_face_cells[0] = tmph;
+          switched = true;
         }
       }
-        
-        // get ids of cells in all_elems
-      std::vector<int> *fcells_ptr, *fconnect_ptr;
-      fcells_ptr = (is_internal ? &iface_cells : &eface_cells);
-      fconnect_ptr = (is_internal ? &iface_connect : &eface_connect);
-      fcells_ptr->push_back(egids[all_elems.index(tmp_face_cells[0])]);
-      if (is_internal) fcells_ptr->push_back(egids[all_elems.index(tmp_face_cells[1])]);
-      fconnect_ptr->push_back(num_connectf);
+    
+        //.................
+        // save ids of cells
+        //.................
+      iface_cells.resize(iface_cells.size()+2);
+      result = mbImpl->tag_get_data(mGlobalIdTag, &tmp_face_cells[0], tmp_face_cells.size(),
+                                    &iface_cells[iface_cells.size()-2]);
+      CHKERR(result, "Trouble getting global ids for bounded cells.");
+      iface_connect.push_back(num_connectf);
 
-        // get indices of face vertices, add one
-      for (int fv = 0; fv < num_connectf; fv++)
-        fconnect_ptr->push_back(vgids[verts.index(connectf[fv])]);
+        //.................
+        // save indices of face vertices
+        //.................
+      unsigned int tmp_size = iface_connect.size();
+      iface_connect.resize(tmp_size+num_connectf);
+      result = mbImpl->tag_get_data(mGlobalIdTag, connectf, num_connectf, 
+                                    &iface_connect[tmp_size]);
+      CHKERR(result, "Trouble getting global id for internal face.");
 
-      if (!is_polyh && is_internal) {
+        //.................
+        // mark other cell with the right side #
+        //.................
+      if (!is_polyh) {
           // mark other cell for this face, if there is another cell
-        EntityHandle other_cell = tmp_face_cells[0];
-        const EntityHandle *connecto; int num_connecto;
-        if (other_cell == *rit) other_cell = tmp_face_cells[1];
-        result = mbImpl->get_connectivity(other_cell, connecto, num_connecto, 
-                                          false, &storage);
-        if (MB_SUCCESS != result) {
-          mWriteIface->report_error("Couldn't get other entity connectivity.");
-          return result;
-        }
-          // get side number
-        int side_num, sense, offset;
-        CN::SideNumber(TYPE_FROM_HANDLE(other_cell), connecto, connectf, num_connectf,
-                         2, side_num, sense, offset);
+        
+        EntityHandle other_cell;
+        if (switched)  other_cell = tmp_face_cells[0];
+        else {
+          other_cell = tmp_face_cells[1];
+          result = mbImpl->get_connectivity(other_cell, connectc, num_connectc, 
+                                            false, &storage);
+          CHKERR(result, "Couldn't get other entity connectivity.");
+      
+          // get side number in other cell
+          CN::SideNumber(TYPE_FROM_HANDLE(other_cell), connectc, connectf, num_connectf,
+                         mDimension-1, side_num, sense, offset);
           // set mark for this face
-        short int tmp_mark, tmp_mark2;
-        result = mbImpl->tag_get_data(mark_tag, &other_cell, 1, &tmp_mark);
-        if (MB_SUCCESS != result) {
-          mWriteIface->report_error("Couldn't get mark data for other cell.");
-          return result;
+          result = mbImpl->tag_get_data(fmark_tag, &other_cell, 1, &mval);
+          CHKERR(result, "Couldn't get mark data for other cell.");
         }
-        tmp_mark2 = 0x1 << (unsigned int)side_num;
+        
+        unsigned char mval2 = 0x1 << (unsigned int)side_num;
         assert("mark for this side on other entity shouldn't be set already" &&
-               !(tmp_mark & tmp_mark2));
-        tmp_mark |= tmp_mark2;
-        result = mbImpl->tag_set_data(mark_tag, &other_cell, 1, &tmp_mark);
-        if (MB_SUCCESS != result) {
-          mWriteIface->report_error("Couldn't set mark data for other cell.");
-          return result;
-        }
+               !(mval & mval2));
+        mval |= mval2;
+        result = mbImpl->tag_set_data(fmark_tag, &other_cell, 1, &mval);
+        CHKERR(result, "Couldn't set mark data for other cell.");
       } // !is_polyh
     } // loop over faces in elem
   } // loop over elems
 
-  int num_ifaces = iface_cells.size()/2,
-      num_efaces = eface_cells.size();
-
+    //================================================
     // write internal faces
+    //================================================
   CCMIOID mapID;
   CCMIONewEntity(&error, rootID, kCCMIOMap, NULL, &mapID);
-    // set gids for internal faces
-  if ((int)all_elems.size() < (num_ifaces + num_efaces)) {
+
+  unsigned int num_ifaces = iface_cells.size()/2;
+
+    // set gids for internal faces; reuse egids
+  if (all_elems.size() < num_ifaces) {
     delete [] egids;
-    egids = new int[num_ifaces + num_efaces];
+    egids = new int[num_ifaces];
   }
-  for (int i = 1; i <= (num_ifaces+num_efaces); i++) egids[i-1] = i;
+  for (i = 1; i <= num_ifaces; i++) egids[i-1] = fmaxid + i;
   CCMIOWriteMap(&error, mapID, CCMIOSIZEC(num_ifaces),
-                CCMIOSIZEC(num_ifaces+num_efaces),
+                CCMIOSIZEC(fmaxid + num_ifaces),
                 &egids[0],
                 CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
+  CCMIOID id;
   CCMIONewEntity(&error, topologyID, kCCMIOInternalFaces, "Internal faces", &id);
   CCMIOWriteFaces(&error, id, kCCMIOInternalFaces, mapID,
                   CCMIOSIZEC(iface_connect.size()), &iface_connect[0],
@@ -941,39 +826,103 @@ ErrorCode WriteCCMIO::write_matsets(MeshInfo & /* mesh_info (commented out to re
   CCMIOWriteFaceCells(&error, id, kCCMIOInternalFaces, mapID, &iface_cells[0],
                       CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
 
-    // now external faces
-  CCMIONewEntity(&error, rootID, kCCMIOMap, NULL, &mapID);
-  CCMIOWriteMap(&error, mapID, CCMIOSIZEC(num_efaces),
-                CCMIOSIZEC(num_efaces), &egids[num_ifaces],
-                CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
-  CCMIONewIndexedEntity(&error, topologyID, kCCMIOBoundaryFaces, 0,
-                        "Boundary faces", &id);
-  CCMIOWriteFaces(&error, id, kCCMIOBoundaryFaces, mapID,
-                  CCMIOSIZEC(eface_connect.size()), &eface_connect[0],
-                  CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
-  CCMIOWriteFaceCells(&error, id, kCCMIOBoundaryFaces, mapID, &eface_cells[0],
-                      CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
-
   return MB_SUCCESS;
 }
 
-ErrorCode WriteCCMIO::open_file(const char* filename)
+ErrorCode WriteCCMIO::write_external_faces(int set_num, Range &facets) 
 {
-    // not a valid filname
-  if(strlen((const char*)filename) == 0)
-  {
-    mWriteIface->report_error("Output filename not specified");
-    return MB_FAILURE;
+  CCMIOError error = kCCMIONoErr;
+  CCMIOID mapID, id;
+
+    // get gids for these faces
+  int *gids = NULL, minid, maxid;
+  ErrorCode result = get_gids(facets, gids, minid, maxid);
+  CHKERR(result, "Trouble getting global ids for facets.");
+  
+    // write the face id map
+  CCMIONewEntity(&error, rootID, kCCMIOMap, NULL, &mapID);
+  CHKCCMERR(error, "Problem creating face id map.");
+  
+  CCMIOWriteMap(&error, mapID, CCMIOSIZEC(facets.size()),
+                CCMIOSIZEC(maxid), gids,
+                CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
+  CHKCCMERR(error, "Problem writing face id map.");
+
+    // get the connectivity of the faces; set size by how many verts in last facet
+  const EntityHandle *connect;
+  int num_connect;
+  result = mbImpl->get_connectivity(*facets.rbegin(), connect, num_connect);
+  CHKERR(result, "Failed to get connectivity of last facet.");
+  std::vector<int> fconnect(facets.size() * (num_connect+1));
+
+  result = mWriteIface->get_element_connect(facets.begin(), facets.end(),
+                                            num_connect, mGlobalIdTag, fconnect.size(),
+                                            &fconnect[0], true);
+  CHKERR(result, "Failed to get facet connectivity.");
+  
+    // get and write a new external face entity
+  CCMIONewIndexedEntity(&error, topologyID, kCCMIOBoundaryFaces, set_num,
+                        "Boundary faces", &id);
+  CHKCCMERR(error, "Problem creating boundary face entity.");
+
+  CCMIOWriteFaces(&error, id, kCCMIOBoundaryFaces, mapID,
+                  CCMIOSIZEC(fconnect.size()), &fconnect[0],
+                  CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
+  CHKCCMERR(error, "Problem writing boundary faces.");
+
+    // get info on bounding cells; reuse fconnect
+  std::vector<EntityHandle> cells;
+  unsigned char cmarks[2];
+  int i, j = 0;
+  Range dead_facets;
+  Range::iterator rit;
+
+    // about error checking in this loop: if any facets have no bounding cells,
+    // this is an error, since global ids for facets are computed outside this loop
+  for (rit = facets.begin(), i = 0; rit != facets.end(); rit++, i++) {
+    cells.clear();
+    
+      // get cell then gid of cell
+    result = mbImpl->get_adjacencies(&(*rit), 1, mDimension, false, cells);
+    CHKERR(result, "Trouble getting bounding cells.");
+    if (cells.empty()) {
+      result = MB_FILE_WRITE_ERROR;
+      CHKERR(result, "External facet with no output bounding cell.");
+    }
+
+      // check we don't bound more than one cell being output
+    result = mbImpl->tag_get_data(mEntityMark, &cells[0], cells.size(), cmarks);
+    CHKERR(result, "Trouble getting mark tags on cells bounding facets.");
+    if (cells.size() == 2 && (cmarks[0] & 0x1) && (cmarks[1] & 0x1)) {
+      result = MB_FILE_WRITE_ERROR;
+      CHKERR(result, "External facet with two output bounding cells.");
+    }
+    else if (1 == cells.size() && (mWholeMesh || !(cmarks[0] | 0x0))) {
+      result = MB_FILE_WRITE_ERROR;
+      CHKERR(result, "External facet with no output bounding cells.");
+    }
+    
+      // make sure 1st cell is the one being output
+    if (2 == cells.size() && !(cmarks[0] | 0x0) && (cmarks[1] & 0x1))
+      cells[0] = cells[1];
+
+      // get gid for bounded cell
+    result = mbImpl->tag_get_data(mGlobalIdTag, &cells[0], 1, &fconnect[j]);
+    CHKERR(result, "Couldn't get global id tag for bounded cell.");
+    
+    j++;
   }
+  
+    // write the bounding cell data
+  CCMIOWriteFaceCells(&error, id, kCCMIOBoundaryFaces, mapID, &fconnect[0],
+                      CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
+  CHKCCMERR(error, "Problem writing boundary cell data.");
 
-    /* template - open file & store somewhere */
-
-    // file couldn't be opened
   return MB_SUCCESS;
 }
 
 ErrorCode WriteCCMIO::get_neuset_elems(EntityHandle neuset, int current_sense,
-                                         Range &forward_elems, Range &reverse_elems) 
+                                       Range &forward_elems, Range &reverse_elems) 
 {
   Range neuset_elems, neuset_meshsets;
 
@@ -982,8 +931,8 @@ ErrorCode WriteCCMIO::get_neuset_elems(EntityHandle neuset, int current_sense,
   Tag sense_tag = 0;
   mbImpl->tag_get_handle("SENSE", sense_tag);
 
-    // get the entities in this set
-  ErrorCode result = mbImpl->get_entities_by_handle(neuset, neuset_elems, true);
+    // get the entities in this set, non-recursive
+  ErrorCode result = mbImpl->get_entities_by_handle(neuset, neuset_elems);
   if (MB_FAILURE == result) return result;
   
     // now remove the meshsets into the neuset_meshsets; first find the first meshset,
@@ -1024,7 +973,7 @@ ErrorCode WriteCCMIO::get_neuset_elems(EntityHandle neuset, int current_sense,
     if (0 == sense_tag ||
         MB_FAILURE == mbImpl->tag_get_data(sense_tag, &(*range_iter), 1, &this_sense))
       this_sense = 1;
-      
+  
       // now get all the entities on this meshset, with the proper (possibly reversed) sense
     get_neuset_elems(*range_iter, this_sense*current_sense,
                      forward_elems, reverse_elems);

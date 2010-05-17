@@ -809,7 +809,7 @@ ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
   if( num_coords_to_fill == 3 ) 
     coord_arrays[2] = new double[num_nodes];
  
-  result = mWriteIface->get_node_arrays(dimension, num_nodes, nodes, mGlobalIdTag, 1, coord_arrays);
+  result = mWriteIface->get_node_coords(dimension, num_nodes, nodes, mGlobalIdTag, 1, coord_arrays);
   if(result != MB_SUCCESS)
   {
     delete [] coord_arrays[0];
@@ -953,7 +953,7 @@ ErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_dat
     const unsigned int num_nodes = num_nodes_per_elem * num_elem;
     int* connectivity = new int[num_nodes];
 
-    ErrorCode result = mWriteIface->get_element_array(
+    ErrorCode result = mWriteIface->get_element_connect(
         num_elem, num_nodes_per_elem, mGlobalIdTag, block.elements, mGlobalIdTag, exodus_id ,connectivity);
 
     if(result != MB_SUCCESS) {

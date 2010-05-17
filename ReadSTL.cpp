@@ -140,7 +140,7 @@ ErrorCode ReadSTL::load_file( const char* filename,
     // Create vertices 
   std::vector<double*> coord_arrays;
   EntityHandle handle = 0;
-  result = readMeshIface->get_node_arrays( 3, vertex_map.size(), MB_START_ID,
+  result = readMeshIface->get_node_coords( 3, vertex_map.size(), MB_START_ID,
                                            handle, coord_arrays );
   if (MB_SUCCESS != result)
     return result;
@@ -160,7 +160,7 @@ ErrorCode ReadSTL::load_file( const char* filename,
     // Allocate triangles
   handle = 0;
   EntityHandle* connectivity;
-  result = readMeshIface->get_element_array( triangles.size(),
+  result = readMeshIface->get_element_connect( triangles.size(),
                                              3,
                                              MBTRI,
                                              MB_START_ID,

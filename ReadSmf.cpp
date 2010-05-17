@@ -161,7 +161,7 @@ ErrorCode ReadSmf::load_file( const char *filename,
   std::vector<double*> arrays;
   EntityHandle start_handle_out;
   start_handle_out = 0;
-  result = readMeshIface->get_node_arrays( 3, _numNodesInFile, MB_START_ID,
+  result = readMeshIface->get_node_coords( 3, _numNodesInFile, MB_START_ID,
                                            start_handle_out, arrays );
 
   if (MB_SUCCESS != result)
@@ -181,7 +181,7 @@ ErrorCode ReadSmf::load_file( const char *filename,
   EntityHandle start_handle_elem_out;
   start_handle_elem_out = 0;
   EntityHandle* conn_array_out;
-  result = readMeshIface->get_element_array( _numElementsInFile,
+  result = readMeshIface->get_element_connect( _numElementsInFile,
                                              3,
                                              MBTRI , // EntityType
                                              MB_START_ID,

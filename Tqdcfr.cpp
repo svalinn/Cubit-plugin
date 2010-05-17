@@ -1073,7 +1073,7 @@ ErrorCode Tqdcfr::read_nodes(const unsigned int gindex,
     // get a space for reading nodal data directly into MB, and read that data
   EntityHandle vhandle = 0;
   std::vector<double*> arrays;
-  readUtilIface->get_node_arrays(3, entity->nodeCt,
+  readUtilIface->get_node_coords(3, entity->nodeCt,
                                  uint_buf[0], 
                                  vhandle, arrays);
 
@@ -1268,7 +1268,7 @@ ErrorCode Tqdcfr::read_elements(Tqdcfr::ModelEntry *model,
       // get a space for reading connectivity data directly into MB
     EntityHandle *conn, start_handle;
     
-    result = readUtilIface->get_element_array(num_elem, nodes_per_elem,
+    result = readUtilIface->get_element_connect(num_elem, nodes_per_elem,
                                      elem_type, int_buf[0], 
                                      start_handle, conn);
     if (MB_SUCCESS != result)

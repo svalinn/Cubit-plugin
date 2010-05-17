@@ -1269,7 +1269,7 @@ ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set, EntityHandle as
   EntityHandle start_element = 0;
   EntityHandle *connect;
 
-  status = readMeshIface->get_element_array( num_elements, nodes_per_element[element_type],
+  status = readMeshIface->get_element_connect( num_elements, nodes_per_element[element_type],
 					     entityTypeMap[element_type], MB_START_ID,
 					     start_element, connect);
   MB_RETURN_IF_FAIL;
@@ -1440,7 +1440,7 @@ ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set, EntityHandle assem
   // get and fill coordinate arrays
   std::vector<double*> coord_arrays(3);
   EntityHandle start_node = 0;
-  status = readMeshIface->get_node_arrays(3, num_nodes,MB_START_ID,
+  status = readMeshIface->get_node_coords(3, num_nodes,MB_START_ID,
 					  start_node,coord_arrays);
   MB_RETURN_IF_FAIL;
 
@@ -1760,7 +1760,7 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
     // create new nodes
     std::vector<double*> coord_arrays(3);
     EntityHandle start_node = 0;
-    status = readMeshIface->get_node_arrays(3, part_node_list.size(),MB_START_ID,
+    status = readMeshIface->get_node_coords(3, part_node_list.size(),MB_START_ID,
 					    start_node,coord_arrays);
     MB_RETURN_IF_FAIL;
     
