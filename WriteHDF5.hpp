@@ -198,8 +198,6 @@ public:
   {
     //! The tag handle
     Tag tag_id;
-    //! The list of entities with this tag
-    Range range;
     //! The offset at which to begin writting this processor's data.
     //! Always zero except for parallel IO. 
     id_t offset;
@@ -217,6 +215,13 @@ public:
     bool operator<(const SparseTag&) const;
   };
 protected:
+
+  //!\brief Get tagged entities for which to write tag values
+  ErrorCode get_num_sparse_tagged_entities( const SparseTag& tag, size_t& count );
+  //!\brief Get tagged entities for which to write tag values
+  ErrorCode get_sparse_tagged_entities( const SparseTag& tag, Range& range );
+  //!\brief Get entities that will be written to file
+  void get_write_entities( Range& range );
   
   //! The size of the data buffer (<code>dataBuffer</code>).
   size_t bufferSize;
@@ -375,7 +380,8 @@ protected:
   //! get sum of lengths of tag values (as number of type) for 
   //! variable length tag data.
   ErrorCode get_tag_data_length( const SparseTag& tag_info,
-                                   unsigned long& result );
+                                 const Range& range,
+                                 unsigned long& result );
   
 private:
   
@@ -475,8 +481,11 @@ private:
                             hid_t& hdf_type );
                             
   //! Write ID table for sparse tag
-  ErrorCode write_sparse_ids( const SparseTag& tag_data, hid_t table_handle, 
-                              size_t table_size, const char* name = 0 );
+  ErrorCode write_sparse_ids( const SparseTag& tag_data, 
+                              const Range& range,
+                              hid_t table_handle, 
+                              size_t table_size, 
+                              const char* name = 0 );
   
   //! Write varialbe-length tag data
   ErrorCode write_var_len_tag( const SparseTag& tag_info );
