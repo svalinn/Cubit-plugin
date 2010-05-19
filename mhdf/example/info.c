@@ -202,6 +202,17 @@ static const char* string_tag_value( const void* value,
   return buffer;
 }
 
+static const char* ent_desc_name( struct mhdf_FileDesc* all, int index )
+{
+  static const char nodes[] = "Nodes";
+  static const char sets[] = "Sets";
+  static const char invalid[] = "<INVALID INDEX!>";
+  if (index == -2) return sets;
+  if (index == -1) return nodes;
+  if (index >= all->num_elem_desc || index < -2) return invalid;
+  return all->elems[index].handle;
+}
+
 static void print_tag_desc( struct mhdf_TagDesc* data, struct mhdf_FileDesc* all )
 {
   int i, width = 8;
@@ -222,12 +233,12 @@ static void print_tag_desc( struct mhdf_TagDesc* data, struct mhdf_FileDesc* all
   if (data->have_sparse) {
     printf( "      %-*s: (sparse)", width, "tables" );
     for (i = 0; i < data->num_dense_indices; ++i)
-      printf( ", %s", all->elems[data->dense_elem_indices[i]].handle );
+      printf( ", %s", ent_desc_name( all, data->dense_elem_indices[i] ) );
   }
   else if (data->num_dense_indices) {
-    printf( "      %-*s: %s", width, "tables", all->elems[data->dense_elem_indices[0]].handle );
+    printf( "      %-*s: %s", width, "tables", ent_desc_name( all, data->dense_elem_indices[0] ) );
     for (i = 1; i < data->num_dense_indices; ++i)
-      printf( ", %s", all->elems[data->dense_elem_indices[i]].handle );
+      printf( ", %s", ent_desc_name( all, data->dense_elem_indices[i] ) );
   }
   else {
     printf( "      %-*s: (none)", width, "tables" );

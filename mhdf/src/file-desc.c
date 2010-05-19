@@ -214,7 +214,7 @@ get_tag_desc( mhdf_FileHandle file_handle,
     return NULL;
   }
   
-  /* For variable lengt tags, have_default and have_global will
+  /* For variable length tags, have_default and have_global will
      contain the size of the respective values.  For fixed-length
      tags, they are either zero or one.  Simplify later code by
      making them contain the size for both cases. */
@@ -583,8 +583,8 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
       assert( k == size );
     }
     
-    result->tags[i].num_dense_indices = size;
-    result->tags[i].dense_elem_indices = indices;
+    result->tags[j].num_dense_indices = size;
+    result->tags[j].dense_elem_indices = indices;
   }
   
     /* Compact memory and return */
