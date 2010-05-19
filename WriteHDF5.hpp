@@ -161,16 +161,26 @@ protected:
   //! Write exodus-type QA info
   ErrorCode write_qa( const std::vector<std::string>& list );
 
+  struct ExportType
+  {
+      //! The type of the entities in the range
+    EntityType type;
+      //! The number of nodes per entity - not used for nodes and sets
+    int num_nodes;
+    
+    bool operator==(ExportType t) const
+      { return t.type == type && t.num_nodes == num_nodes; }
+    bool operator!=(ExportType t) const
+      { return t.type != type || t.num_nodes != num_nodes; }
+    bool operator<(ExportType t) const
+      { return type < t.type || (type == t.type && num_nodes < t.num_nodes); }
+  };
 
   //! Range of entities, grouped by type, to export 
-  struct ExportSet 
+  struct ExportSet : public ExportType
   {
     //! The range of entities.
     Range range;
-    //! The type of the entities in the range
-    EntityType type;
-    //! The number of nodes per entity - not used for nodes and sets
-    int num_nodes;
     //! The first Id allocated by the mhdf library.  Entities in range have sequential IDs.
     id_t first_id;
     //! The offset at which to begin writting this processor's data.
@@ -205,12 +215,15 @@ public:
     //! separate from the offset used for the ID and Index tables.
     //! Always zero except for parallel IO. 
     id_t varDataOffset;
-    //! Write tag data (for serial, is always equal to !range.empty())
+    //! Write sparse tag data (for serial, is always equal to !range.empty())
     bool write;
     //! If doing parallel IO, largest number of tag values to write
     //! for any processor (needed to do collective IO).  Zero if unused.
     unsigned long max_num_ents;
     
+    //! List of entity groups for which to write tag data in 
+    //! dense format
+    std::vector<ExportType> denseList;
     
     bool operator<(const SparseTag&) const;
   };
@@ -450,35 +463,38 @@ private:
                                Tag tag_handle,
                                hid_t hdf_write_type );
 */  
-  //! Write sparse tag for all entities.
-  ErrorCode write_sparse_tag( const SparseTag& tag_data );
+  //! Write tag for all entities.
+  ErrorCode write_tag( const SparseTag& tag_data );
                             
   //! Get element connectivity
   ErrorCode get_connectivity( Range::const_iterator begin,
-                                Range::const_iterator end,
-                                int nodes_per_element,
-                                id_t* id_data_out );
+                              Range::const_iterator end,
+                              int nodes_per_element,
+                              id_t* id_data_out );
                                    
   //! Get size data for tag
   //!\param tag       MOAB tag ID
   //!\param moab_type Output: DataType for tag
   //!\param num_bytes Output: MOAB tag size (bits for bit tags).
   //!                         MB_VARIABLE_LENGTH for variable-length tags.
-  //!\param elem_size Output: Size of type values per entity (e.g.
-  //!                         sizeof(double) for MB_TYPE_DOUBLE data)
+  //!\param elem_size Output: Size of of the base data type of the
+  //!                         tag data (e.g. sizeof(double) if
+  //!                         moab_type == MB_TYPE_DOUBLE).
   //!                         One for bit and opaque tags.
-  //!\param file_size Output: num_bytes/elem_size
+  //!\param array_size Output: The number of valeus of size elem_size
+  //!                          for each tag.  Always 1 for opaque data.
+  //!                          Nubmer of bits for bit tags.
   //!\param file_type Output: mhdf type enumeration
-  //!\param hdf_type  Output: zero or handle for user-defined custom type
-  //!                         (user-defined type available only for opaque
-  //!                         data.)
+  //!\param hdf_type  Output: Handle to HDF5 type object.  Caller is
+  //!                         responsible for releasing this object
+  //!                         (calling H5Tclose).
   ErrorCode get_tag_size( Tag tag,
-                            DataType& moab_type,
-                            int& num_bytes,
-                            int& elem_size,
-                            int& file_size,
-                            mhdf_TagDataType& file_type,
-                            hid_t& hdf_type );
+                          DataType& moab_type,
+                          int& num_bytes,
+                          int& elem_size,
+                          int& file_size,
+                          mhdf_TagDataType& file_type,
+                          hid_t& hdf_type );
                             
   //! Write ID table for sparse tag
   ErrorCode write_sparse_ids( const SparseTag& tag_data, 
@@ -487,8 +503,19 @@ private:
                               size_t table_size, 
                               const char* name = 0 );
   
+  //! Write fixed-length tag data in sparse format
+  ErrorCode write_sparse_tag( const SparseTag& tag_data,
+                              const std::string& name,
+                              DataType tag_data_type,
+                              hid_t hdf5_data_type,
+                              int hdf5_type_size );
+  
   //! Write varialbe-length tag data
-  ErrorCode write_var_len_tag( const SparseTag& tag_info );
+  ErrorCode write_var_len_tag( const SparseTag& tag_info,
+                               const std::string& name,
+                               DataType tag_data_type,
+                               hid_t hdf5_type,
+                               int   hdf5_type_size );
 };
 
 } // namespace moab

@@ -261,6 +261,14 @@ hid_t create_tag_common( mhdf_FileHandle file_handle,
   hsize_t global_value_size = global_value_size_in;
   int close_base_type = 0;
 
+    /* Force standard data types over user-specified types */
+
+  if (tag_type != mhdf_OPAQUE)
+    hdf_type = 0;
+  if (tag_type != mhdf_ENTITY_ID)
+    hdf_base_type = 0;
+
+
     /* Validate input */
   
   file_ptr = (FileHandle*)file_handle;
