@@ -77,7 +77,7 @@ protected:
   //int number_dimensions();
 
     //! open a file for writing
-  ErrorCode open_file(const char *filename, bool overwrite);
+  ErrorCode open_file(const char *filename, bool overwrite, CCMIOID &rootID);
 
   //! contains the general information about a mesh
   class MeshInfo
@@ -156,9 +156,6 @@ private:
 
   bool mWholeMesh; // if true, whole mesh is being output
 
-    //! some CCMIO descriptors
-  CCMIOID rootID, topologyID, stateID, problemID, verticesID;
-
     //! gathers elements in each matset, and all the vertices used by them;
     //! marks the vertices with the mEntityMark bit flag
   ErrorCode gather_matset_info(std::vector<EntityHandle> &matsets,
@@ -170,20 +167,20 @@ private:
                                std::vector<NeumannSetData> &neuset_data,
                                Range &all_facets);
   
-  ErrorCode close_and_compress(const char *filename);
+  ErrorCode close_and_compress(const char *filename, CCMIOID rootID);
     
   ErrorCode initialize_file(MeshInfo &mesh_info);
 
     //! write vertices to file
-  ErrorCode write_nodes(const Range& nodes, const int dimension);
+  ErrorCode write_nodes(CCMIOID rootID, const Range& nodes, const int dimension, CCMIOID &verticesID);
   
     //! write cells and internal/boundary faces, using vgids and verts input
-  ErrorCode write_cells_and_faces(std::vector<WriteCCMIO::MaterialSetData> &matset_data,
+  ErrorCode write_cells_and_faces(CCMIOID rootID, std::vector<WriteCCMIO::MaterialSetData> &matset_data,
                                   std::vector<EntityHandle> &neusets,
-                                  Range &verts);
+                                  Range &verts, CCMIOID &topologyID);
 
     //! write external faces, including connectivity and connected cells
-  ErrorCode write_external_faces(int set_num, Range &facets);
+  ErrorCode write_external_faces(CCMIOID rootID, CCMIOID topologyID, int set_num, Range &facets);
   
     // get global ids for these entities; allocates gids and passes back,
     // caller is responsible for deleting
@@ -206,7 +203,7 @@ private:
   
   ErrorCode transform_coords(const int dimension, const int num_nodes, double *coords);
 
-  ErrorCode write_problem_description();
+  ErrorCode write_problem_description(CCMIOID rootID, CCMIOID stateID, CCMIOID &problemID);
 
     // get the material, dirichlet, neumann, and partition sets to be written,
     // either from input sets or in the whole mesh
@@ -216,9 +213,16 @@ private:
                      std::vector<EntityHandle> &dirsets,
                      std::vector<EntityHandle> &neusets,
                      std::vector<EntityHandle> &partsets);
+
+    //! create state and processor nodes
+  ErrorCode create_ccmio_structure(CCMIOID rootID, CCMIOID &stateID,
+                                   CCMIOID &processorID);
+
+    //! write solution (tag) data
+  ErrorCode write_solution_data();
   
-    //! create nodes in CCMIO file structure
-  ErrorCode create_ccmio_structure();
+    //! finalize processor
+  ErrorCode write_processor(CCMIOID processorID, CCMIOID verticesID, CCMIOID topologyID);
 };
 
 } // namespace moab

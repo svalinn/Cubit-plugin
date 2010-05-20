@@ -14,7 +14,7 @@
 #include "moab/Range.hpp"
 #include "moab/ExoIIInterface.hpp"
 #include "moab/ReaderIface.hpp"
-#include "TupleList.hpp"
+#include "moab/TupleList.hpp"
 #include "ccmio.h"
 
 namespace moab {
@@ -48,10 +48,9 @@ public:
 
 private:
   
-  ErrorCode read_processor(CCMIOID rootID, CCMIOID problemID,
-                             CCMIOID processorID, CCMIOSize_t proc,
-                             Range *new_ents);
-
+  ErrorCode read_mesh(CCMIOID stateID, CCMIOID problemID,
+                      CCMIOID processorID, 
+                      Range *new_ents);
 
   ErrorCode read_cells(CCMIOSize_t proc, CCMIOID processorID,
                          CCMIOID verticesID, CCMIOID topologyID,
@@ -100,9 +99,11 @@ private:
                             Range *verts, TupleList &vert_map);
 
 
-  ErrorCode get_processors(CCMIOID stateID, CCMIOID &processorID,
-                             std::set<CCMIOSize_t> &procs);
-
+  ErrorCode get_processors(CCMIOID stateID,
+                           CCMIOID &processorID, CCMIOID &verticesID,
+                           CCMIOID &topologyID, CCMIOID &solutionID,
+                           std::vector<CCMIOSize_t> &procs,
+                           bool &has_solution);
 
   ErrorCode get_state(CCMIOID rootID, CCMIOID &problemID, CCMIOID &stateID);
 
