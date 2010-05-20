@@ -934,7 +934,7 @@ ErrorCode ReadHDF5::get_tagged_entities( int tag_index, Range& file_ids )
     }
     
     EntityHandle h = (EntityHandle)ents->start_id;
-    hint = file_ids.insert( hint, h, h + ents->count );
+    hint = file_ids.insert( hint, h, h + ents->count - 1 );
   }
   
   if (!tag.have_sparse)
