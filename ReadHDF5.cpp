@@ -999,7 +999,7 @@ ErrorCode ReadHDF5::search_tag_values( hid_t tag_table,
       // Get a block of tag values
     size_t count = std::min( chunk_size, remaining );
     assert_range( buffer, count );
-    mhdf_readDenseTagWithOpt( tag_table, offset, count, H5T_NATIVE_UINT, buffer, collIO, &status );
+    mhdf_readTagValuesWithOpt( tag_table, offset, count, H5T_NATIVE_UINT, buffer, collIO, &status );
     if (is_error(status))
       return error(MB_FAILURE);
     
@@ -1574,14 +1574,15 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
     // get Range of all explicitly specified elements, grouped by dimension
   Range explicit_elems[4];
   Range::iterator hints[4] = { explicit_elems[0].begin(),
-                                 explicit_elems[1].begin(),
-                                 explicit_elems[2].begin(),
-                                 explicit_elems[3].begin() };
+                               explicit_elems[1].begin(),
+                               explicit_elems[2].begin(),
+                               explicit_elems[3].begin() };
   RangeMap<long, EntityHandle>::iterator rit;
   while (!elem_ids.empty()) {
     long start = elem_ids.front();
     long count = elem_ids.const_pair_begin()->second - start + 1;
     rit = idMap.lower_bound( start );
+    assert( rit != idMap.end() );
     assert( rit->begin <= start && rit->begin + rit->count > start );
     long offset = start - rit->begin;
     long avail = rit->count - offset;
@@ -3109,7 +3110,7 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
     file_ids.erase( file_ids.begin(), file_ids.begin() + count );
     
     assert_range( dataBuffer, count );
-    mhdf_readDenseTagWithOpt( data, first - start_id, count, hdf_read_type, 
+    mhdf_readTagValuesWithOpt( data, first - start_id, count, hdf_read_type, 
                               dataBuffer, indepIO, &status );
     if (is_error(status))
       return error(MB_FAILURE);
@@ -3259,9 +3260,9 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
       assert(j >= i);
       dbgOut.printf(3,"Reading block %d values ([%ld,%ld])\n",blkcount,offset+i,offset+j-1);
       assert(hdf_read_type > 0);
-      mhdf_readSparseTagValuesWithOpt( value_table, offset + i, j - i,
-                                       hdf_read_type, databuf + i*read_size, 
-                                       indepIO, &status );
+      mhdf_readTagValuesWithOpt( value_table, offset + i, j - i,
+                                 hdf_read_type, databuf + i*read_size, 
+                                 indepIO, &status );
       if (is_error(status))
         return error(MB_FAILURE);
       
@@ -3464,9 +3465,9 @@ ErrorCode ReadHDF5::read_var_len_tag( Tag tag_handle,
 
           // Read the tag data
         assert(hdf_read_type > 0);
-        mhdf_readSparseTagValuesWithOpt( val_table, prev_end_idx + 1,
-                                         val_count, hdf_read_type, memptr, 
-                                         indepIO, &status );
+        mhdf_readTagValuesWithOpt( val_table, prev_end_idx + 1,
+                                   val_count, hdf_read_type, memptr, 
+                                   indepIO, &status );
         if (is_error(status))
           return error(MB_FAILURE);
       
@@ -3750,8 +3751,8 @@ ErrorCode ReadHDF5::read_tag_values_partial( int tag_index,
       long count = p->second - p->first + 1;
       size_t prev_size = tag_values.size();
       tag_values.resize( prev_size + count );
-      mhdf_readSparseTagValuesWithOpt( handles[1], offset, count, H5T_NATIVE_INT,
-                                       &tag_values[prev_size], indepIO, &status );
+      mhdf_readTagValuesWithOpt( handles[1], offset, count, H5T_NATIVE_INT,
+                                 &tag_values[prev_size], indepIO, &status );
       if (mhdf_isError( &status )) {
         readUtil->report_error( "%s", mhdf_message( &status ) );
         mhdf_closeData( filePtr, handles[1], &status );
@@ -3808,8 +3809,8 @@ ErrorCode ReadHDF5::read_tag_values_partial( int tag_index,
       long count = p->second - p->first + 1;
       size_t prev_size = curr_data.size();
       curr_data.resize( prev_size + count );
-      mhdf_readDenseTagWithOpt( handle, offset, count, H5T_NATIVE_INT,
-                                &curr_data[prev_size], indepIO, &status );
+      mhdf_readTagValuesWithOpt( handle, offset, count, H5T_NATIVE_INT,
+                                 &curr_data[prev_size], indepIO, &status );
       if (mhdf_isError( &status )) {
         readUtil->report_error( "%s", mhdf_message( &status ) );
         mhdf_closeData( filePtr, handle, &status );
@@ -3860,8 +3861,8 @@ ErrorCode ReadHDF5::read_tag_values_all( int tag_index,
     }
     
     tag_values.resize( num_val );
-    mhdf_readSparseTagValuesWithOpt( handles[1], 0, num_val, H5T_NATIVE_INT,
-                                     &tag_values[0], collIO, &status );
+    mhdf_readTagValuesWithOpt( handles[1], 0, num_val, H5T_NATIVE_INT,
+                               &tag_values[0], collIO, &status );
     if (mhdf_isError( &status )) {
       readUtil->report_error( "%s", mhdf_message( &status ) );
       mhdf_closeData( filePtr, handles[1], &status );
@@ -3896,7 +3897,7 @@ ErrorCode ReadHDF5::read_tag_values_all( int tag_index,
     }
     
     curr_data.resize( num_val );
-    mhdf_readDenseTagWithOpt( handle, 0, num_val, H5T_NATIVE_INT, &curr_data[0], collIO, &status );
+    mhdf_readTagValuesWithOpt( handle, 0, num_val, H5T_NATIVE_INT, &curr_data[0], collIO, &status );
     if (mhdf_isError( &status )) {
       readUtil->report_error( "%s", mhdf_message( &status ) );
       mhdf_closeData( filePtr, handle, &status );

@@ -2112,69 +2112,6 @@ mhdf_openDenseTagData( mhdf_FileHandle file_handle,
                        long* num_values_out,
                        mhdf_Status* status );
 
-/** \brief Write dense tag values 
- *
- *\param tag_handle    Handle to the data object to write to.  The return
- *                     value of either \ref mhdf_createDenseTagData or
- *                     \ref mhdf_openDenseTagData.
- *\param offset        The offset into the list of tag values at which to
- *                     begin writing.
- *\param count         The number of tag values to write.
- *\param hdf_data_type The type of the data in memory.  If this is specified,
- *                     it must be possible for the HDF library to convert
- *                     between this type and the type the tag data is stored
- *                     as.  If zero, the tag storage type will be assumed.
- *                     This should always be zero for opaque data.
- *\param tag_data      The tag values to write.
- *\param status        Passed back status of API call.
- */
-void
-mhdf_writeDenseTag( hid_t tag_handle,
-                    long offset,
-                    long count,
-                    hid_t hdf_data_type,
-                    const void* tag_data,
-                    mhdf_Status* status );
-void
-mhdf_writeDenseTagWithOpt( hid_t tag_handle,
-                    long offset,
-                    long count,
-                    hid_t hdf_data_type,
-                    const void* tag_data,
-                    hid_t write_prop,
-                    mhdf_Status* status );
-
-/** \brief Read dense tag values 
- *
- *\param tag_handle    Handle to the data object to read from.  The return
- *                     value of either \ref mhdf_createDenseTagData or
- *                     \ref mhdf_openDenseTagData.
- *\param offset        The offset into the list of tag values at which to
- *                     begin reading.
- *\param count         The number of tag values to read.
- *\param hdf_data_type The type of the data in memory.  If this is specified,
- *                     it must be possible for the HDF library to convert
- *                     between this type and the type the tag data is stored
- *                     as.  If zero, the data will be read as opaque data.
- *\param tag_data      The memory location at which to store the tag values.
- *\param status        Passed back status of API call.
- */
-void
-mhdf_readDenseTag( hid_t tag_handle,
-                   long offset,
-                   long count,
-                   hid_t hdf_data_type,
-                   void* tag_data,
-                   mhdf_Status* status );
-void
-mhdf_readDenseTagWithOpt( hid_t tag_handle,
-                   long offset,
-                   long count,
-                   hid_t hdf_data_type,
-                   void* tag_data,
-                   hid_t read_prop,
-                   mhdf_Status* status );
-
 /** \brief Create file objects to store sparse tag data 
  *
  * Create the file objects to store all sparse data for a given tag in.  The 
@@ -2288,11 +2225,13 @@ mhdf_writeSparseTagEntitiesWithOpt( hid_t id_handle,
 
 
 
-/** \brief Write tag value list for sparse tag data
+/** \brief Write tag values
  *
  *\param value_handle  The second handle passed back from either
  *                     \ref mhdf_createSparseTagData or 
- *                     \ref mhdf_openSparseTagData.
+ *                     \ref mhdf_openSparseTagData; or the handle
+ *                     returned by \ref mhdf_createDenseTagData or
+ *                     \ref mhdf_openDenseTagData.
  *\param offset        The offset at which to begin writing.
  *\param count         The number of tag values to write.
  *\param hdf_tag_data_type The type of the data in memory.  
@@ -2303,20 +2242,20 @@ mhdf_writeSparseTagEntitiesWithOpt( hid_t id_handle,
  *\param status        Passed back status of API call.
  */
 void
-mhdf_writeSparseTagValues( hid_t value_handle,
-                           long offset,
-                           long count,
-                           hid_t hdf_tag_data_type,
-                           const void* tag_data,
-                           mhdf_Status* status );
+mhdf_writeTagValues( hid_t value_handle,
+                     long offset,
+                     long count,
+                     hid_t hdf_tag_data_type,
+                     const void* tag_data,
+                     mhdf_Status* status );
 void
-mhdf_writeSparseTagValuesWithOpt( hid_t value_handle,
-                           long offset,
-                           long count,
-                           hid_t hdf_tag_data_type,
-                           const void* tag_data,
-                           hid_t write_prop,
-                           mhdf_Status* status );
+mhdf_writeTagValuesWithOpt( hid_t value_handle,
+                     long offset,
+                     long count,
+                     hid_t hdf_tag_data_type,
+                     const void* tag_data,
+                     hid_t write_prop,
+                     mhdf_Status* status );
 
 /**\brief Write sparse tag end indices for variable-length tag data
  *
@@ -2378,11 +2317,13 @@ mhdf_readSparseTagEntitiesWithOpt( hid_t id_handle,
                             hid_t read_prop,
                             mhdf_Status* status );
 
-/** \brief Read tag value list for sparse tag data
+/** \brief Read tag values
  *
  *\param value_handle  The second handle passed back from either
- *                  \ref mhdf_createSparseTagData or 
- *                  \ref mhdf_openSparseTagData.
+ *                     \ref mhdf_createSparseTagData or 
+ *                     \ref mhdf_openSparseTagData; or the handle
+ *                     returned by \ref mhdf_createDenseTagData or
+ *                     \ref mhdf_openDenseTagData.
  *\param offset     The offset at which to begin reading.
  *\param count      The number of tag values to read.
  *\param hdf_type   The type of the data in memory.  If this is specified,
@@ -2393,20 +2334,20 @@ mhdf_readSparseTagEntitiesWithOpt( hid_t id_handle,
  *\param status     Passed back status of API call.
  */
 void
-mhdf_readSparseTagValues( hid_t value_handle,
-                          long offset,
-                          long count,
-                          hid_t hdf_type,
-                          void* memory,
-                          mhdf_Status* status );
+mhdf_readTagValues( hid_t value_handle,
+                    long offset,
+                    long count,
+                    hid_t hdf_type,
+                    void* memory,
+                    mhdf_Status* status );
 void
-mhdf_readSparseTagValuesWithOpt( hid_t value_handle,
-                          long offset,
-                          long count,
-                          hid_t hdf_type,
-                          void* memory,
-                          hid_t read_prop,
-                          mhdf_Status* status );
+mhdf_readTagValuesWithOpt( hid_t value_handle,
+                    long offset,
+                    long count,
+                    hid_t hdf_type,
+                    void* memory,
+                    hid_t read_prop,
+                    mhdf_Status* status );
 
 
 /**\brief Read sparse tag end indices for variable-length tag data

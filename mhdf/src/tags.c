@@ -1464,97 +1464,6 @@ mhdf_openDenseTagData(  mhdf_FileHandle file_handle,
   return data_id;
 }
 
-
-void
-mhdf_writeDenseTag( hid_t tag_table,
-                    long offset,
-                    long count,
-                    hid_t type_id,
-                    const void* tag_data,
-                    mhdf_Status* status )
-{
-  mhdf_writeDenseTagWithOpt( tag_table, offset, count, type_id, tag_data,
-                             H5P_DEFAULT,status );
-}
-void
-mhdf_writeDenseTagWithOpt( hid_t tag_table,
-                    long offset,
-                    long count,
-                    hid_t type_id,
-                    const void* tag_data,
-                    hid_t io_prop,
-                    mhdf_Status* status )
-{
-  hid_t my_type_id;
-  API_BEGIN;
-  
-  if (type_id > 0)
-  {
-    my_type_id = type_id;
-  }
-  else
-  {
-    my_type_id = H5Dget_type( tag_table );
-    if (my_type_id < 0)
-    {
-      mhdf_setFail( status, "Internal error calling H5Dget_type.  Bad handle?" );
-      return;
-    }
-  }
-
-  mhdf_write_data( tag_table, offset, count, my_type_id, tag_data, io_prop, status );
-
-  if (type_id < 1)
-    H5Tclose( my_type_id );
-  API_END;
-}
-
-void
-mhdf_readDenseTag( hid_t tag_table,
-                   long offset,
-                   long count,
-                   hid_t type_id,
-                   void* tag_data,
-                   mhdf_Status* status )
-
-{
-  mhdf_readDenseTagWithOpt( tag_table,offset, count, type_id, tag_data,
-                            H5P_DEFAULT, status );
-}
-void
-mhdf_readDenseTagWithOpt( hid_t tag_table,
-                   long offset,
-                   long count,
-                   hid_t type_id,
-                   void* tag_data,
-                   hid_t io_prop,
-                   mhdf_Status* status )
-
-{
-  hid_t my_type_id;
-  API_BEGIN;
-  
-  if (type_id > 0)
-  {
-    my_type_id = type_id;
-  }
-  else
-  {
-    my_type_id = H5Dget_type( tag_table );
-    if (my_type_id < 0)
-    {
-      mhdf_setFail( status, "Internal error calling H5Dget_type.  Bad handle?" );
-      return;
-    }
-  }
-
-  mhdf_read_data( tag_table, offset, count, my_type_id, tag_data, io_prop, status );
-
-  if (type_id < 1)
-    H5Tclose( my_type_id );
-  API_END;
-}
-
 void
 mhdf_createSparseTagData( mhdf_FileHandle file_handle,
                           const char* tag_name,
@@ -1780,25 +1689,25 @@ mhdf_writeSparseTagEntitiesWithOpt( hid_t table_id,
 }
                         
 void
-mhdf_writeSparseTagValues( hid_t table_id,
-                           long offset,
-                           long count,
-                           hid_t tag_type,
-                           const void* tag_data,
-                           mhdf_Status* status )
+mhdf_writeTagValues( hid_t table_id,
+                     long offset,
+                     long count,
+                     hid_t tag_type,
+                     const void* tag_data,
+                     mhdf_Status* status )
 {
-  mhdf_writeSparseTagValuesWithOpt( table_id, offset, count, tag_type, tag_data,
-                                    H5P_DEFAULT, status );
+  mhdf_writeTagValuesWithOpt( table_id, offset, count, tag_type, tag_data,
+                              H5P_DEFAULT, status );
 }
 
 void
-mhdf_writeSparseTagValuesWithOpt( hid_t table_id,
-                           long offset,
-                           long count,
-                           hid_t tag_type,
-                           const void* tag_data,
-                           hid_t io_prop,
-                           mhdf_Status* status )
+mhdf_writeTagValuesWithOpt( hid_t table_id,
+                     long offset,
+                     long count,
+                     hid_t tag_type,
+                     const void* tag_data,
+                     hid_t io_prop,
+                     mhdf_Status* status )
 {
   API_BEGIN;
   mhdf_write_data( table_id, offset, count, tag_type, tag_data, io_prop, status );
@@ -1858,24 +1767,24 @@ mhdf_readSparseTagEntitiesWithOpt( hid_t table_id,
 }
                         
 void
-mhdf_readSparseTagValues( hid_t table_id,
-                          long offset,
-                          long count,
-                          hid_t tag_type,
-                          void* tag_data,
-                          mhdf_Status* status )
+mhdf_readTagValues( hid_t table_id,
+                    long offset,
+                    long count,
+                    hid_t tag_type,
+                    void* tag_data,
+                    mhdf_Status* status )
 {
-  mhdf_readSparseTagValuesWithOpt( table_id, offset, count, tag_type, tag_data,
-                                   H5P_DEFAULT, status );
+  mhdf_readTagValuesWithOpt( table_id, offset, count, tag_type, tag_data,
+                             H5P_DEFAULT, status );
 }
 void
-mhdf_readSparseTagValuesWithOpt( hid_t table_id,
-                          long offset,
-                          long count,
-                          hid_t tag_type,
-                          void* tag_data,
-                          hid_t io_prop,
-                          mhdf_Status* status )
+mhdf_readTagValuesWithOpt( hid_t table_id,
+                           long offset,
+                           long count,
+                           hid_t tag_type,
+                           void* tag_data,
+                           hid_t io_prop,
+                           mhdf_Status* status )
 {
   API_BEGIN;
   mhdf_read_data( table_id, offset, count, tag_type, tag_data, io_prop, status );

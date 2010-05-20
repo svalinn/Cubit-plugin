@@ -44,7 +44,84 @@ class IODebugTrack;
 
 class MB_DLL_EXPORT WriteHDF5 : public WriterIface
 {
+protected: 
+
+  struct ExportType
+  {
+      //! The type of the entities in the range
+    EntityType type;
+      //! The number of nodes per entity - not used for nodes and sets
+    int num_nodes;
+    
+    bool operator==(ExportType t) const
+      { return t.type == type && t.num_nodes == num_nodes; }
+    bool operator!=(ExportType t) const
+      { return t.type != type || t.num_nodes != num_nodes; }
+    bool operator<(ExportType t) const
+      { return type < t.type || (type == t.type && num_nodes < t.num_nodes); }
+  }; 
+
+  //! Range of entities, grouped by type, to export 
+  struct ExportSet : public ExportType
+  {
+    //! The range of entities.
+    Range range;
+    //! The first Id allocated by the mhdf library.  Entities in range have sequential IDs.
+    id_t first_id;
+    //! The offset at which to begin writting this processor's data.
+    //! Always zero except for parallel IO.
+    id_t offset;
+    //! Offset for adjacency data.  Always zero except for parallel IO
+    EntityID adj_offset;
+    //! If doing parallel IO, largest number of entities to write
+    //! for any processor (needed to do collective IO).  Zero if unused.
+    long max_num_ents, max_num_adjs;
+    //! The total number of entities that will be written to the file
+    //! for this group.  For serial IO, this should always be range.size().
+    //! For parallel IO, it will be the sum of range size over all processors.
+    //! For parallel IO, this value is undefined except for on the root 
+    //! processor.
+    long total_num_ents;
+    
+    bool operator<( const ExportSet& other ) const
+      { return type < other.type || 
+               (type == other.type && 
+                type != MBPOLYGON &&
+                type != MBPOLYHEDRON &&
+                num_nodes < other.num_nodes); }
+                
+    const char* name() const;
+  };
+
 public:
+  
+  //! Tag to write to file.
+  struct SparseTag
+  {
+    //! The tag handle
+    Tag tag_id;
+    //! The offset at which to begin writting this processor's data.
+    //! Always zero except for parallel IO. 
+    id_t offset;
+    //! For variable-length tags, a second offset for the tag data table,
+    //! separate from the offset used for the ID and Index tables.
+    //! Always zero except for parallel IO. 
+    id_t varDataOffset;
+    //! Write sparse tag data (for serial, is always equal to !range.empty())
+    bool write;
+    //! If doing parallel IO, largest number of tag values to write
+    //! for any processor (needed to do collective IO).  Zero if unused.
+    unsigned long max_num_ents;
+    
+    //! List of entity groups for which to write tag data in 
+    //! dense format
+    std::vector<ExportType> denseList;
+    
+    bool have_dense( const ExportType& type ) const
+      { return std::find(denseList.begin(), denseList.end(), type) != denseList.end(); }
+    
+    bool operator<(const SparseTag&) const;
+  };
 
   static WriterIface* factory( Interface* );
 
@@ -130,10 +207,7 @@ protected:
    * Create zero-ed tables where element connectivity and 
    * adjacency data will be stored.
    */
-  ErrorCode create_elem_tables( EntityType mb_type,
-                                  int nodes_per_element,
-                                  id_t number_elements,
-                                  long& first_id_out );
+  ErrorCode create_elem_tables( const ExportSet& block, long& first_id_out );
   
   /** Helper function for create-file
    *
@@ -148,7 +222,7 @@ protected:
    *
    * Create zero-ed table where set descriptions will be written
    */
-  ErrorCode create_set_meta( id_t number_sets, long& first_id_out );
+  ErrorCode create_set_meta( long& first_id_out );
 
   /** Helper function for create-file
    *
@@ -161,72 +235,6 @@ protected:
   //! Write exodus-type QA info
   ErrorCode write_qa( const std::vector<std::string>& list );
 
-  struct ExportType
-  {
-      //! The type of the entities in the range
-    EntityType type;
-      //! The number of nodes per entity - not used for nodes and sets
-    int num_nodes;
-    
-    bool operator==(ExportType t) const
-      { return t.type == type && t.num_nodes == num_nodes; }
-    bool operator!=(ExportType t) const
-      { return t.type != type || t.num_nodes != num_nodes; }
-    bool operator<(ExportType t) const
-      { return type < t.type || (type == t.type && num_nodes < t.num_nodes); }
-  };
-
-  //! Range of entities, grouped by type, to export 
-  struct ExportSet : public ExportType
-  {
-    //! The range of entities.
-    Range range;
-    //! The first Id allocated by the mhdf library.  Entities in range have sequential IDs.
-    id_t first_id;
-    //! The offset at which to begin writting this processor's data.
-    //! Always zero except for parallel IO.
-    id_t offset;
-    //! Offset for adjacency data.  Always zero except for parallel IO
-    EntityID adj_offset;
-    //! If doing parallel IO, largest number of entities to write
-    //! for any processor (needed to do collective IO).  Zero if unused.
-    long max_num_ents, max_num_adjs;
-    
-    bool operator<( const ExportSet& other ) const
-      { return type < other.type || 
-               (type == other.type && 
-                type != MBPOLYGON &&
-                type != MBPOLYHEDRON &&
-                num_nodes < other.num_nodes); }
-                
-    const char* name() const;
-  };
-  
-public:
-  //! Tag to write to file.
-  struct SparseTag
-  {
-    //! The tag handle
-    Tag tag_id;
-    //! The offset at which to begin writting this processor's data.
-    //! Always zero except for parallel IO. 
-    id_t offset;
-    //! For variable-length tags, a second offset for the tag data table,
-    //! separate from the offset used for the ID and Index tables.
-    //! Always zero except for parallel IO. 
-    id_t varDataOffset;
-    //! Write sparse tag data (for serial, is always equal to !range.empty())
-    bool write;
-    //! If doing parallel IO, largest number of tag values to write
-    //! for any processor (needed to do collective IO).  Zero if unused.
-    unsigned long max_num_ents;
-    
-    //! List of entity groups for which to write tag data in 
-    //! dense format
-    std::vector<ExportType> denseList;
-    
-    bool operator<(const SparseTag&) const;
-  };
 protected:
 
   //!\brief Get tagged entities for which to write tag values
@@ -259,6 +267,18 @@ protected:
   //! The list of sets to export
   ExportSet setSet;
   
+  const ExportSet* find( ExportType type ) const {
+    if (type.type == MBVERTEX)
+      return &nodeSet;
+    else if (type.type == MBENTITYSET)
+      return &setSet;
+    else {
+      std::list<ExportSet>::const_iterator it;
+      it = std::find( exportList.begin(), exportList.end(), type );
+      return it == exportList.end() ? 0 : &*it;
+    }
+  }
+  
   //! Offset into set contents table (zero except for parallel)
   unsigned long setContentsOffset;
   //! Offset into set children table (zero except for parallel)
@@ -282,6 +302,8 @@ protected:
   bool parallelWrite;
   //! True if using collective IO calls for parallel write
   bool collectiveIO;
+  //! True if writing dense-formatted tag data
+  bool writeTagDense;
   
   //! Property set to pass to H5Dwrite calls. 
   //! For serial, should be H5P_DEFAULTS.
@@ -331,9 +353,9 @@ protected:
    *\param var_len_total For variable-length tags, the total number of values
    *                     in the data table.
    */
-  ErrorCode create_tag( Tag tag_id, 
-                          unsigned long num_entities,
-                          unsigned long var_len_total );
+  ErrorCode create_tag( const SparseTag& tag_data, 
+                        unsigned long num_entities,
+                        unsigned long var_len_total );
   
   /**\brief add entities to idMap */
   ErrorCode assign_ids( const Range& entities, id_t first_id );
@@ -451,18 +473,7 @@ private:
    * Note: Must have already written nodes, elem connectivity and
    *       sets so that entities have IDs assigned.
    */
-/*
-  ErrorCode write_tag( Tag tag_handle );
-  
-  //! Write dense tag for all entities 
-  ErrorCode write_dense_tag( Tag tag_handle,
-                               hid_t hdf_write_type );
 
-  //! Write dense tag for specified entity set
-  ErrorCode write_dense_tag( ExportSet& set,
-                               Tag tag_handle,
-                               hid_t hdf_write_type );
-*/  
   //! Write tag for all entities.
   ErrorCode write_tag( const SparseTag& tag_data );
                             
@@ -505,17 +516,36 @@ private:
   
   //! Write fixed-length tag data in sparse format
   ErrorCode write_sparse_tag( const SparseTag& tag_data,
-                              const std::string& name,
+                              const std::string& tag_name,
                               DataType tag_data_type,
                               hid_t hdf5_data_type,
                               int hdf5_type_size );
   
   //! Write varialbe-length tag data
   ErrorCode write_var_len_tag( const SparseTag& tag_info,
-                               const std::string& name,
+                               const std::string& tag_name,
                                DataType tag_data_type,
                                hid_t hdf5_type,
-                               int   hdf5_type_size );
+                               int hdf5_type_size );
+
+  //! Write dense-formatted tag data
+  ErrorCode write_dense_tag( const SparseTag& tag_data,
+                             const ExportSet& elem_data,
+                             const std::string& tag_name,
+                             DataType tag_data_type,
+                             hid_t hdf5_data_type,
+                             int hdf5_type_size );
+
+  //! Write data for fixed-size tag
+  ErrorCode write_tag_values( Tag tag_id,
+                              hid_t data_table,
+                              unsigned long data_offset,
+                              const Range& range,
+                              DataType tag_data_type,
+                              hid_t hdf5_data_type,
+                              int hdf5_type_size,
+                              unsigned long max_num_ents,
+                              IODebugTrack& debug_track );
 };
 
 } // namespace moab
