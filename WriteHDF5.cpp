@@ -1820,7 +1820,7 @@ ErrorCode WriteHDF5::write_sparse_ids( const SparseTag& tag_data,
     iter = stop;
     assert(tmp.size() == (unsigned)count);
     
-    rval = range_to_id_list( range, id_buffer );
+    rval = range_to_id_list( tmp, id_buffer );
     CHK_MB_ERR_0( rval );
     
       // write the data
