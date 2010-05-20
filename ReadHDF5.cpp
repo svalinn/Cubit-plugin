@@ -3066,11 +3066,18 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
   rval = iFace->tag_get_data_type( tag_handle, mb_type );
   if (MB_SUCCESS != rval) 
     return error(rval);
+
   
-  hsize_t read_size = 0;
-  if (mb_type == MB_TYPE_HANDLE) {
-    read_size = H5Tget_size( hdf_read_type );
-    if (!read_size)
+  int read_size;
+  rval = iFace->tag_get_size( tag_handle, read_size );
+  if (MB_SUCCESS != rval) // wrong function for variable-length tags
+    return error(rval);
+  if (MB_TYPE_BIT == mb_type) 
+    read_size = (read_size + 7)/8; // convert bits to bytes, plus 7 for ceiling
+    
+  if (hdf_read_type) { // if not opaque
+    hsize_t hdf_size = H5Tget_size( hdf_read_type );
+    if (hdf_size != (hsize_t)read_size) 
       return error(MB_FAILURE);
   }
   
@@ -3099,7 +3106,7 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
     long count = file_ids.const_pair_begin()->second - first + 1;
     if (buffer_size < count)
       count = buffer_size;
-    file_ids.erase( file_ids.begin(), file_ids.begin() + (count - 1) );
+    file_ids.erase( file_ids.begin(), file_ids.begin() + count );
     
     assert_range( dataBuffer, count );
     mhdf_readDenseTagWithOpt( data, first - start_id, count, hdf_read_type, 
