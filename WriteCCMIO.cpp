@@ -730,7 +730,7 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     //================================================
     // mark tag, for face marking on each non-polyhedral element
   Tag fmark_tag;
-  unsigned char mval = 0x0;
+  unsigned char mval = 0x0, omval;
   result = mbImpl->tag_create("__fmark", 1, MB_TAG_DENSE, MB_TYPE_OPAQUE, 
                               fmark_tag, &mval);
   CHKERR(result, "Couldn't create mark tag.");
@@ -849,12 +849,12 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
         CN::SideNumber(TYPE_FROM_HANDLE(tmp_face_cells[1]), oconnectc, connectf, num_connectf,
                        mDimension-1, side_num, sense, offset);
           // set mark for that face on the other cell
-        result = mbImpl->tag_get_data(fmark_tag, &tmp_face_cells[1], 1, &mval);
+        result = mbImpl->tag_get_data(fmark_tag, &tmp_face_cells[1], 1, &omval);
         CHKERR(result, "Couldn't get mark data for other cell.");
       }
         
-      mval |= (0x1 << (unsigned int)side_num);
-      result = mbImpl->tag_set_data(fmark_tag, &tmp_face_cells[1], 1, &mval);
+      omval |= (0x1 << (unsigned int)side_num);
+      result = mbImpl->tag_set_data(fmark_tag, &tmp_face_cells[1], 1, &omval);
       CHKERR(result, "Couldn't set mark data for other cell.");
 
     } // loop over faces in elem
@@ -957,11 +957,11 @@ ErrorCode WriteCCMIO::write_external_faces(CCMIOID rootID, CCMIOID topologyID,
       // check we don't bound more than one cell being output
     result = mbImpl->tag_get_data(mEntityMark, &cells[0], cells.size(), cmarks);
     CHKERR(result, "Trouble getting mark tags on cells bounding facets.");
-    if (cells.size() == 2 && (cmarks[0] & 0x1) && (cmarks[1] & 0x1)) {
+    if (cells.size() == 2 && (mWholeMesh || (cmarks[0] && cmarks[1]))) {
       result = MB_FILE_WRITE_ERROR;
       CHKERR(result, "External facet with two output bounding cells.");
     }
-    else if (1 == cells.size() && (mWholeMesh || !(cmarks[0] | 0x0))) {
+    else if (1 == cells.size() && !mWholeMesh && !cmarks[0]) {
       result = MB_FILE_WRITE_ERROR;
       CHKERR(result, "External facet with no output bounding cells.");
     }
