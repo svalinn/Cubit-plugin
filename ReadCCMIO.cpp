@@ -208,48 +208,6 @@ ErrorCode ReadCCMIO::get_state(CCMIOID rootID, CCMIOID &problemID, CCMIOID &stat
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCCMIO::get_processors(CCMIOID stateID,
-                                    CCMIOID &processorID, CCMIOID &verticesID,
-                                    CCMIOID &topologyID, CCMIOID &solutionID,
-                                    std::vector<CCMIOSize_t> &procs,
-                                    bool &has_solution) 
-{
-  return MB_SUCCESS;
-}
-
-ErrorCode ReadCCMIO::read_mesh(CCMIOID stateID, CCMIOID problemID,
-                               CCMIOID processorID, 
-                               Range *new_ents) 
-{
-  ErrorCode rval;
-  bool has_solution = true;
-  CCMIOID verticesID, topologyID, solutionID;
-  
-  CCMIOSize_t i = CCMIOSIZEC(0);
-  CCMIOError error = kCCMIONoErr;
-  CCMIONextEntity(&error, stateID, kCCMIOProcessor, &i, &processorID);
-  CCMIOReadProcessor(&error, processorID, &verticesID, &topologyID, NULL, &solutionID);
-  if (error != kCCMIONoErr) {
-      // Maybe no solution;  try again
-    error = kCCMIONoErr;
-    CCMIOReadProcessor(&error, processorID, &verticesID, &topologyID, NULL, NULL);
-    has_solution = false;
-  }
-  CHKCCMERR(error, "Error reading processor.");
-
-    // read the vertices, topology, and solution ids
-  TupleList vert_map;
-  rval = read_vertices(i, processorID, verticesID, topologyID, 
-                       solutionID, has_solution, new_ents, vert_map);
-  CHKERR(rval, NULL);
-  
-  rval = read_cells(i, problemID, verticesID, topologyID, 
-                    solutionID, has_solution, vert_map, new_ents);
-  CHKERR(rval, NULL);
-
-  return rval;
-}
-
 ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
                                      const EntityHandle *file_set) 
 {
@@ -928,35 +886,6 @@ ErrorCode ReadCCMIO::get_processors(CCMIOID stateID,
   CHKCCMERR(error, NULL);
   
   procs.push_back(proc);
-  
-  return MB_SUCCESS;
-}
-
-ErrorCode ReadCCMIO::get_state(CCMIOID rootID, CCMIOID &problemID, CCMIOID &stateID) 
-{
-  CCMIOError error = kCCMIONoErr;
-  
-    // now construct the cells; sort the face map by cell ids first
-#ifdef TUPLE_LIST  
-  rval = face_map.sort(1);
-  CHKERR(rval, "Couldn't sort face map by cell id.");
-#endif
-  std::vector<EntityHandle> new_cells;
-  rval = construct_cells(face_map, 
-#ifndef TUPLE_LIST
-                         sense_map,
-#endif
-                         vert_map, new_cells);
-  CHKERR(rval, NULL);
-  if (new_ents) {
-    Range::iterator rit = new_ents->end();
-    std::vector<EntityHandle>::reverse_iterator vit;
-    for (vit = new_cells.rbegin(); vit != new_cells.rend(); vit++)
-      rit = new_ents->insert(rit, *vit);
-  }
-  
-  rval = read_gids_and_types(problemID, topologyID, new_cells);
-  CHKERR(rval, NULL);
   
   return MB_SUCCESS;
 }
