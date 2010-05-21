@@ -720,7 +720,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
         EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
         if (CN::Dimension(type) == dim) {
           debug_barrier();
-          dbgOut.printf( 2, "    Reading element connectivity for: %s\n", fileInfo->elems[i].handle );
+          dbgOut.tprintf( 2, "    Reading element connectivity for: %s\n", fileInfo->elems[i].handle );
           Range subset;
           intersect( fileInfo->elems[i].desc, file_ids, subset );
           rval = read_elems( fileInfo->elems[i],  subset );
@@ -737,7 +737,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
         EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
         if (CN::Dimension(type) == dim) {
           debug_barrier();
-          dbgOut.printf( 2, "    Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle );
+          dbgOut.tprintf( 2, "    Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle );
           rval = read_node_adj_elems( fileInfo->elems[i] );
           if (MB_SUCCESS != rval)
             return error(rval);
@@ -748,7 +748,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     
     case 2: // ELEMENTS=SIDES : read explicitly specified elems and any sides of those elems
     debug_barrier();
-    dbgOut.print( 2, "    Reading elements and sides\n");
+    dbgOut.tprint( 2, "    Reading elements and sides\n");
     rval = read_elements_and_sides( file_ids );
     if (MB_SUCCESS != rval)
       return error(rval);
@@ -1539,7 +1539,7 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
     EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
     if (CN::Dimension(type) < max_dim) {
-      dbgOut.printf(3, "   Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle);
+      dbgOut.tprintf(3, "   Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle);
       rval = read_node_adj_elems( fileInfo->elems[i] );
       if (MB_SUCCESS != rval)
         return error(rval);
@@ -1557,7 +1557,7 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
       intersect( fileInfo->elems[i].desc, elem_ids, subset );
       if (!subset.empty() || nativeParallel) {
         subtract( elem_ids,  subset );
-        dbgOut.printf(3, "   Reading connectivity for: %s\n", fileInfo->elems[i].handle);
+        dbgOut.tprintf(3, "   Reading connectivity for: %s\n", fileInfo->elems[i].handle);
         rval = read_elems( fileInfo->elems[i],  subset );
         if (MB_SUCCESS != rval)
           return error(rval); 
@@ -1566,7 +1566,7 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
   } 
 
   debug_barrier();
-  dbgOut.print(3, "  Deleting entities\n");
+  dbgOut.tprint(3, "  Deleting entities\n");
       
     // delete anything we read in that we should not have
     // (e.g. an edge spanning two disjoint blocks of elements)
