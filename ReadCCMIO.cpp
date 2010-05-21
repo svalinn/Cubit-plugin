@@ -136,6 +136,11 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
     result = impl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
                               MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
   
+  result = impl->tag_get_handle(NAME_TAG_NAME, mNameTag);
+  if (MB_TAG_NOT_FOUND == result)
+    result = impl->tag_create(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TAG_SPARSE, 
+                              MB_TYPE_OPAQUE, mNameTag, NULL);
+  
 }
 
 ReadCCMIO::~ReadCCMIO() 
@@ -240,8 +245,8 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
   rval = load_matset_data(problemID);
   CHKERR(rval, "Failure loading matset data.");
   
-//  rval = load_neuset_data(problemID);
-//  CHKERR(rval, "Failure loading neuset data.");
+  rval = load_neuset_data(problemID);
+  CHKERR(rval, "Failure loading neuset data.");
   
   return rval;
 }
@@ -281,29 +286,8 @@ ErrorCode ReadCCMIO::load_matset_data(CCMIOID problemID)
       mtype_name.resize(csize+1, '\0');
       CCMIOReadOptstr(&error, next, "MaterialType", &csize, &mtype_name[0]);
 
-      rval = mbImpl->tag_set_data(matNameTag, &dum_ent, 1, &mtype_name[0]);
-      CHKERR(rval, "Failed to set matNameTag.");
-      
-    }
-
-      // porosity
-    if (kCCMIONoErr == CCMIOReadOpti(NULL, next, "PorosityId", &idum)) {
-      rval = mbImpl->tag_set_data(matPorosityTag, &dum_ent, 1, &idum);
-      CHKERR(rval, "Failed to set matPorosityTag.");
-      
-    }
-
-      // Spin
-    if (kCCMIONoErr == CCMIOReadOpti(NULL, next, "SpinId", &idum)) {
-      rval = mbImpl->tag_set_data(matSpinTag, &dum_ent, 1, &idum);
-      CHKERR(rval, "Failed to set matSpinTag.");
-      
-    }
-
-      // group
-    if (kCCMIONoErr == CCMIOReadOpti(NULL, next, "GroupId", &idum)) {
-      rval = mbImpl->tag_set_data(matGroupTag, &dum_ent, 1, &idum);
-      CHKERR(rval, "Failed to set matGroupTag.");
+      rval = mbImpl->tag_set_data(mNameTag, &dum_ent, 1, &mtype_name[0]);
+      CHKERR(rval, "Failed to set neuset Name Tag.");
     }
   }
 
@@ -321,28 +305,30 @@ ErrorCode ReadCCMIO::load_neuset_data(CCMIOID problemID)
   std::vector<char> set_name;
   CCMIOError error = kCCMIONoErr;
   ErrorCode rval;
-  
+  Range::iterator rit = newNeusets.begin();
+
   while (CCMIONextEntity(NULL, problemID, kCCMIOBoundaryRegion, &i, &next)
          == kCCMIONoErr) {
-    int csize, mindex, idum;
+    int csize, idum;
 
-    CCMIOGetEntityIndex(&error, next, &mindex);
-    assert(mindex > 0 && mindex <= (int)newNeusets.size()+1);
-    mindex--;
-    EntityHandle dum_ent = newNeusets[mindex];
+    EntityHandle dum_ent = *rit++;
 
+      // get label, for id
+    CCMIOSize_t len;
+    CCMIOEntityLabel(&error, next, &len, NULL);
+    set_name.resize(csize+1, '\0');
+    CCMIOEntityLabel(&error, next, NULL, &set_name[0]);
+    idum = atoi(&set_name[0]);
+    rval = mbImpl->tag_set_data(mNeumannSetTag, &dum_ent, 1, &idum);
+    CHKERR(rval, "Problem setting neumann set tag.");
+    
       // BoundaryName encodes the id as well as the name
     if (kCCMIONoErr == CCMIOReadOptstr(NULL, next, "BoundaryName", &csize, NULL)) {
       set_name.resize(csize+1, '\0');
       CCMIOReadOptstr(&error, next, "BoundaryName", &csize, &set_name[0]);
-      idum = atoi(&set_name[0]);
-      rval = mbImpl->tag_set_data(mNeumannSetTag, &dum_ent, 1, &idum);
-      CHKERR(rval, "Failed to set matNameTag.");
-      
+      rval = mbImpl->tag_set_data(mNameTag, &dum_ent, 1, &idum);
+      CHKERR(rval, "Failed to set name tag.");
     }
-
-    rval = mbImpl->tag_set_data(mMaterialSetTag, &dum_ent, 1, &idum);
-    CHKERR(rval, "Failed to set material set id tag.");
   }
 
   return MB_SUCCESS;

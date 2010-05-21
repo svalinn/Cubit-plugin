@@ -61,6 +61,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <algorithm>
+#include <sstream>
 
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
@@ -103,7 +104,7 @@ WriterIface* WriteCCMIO::factory( Interface* iface )
 { return new WriteCCMIO( iface ); }
 
 WriteCCMIO::WriteCCMIO(Interface *impl) 
-        : mbImpl(impl), mCurrentMeshHandle(0), mWholeMesh(false)
+        : mbImpl(impl), mCurrentMeshHandle(0), mNameTag(0), mWholeMesh(false)
 {
   assert(impl != NULL);
 
@@ -162,6 +163,8 @@ WriteCCMIO::WriteCCMIO(Interface *impl)
                                 dum_val_array);
   }
   
+    // don't need to check return of following, since it doesn't matter if there isn't one
+  mbImpl->tag_get_handle(NAME_TAG_NAME, mNameTag);
 }
 
 WriteCCMIO::~WriteCCMIO() 
@@ -217,10 +220,10 @@ ErrorCode WriteCCMIO::write_file(const char *file_name,
     // otherwise, if no matsets, use root set
   if (matsets.empty()) matsets.push_back(0);
 
-  std::vector<MaterialSetData> matset_info(matsets.size());
+  std::vector<MaterialSetData> matset_info;
   Range all_verts;
   result = gather_matset_info(matsets, matset_info, all_verts);
-  CHKERR(result, "gathering nodes failed.");
+  CHKERR(result, "gathering matset info failed.");
 
     // assign vertex gids
   result = mWriteIface->assign_ids(all_verts, mGlobalIdTag, 1);
@@ -239,10 +242,14 @@ ErrorCode WriteCCMIO::write_file(const char *file_name,
   result = write_nodes(rootID, all_verts, mDimension, verticesID);
   CHKERR(result, "write_nodes failed.");
 
-  result = write_cells_and_faces(rootID, matset_info, neusets, all_verts, topologyID);
+  std::vector<NeumannSetData> neuset_info;
+  result = gather_neuset_info(neusets, neuset_info);
+  CHKERR(result, "Failed to get neumann set info.");
+
+  result = write_cells_and_faces(rootID, matset_info, neuset_info, all_verts, topologyID);
   CHKERR(result, "write_cells_and_faces failed.");
 
-  result = write_problem_description(rootID, stateID, problemID);
+  result = write_problem_description(rootID, stateID, problemID, matset_info, neuset_info);
   CHKERR(result, "write_problem_description failed.");
 
   result = write_solution_data();
@@ -380,36 +387,50 @@ ErrorCode WriteCCMIO::get_sets(const EntityHandle *ent_handles,
   return MB_SUCCESS;
 }
       
-ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID, CCMIOID &problemID) 
+ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID, CCMIOID &problemID,
+                                                std::vector<WriteCCMIO::MaterialSetData> &matset_data,
+                                                std::vector<WriteCCMIO::NeumannSetData> &neuset_data) 
 {
     // Write out a dummy problem description.  If we happen to know that
     // there already is a problem description previously recorded that
     // is valid we could skip this step.
-  CCMIOID constants, id;
+  CCMIOID id;
   CCMIOError error = kCCMIONoErr;
 
   CCMIONewEntity(&error, rootID, kCCMIOProblemDescription, "Dummy description",
                  &problemID);
   CHKCCMERR(error, "Trouble creating problem node.");
 
-  CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, 1, "Dummy celltypes", &id);
-  CHKCCMERR(error, "Failure creating celltype node.");
+    // write material types and other info
+  for (unsigned int i = 0; i < matset_data.size(); i++) {
+    CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, i+1, "Material", &id);
+    CHKCCMERR(error, "Failure creating celltype node.");
+
+    if (!matset_data[i].setName.empty()) {
+      CCMIOWriteOptstr(&error, id, "MaterialType", matset_data[i].setName.c_str());
+      CHKCCMERR(error, "Failure writing an option string MaterialType.");
+    }
+
+    if (matset_data[i].matsetId) {
+      CCMIOWriteOpti(&error, id, "MaterialId", matset_data[i].matsetId);
+      CHKCCMERR(error, "Failure writing an option string MaterialId.");
+    }
+  }
   
-  CCMIOWriteOptstr(&error, id, "MaterialType", "solid");
-  CHKCCMERR(error, "Failure writing an option string MaterialType.");
-  CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, 2, "Dummy celltypes", &id);
-  CHKCCMERR(error, "Failure creating cell type node.");
-  CCMIOWriteOptstr(&error, id, "MaterialType", "solid");
-  CHKCCMERR(error, "Failure writing option string on cell type node.");
+    // write neumann set info
+  for (unsigned int i = 0; i < neuset_data.size(); i++) {
+      // use the label to encode the id
+    std::ostringstream dum_id;
+    dum_id << neuset_data[i].neusetId;
+    CCMIONewIndexedEntity(&error, problemID, kCCMIOBoundaryRegion, i+1, dum_id.str().c_str(), &id);
+    CHKCCMERR(error, "Failure creating BoundaryRegion node.");
 
-  CCMIONewEntity(&error, problemID, kCCMIOModelConstants, "Constant values",
-                 &constants);
-  CHKCCMERR(error, "Failure creating Model Constants node.");
-  CCMIOWriteOptf(&error, constants, "Gravity", 9.82);
-  CHKCCMERR(error, "Failure writing option string Gravity on Model Constants node.");
-  CCMIOWriteOptf(&error, constants, "B.P. of water", 373);
-  CHKCCMERR(error, "Failure writing option string BP on Model Constants node.");
-
+    if (!neuset_data[i].setName.empty()) {
+      CCMIOWriteOptstr(&error, id, "BoundaryName", neuset_data[i].setName.c_str());
+      CHKCCMERR(error, "Failure writing an option string BoundaryName.");
+    }
+  }
+  
     // We have problem description recorded but our state does not know
     // about it.  So tell the state that it has a problem description.
   CCMIOWriteState(&error, stateID, problemID, "Example state");
@@ -430,7 +451,7 @@ ErrorCode WriteCCMIO::gather_matset_info(std::vector<EntityHandle> &matsets,
                                          Range &all_verts)
 {
   ErrorCode result;
-
+  matset_data.resize(matsets.size());
   if (1 == matsets.size() && 0 == matsets[0]) {
       // whole mesh
     mWholeMesh = true;
@@ -471,6 +492,16 @@ ErrorCode WriteCCMIO::gather_matset_info(std::vector<EntityHandle> &matsets,
       // get id for this matset
     result = mbImpl->tag_get_data(mGlobalIdTag, &this_set, 1, &matset_data[i].matsetId);
     CHKERR(result, "Couln't get global id for material set.");
+
+      // get name for this matset
+    if (mNameTag) {
+      char dum_name[NAME_TAG_SIZE];
+      result = mbImpl->tag_get_data(mNameTag, &this_set, 1, dum_name);
+      if (MB_SUCCESS == result) matset_data[i].setName = dum_name;
+
+        // reset success, so later checks don't fail
+      result = MB_SUCCESS;
+    }
   }
   
   if (all_verts.empty()) {
@@ -482,8 +513,7 @@ ErrorCode WriteCCMIO::gather_matset_info(std::vector<EntityHandle> &matsets,
 }
 
 ErrorCode WriteCCMIO::gather_neuset_info(std::vector<EntityHandle> &neusets,
-                                         std::vector<NeumannSetData> &neuset_info,
-                                         Range &all_facets)
+                                         std::vector<NeumannSetData> &neuset_info)
 {
   ErrorCode result;
 
@@ -497,9 +527,18 @@ ErrorCode WriteCCMIO::gather_neuset_info(std::vector<EntityHandle> &neusets,
     result = mbImpl->get_entities_by_dimension(this_set, mDimension-1, neuset_info[i].elems, true);
     CHKERR(result, "Trouble getting (m-1)-dimensional ents for neuset.");
     
-    all_facets.merge(neuset_info[i].elems);
+      // don't need to check return of following, since it's ok not to have an id
+    mbImpl->tag_get_data(mGlobalIdTag, &this_set, 1, &neuset_info[i].neusetId);
 
-    result = mbImpl->tag_get_data(mGlobalIdTag, &this_set, 1, &neuset_info[i].neusetId);
+      // get name for this neuset
+    if (mNameTag) {
+      char dum_name[NAME_TAG_SIZE];
+      result = mbImpl->tag_get_data(mNameTag, &this_set, 1, dum_name);
+      if (MB_SUCCESS == result) neuset_info[i].setName = dum_name;
+
+        // reset success, so later checks don't fail
+      result = MB_SUCCESS;
+    }
   }
 
   return MB_SUCCESS;
@@ -622,8 +661,8 @@ ErrorCode WriteCCMIO::transform_coords(const int dimension, const int num_nodes,
 }
 
 ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
-                                            std::vector<WriteCCMIO::MaterialSetData> &matset_data,
-                                            std::vector<EntityHandle> &neusets,
+                                            std::vector<MaterialSetData> &matset_data,
+                                            std::vector<NeumannSetData> &neuset_data,
                                             Range &verts,
                                             CCMIOID &topologyID)
 {
@@ -694,17 +733,15 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     // get skin and neumann set faces
     //================================================
   Range neuset_facets, skin_facets;
-  std::vector<NeumannSetData> neuset_info;
-  
-  result = gather_neuset_info(neusets, neuset_info, neuset_facets);
-  CHKERR(result, "Failed to get neumann set info.");
-
   Skinner skinner(mbImpl);
   result = skinner.find_skin(all_elems, mDimension-1, skin_facets);
   CHKERR(result, "Failed to get skin facets.");
 
     // remove neumann set facets from skin facets, we have to output these
     // separately
+  for (unsigned int i = 0; i < neuset_data.size(); i++)
+    neuset_facets.merge(neuset_data[i].elems);
+    
   skin_facets -= neuset_facets;
     // make neuset_facets the union, and get ids for them
   neuset_facets.merge(skin_facets);
@@ -715,13 +752,14 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     //================================================
     // write external faces
     //================================================
-  for (unsigned int i = 0; i < neusets.size(); i++) {
-    result = write_external_faces(rootID, topologyID, neuset_info[i].neusetId, neuset_info[i].elems);
+  for (unsigned int i = 0; i < neuset_data.size(); i++) {
+    result = write_external_faces(rootID, topologyID, neuset_data[i].neusetId, 
+                                  neuset_data[i].elems);
     CHKERR(result, "Trouble writing Neumann set facets.");
   }
 
   if (!skin_facets.empty()) {
-    result = write_external_faces(rootID, topologyID, 0, skin_facets);
+    result = write_external_faces(rootID, topologyID, -1, skin_facets);
     CHKERR(result, "Trouble writing skin facets.");
   }
 

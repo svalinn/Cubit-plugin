@@ -107,6 +107,7 @@ protected:
     EntityType entityType; // entity type of these elements
     int verts_per_element; // number of vertices in each element
     int matsetId; // id of this matset, from MATERIAL_SET tag
+    std::string setName; // name for this matset, if any
 
     MaterialSetData() 
             : setHandle(0), entityType(MBMAXTYPE), verts_per_element(0), matsetId(-1)
@@ -122,6 +123,7 @@ protected:
     EntityType entityType; // entity type of these elements
     int verts_per_element; // number of vertices in each element
     int neusetId; // id of this matset, from NEUMANN_SET tag
+    std::string setName; // name for this neuset, if any
 
     NeumannSetData() 
             : setHandle(0), entityType(MBMAXTYPE), verts_per_element(0), neusetId(-1)
@@ -149,6 +151,7 @@ private:
   Tag mHasMidNodesTag;
   Tag mGlobalIdTag;
   Tag mMatSetIdTag;
+  Tag mNameTag;
 
   Tag mEntityMark;   //used to say whether an entity will be exported
 
@@ -164,8 +167,7 @@ private:
   
     //! gathers elements in each neuset
   ErrorCode gather_neuset_info(std::vector<EntityHandle> &neusets,
-                               std::vector<NeumannSetData> &neuset_data,
-                               Range &all_facets);
+                               std::vector<NeumannSetData> &neuset_data);
   
   ErrorCode close_and_compress(const char *filename, CCMIOID rootID);
     
@@ -175,8 +177,9 @@ private:
   ErrorCode write_nodes(CCMIOID rootID, const Range& nodes, const int dimension, CCMIOID &verticesID);
   
     //! write cells and internal/boundary faces, using vgids and verts input
-  ErrorCode write_cells_and_faces(CCMIOID rootID, std::vector<WriteCCMIO::MaterialSetData> &matset_data,
-                                  std::vector<EntityHandle> &neusets,
+  ErrorCode write_cells_and_faces(CCMIOID rootID, 
+                                  std::vector<WriteCCMIO::MaterialSetData> &matset_data,
+                                  std::vector<WriteCCMIO::NeumannSetData> &neuset_data,
                                   Range &verts, CCMIOID &topologyID);
 
     //! write external faces, including connectivity and connected cells
@@ -203,7 +206,9 @@ private:
   
   ErrorCode transform_coords(const int dimension, const int num_nodes, double *coords);
 
-  ErrorCode write_problem_description(CCMIOID rootID, CCMIOID stateID, CCMIOID &problemID);
+  ErrorCode write_problem_description(CCMIOID rootID, CCMIOID stateID, CCMIOID &problemID,
+                                      std::vector<MaterialSetData> &matset_data,
+                                      std::vector<NeumannSetData> &neuset_data);
 
     // get the material, dirichlet, neumann, and partition sets to be written,
     // either from input sets or in the whole mesh

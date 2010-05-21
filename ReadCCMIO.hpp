@@ -133,6 +133,7 @@ private:
   Tag mNeumannSetTag;
   Tag mHasMidNodesTag;
   Tag mGlobalIdTag;
+  Tag mNameTag;
   
   Interface *mbImpl;
 
