@@ -91,8 +91,9 @@ private:
                          , Range *new_faces);
 
   ErrorCode make_faces(int *farray, 
-                         TupleList &vert_map,
-                         std::vector<EntityHandle> &new_faces);
+                       TupleList &vert_map,
+                       Range &new_faces,
+                       int num_faces);
 
   ErrorCode read_vertices(CCMIOSize_t proc, CCMIOID processorID, CCMIOID verticesID,
                             CCMIOID topologyID, 
@@ -117,6 +118,8 @@ private:
   
   ErrorCode load_matset_data(CCMIOID problemID);
   
+  ErrorCode load_neuset_data(CCMIOID problemID);
+  
   ErrorCode load_metadata(CCMIOID rootID, CCMIOID problemID, 
                             const EntityHandle *file_set);
   
@@ -135,7 +138,7 @@ private:
 
   ReadUtilIface* readMeshIface;
 
-  Range newMatsets;
+  Range newMatsets, newNeusets;
   
   bool hasSolution;
 };

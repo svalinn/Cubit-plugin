@@ -238,7 +238,10 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
   }
 
   rval = load_matset_data(problemID);
-  CHKERR(rval, NULL);
+  CHKERR(rval, "Failure loading matset data.");
+  
+//  rval = load_neuset_data(problemID);
+//  CHKERR(rval, "Failure loading neuset data.");
   
   return rval;
 }
@@ -302,6 +305,44 @@ ErrorCode ReadCCMIO::load_matset_data(CCMIOID problemID)
       rval = mbImpl->tag_set_data(matGroupTag, &dum_ent, 1, &idum);
       CHKERR(rval, "Failed to set matGroupTag.");
     }
+  }
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCCMIO::load_neuset_data(CCMIOID problemID) 
+{
+    // make sure there are matsets
+  if (newNeusets.empty()) return MB_SUCCESS;
+  
+    // ... walk through each neumann set type
+  CCMIOSize_t i = CCMIOSIZEC(0);
+  CCMIOID next;
+  std::vector<char> set_name;
+  CCMIOError error = kCCMIONoErr;
+  ErrorCode rval;
+  
+  while (CCMIONextEntity(NULL, problemID, kCCMIOBoundaryRegion, &i, &next)
+         == kCCMIONoErr) {
+    int csize, mindex, idum;
+
+    CCMIOGetEntityIndex(&error, next, &mindex);
+    assert(mindex > 0 && mindex <= (int)newNeusets.size()+1);
+    mindex--;
+    EntityHandle dum_ent = newNeusets[mindex];
+
+      // BoundaryName encodes the id as well as the name
+    if (kCCMIONoErr == CCMIOReadOptstr(NULL, next, "BoundaryName", &csize, NULL)) {
+      set_name.resize(csize+1, '\0');
+      CCMIOReadOptstr(&error, next, "BoundaryName", &csize, &set_name[0]);
+      idum = atoi(&set_name[0]);
+      rval = mbImpl->tag_set_data(mNeumannSetTag, &dum_ent, 1, &idum);
+      CHKERR(rval, "Failed to set matNameTag.");
+      
+    }
+
+    rval = mbImpl->tag_set_data(mMaterialSetTag, &dum_ent, 1, &idum);
+    CHKERR(rval, "Failed to set material set id tag.");
   }
 
   return MB_SUCCESS;
@@ -438,6 +479,8 @@ ErrorCode ReadCCMIO::read_gids_and_types(CCMIOID problemID,
     EntityHandle matset;
     rval = mbImpl->create_meshset(MESHSET_SET, matset);
     CHKERR(rval, "Couldn't create material set.");
+    newMatsets.insert(matset);
+    
     rval = mbImpl->add_entities(matset, mit->second);
     CHKERR(rval, "Couldn't add entities to material set.");
   }
@@ -682,10 +725,11 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID, CCMIOEntity bdy_or_int,
   if (kCCMIOInternalFaces != bdy_or_int && kCCMIOBoundaryFaces != bdy_or_int)
     CHKERR(MB_FAILURE, "Face type isn't boundary or internal.");
 
-  CCMIOSize_t num_faces;
+  CCMIOSize_t dum_faces;
   CCMIOError error = kCCMIONoErr;
-  CCMIOEntitySize(&error, faceID, &num_faces, NULL);
-
+  CCMIOEntitySize(&error, faceID, &dum_faces, NULL);
+  int num_faces = GETINT32(dum_faces);
+  
     // get the size of the face connectivity array (not really a straight connect
     // array, has n, connect(n), ...)
   CCMIOSize_t farray_size = CCMIOSIZEC(0);
@@ -705,30 +749,30 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID, CCMIOEntity bdy_or_int,
                  farray, CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
   CHKCCMERR(error, "Trouble reading face connectivity.");
 
-  std::vector<EntityHandle> face_handles(GETINT32(num_faces), 0);
-  ErrorCode rval = make_faces(farray, vert_map, face_handles);
+  Range face_handles;
+  ErrorCode rval = make_faces(farray, vert_map, face_handles, num_faces);
   CHKERR(rval, NULL);
 
     // read face cells and make tuples
   int *face_cells;
-  if (num_sides*num_faces < farray_size) face_cells = new int[num_sides*GETINT32(num_faces)];
+  if (num_sides*num_faces < farray_size) face_cells = new int[num_sides*num_faces];
   else face_cells = farray;
   CCMIOReadFaceCells(&error, faceID, bdy_or_int, face_cells,
                      CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
   CHKCCMERR(error, "Trouble reading face cells.");
 
   int *tmp_ptr = face_cells;
-  for (int i = 0; i < num_faces; i++) {
+  for (Range::iterator rit = face_handles.begin(); rit != face_handles.end(); rit++) {
 #ifdef TUPLE_LIST
     short forward = 1, reverse = -1;
-    face_map.push_back(&forward, tmp_ptr++, &face_handles[i], NULL);
+    face_map.push_back(&forward, tmp_ptr++, &(*rit), NULL);
     if (2 == num_sides)
-      face_map.push_back(&reverse, tmp_ptr++, &face_handles[i], NULL);
+      face_map.push_back(&reverse, tmp_ptr++, &(*rit), NULL);
 #else
-    face_map[*tmp_ptr].push_back(face_handles[i]);
+    face_map[*tmp_ptr].push_back(*rit);
     sense_map[*tmp_ptr++].push_back(1);
     if (2 == num_sides) {
-      face_map[*tmp_ptr].push_back(face_handles[i]);
+      face_map[*tmp_ptr].push_back(*rit);
       sense_map[*tmp_ptr++].push_back(-1);
     }
 #endif
@@ -738,31 +782,39 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID, CCMIOEntity bdy_or_int,
   CCMIOReadMap(&error, mapID, face_cells, CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
   CHKCCMERR(error, "Trouble reading face gids.");
 
-  rval = mbImpl->tag_set_data(mGlobalIdTag, &face_handles[0], face_handles.size(), face_cells);
+  rval = mbImpl->tag_set_data(mGlobalIdTag, face_handles, face_cells);
   CHKERR(rval, "Couldn't set face global ids.");
 
-    // ok, now sort face handles, and add to range
-  std::sort(face_handles.begin(), face_handles.end());
-  if (new_faces) {
-    Range::iterator rit = new_faces->end();
-    for (std::vector<EntityHandle>::reverse_iterator vit = face_handles.rbegin(); 
-         vit != face_handles.rend(); vit++)
-      rit = new_faces->insert(rit, *vit);
+    // make a neumann set for these faces if they're all in a boundary face set
+  if (kCCMIOBoundaryFaces == bdy_or_int) {
+    EntityHandle neuset;
+    rval = mbImpl->create_meshset(MESHSET_SET, neuset);
+    CHKERR(rval, "Failed to create neumann set.");
+    newNeusets.insert(neuset);
+
+    rval = mbImpl->add_entities(neuset, face_handles);
+    CHKERR(rval, "Failed to add faces to neumann set.");
+
+      // now tag as neumann set; will add id later
+    int dum_val = 0;
+    rval = mbImpl->tag_set_data(mNeumannSetTag, &neuset, 1, &dum_val);
+    CHKERR(rval, "Failed to tag neumann set.");
   }
+
+  if (new_faces) new_faces->merge(face_handles);
   
   return MB_SUCCESS;
 }
   
 
 ErrorCode ReadCCMIO::make_faces(int *farray, 
-                                  TupleList &vert_map,
-                                  std::vector<EntityHandle> &new_faces) 
+                                TupleList &vert_map,
+                                Range &new_faces, int num_faces) 
 {
-  unsigned int num_faces = new_faces.size();
   std::vector<EntityHandle> verts;
   ErrorCode tmp_rval = MB_SUCCESS, rval = MB_SUCCESS;
   
-  for (unsigned int i = 0; i < num_faces; i++) {
+  for (int i = 0; i < num_faces; i++) {
     int num_verts = *farray++;
     verts.resize(num_verts);
 
@@ -788,7 +840,7 @@ ErrorCode ReadCCMIO::make_faces(int *farray,
                             (4 == num_verts ? MBQUAD : MBPOLYGON));
       EntityHandle faceh;
       tmp_rval = mbImpl->create_element(ftype, &verts[0], num_verts, faceh);
-      if (faceh) new_faces[i] = faceh;
+      if (faceh) new_faces.insert(faceh);
     }
     
     if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
