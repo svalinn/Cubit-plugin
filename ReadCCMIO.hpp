@@ -48,13 +48,13 @@ public:
 
 private:
   
-  ErrorCode read_mesh(CCMIOID stateID, CCMIOID problemID,
-                      CCMIOID processorID, 
-                      Range *new_ents);
+  ErrorCode read_processor(CCMIOID rootID, CCMIOID problemID,
+                           CCMIOID processorID, CCMIOID verticesID,
+                           CCMIOID topologyID, CCMIOSize_t proc,
+                             Range *new_ents);
 
   ErrorCode read_cells(CCMIOSize_t proc, CCMIOID processorID,
                          CCMIOID verticesID, CCMIOID topologyID,
-                         CCMIOID solutionID, bool has_solution,
                          TupleList &vert_map, Range *new_cells);
 
 
@@ -95,14 +95,14 @@ private:
                          std::vector<EntityHandle> &new_faces);
 
   ErrorCode read_vertices(CCMIOSize_t proc, CCMIOID processorID, CCMIOID verticesID,
-                            CCMIOID topologyID, CCMIOID solutionID, bool has_solution,
+                            CCMIOID topologyID, 
                             Range *verts, TupleList &vert_map);
 
 
-  ErrorCode get_processors(CCMIOID stateID,
-                           CCMIOID &processorID, CCMIOID &verticesID,
-                           CCMIOID &topologyID, CCMIOID &solutionID,
-                           std::vector<CCMIOSize_t> &procs,
+  ErrorCode get_processors(CCMIOID stateID, CCMIOID &processorID,
+                           CCMIOID &verticesID, CCMIOID &topologyID,
+                           CCMIOID &solutionID, 
+                           std::vector<CCMIOSize_t> &procs, 
                            bool &has_solution);
 
   ErrorCode get_state(CCMIOID rootID, CCMIOID &problemID, CCMIOID &stateID);

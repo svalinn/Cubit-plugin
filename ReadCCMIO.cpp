@@ -148,7 +148,8 @@ ErrorCode ReadCCMIO::load_file(const char *file_name,
                                  int subset_list_length,
                                  const Tag* file_id_tag)
 {
-  CCMIOID rootID, problemID, stateID, processorID;
+  CCMIOID rootID, problemID, stateID, processorID,
+      verticesID, topologyID, solutionID;
   CCMIOError error = kCCMIONoErr;
 
   CCMIOOpenFile(&error, file_name, kCCMIORead, &rootID);
@@ -159,11 +160,21 @@ ErrorCode ReadCCMIO::load_file(const char *file_name,
   CHKERR(rval,NULL);
 
     // get processors
+  std::vector<CCMIOSize_t> procs;
+  bool has_solution = false;
+  rval = get_processors(stateID, processorID, verticesID, topologyID, solutionID, 
+                        procs, has_solution);
+  CHKERR(rval,NULL);
+
+  std::vector<CCMIOSize_t>::iterator vit;
   Range new_ents, *new_ents_ptr = NULL;
   if (file_set) new_ents_ptr = &new_ents;
   
-  rval = read_mesh(stateID, problemID, processorID, new_ents_ptr);
-  CHKERR(rval,NULL);
+  for (vit = procs.begin(); vit != procs.end(); vit++) {
+    rval = read_processor(stateID, problemID, processorID, verticesID, topologyID,
+                          *vit, new_ents_ptr);
+    CHKERR(rval,NULL);
+  }
 
     // load some meta-data
   rval = load_metadata(rootID, problemID, file_set);
@@ -360,23 +371,91 @@ ErrorCode ReadCCMIO::create_matset_tags(Tag &matNameTag, Tag &matPorosityTag,
   return MB_SUCCESS;
 }
 
+ErrorCode ReadCCMIO::read_processor(CCMIOID stateID, CCMIOID problemID,
+                                    CCMIOID processorID, CCMIOID verticesID, CCMIOID topologyID, 
+                                    CCMIOSize_t proc, Range *new_ents) 
+{
+  ErrorCode rval;
+  
+    // vert_map fields: s: none, i: gid, ul: vert handle, r: none
+    //TupleList vert_map(0, 1, 1, 0, 0);
+  TupleList vert_map;
+  rval = read_vertices(proc, processorID, verticesID, topologyID, 
+                       new_ents, vert_map);
+  CHKERR(rval, NULL);
+  
+  rval = read_cells(proc, problemID, verticesID, topologyID, 
+                    vert_map, new_ents);
+  CHKERR(rval, NULL);
+
+  return rval;
+}
+
+ErrorCode ReadCCMIO::read_cells(CCMIOSize_t proc, CCMIOID problemID,
+                                  CCMIOID verticesID, CCMIOID topologyID,
+                                  TupleList &vert_map, Range *new_ents) 
+{
+
+    // read the faces.
+    // face_map fields: s:forward/reverse, i: cell id, ul: face handle, r: none
+  ErrorCode rval;
+#ifdef TUPLE_LIST
+  TupleList face_map(1, 1, 1, 0, 0); 
+#else
+  TupleList face_map;
+  SenseList sense_map;
+#endif
+  rval = read_all_faces(topologyID, vert_map, face_map
+#ifndef TUPLE_LIST
+                        , sense_map
+#endif
+                        , new_ents);
+  CHKERR(rval, NULL);
+  
+    // now construct the cells; sort the face map by cell ids first
+#ifdef TUPLE_LIST  
+  rval = face_map.sort(1);
+  CHKERR(rval, "Couldn't sort face map by cell id.");
+#endif
+  std::vector<EntityHandle> new_cells;
+  rval = construct_cells(face_map, 
+#ifndef TUPLE_LIST
+                         sense_map,
+#endif
+                         vert_map, new_cells);
+  CHKERR(rval, NULL);
+  if (new_ents) {
+    Range::iterator rit = new_ents->end();
+    std::vector<EntityHandle>::reverse_iterator vit;
+    for (vit = new_cells.rbegin(); vit != new_cells.rend(); vit++)
+      rit = new_ents->insert(rit, *vit);
+  }
+  
+  rval = read_gids_and_types(problemID, topologyID, new_cells);
+  CHKERR(rval, NULL);
+  
+  return MB_SUCCESS;
+}
+
 ErrorCode ReadCCMIO::read_gids_and_types(CCMIOID problemID,
                                            CCMIOID topologyID,
                                            std::vector<EntityHandle> &cells) 
 {
     // get the cells entity and number of cells
-  CCMIOSize_t num_cells;
+  CCMIOSize_t dum_cells;
+  int num_cells;
   CCMIOError error = kCCMIONoErr;
   CCMIOID cellsID, mapID;
   CCMIOGetEntity(&error, topologyID, kCCMIOCells, 0, &cellsID);
-  CCMIOEntitySize(&error, cellsID, &num_cells, NULL);
+  CCMIOEntitySize(&error, cellsID, &dum_cells, NULL);
+  num_cells = GETINT32(dum_cells);
 
     // check the number of cells against how many are in the cell array
   if (num_cells != (int)cells.size())
     CHKERR(MB_FAILURE, "Number of cells doesn't agree.");
 
     // read the gid map and set global ids
-  std::vector<int> cell_gids(GETINT32(num_cells));
+  std::vector<int> cell_gids(num_cells);
   CCMIOReadCells(&error, cellsID, &mapID, NULL,
                  CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
   CCMIOReadMap(&error, mapID, &cell_gids[0], 
@@ -387,54 +466,22 @@ ErrorCode ReadCCMIO::read_gids_and_types(CCMIOID problemID,
                                           cells.size(), &cell_gids[0]);
   CHKERR(rval, "Couldn't set gids tag.");
 
-    // now read cell types; first get the number of different types, so we can make material
-    // sets
-  int num_matsets = 0;
-  CCMIOSize_t dum = CCMIOSIZEC(0);
-  // if we don't have a problem description, return
-  if (!CCMIOIsValidEntity(problemID)) return MB_SUCCESS;
-
-    // get the number of cells
-  CCMIOID next;
-  while (kCCMIONoErr == CCMIONextEntity(NULL, problemID, kCCMIOCellType, &dum, &next))
-    num_matsets++;
-
-    // create the matsets
-  for (int i = 0; i < num_matsets; i++) {
-    EntityHandle matset;
-    rval = mbImpl->create_meshset(MESHSET_SET, matset);
-    CHKERR(rval, "Couldn't create material set.");
-    newMatsets.insert(matset);
-  }
-  
-    // read in cell types and use to assign cells to matsets; reuse cell_gids
+    // now read cell material types; reuse cell_gids
   CCMIOReadCells(&error, cellsID, NULL, &cell_gids[0],
                  CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
   CHKCCMERR(error, "Trouble reading cell types.");
 
-    // check min/max
-  int min = *(std::min_element(cell_gids.begin(), cell_gids.end())),
-      max = *(std::max_element(cell_gids.begin(), cell_gids.end()));
-  if (1 != min || num_matsets != max) CHKERR(MB_FAILURE, "Wrong range for cell types.");
-  
-  if (min == max && num_matsets == 1) {
-      // no streaming necessary, all elements are in this set
-    rval = mbImpl->add_entities(newMatsets[0], &cells[0], cells.size());
-    CHKERR(rval, "Trouble adding cells to matset.");
-  }
-  else {
-      // now stream through cell types, gather cells for each type, add to matsets
-    Range mcells;
-    for (int i = 1; i <= num_matsets; i++) {
-      mcells.clear();
-        // go backwards, since it's more efficient when adding to the end of a range
-      for (int j = num_cells-1; j >= 0; j--)
-        if (cell_gids[j] == i) mcells.insert(cells[j]);
-    
-      rval = mbImpl->add_entities(newMatsets[i-1], mcells);
-      CHKERR(rval, "Trouble adding cells to matset.");
+    // create the matsets
+  std::map<int, Range> matset_ents;
+  for (int i = 0; i < num_cells; i++)
+    matset_ents[cell_gids[i]].insert(cells[i]);
 
-    }
+  for (std::map<int, Range>::iterator mit = matset_ents.begin(); mit != matset_ents.end(); mit++) {
+    EntityHandle matset;
+    rval = mbImpl->create_meshset(MESHSET_SET, matset);
+    CHKERR(rval, "Couldn't create material set.");
+    rval = mbImpl->add_entities(matset, mit->second);
+    CHKERR(rval, "Couldn't add entities to material set.");
   }
   
   return MB_SUCCESS;
@@ -793,7 +840,7 @@ ErrorCode ReadCCMIO::make_faces(int *farray,
 }
 
 ErrorCode ReadCCMIO::read_vertices(CCMIOSize_t proc, CCMIOID processorID, CCMIOID verticesID,
-                                   CCMIOID topologyID, CCMIOID solutionID, bool has_solution,
+                                   CCMIOID topologyID, 
                                    Range *verts, TupleList &vert_map) 
 {
   CCMIOError error = kCCMIONoErr;
@@ -860,26 +907,34 @@ ErrorCode ReadCCMIO::read_vertices(CCMIOSize_t proc, CCMIOID processorID, CCMIOI
   return MB_SUCCESS;
 }
   
-ErrorCode ReadCCMIO::read_cells(CCMIOSize_t proc, CCMIOID problemID,
-                                CCMIOID verticesID, CCMIOID topologyID,
-                                CCMIOID solutionID, bool has_solution,
-                                TupleList &vert_map, Range *new_ents) 
+ErrorCode ReadCCMIO::get_processors(CCMIOID stateID, 
+                                    CCMIOID &processorID, CCMIOID &verticesID,
+                                    CCMIOID &topologyID, CCMIOID &solutionID,
+                                    std::vector<CCMIOSize_t> &procs,
+                                    bool &has_solution) 
 {
-    // read the faces.
-    // face_map fields: s:forward/reverse, i: cell id, ul: face handle, r: none
-  ErrorCode rval;
-#ifdef TUPLE_LIST
-  TupleList face_map(1, 1, 1, 0, 0); 
-#else
-  TupleList face_map;
-  SenseList sense_map;
-#endif
-  rval = read_all_faces(topologyID, vert_map, face_map
-#ifndef TUPLE_LIST
-                        , sense_map
-#endif
-                        , new_ents);
-  CHKERR(rval, NULL);
+  CCMIOSize_t proc = CCMIOSIZEC(0);
+  CCMIOError error = kCCMIONoErr;
+  
+  CCMIONextEntity(&error, stateID, kCCMIOProcessor, &proc, &processorID);
+  CHKCCMERR(error, NULL);
+  if (CCMIOReadProcessor(NULL, processorID, &verticesID, 
+                         &topologyID, NULL, &solutionID) != kCCMIONoErr) {
+      // Maybe no solution;  try again
+    CCMIOReadProcessor(&error, processorID, &verticesID, 
+                       &topologyID, NULL, NULL);
+    hasSolution = false;
+  }
+  CHKCCMERR(error, NULL);
+  
+  procs.push_back(proc);
+  
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCCMIO::get_state(CCMIOID rootID, CCMIOID &problemID, CCMIOID &stateID) 
+{
+  CCMIOError error = kCCMIONoErr;
   
     // now construct the cells; sort the face map by cell ids first
 #ifdef TUPLE_LIST  
