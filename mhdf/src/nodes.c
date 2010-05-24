@@ -78,12 +78,14 @@ mhdf_createNodeCoords( mhdf_FileHandle file_handle,
                        int dimension,
                        long num_nodes,
                        long* first_id_out,
+                       int column_major_chunking,
                        mhdf_Status* status )
 {
   FileHandle* file_ptr = (FileHandle*)file_handle;
-  hid_t table_id;
+  hid_t table_id, create_prop = H5P_DEFAULT;
   hsize_t dims[2];
   long first_id;
+  herr_t err;
   API_BEGIN;
   
   if (!mhdf_check_valid_file( file_ptr, status ))
@@ -94,14 +96,38 @@ mhdf_createNodeCoords( mhdf_FileHandle file_handle,
     mhdf_setFail( status, "Invalid argument: dimension = %d.", dimension );
     return -1;
   }
+  else if (dimension == 1) 
+  {
+    /* This option is meaningless if there is only one column */
+    column_major_chunking = 0;
+  }
+  
+  if (column_major_chunking) {
+    create_prop = H5Pcreate( H5P_DATASET_CREATE );
+    if (create_prop == -1) {
+      mhdf_setFail( status, "Internal error creating dataset creation property" );
+      return -1;
+    }
+    dims[0] = 1;
+    dims[1] = (hsize_t)dimension;
+    err = H5Pset_chunk( create_prop, 2, dims );
+    if (err < 0) {
+      H5Pclose( create_prop );
+      mhdf_setFail( status, "Internal error creating dataset creation property" );
+      return -1;
+    }
+  }
   
   dims[0] = (hsize_t)num_nodes;
   dims[1] = (hsize_t)dimension;
-  table_id = mhdf_create_table( file_ptr->hdf_handle,
-                                NODE_COORD_PATH,
-                                H5T_NATIVE_DOUBLE,
-                                2, dims,
-                                status );
+  table_id = mhdf_create_table_with_prop( file_ptr->hdf_handle,
+                                          NODE_COORD_PATH,
+                                          H5T_NATIVE_DOUBLE,
+                                          2, dims,
+                                          create_prop,
+                                          status );
+  if (column_major_chunking)
+    H5Pclose( create_prop );
   if (table_id < 0)
     return -1;
   

@@ -580,6 +580,18 @@ mhdf_create_table( hid_t group_id,
                    hsize_t* dims,
                    mhdf_Status* status )
 {
+  return mhdf_create_table_with_prop( group_id, path, type, rank, dims, H5P_DEFAULT, status );
+}
+
+hid_t
+mhdf_create_table_with_prop( hid_t group_id,
+                             const char* path,
+                             hid_t type,
+                             int rank,
+                             hsize_t* dims,
+                             hid_t create_prop,
+                             mhdf_Status* status )
+{
   hid_t space_id, table_id;
 
   space_id = H5Screate_simple( rank, dims, NULL );
@@ -590,9 +602,9 @@ mhdf_create_table( hid_t group_id,
   }
   
 #if defined(H5Dcreate_vers) && H5Dcreate_vers > 1
-  table_id = H5Dcreate2( group_id, path, type, space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+  table_id = H5Dcreate2( group_id, path, type, space_id, H5P_DEFAULT, create_prop, H5P_DEFAULT );
 #else
-  table_id = H5Dcreate( group_id, path, type, space_id, H5P_DEFAULT );
+  table_id = H5Dcreate( group_id, path, type, space_id, create_prop );
 #endif
   H5Sclose(space_id);
   if (table_id < 0)

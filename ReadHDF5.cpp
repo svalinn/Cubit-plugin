@@ -1017,9 +1017,6 @@ ErrorCode ReadHDF5::search_tag_values( hid_t tag_table,
 
 ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
 {
-
-  debug_barrier();
-
   ErrorCode rval;
   mhdf_Status status;
   const int dim = fileInfo->nodes.vals_per_ent;
@@ -1063,6 +1060,7 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
     long offset = p->first - fileInfo->nodes.start_id;
     
     debug_track.record_io( offset, count );
+    dbgOut.tprintf(4,"Reading nodes [%ld,%ld]\n", offset, offset+count-1);
     for (int i = 0; i < dim; ++i) {
       mhdf_readNodeCoordWithOpt( data_id, offset, count, i, arrays[i], indepIO, &status );
       if (is_error(status)) {

@@ -116,6 +116,15 @@ mhdf_create_table( hid_t group,
                    hsize_t* dims,
                    mhdf_Status* status );
 
+hid_t 
+mhdf_create_table_with_prop( hid_t group,
+                   const char* path,
+                   hid_t type,
+                   int rank,
+                   hsize_t* dims,
+                   hid_t dataset_creation_prop,
+                   mhdf_Status* status );
+
 hid_t
 mhdf_open_table( hid_t group,
                  const char* path,
