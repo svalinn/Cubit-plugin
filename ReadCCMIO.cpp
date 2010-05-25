@@ -506,12 +506,13 @@ ErrorCode ReadCCMIO::read_topology_types(CCMIOID &topologyID,
   for (i = 0; i < num_cells; i++) cell_topo_types[dum_ints[i]] = 0;
 
     // now read the cell topo types for real, reusing cell_topo_types
-  CCMIOReadOpt1i(&error, cellID, "CellTopologyType", &dum_ints[0],
+  std::vector<int> topo_types(num_cells);
+  CCMIOReadOpt1i(&error, cellID, "CellTopologyType", &topo_types[0],
                  CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
   CHKCCMERR(error, "Failed to get cell topo types.");
   std::map<int,int>::iterator mit;
-  for (i = 0, mit = cell_topo_types.begin(); i < num_cells; i++) 
-    mit->second = dum_ints[i];
+  for (i = 0; i < num_cells; i++) 
+    cell_topo_types[dum_ints[i]] = topo_types[i];
   
   return MB_SUCCESS;
 }
@@ -903,7 +904,7 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID,
                  farray, CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
   CHKCCMERR(error, "Trouble reading face connectivity.");
 
-  Range face_handles;
+  std::vector<EntityHandle> face_handles;
   ErrorCode rval = make_faces(farray, vert_map, face_handles, num_faces);
   CHKERR(rval, NULL);
 
@@ -916,17 +917,17 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID,
   CHKCCMERR(error, "Trouble reading face cells.");
 
   int *tmp_ptr = face_cells;
-  for (Range::iterator rit = face_handles.begin(); rit != face_handles.end(); rit++) {
+  for (unsigned int i = 0; i < face_handles.size(); i++) {
 #ifdef TUPLE_LIST
     short forward = 1, reverse = -1;
-    face_map.push_back(&forward, tmp_ptr++, &(*rit), NULL);
+    face_map.push_back(&forward, tmp_ptr++, &face_handles[i], NULL);
     if (2 == num_sides)
-      face_map.push_back(&reverse, tmp_ptr++, &(*rit), NULL);
+      face_map.push_back(&reverse, tmp_ptr++, &face_handles[i], NULL);
 #else
-    face_map[*tmp_ptr].push_back(*rit);
+    face_map[*tmp_ptr].push_back(face_handles[i]);
     sense_map[*tmp_ptr++].push_back(1);
     if (2 == num_sides) {
-      face_map[*tmp_ptr].push_back(*rit);
+      face_map[*tmp_ptr].push_back(face_handles[i]);
       sense_map[*tmp_ptr++].push_back(-1);
     }
 #endif
@@ -936,7 +937,7 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID,
   CCMIOReadMap(&error, mapID, face_cells, CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
   CHKCCMERR(error, "Trouble reading face gids.");
 
-  rval = mbImpl->tag_set_data(mGlobalIdTag, face_handles, face_cells);
+  rval = mbImpl->tag_set_data(mGlobalIdTag, &face_handles[0], face_handles.size(), face_cells);
   CHKERR(rval, "Couldn't set face global ids.");
 
     // make a neumann set for these faces if they're all in a boundary face set
@@ -950,7 +951,7 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID,
     CCMIOGetEntityIndex(&error, faceID, &index);
     newNeusets[index] = neuset;
 
-    rval = mbImpl->add_entities(neuset, face_handles);
+    rval = mbImpl->add_entities(neuset, &face_handles[0], face_handles.size());
     CHKERR(rval, "Failed to add faces to neumann set.");
 
       // now tag as neumann set; will add id later
@@ -959,7 +960,10 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID,
     CHKERR(rval, "Failed to tag neumann set.");
   }
 
-  if (new_faces) new_faces->merge(face_handles);
+  if (new_faces) {
+    std::sort(face_handles.begin(), face_handles.end());
+    std::copy(face_handles.rbegin(), face_handles.rend(), range_inserter(*new_faces));
+  }
   
   return MB_SUCCESS;
 }
@@ -967,7 +971,7 @@ ErrorCode ReadCCMIO::read_faces(CCMIOID faceID,
 
 ErrorCode ReadCCMIO::make_faces(int *farray, 
                                 TupleList &vert_map,
-                                Range &new_faces, int num_faces) 
+                                std::vector<EntityHandle> &new_faces, int num_faces) 
 {
   std::vector<EntityHandle> verts;
   ErrorCode tmp_rval = MB_SUCCESS, rval = MB_SUCCESS;
@@ -998,7 +1002,7 @@ ErrorCode ReadCCMIO::make_faces(int *farray,
                             (4 == num_verts ? MBQUAD : MBPOLYGON));
       EntityHandle faceh;
       tmp_rval = mbImpl->create_element(ftype, &verts[0], num_verts, faceh);
-      if (faceh) new_faces.insert(faceh);
+      if (faceh) new_faces.push_back(faceh);
     }
     
     if (MB_SUCCESS != tmp_rval) rval = tmp_rval;

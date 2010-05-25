@@ -97,7 +97,7 @@ private:
 
   ErrorCode make_faces(int *farray, 
                        TupleList &vert_map,
-                       Range &new_faces,
+                       std::vector<EntityHandle> &new_faces,
                        int num_faces);
 
   ErrorCode read_vertices(CCMIOSize_t proc, CCMIOID processorID, CCMIOID verticesID,
