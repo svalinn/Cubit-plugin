@@ -303,14 +303,14 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       // first check if file exists, so we can fail w/out
       // a lot of noise from the HDF5 library if it does not
 #if !defined(WIN32) && !defined(WIN64)
-    struct stat junk;
-    if (stat( filename, &junk)) {
+    struct stat stat_info;
+    if (stat( filename, &stat_info)) {
       if (ENOENT == errno)
         return MB_FILE_DOES_NOT_EXIST;
       else
         return MB_FILE_WRITE_ERROR;
     }
-    else if (S_ISDIR(junk.st_mode))
+    else if (S_ISDIR(stat_info.st_mode))
       return MB_FILE_DOES_NOT_EXIST;
 #endif
   
@@ -350,7 +350,6 @@ ErrorCode ReadHDF5::clean_up_read( const FileOptions& )
   mhdf_closeFile( filePtr, &status );
   filePtr = 0;
   return is_error(status) ? MB_FAILURE : MB_SUCCESS;
-    return MB_FAILURE;
 }
 
 ErrorCode ReadHDF5::load_file( const char* filename, 
@@ -400,7 +399,7 @@ ErrorCode ReadHDF5::load_file( const char* filename,
   
 
 
-ErrorCode ReadHDF5::load_file_impl( const FileOptions& opts )
+ErrorCode ReadHDF5::load_file_impl( const FileOptions& )
 {
   ErrorCode rval;
   mhdf_Status status;
@@ -1564,7 +1563,7 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
   
     // read all node-adjacent elements of smaller dimensions
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
+    type = CN::EntityTypeFromName( fileInfo->elems[i].type );
     if (CN::Dimension(type) < max_dim) {
       dbgOut.tprintf(3, "   Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle);
       rval = read_node_adj_elems( fileInfo->elems[i] );
@@ -2205,14 +2204,14 @@ ErrorCode ReadHDF5::read_sets( const Range& file_ids,
   ErrorCode rval;
   mhdf_Status status;
 
-  size_t count = file_ids.size();
-  if (!count)
+  size_t num_sets = file_ids.size();
+  if (!num_sets)
     return MB_SUCCESS;
 
   std::vector<unsigned> tmp_buffer;
   unsigned* buffer;
-  if (count > (bufferSize/sizeof(unsigned))) {
-    tmp_buffer.resize( count );
+  if (num_sets > (bufferSize/sizeof(unsigned))) {
+    tmp_buffer.resize( num_sets );
     buffer = &tmp_buffer[0];
   }
   else {
@@ -2242,7 +2241,7 @@ ErrorCode ReadHDF5::read_sets( const Range& file_ids,
   }
   
   if (create) {
-    rval = readUtil->create_entity_sets( count, buffer, 0, start_handle );
+    rval = readUtil->create_entity_sets( num_sets, buffer, 0, start_handle );
     if (MB_SUCCESS != rval)
       return error(rval);
       
@@ -2612,7 +2611,7 @@ ErrorCode ReadHDF5::get_set_contents( const Range& sets, Range& file_ids )
       { mhdf_readSetDataWithOpt( contentHandle, offset, count, handleType, 
                                  buffer, ioMode, &status ); 
       }
-    ErrorCode store_data( EntityHandle set, long, EntityHandle* array, long len, bool ranged ) 
+    ErrorCode store_data( EntityHandle, long, EntityHandle* array, long len, bool ranged ) 
     {
       if (ranged) {
         if (len % 2)
@@ -3607,7 +3606,7 @@ ErrorCode ReadHDF5::convert_range_to_handle( const EntityHandle* array,
 }
   
 
-ErrorCode ReadHDF5::read_qa( EntityHandle import_set )
+ErrorCode ReadHDF5::read_qa( EntityHandle  )
 {
   mhdf_Status status;
   std::vector<std::string> qa_list;
@@ -3774,11 +3773,10 @@ ErrorCode ReadHDF5::read_tag_values_partial( int tag_index,
     tag_values.clear();
     Range::const_pair_iterator p;
     for (p = offsets.const_pair_begin(); p != offsets.const_pair_end(); ++p) {
-      long offset = p->first;
       long count = p->second - p->first + 1;
       size_t prev_size = tag_values.size();
       tag_values.resize( prev_size + count );
-      mhdf_readTagValuesWithOpt( handles[1], offset, count, H5T_NATIVE_INT,
+      mhdf_readTagValuesWithOpt( handles[1], p->first, count, H5T_NATIVE_INT,
                                  &tag_values[prev_size], indepIO, &status );
       if (mhdf_isError( &status )) {
         readUtil->report_error( "%s", mhdf_message( &status ) );

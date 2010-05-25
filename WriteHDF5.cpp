@@ -1969,7 +1969,7 @@ ErrorCode WriteHDF5::write_dense_tag( const SparseTag& tag_data,
 ErrorCode WriteHDF5::write_tag_values( Tag tag_id,
                                        hid_t data_table,
                                        unsigned long offset_in,
-                                       const Range& range,
+                                       const Range& range_in,
                                        DataType mb_data_type,
                                        hid_t value_type,
                                        int   value_type_size,
@@ -1984,9 +1984,9 @@ ErrorCode WriteHDF5::write_tag_values( Tag tag_id,
   char* tag_buffer = (char*)dataBuffer;
   
     // Write the tag values
-  size_t remaining = range.size();
+  size_t remaining = range_in.size();
   size_t offset = offset_in;
-  Range::const_iterator iter = range.begin();
+  Range::const_iterator iter = range_in.begin();
   long num_writes = (remaining + chunk_size - 1)/chunk_size;
   if (max_num_ents) {
     assert( max_num_ents >= remaining );
