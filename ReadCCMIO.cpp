@@ -349,7 +349,7 @@ ErrorCode ReadCCMIO::load_neuset_data(CCMIOID problemID)
     int mindex;
     CCMIOError error = kCCMIONoErr;
     CCMIOGetEntityIndex(&error, next, &mindex);
-    assert(mindex > 0 && mindex <= (int)newNeusets.size()+1);
+    assert(mindex >= 0 && mindex <= (int)newNeusets.size()+1);
     std::map<int,EntityHandle>::iterator mit = newNeusets.find(mindex);
     if (mit == newNeusets.end()) 
         // no actual faces for this neuset; continue to next
@@ -489,13 +489,13 @@ ErrorCode ReadCCMIO::read_topology_types(CCMIOID &topologyID,
     // first, do a dummy read to see if we even have topo types in this mesh
   int dum_int;
   CCMIOReadOpt1i(&error, cellID, "CellTopologyType", &dum_int,
-                 CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOStart));
+                 CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOStart)+1);
   if (kCCMIONoErr != error) return MB_SUCCESS;
   
     // ok, we have topo types; first get the map node
   std::vector<int> dum_ints(num_cells);
   CCMIOReadCells(&error, cellID, &mapID, &dum_ints[0],
-                 CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOStart));
+                 CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOStart)+1);
   CHKCCMERR(error, "Failed to get the map node.");
 
     // now read the map
