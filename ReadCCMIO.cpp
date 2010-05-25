@@ -885,7 +885,7 @@ ErrorCode ReadCCMIO::create_cell_from_faces(std::vector<EntityHandle> &facehs,
     std::cerr << "Warning: types disagree (cell_topo_type = " << CN::EntityTypeName(input_type)
               << ", faces indicate type " << CN::EntityTypeName(this_type) << std::endl;
 
-  if (MBMAXTYPE != input_type && this_type == MBMAXTYPE)
+  if (MBMAXTYPE != input_type && this_type == MBMAXTYPE && input_type != MBPOLYHEDRON)
     std::cerr << "Warning: couldn't find proper connectivity for specified topo_type = " 
               << CN::EntityTypeName(input_type) << std::endl;
 
