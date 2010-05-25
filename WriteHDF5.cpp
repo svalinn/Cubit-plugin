@@ -2177,7 +2177,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   if (nodeSet.range.size()) {
     nodeSet.total_num_ents = nodeSet.range.size();
     handle = mhdf_createNodeCoords( filePtr, dimension, nodeSet.total_num_ents,
-                                    &first_id, true, &status );
+                                    &first_id, false, &status );
     CHK_MHDF_ERR_0(status);
     mhdf_closeData( filePtr, handle, &status );
     CHK_MHDF_ERR_0(status);
