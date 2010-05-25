@@ -23,6 +23,7 @@
 #include "util.h"
 #include "file-handle.h"
 
+const int DEFAULT_CHUNKING_BUFFER_SIZE=1000000;
 
 int
 mhdf_haveNodes( mhdf_FileHandle file, mhdf_Status* status )
@@ -108,8 +109,10 @@ mhdf_createNodeCoords( mhdf_FileHandle file_handle,
       mhdf_setFail( status, "Internal error creating dataset creation property" );
       return -1;
     }
-    dims[0] = 1;
-    dims[1] = (hsize_t)dimension;
+    dims[0] = DEFAULT_CHUNKING_BUFFER_SIZE/sizeof(double);
+    dims[1] = 1;
+    if (dims[0] > (hsize_t)num_nodes)
+      dims[0] = num_nodes;
     err = H5Pset_chunk( create_prop, 2, dims );
     if (err < 0) {
       H5Pclose( create_prop );

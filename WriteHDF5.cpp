@@ -307,6 +307,7 @@ WriteHDF5::WriteHDF5( Interface* iface )
     parallelWrite(false),
     collectiveIO(false),
     writeTagDense(false),
+    chunkNodes(false),
     writeProp( H5P_DEFAULT ),
     dbgOut("H5M ", stderr)
 {
@@ -386,6 +387,7 @@ ErrorCode WriteHDF5::write_file( const char* filename,
   }
   
   writeTagDense = (MB_SUCCESS == opts.get_null_option("DENSE_TAGS"));
+  chunkNodes = (MB_SUCCESS == opts.get_null_option("CHUNK_NODES"));
     
 
   // Enable some extra checks for reads.  Note: amongst other things this
@@ -2177,7 +2179,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   if (nodeSet.range.size()) {
     nodeSet.total_num_ents = nodeSet.range.size();
     handle = mhdf_createNodeCoords( filePtr, dimension, nodeSet.total_num_ents,
-                                    &first_id, false, &status );
+                                    &first_id, chunkNodes, &status );
     CHK_MHDF_ERR_0(status);
     mhdf_closeData( filePtr, handle, &status );
     CHK_MHDF_ERR_0(status);
