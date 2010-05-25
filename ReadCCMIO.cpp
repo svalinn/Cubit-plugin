@@ -221,7 +221,6 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
   CCMIOError error = kCCMIONoErr;
   ErrorCode rval = MB_SUCCESS;
   CCMIONode rootNode;
-  EntityHandle tag_set = (NULL != file_set ? *file_set : 0);
   if (kCCMIONoErr == CCMIOGetEntityNode(&error, rootID, &rootNode)) {
     char *name = NULL;
     CCMIOGetTitle(&error, rootNode, &name);
@@ -235,7 +234,7 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
                                   MB_TYPE_OPAQUE, simname, NULL);
         CHKERR(rval, "Simulation name tag not found or created.");
       }
-      rval = mbImpl->tag_set_data(simname, &tag_set, 1, name);
+      rval = mbImpl->tag_set_data(simname, file_set, (file_set ? 1 : 0), name);
       CHKERR(rval, "Problem setting simulation name tag.");
 
     }
@@ -247,7 +246,7 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
   if (MB_SUCCESS == get_opt_string("CreatingProgram", processorID, opt_string)) {
     if (opt_string.size() >= NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
     else (opt_string.resize(NAME_TAG_SIZE, '\0'));
-    rval = mbImpl->tag_set_data(mNameTag, &tag_set, 1, &opt_string[0]);
+    rval = mbImpl->tag_set_data(mNameTag, file_set, (file_set ? 1 : 0), &opt_string[0]);
     CHKERR(rval, "Failed to set neuset Name Tag.");
   }
   
@@ -277,7 +276,6 @@ ErrorCode ReadCCMIO::load_matset_data(CCMIOID problemID)
       // get index, corresponding set, and label with material set tag
     int mindex;
     CCMIOGetEntityIndex(&error, next, &mindex);
-    assert(mindex > 0 && mindex <= (int)newMatsets.size()+1);
     std::map<int,EntityHandle>::iterator mit = newMatsets.find(mindex);
     if (mit == newMatsets.end()) 
         // no actual faces for this matset; continue to next
@@ -349,7 +347,6 @@ ErrorCode ReadCCMIO::load_neuset_data(CCMIOID problemID)
     int mindex;
     CCMIOError error = kCCMIONoErr;
     CCMIOGetEntityIndex(&error, next, &mindex);
-    assert(mindex >= 0 && mindex <= (int)newNeusets.size()+1);
     std::map<int,EntityHandle>::iterator mit = newNeusets.find(mindex);
     if (mit == newNeusets.end()) 
         // no actual faces for this neuset; continue to next
@@ -696,7 +693,9 @@ ErrorCode ReadCCMIO::create_cell_from_faces(std::vector<EntityHandle> &facehs,
                                             bool has_mid_nodes,
                                             EntityHandle &cell) 
 {
-    // test to see if they're one type
+  ErrorCode rval;
+
+    // test up front to see if they're one type
   EntityType face_type = mbImpl->type_from_handle(facehs[0]);
   bool same_type = true;
   for (std::vector<EntityHandle>::iterator vit = facehs.begin(); vit != facehs.end(); vit++) {
@@ -706,44 +705,39 @@ ErrorCode ReadCCMIO::create_cell_from_faces(std::vector<EntityHandle> &facehs,
     }
   }
 
-    // if different, we can quit here, we'll consider this a polyhedron
-  ErrorCode rval = MB_SUCCESS;
-  if (!same_type || 
-      (MBTRI == face_type && facehs.size() != 4) ||
-      (MBQUAD == face_type && facehs.size() != 6) ||
-      (MBQUAD != face_type && MBTRI != face_type)) {
-    rval = mbImpl->create_element(MBPOLYHEDRON, &facehs[0], facehs.size(), cell);
-    CHKERR(rval, "Couldn't make polyhedron.");
-    return rval;
-  }
-  
-    // try tet and hex elements; get connectivity of first face
   std::vector<EntityHandle> verts;
-  rval = mbImpl->get_connectivity(&facehs[0], 1, verts);
-  CHKERR(rval, "Couldn't get connectivity.");
-  bool match = false;
-
-    // reverse connectivity if sense is forward, since base face always points
-    // into entity
-  if (senses[0] > 0) std::reverse(verts.begin(), verts.end());
-
+  EntityType input_type = this_type;
   std::vector<EntityHandle> storage;
   MeshTopoUtil mtu(mbImpl);
-  if (MBTRI == face_type) {
+  
+    // preset this to maxtype, so we get an affirmative choice in loop
+  this_type = MBMAXTYPE;
+  
+  if ((MBTET == input_type || MBMAXTYPE == input_type) && same_type &&
+      face_type == MBTRI && facehs.size() == 4) {
+      // try to get proper connectivity for tet
+
+      // get connectivity of first face, and reverse it if sense is forward, since 
+      // base face always points into entity
+    rval = mbImpl->get_connectivity(&facehs[0], 1, verts);
+    CHKERR(rval, "Couldn't get connectivity.");
+    if (senses[0] > 0) std::reverse(verts.begin(), verts.end());
+
       // get the 4th vertex through the next tri
     const EntityHandle *conn; int conn_size;
     rval = mbImpl->get_connectivity(facehs[1], conn, conn_size, true, &storage);
     CHKERR(rval, "Couldn't get connectivity.");
     int i = 0;
     while (std::find(verts.begin(), verts.end(), conn[i]) != verts.end() && i < conn_size) i++;
-    if (conn_size == i) 
-      CHKERR(MB_FAILURE, "Didn't find apex vertex.");
 
-    match = true;
-    this_type = MBTET;
-    verts.push_back(conn[i]);
+      // if i is not at the end of the verts, found the apex; otherwise fall back to polyhedron
+    if (conn_size != i) {
+      this_type = MBTET;
+      verts.push_back(conn[i]);
+    }
   }
-  else if (MBQUAD == face_type) {
+  else if ((MBHEX == input_type || MBMAXTYPE == input_type) && same_type &&
+           MBQUAD == face_type && facehs.size() == 6) {
       // build hex from quads
       // algorithm:
       // - verts = vertices from 1st quad
@@ -757,6 +751,12 @@ ErrorCode ReadCCMIO::create_cell_from_faces(std::vector<EntityHandle> &facehs,
 
       // get the other vertices for this hex; need to find the quad with no common vertices
     Range tmp_faces, tmp_verts;
+      // get connectivity of first face, and reverse it if sense is forward, since 
+      // base face always points into entity
+    rval = mbImpl->get_connectivity(&facehs[0], 1, verts);
+    CHKERR(rval, "Couldn't get connectivity.");
+    if (senses[0] > 0) std::reverse(verts.begin(), verts.end());
+
 
       // get q1, which shares 2 vertices with q0
     std::copy(facehs.begin(), facehs.end(), range_inserter(tmp_faces));
@@ -784,31 +784,116 @@ ErrorCode ReadCCMIO::create_cell_from_faces(std::vector<EntityHandle> &facehs,
     EntityHandle v0 = 0, v1 = 0;
     rval = mtu.opposite_entity(q1, verts[1], v0);
     rval = mtu.opposite_entity(q1, verts[0], v1);
-    if (!v0 || !v1)
-      CHKERR(MB_FAILURE, "Trouble finding opposite vertices.");
+    if (v0 && v1) {
 
-      // offset of v0 in q2, then rotate and flip
-    unsigned int ioff = std::find(storage.begin(), storage.end(), v0) - storage.begin();
-    if (4 == ioff)
-      CHKERR(MB_FAILURE, "Trouble finding offset.");
+        // offset of v0 in q2, then rotate and flip
+      unsigned int ioff = std::find(storage.begin(), storage.end(), v0) - storage.begin();
+      if (4 == ioff)
+        CHKERR(MB_FAILURE, "Trouble finding offset.");
 
-    if (storage[(ioff+1)%4] != v1) {
-      std::reverse(storage.begin(), storage.end());
-      ioff = std::find(storage.begin(), storage.end(), v0) - storage.begin();
+      if (storage[(ioff+1)%4] != v1) {
+        std::reverse(storage.begin(), storage.end());
+        ioff = std::find(storage.begin(), storage.end(), v0) - storage.begin();
+      }
+      if (0 != ioff)
+        std::rotate(storage.begin(), storage.begin()+ioff, storage.end());
+
+        // copy into verts, and make hex
+      std::copy(storage.begin(), storage.end(), std::back_inserter(verts));
+      this_type = MBHEX;
     }
-    if (0 != ioff)
-      std::rotate(storage.begin(), storage.begin()+ioff, storage.end());
-
-      // copy into verts, and make hex
-    std::copy(storage.begin(), storage.end(), std::back_inserter(verts));
-    match = true;
-    this_type = MBHEX;
   }
-  if (!match) 
-    CHKERR(MB_FAILURE, "Couldn't find vertices for hex.");
-  
-    // now make the element
-  rval = mbImpl->create_element(this_type, &verts[0], verts.size(), cell);
+
+  if (MBMAXTYPE == this_type && facehs.size() == 5) {
+      // some preliminaries
+    std::vector<EntityHandle> tris, quads;
+    for (unsigned int i = 0; i < 5; i++) {
+      if (MBTRI == mbImpl->type_from_handle(facehs[i])) tris.push_back(facehs[i]);
+      else if (MBQUAD == mbImpl->type_from_handle(facehs[i])) quads.push_back(facehs[i]);
+    }
+
+      // check for prisms
+    if (2 == tris.size() && 3 == quads.size()) {
+        // ok, we have the right number of tris and quads; try to find the proper verts
+
+        // get connectivity of first tri, and reverse if necessary
+      int index = std::find(facehs.begin(), facehs.end(), tris[0]) - facehs.begin();
+      rval = mbImpl->get_connectivity(&tris[0], 1, verts);
+      CHKERR(rval, "Couldn't get connectivity.");
+      if (senses[index] > 0) std::reverse(verts.begin(), verts.end());
+
+        // now align vertices of other tri, through a quad, similar to how we did hexes
+        // get q1, which shares 2 vertices with t0
+      Range tmp_faces, tmp_verts;
+      std::copy(facehs.begin(), facehs.end(), range_inserter(tmp_faces));
+      rval = mbImpl->get_adjacencies(&verts[0], 2, 2, false, tmp_faces);
+      if (MB_SUCCESS != rval || tmp_faces.size() != 2)
+      CHKERR(MB_FAILURE, "Couldn't get adj face.");
+      tmp_faces.erase(tris[0]);
+      EntityHandle q1 = *tmp_faces.begin();
+        // get verts in q1
+      rval = mbImpl->get_connectivity(&q1, 1, storage);
+      CHKERR(rval, "Couldn't get adj vertices.");
+
+        // get verts in q1 opposite from v[1] and v[0] in q0
+      EntityHandle v0 = 0, v1 = 0;
+      rval = mtu.opposite_entity(q1, verts[1], v0);
+      rval = mtu.opposite_entity(q1, verts[0], v1);
+      if (v0 && v1) {
+          // offset of v0 in t2, then rotate and flip
+        storage.clear();
+        rval = mbImpl->get_connectivity(&tris[1], 1, storage);
+        CHKERR(rval, "Couldn't get connectivity.");
+    
+        index = std::find(facehs.begin(), facehs.end(), tris[1]) - facehs.begin();
+        if (senses[index] < 0) std::reverse(storage.begin(), storage.end());
+        unsigned int ioff = std::find(storage.begin(), storage.end(), v0) - storage.begin();
+        if (3 == ioff) CHKERR(MB_FAILURE, "Trouble finding offset.");
+        for (unsigned int i = 0; i < 3; i++)
+          verts.push_back(storage[(ioff+i)%3]);
+
+        this_type = MBPRISM;
+      }
+    }
+    else if (tris.size() == 4 && quads.size() == 1) {
+        // check for pyramid
+        // get connectivity of first tri, and reverse if necessary
+      int index = std::find(facehs.begin(), facehs.end(), quads[0]) - facehs.begin();
+      rval = mbImpl->get_connectivity(&quads[0], 1, verts);
+      CHKERR(rval, "Couldn't get connectivity.");
+      if (senses[index] > 0) std::reverse(verts.begin(), verts.end());
+
+        // get apex node
+      rval = mbImpl->get_connectivity(&tris[0], 1, storage);
+      CHKERR(rval, "Couldn't get connectivity.");
+      for (unsigned int i = 0; i < 3; i++) {
+        if (std::find(verts.begin(), verts.end(), storage[i]) == verts.end()) {
+          verts.push_back(storage[i]);
+          break;
+        }
+      }
+
+      if (5 == verts.size()) this_type = MBPYRAMID;
+    }
+    else {
+        // dummy else clause to stop in debugger
+      this_type = MBMAXTYPE;
+    }
+  }
+
+  if (MBMAXTYPE != input_type && input_type != this_type && this_type != MBMAXTYPE)
+    std::cerr << "Warning: types disagree (cell_topo_type = " << CN::EntityTypeName(input_type)
+              << ", faces indicate type " << CN::EntityTypeName(this_type) << std::endl;
+
+  if (MBMAXTYPE != input_type && this_type == MBMAXTYPE)
+    std::cerr << "Warning: couldn't find proper connectivity for specified topo_type = " 
+              << CN::EntityTypeName(input_type) << std::endl;
+
+    // now make the element; if we fell back to polyhedron, use faces, otherwise use verts
+  if (MBPOLYHEDRON == this_type || MBMAXTYPE == this_type) 
+    rval = mbImpl->create_element(MBPOLYHEDRON, &facehs[0], facehs.size(), cell);
+  else
+    rval = mbImpl->create_element(this_type, &verts[0], verts.size(), cell);
   CHKERR(rval, "create_element failed.");
   
   return MB_SUCCESS;
