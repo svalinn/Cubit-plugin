@@ -559,6 +559,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   if (MB_SUCCESS != result)
     return error(result);
 
+  debug_barrier();
   dbgOut.tprint(1,"Writing adjacencies.\n");
   
     // Write adjacencies
@@ -1034,8 +1035,10 @@ ErrorCode WriteHDF5::write_parents_children( bool children )
     CHK_MHDF_ERR_1(status, table);
   }
 
-  if (parallelWrite)
+  if (parallelWrite && children)
     rval = write_shared_set_children( table, &track );
+  if (parallelWrite && !children)
+    rval = write_shared_set_parents( table, &track );
   mhdf_closeData( filePtr, table, &status );
   CHK_MB_ERR_0(rval);
 
