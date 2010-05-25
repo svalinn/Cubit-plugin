@@ -60,15 +60,19 @@ private:
 
   ErrorCode construct_cells(TupleList &face_map, 
 #ifndef READCCMIO_USE_TUPLE_LIST
-                              SenseList &sense_map,
+                            SenseList &sense_map,
 #endif
-                              TupleList &vert_map, 
-                              std::vector<EntityHandle> &new_cells);
+                            TupleList &vert_map, 
+                            std::map<int,int> &cell_topo_types,
+                            std::vector<EntityHandle> &new_cells);
 
+  ErrorCode ccmio_to_moab_type(int ccm_type, EntityType &moab_type, bool &has_mid_nodes);
 
   ErrorCode create_cell_from_faces(std::vector<EntityHandle> &facehs,
                                      std::vector<int> &senses,
-                                     EntityHandle &cell);
+                                   EntityType this_type,
+                                   bool has_mid_nodes,
+                                   EntityHandle &cell);
 
   ErrorCode read_gids_and_types(CCMIOID problemID,
                                   CCMIOID topologyID,
@@ -82,7 +86,8 @@ private:
                              , Range *new_faces);
 
 
-  ErrorCode read_faces(CCMIOID faceID, CCMIOEntity bdy_or_int,
+  ErrorCode read_faces(CCMIOID faceID, 
+                       CCMIOEntity bdy_or_int,
                          TupleList &vert_map,
                          TupleList &face_map
 #ifndef READCCMIO_USE_TUPLE_LIST
@@ -121,11 +126,17 @@ private:
   ErrorCode load_neuset_data(CCMIOID problemID);
   
   ErrorCode load_metadata(CCMIOID rootID, CCMIOID problemID, 
+                          CCMIOID stateID, CCMIOID processorID,
                             const EntityHandle *file_set);
   
   ErrorCode create_matset_tags(Tag &matNameTag, Tag &matPorosityTag, 
                                  Tag &matSpinTag, Tag &matGroupTag);
 
+  ErrorCode read_topology_types(CCMIOID &topologyID, 
+                                std::map<int,int> &cell_topo_types);
+
+  ErrorCode get_opt_string(const char *opt_name, CCMIOID node, std::vector<char> &opt_string);
+  
     //! Cached tags for reading.  Note that all these tags are defined when the
     //! core is initialized.
   Tag mMaterialSetTag;
@@ -139,7 +150,7 @@ private:
 
   ReadUtilIface* readMeshIface;
 
-  Range newMatsets, newNeusets;
+  std::map<int,EntityHandle> newMatsets, newNeusets;
   
   bool hasSolution;
 };
