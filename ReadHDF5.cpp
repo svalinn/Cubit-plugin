@@ -54,6 +54,7 @@
 
 namespace moab {
 
+#undef BLOCKED_COORD_IO
 
 #define READ_HDF5_BUFFER_SIZE (40*1024*1024)
 
@@ -1042,7 +1043,6 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
   if (is_error(status))
     return error(MB_FAILURE);
 
-  
   EntityHandle handle;
   std::vector<double*> arrays(dim);
   rval = readUtil->get_node_coords( dim, (int)node_file_ids.size(), 0, handle, arrays );
@@ -1051,33 +1051,62 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
     mhdf_closeData( filePtr, data_id, &status );
     return error(rval);
   }
+
+#ifndef BLOCKED_COORD_IO
+  double* buffer = (double*)dataBuffer;
+  long chunk_size = bufferSize / (3*sizeof(double));
+  long coffset = 0;
+#endif
   
     // read blocks of coordinates
   Range::const_pair_iterator p;
   for (p = node_file_ids.const_pair_begin(); p != node_file_ids.const_pair_end(); ++p)
   {
-    long count = p->second - p->first + 1;
+    long remaining = p->second - p->first + 1;
     long offset = p->first - fileInfo->nodes.start_id;
     
-    debug_track.record_io( offset, count );
-    dbgOut.tprintf(4,"Reading nodes [%ld,%ld]\n", offset, offset+count-1);
+    if (!idMap.insert( p->first, handle, remaining ).second) {
+      mhdf_closeData( filePtr, data_id, &status );
+      return error(MB_FAILURE);
+    }
+    handle += remaining;
+
+#ifdef BLOCKED_COORD_IO  
+    
+    debug_track.record_io( offset, remaining );
+    dbgOut.tprintf(4,"Reading nodes [%ld,%ld]\n", offset, offset+remaining-1);
     for (int i = 0; i < dim; ++i) {
-      mhdf_readNodeCoordWithOpt( data_id, offset, count, i, arrays[i], indepIO, &status );
+      mhdf_readNodeCoordWithOpt( data_id, offset, remaining, i, arrays[i], indepIO, &status );
       if (is_error(status)) {
         mhdf_closeData( filePtr, data_id, &status );
         return error(MB_FAILURE);
       }
-      arrays[i] += count;
+      arrays[i] += remaining;
     }
     for (int i = dim; i < cdim; ++i) {
-      memset( arrays[i], 0, count*sizeof(double) );
-      arrays[i] += count;
+      memset( arrays[i], 0, remaining*sizeof(double) );
+      arrays[i] += remaining;
     }
-    if (!idMap.insert( p->first, handle, count ).second) {
-      mhdf_closeData( filePtr, data_id, &status );
-      return error(MB_FAILURE);
+    
+#else
+
+    while (remaining) {
+      long count = std::min( remaining, chunk_size );
+      debug_track.record_io( offset, count );
+      dbgOut.tprintf(4,"Reading nodes [%ld,%ld]\n", offset, offset+count-1);
+      mhdf_readNodeCoordsWithOpt( data_id, offset, count, buffer, indepIO, &status );
+      for (long i = 0; i < count; ++i) {
+        for (int d = 0; d < dim; ++d) 
+          arrays[d][coffset+i] = buffer[dim*i+d];
+        for (int d = dim; d < cdim; ++d)
+          arrays[d][coffset+i] = 0.0;
+      }
+      coffset += count;
+      remaining -= count;
+      offset += count;
     }
-    handle += count;
+
+#endif
   }
   
   mhdf_closeData( filePtr, data_id, &status );

@@ -63,6 +63,10 @@ struct file { uint32_t magic; hid_t handle; };
 */
 #undef DEBUG
 
+
+#undef BLOCKED_COORD_IO
+
+
 #ifdef DEBUG
 /*
 # include <H5Epublic.h>
@@ -779,7 +783,11 @@ ErrorCode WriteHDF5::write_nodes( )
   IODebugTrack track( debugTrack, "nodes", num_nodes );
   
   double* buffer = (double*)dataBuffer;
+#ifdef BLOCKED_COORD_IO   
   int chunk_size = bufferSize / sizeof(double);
+#else
+  int chunk_size = bufferSize / (3*sizeof(double));
+#endif 
   
   long remaining = nodeSet.range.size();
   long num_writes = (remaining+chunk_size-1) / chunk_size;
@@ -799,7 +807,8 @@ ErrorCode WriteHDF5::write_nodes( )
     remaining -= count;
     Range::const_iterator end = iter;
     end += count;
-    
+
+#ifdef BLOCKED_COORD_IO   
     for (int d = 0; d < dim; d++)
     {
       if (d < mesh_dim)
@@ -814,10 +823,18 @@ ErrorCode WriteHDF5::write_nodes( )
     
       dbgOut.printf(3,"  writing %c node chunk %ld of %ld, %ld values at %ld\n",
              (char)('X'+d), num_writes - remaining_writes + 1, num_writes, count, offset );
-      if (d == 0) track.record_io( offset, count );
       mhdf_writeNodeCoordWithOpt( node_table, offset, count, d, buffer, writeProp, &status );
       CHK_MHDF_ERR_1(status, node_table);
     }
+#else
+    rval = writeUtil->get_node_coords( -1, iter, end, 3*count, buffer );
+    CHK_MB_ERR_1(rval, node_table, status);
+    dbgOut.printf(3,"  writing node chunk %ld of %ld, %ld values at %ld\n",
+           num_writes - remaining_writes + 1, num_writes, count, offset );
+    mhdf_writeNodeCoordsWithOpt( node_table, offset, count, buffer, writeProp, &status );
+    CHK_MHDF_ERR_1(status, node_table);
+#endif
+    track.record_io( offset, count );
     
     iter = end;
     offset += count;
@@ -828,12 +845,19 @@ ErrorCode WriteHDF5::write_nodes( )
   if (collectiveIO) {
     while (remaining_writes--) {
       assert(writeProp != H5P_DEFAULT);
+#ifdef BLOCKED_COORD_IO   
       for (int d = 0; d < dim; ++d) {
         dbgOut.printf(3,"  writing (empty) %c node chunk %ld of %ld.\n",
                (char)('X'+d), num_writes - remaining_writes, num_writes );
         mhdf_writeNodeCoordWithOpt( node_table, offset, 0, d, 0, writeProp, &status );
         CHK_MHDF_ERR_1(status, node_table);
       }
+#else
+      dbgOut.printf(3,"  writing (empty) node chunk %ld of %ld.\n",
+             num_writes - remaining_writes, num_writes );
+      mhdf_writeNodeCoordsWithOpt( node_table, offset, 0, 0, writeProp, &status );
+      CHK_MHDF_ERR_1(status, node_table);
+#endif
     }
   }
   
