@@ -44,7 +44,8 @@ class IODebugTrack;
 
 class MB_DLL_EXPORT WriteHDF5 : public WriterIface
 {
-protected: 
+
+public:
 
   /** The type to use for entity IDs w/in the file.
    * 
@@ -102,8 +103,6 @@ protected:
                 
     const char* name() const;
   };
-
-public:
   
   //! Tag to write to file.
   struct SparseTag
