@@ -46,6 +46,16 @@ class MB_DLL_EXPORT WriteHDF5 : public WriterIface
 {
 protected: 
 
+  /** The type to use for entity IDs w/in the file.
+   * 
+   * NOTE:  If this is changed, the value of id_type 
+   *        MUST be changed accordingly.
+   */
+  typedef EntityHandle id_t;
+  
+  /** HDF5 type corresponding to type of id_t */
+  static const hid_t id_type;
+
   struct ExportType
   {
       //! The type of the entities in the range
@@ -124,16 +134,6 @@ public:
   };
 
   static WriterIface* factory( Interface* );
-
-  /** The type to use for entity IDs w/in the file.
-   * 
-   * NOTE:  If this is changed, the value of id_type 
-   *        MUST be changed accordingly.
-   */
-  typedef EntityHandle id_t;
-  
-  /** HDF5 type corresponding to type of id_t */
-  static const hid_t id_type;
 
   WriteHDF5( Interface* iface );
   
