@@ -151,13 +151,22 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if(MB_SUCCESS == opts.match_option(name,value)) 
     act_att = false; 
 
-  // tag the file_set with the faceting_tol and geometry absolute resolution
-  if (file_set) {
-    rval = mdbImpl->tag_set_data( faceting_tol_tag, file_set, 1, &faceting_tol );
-    if(MB_SUCCESS != rval) return rval;
-    rval = mdbImpl->tag_set_data( geometry_resabs_tag, file_set, 1, &GEOMETRY_RESABS );
-    if(MB_SUCCESS != rval) return rval;
+  // always tag with the faceting_tol and geometry absolute resolution
+  // if file_set is defined, use that, otherwise create a set
+  EntityHandle facet_tol_tag_set;
+  if (NULL == file_set) {
+    EntityHandle temp_tag_set;
+    rval = mdbImpl->create_meshset( MESHSET_SET, temp_tag_set );
+    if (MB_SUCCESS != rval) return rval;
+    facet_tol_tag_set = temp_tag_set;
+  } else {
+    facet_tol_tag_set = *file_set;
   }
+  
+  rval = mdbImpl->tag_set_data( faceting_tol_tag, &facet_tol_tag_set, 1, &faceting_tol );
+  if(MB_SUCCESS != rval) return rval;
+  rval = mdbImpl->tag_set_data( geometry_resabs_tag, &facet_tol_tag_set, 1, &GEOMETRY_RESABS );
+  if(MB_SUCCESS != rval) return rval;
 
   // CGM data
   std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
