@@ -304,8 +304,6 @@ protected:
   bool collectiveIO;
   //! True if writing dense-formatted tag data
   bool writeTagDense;
-  //! True if using chunking in on-disk layout of node coordinate data
-  bool chunkNodes;
   
   //! Property set to pass to H5Dwrite calls. 
   //! For serial, should be H5P_DEFAULTS.

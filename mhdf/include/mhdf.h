@@ -476,11 +476,6 @@ mhdf_haveNodes( mhdf_FileHandle file_handle, mhdf_Status* status );
  * \param first_node_id_out  Nodes are assigned IDs sequentially in the
  *             order they occur in the table, where the ID of the first
  *             node in the table is this passed-back value.
- * \param column_major_chunking  If non-zero, select file layout optimized
- *             for reading/writing a single column at a time (e.g. writing
- *             all the X-coordinates before writing any Y-coordinates.)
- *             If zero, optimize layout for reading all coordinates together,
- *             in an interleaved format.
  * \param status     Passed back status of API call.
  * \return An HDF5 handle to the coordinate table.
  */
@@ -489,7 +484,6 @@ mhdf_createNodeCoords( mhdf_FileHandle file_handle,
                        int dimension,
                        long num_nodes,
                        long* first_node_id_out,
-                       int column_major_chunking,
                        mhdf_Status* status );
 
 /** \brief Open table containing node coordinate data 
