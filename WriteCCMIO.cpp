@@ -403,7 +403,7 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
 
     // write material types and other info
   for (unsigned int i = 0; i < matset_data.size(); i++) {
-    CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, i+1, "Material", &id);
+    CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, matset_data[i].matsetId, "Material", &id);
     CHKCCMERR(error, "Failure creating celltype node.");
 
     if (!matset_data[i].setName.empty()) {
@@ -422,7 +422,8 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
       // use the label to encode the id
     std::ostringstream dum_id;
     dum_id << neuset_data[i].neusetId;
-    CCMIONewIndexedEntity(&error, problemID, kCCMIOBoundaryRegion, i+1, dum_id.str().c_str(), &id);
+    CCMIONewIndexedEntity(&error, problemID, kCCMIOBoundaryRegion, neuset_data[i].neusetId, 
+                          dum_id.str().c_str(), &id);
     CHKCCMERR(error, "Failure creating BoundaryRegion node.");
 
     if (!neuset_data[i].setName.empty()) {
@@ -490,7 +491,7 @@ ErrorCode WriteCCMIO::gather_matset_info(std::vector<EntityHandle> &matsets,
     CHKERR(result, "Couln't mark entities being output.");
 
       // get id for this matset
-    result = mbImpl->tag_get_data(mGlobalIdTag, &this_set, 1, &matset_data[i].matsetId);
+    result = mbImpl->tag_get_data(mMaterialSetTag, &this_set, 1, &matset_data[i].matsetId);
     CHKERR(result, "Couln't get global id for material set.");
 
       // get name for this matset
@@ -527,8 +528,13 @@ ErrorCode WriteCCMIO::gather_neuset_info(std::vector<EntityHandle> &neusets,
     result = mbImpl->get_entities_by_dimension(this_set, mDimension-1, neuset_info[i].elems, true);
     CHKERR(result, "Trouble getting (m-1)-dimensional ents for neuset.");
     
-      // don't need to check return of following, since it's ok not to have an id
-    mbImpl->tag_get_data(mGlobalIdTag, &this_set, 1, &neuset_info[i].neusetId);
+    result = mbImpl->tag_get_data(mGlobalIdTag, &this_set, 1, &neuset_info[i].neusetId);
+    if (MB_TAG_NOT_FOUND == result) {
+      result = mbImpl->tag_get_data(mNeumannSetTag, &this_set, 1, &neuset_info[i].neusetId);
+      if (MB_SUCCESS != result) 
+        // need some id; use the loop iteration number
+        neuset_info[i].neusetId = i;
+    }
 
       // get name for this neuset
     if (mNameTag) {
@@ -692,6 +698,11 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
   unsigned int i, num_elems = 0;
   int max_id = 1;
   std::vector<int> egids;
+  int tot_elems = 0;
+  
+  for (unsigned int m = 0; m < matset_data.size(); m++)
+    tot_elems += matset_data[m].elems.size();
+    
   for (unsigned int m = 0; m < matset_data.size(); m++) {
 
     unsigned int this_num = matset_data[m].elems.size();
@@ -710,21 +721,41 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     CHKERR(result, "Failed to assign global ids for all elements being written.");
 
     //================================================
-    // Write cell ids and types for this matset; reuse egids for cell mat type
+    // Write cell ids and material types for this matset; reuse egids for cell mat type
     //================================================
-    CCMIOWriteMap(&error, cellMapID, CCMIOSIZEC(this_num),
+    CCMIOWriteMap(&error, cellMapID, CCMIOSIZEC(tot_elems),
                   CCMIOSIZEC(max_id-1), &egids[0],
-                  CCMIOINDEXC(0 == m ? kCCMIOStart : m), 
+                  CCMIOINDEXC(0 == m ? kCCMIOStart : num_elems), 
                   CCMIOINDEXC(matset_data.size() == m ? kCCMIOEnd : 
                               num_elems + this_num));
     CHKCCMERR(error, "Trouble writing cell map.");
 
     for (i = 0; i < this_num; i++) egids[i] = matset_data[m].matsetId;
     CCMIOWriteCells(&error, cells, cellMapID, &egids[0],
-                  CCMIOINDEXC(0 == m ? kCCMIOStart : m), 
-                  CCMIOINDEXC(matset_data.size() == m ? kCCMIOEnd : 
+                    CCMIOINDEXC(0 == m ? kCCMIOStart : num_elems), 
+                    CCMIOINDEXC(matset_data.size() == m ? kCCMIOEnd : 
                               num_elems + this_num));
     CHKCCMERR(error, "Trouble writing Cell node.");
+
+    //================================================
+    // Write cell entity types
+    //================================================
+    const EntityHandle *conn;
+    int num_conn;
+    int has_mid_nodes[4];
+    std::vector<EntityHandle> storage;
+    for (i = 0, rit = matset_data[m].elems.begin(); i < this_num; i++, rit++) {
+      result = mbImpl->get_connectivity(*rit, conn, num_conn, false, &storage);
+      CHKERR(result, "Trouble getting connectivity for entity type check.");
+      CN::HasMidNodes(mbImpl->type_from_handle(*rit), num_conn, has_mid_nodes);
+      egids[i] = moab_to_ccmio_type(mbImpl->type_from_handle(*rit), has_mid_nodes);
+    }
+    
+    CCMIOWriteOpt1i(&error, cells, "CellTopologyType", CCMIOSIZEC(tot_elems), &egids[0],
+                    CCMIOINDEXC(0 == m ? kCCMIOStart : num_elems), 
+                    CCMIOINDEXC(matset_data.size() == m ? kCCMIOEnd : 
+                                num_elems + this_num));
+    CHKCCMERR(error, "Failed to write cell topo types.");
 
     num_elems += this_num;
   }
@@ -759,7 +790,7 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
   }
 
   if (!skin_facets.empty()) {
-    result = write_external_faces(rootID, topologyID, -1, skin_facets);
+    result = write_external_faces(rootID, topologyID, 0, skin_facets);
     CHKERR(result, "Trouble writing skin facets.");
   }
 
@@ -928,6 +959,49 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
   CHKCCMERR(error, "Failure writing Internal face cells.");
 
   return MB_SUCCESS;
+}
+
+int WriteCCMIO::moab_to_ccmio_type(EntityType etype, int has_mid_nodes[]) 
+{
+  int ctype = -1;
+  if (has_mid_nodes[0] || has_mid_nodes[2] || has_mid_nodes[3]) return ctype;
+  
+  switch (etype) {
+    case MBVERTEX:
+        ctype = 1;
+        break;
+    case MBEDGE:
+        if (!has_mid_nodes[1]) ctype = 2;
+        else ctype = 28;
+        break;
+    case MBQUAD:
+        if (has_mid_nodes[1]) ctype = 4;
+        else ctype = 3;
+        break;
+    case MBTET:
+        if (has_mid_nodes[1]) ctype = 23;
+        else ctype = 13;
+        break;
+    case MBPRISM:
+        if (has_mid_nodes[1]) ctype = 22;
+        else ctype = 12;
+        break;
+    case MBPYRAMID:
+        if (has_mid_nodes[1]) ctype = 24;
+        else ctype = 14;
+        break;
+    case MBHEX:
+        if (has_mid_nodes[1]) ctype = 21;
+        else ctype = 11;
+        break;
+    case MBPOLYHEDRON:
+        ctype = 255;
+        break;
+    default:
+        break;
+  }
+  
+  return ctype;
 }
 
 ErrorCode WriteCCMIO::write_external_faces(CCMIOID rootID, CCMIOID topologyID, 

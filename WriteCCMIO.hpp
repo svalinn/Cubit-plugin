@@ -228,6 +228,9 @@ private:
   
     //! finalize processor
   ErrorCode write_processor(CCMIOID processorID, CCMIOID verticesID, CCMIOID topologyID);
+
+    //! convert MOAB to CCMIO type
+  int moab_to_ccmio_type(EntityType etype, int has_mid_nodes[]);
 };
 
 } // namespace moab
