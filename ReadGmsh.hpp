@@ -13,11 +13,6 @@
  * 
  */
 
-/**
- * \class ReadGmsh
- * \brief Gmsh (http://www.geuz.org/gmsh) file reader
- * \author Jason Kraftcheck
- */
 
 
 #ifndef READ_GMSH_HPP
@@ -32,7 +27,10 @@ namespace moab {
 class ReadUtilIface;
 struct GmshElemType;
 
-// Base class for binary and ASCII readers
+/**
+ * \brief Gmsh (http://www.geuz.org/gmsh) file reader
+ * \author Jason Kraftcheck
+ */
 class ReadGmsh : public ReaderIface
 {
    

@@ -13,12 +13,6 @@
  * 
  */
 
-/**
- * \class  ReadHDF5
- * \brief  Read mesh from MOAB HDF5 (.h5m) file.
- * \author Jason Kraftcheck
- * \date   18 April 2004
- */
 
 #ifndef READ_HDF5_HPP
 #define READ_HDF5_HPP
@@ -40,6 +34,11 @@ namespace moab {
 
 class ParallelComm;
 
+/**
+ * \brief  Read mesh from MOAB HDF5 (.h5m) file.
+ * \author Jason Kraftcheck
+ * \date   18 April 2004
+ */
 class ReadHDF5 : public ReaderIface
 {
 public:

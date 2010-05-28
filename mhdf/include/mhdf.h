@@ -24,41 +24,50 @@ extern "C" {
 
 /** \mainpage H5M File Format API 
  *
- *\section Intro Introduction
+ *\section Intro   Introduction
  *
  * MOAB's native file format is based on the HDF5 file format.  
  * The most common file extension used for such files is .h5m.
  * A .h5m file can be identified by the top-level \c tstt group
- * in an HDF5 file.
+ * in the HDF5 file.
  *
  * The API implemented by this library is a wrapper on top of the
  * underlying HDF5 library.  It provides the following features:
  * - Enforces and hides MOAB's expected file layout 
- * - Provides a somewhat higher-level API
+ * - Provides a slightly higher-level API
  * - Provides some backwards compatibility for file layout changes
  *
  *
- *\section Overview H5M File Layout
+ *\section Overview   H5M File Layout
  *
- * The H5M file format relies on the use of a unique ID space for
+ * The H5M file format relies on the use of a unique entity ID space for
  * all vertices, elements, and entity sets stored in the file.  This
  * ID space is defined by the application.  IDs must be unique over all
  * entity types (a vertex and an entity set may not have the same ID.)
+ * The IDs must be positive (non-zero) integer values.  
  * There are no other requirements imposed by the format on the ID space.
  *
  * Elements, with the exception of polyhedra, are defined by a list of 
- * vertex IDs.  Polyhedra are defined by a list of face IDs.  Element 
+ * vertex IDs.  Polyhedra are defined by a list of face IDs.  Entity sets 
+ * have a list of contained entity IDs, and lists of parent and child 
+ * entity set IDs.  The set contents may include any valid entity ID,
+ * including other sets.  The parent and child lists are expected to
+ * contain only entity IDs corresponding to other entity sets.  A zero
+ * entity ID may be used in some contexts (tag data with the mhdf_ENTITY_ID
+ * property) to indicate a 'null' value,
+ *
+ * Element 
  * types are defined by the combination of a topology identifier (e.g. 
  * hexahedral topology) and the number of nodes in the element.  
  *
- *\section Root The \c tstt Group
+ *\section Root   The \c tstt Group
  *
  * All file data is stored in the \c tstt group in the HDF5 root group.
  * The \c tstt group may have an optional scalar integer attribute 
  * named \c max_id .  This attribute, if present, should contain the
- * value of the largest file ID used internally to the file.  It can
+ * value of the largest entity ID used internally to the file.  It can
  * be used to verify that the code reading the file is using an integer
- * type of sufficient size to store the file IDs.
+ * type of sufficient size to store the file IDs.  
  *
  * The \c tstt group contains four sub-groups a datatype object and a 
  * dataset object.  The three sub-groups are: \c nodes, \c elements, 
@@ -116,8 +125,9 @@ extern "C" {
  * optional subgroup named \c tags.  The \c tags subgroup is  described in the 
  * \ref Dense "section on dense tag storage". 
  *
- * The \c connectivty DataSet is a \f$ n \times m \f$ array of integer
- * values.  
+ * The \c connectivty DataSet is an \f$ n \times m \f$ array of integer
+ * values.  The DataSet contains one row for each of the \c n contained
+ * elements, where the connectivity of each element contains
  *
  * 
  */

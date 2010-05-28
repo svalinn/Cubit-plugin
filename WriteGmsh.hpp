@@ -13,19 +13,6 @@
  * 
  */
 
-/**
- * \class WriteGmsh
- * \brief Export Gmsh files.
- * \author Jason Kraftcheck
- *
- * Known limitations:
- *  - Tag data and most sets cannot be saved.
- *  - For blocks, geometry sets, and parallel partitions, the
- *     sets are saved but the IDs may be lost.
- *  - File format does not support general polygons or polyhedra.
- *  - File format does not support higher-order volume elements 
- *     other than TET10 and HEX27.
- */
 
 #ifndef WRITE_GMSH_HPP
 #define WRITE_GMSH_HPP
@@ -38,6 +25,18 @@ namespace moab {
 
 class WriteUtilIface;
 
+/**
+ * \brief Export Gmsh files.
+ * \author Jason Kraftcheck
+ *
+ * Known limitations:
+ *  - Tag data and most sets cannot be saved.
+ *  - For blocks, geometry sets, and parallel partitions, the
+ *     sets are saved but the IDs may be lost.
+ *  - File format does not support general polygons or polyhedra.
+ *  - File format does not support higher-order volume elements 
+ *     other than TET10 and HEX27.
+ */
 class WriteGmsh : public WriterIface
 {
  

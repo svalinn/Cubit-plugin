@@ -13,8 +13,20 @@
  * 
  */
 
+
+
+#ifndef READ_STL_HPP
+#define READ_STL_HPP
+
+#include <stdio.h>
+#include "moab/Forward.hpp"
+#include "moab/ReaderIface.hpp"
+
+namespace moab {
+
+class ReadUtilIface;
+
 /**
- * \class ReadSTL
  * \brief ASCII and Binary Stereo Lithography File readers.
  * \author Jason Kraftcheck
  *
@@ -49,20 +61,6 @@
  *   cat my_binary_file.stlb > /tmp/fifo.stlb 
  * and instruct the MOAB-based application to read from /tmp/fifo.stlb
  */
-
-
-#ifndef READ_STL_HPP
-#define READ_STL_HPP
-
-#include <stdio.h>
-#include "moab/Forward.hpp"
-#include "moab/ReaderIface.hpp"
-
-namespace moab {
-
-class ReadUtilIface;
-
-// Base class for binary and ASCII readers
 class ReadSTL : public ReaderIface
 {
    

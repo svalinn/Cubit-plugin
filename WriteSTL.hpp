@@ -13,21 +13,6 @@
  * 
  */
 
-/**
- * \class WriteSTL
- * \brief ASCII and Binary Stereo Lithography File writers.
- * \author Jason Kraftcheck
- *
- * This writer will write only the MBTRI elements in the mesh.  It
- * will not decompose other 2-D elements into triangles, nor will
- * it skin the mesh or do any other high-level operation to generate
- * triangles from 3-D elements.  
- *
- * Binary files will be written with a little-endian byte order by
- * default.  The byte order can be controlled by creating an integer
- * tag named "__STL_BYTE_ORDER" and setting the global/mesh value to
- * 0 for little endian or 1 for big endian.
- */
 
 #ifndef WRITE_STL_HPP
 #define WRITE_STL_HPP
@@ -41,6 +26,18 @@ namespace moab {
 
 class WriteUtilIface;
 
+/**
+ * \brief ASCII and Binary Stereo Lithography File writers.
+ * \author Jason Kraftcheck
+ *
+ * This writer will write only the MBTRI elements in the mesh.  It
+ * will not decompose other 2-D elements into triangles, nor will
+ * it skin the mesh or do any other high-level operation to generate
+ * triangles from 3-D elements.  
+ *
+ * Binary files will be written with a little-endian byte order by
+ * default.  The byte order can be controlled with writer options.
+ */
 class WriteSTL : public WriterIface
 {
  

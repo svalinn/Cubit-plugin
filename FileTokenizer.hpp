@@ -25,7 +25,6 @@ namespace moab {
 class ReadUtilIface;
 
 /** 
- * \class  FileTokenizer
  * \brief  Parse a file as space-separated tokens
  * \author Jason Kraftcheck
  * \date   30 Sept 2004

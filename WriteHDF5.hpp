@@ -13,12 +13,6 @@
  * 
  */
 
-/**
- * \class  WriteHDF5
- * \brief  Write mesh database to TSTT HDF5 file.
- * \author Jason Kraftcheck
- * \date   01 April 2004
- */
 
 #ifndef WRITE_HDF5_HPP
 #define WRITE_HDF5_HPP
@@ -42,6 +36,11 @@ class IODebugTrack;
 /* If this define is not set, node->entity adjacencies will not be written */
 #undef MB_H5M_WRITE_NODE_ADJACENCIES
 
+/**
+ * \brief  Write mesh database to MOAB's native HDF5-based file format.
+ * \author Jason Kraftcheck
+ * \date   01 April 2004
+ */
 class MB_DLL_EXPORT WriteHDF5 : public WriterIface
 {
 
