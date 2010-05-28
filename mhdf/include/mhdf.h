@@ -130,7 +130,7 @@ extern "C" {
  *
  * The \c connectivty DataSet is an \f$ n \times m \f$ array of integer
  * values.  The DataSet contains one row for each of the \c n contained
- * elements, where the connectivity of each element contains \m IDs.  For
+ * elements, where the connectivity of each element contains \c m IDs.  For
  * all element types supported by MOAB, with the exception of polyhedra,
  * the element connectivity list is expected to contain only IDs 
  * corresponding to nodes.  
@@ -191,7 +191,7 @@ extern "C" {
  * that the order of the entries in the set should be preserved.  
  *
  * Similar to the \c nodes/coordinates and \c elements/.../connectivity
- * DataSets, the \c lists DataSet \must have an integer attribute 
+ * DataSets, the \c lists DataSet must have an integer attribute 
  * named \c start_id .  IDs are assigned to to sets in the order that
  * they occur in the \c lists table, beginning with the attribute value.
  *
