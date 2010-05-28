@@ -526,8 +526,10 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     opts.get_int_option("PARALLEL_COMM", pcomm_no);
       // Just store Boolean value based on string option here.
       // parallel_create_file will set writeProp accordingly.
-    collectiveIO =  (MB_SUCCESS == opts.get_null_option("COLLECTIVE"));
-    dbgOut.printf(2,"'COLLECTIVE' option = %s\n", collectiveIO ? "YES" : "NO" );
+    //collectiveIO =  (MB_SUCCESS == opts.get_null_option("COLLECTIVE"));
+    //dbgOut.printf(2,"'COLLECTIVE' option = %s\n", collectiveIO ? "YES" : "NO" );
+      // Do this all the time, as it appears to be much faster than indep in some cases
+    collectiveIO = true;
     result = parallel_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension, pcomm_no );
   }
   else {
