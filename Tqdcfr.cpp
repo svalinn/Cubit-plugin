@@ -200,25 +200,23 @@ Tqdcfr::~Tqdcfr()
 
 
 ErrorCode Tqdcfr::read_tag_values( const char* /* file_name */,
-                                     const char* /* tag_name */,
-                                     const FileOptions& /* opts */,
-                                     std::vector<int>& /* tag_values_out */,
-                                     const IDTag* /* subset_list */,
-                                     int /* subset_list_length */ )
+                                   const char* /* tag_name */,
+                                   const FileOptions& /* opts */,
+                                   std::vector<int>& /* tag_values_out */,
+                                   const SubsetList* /* subset_list */ )
 {
   return MB_NOT_IMPLEMENTED;
 }
 
 ErrorCode Tqdcfr::load_file(const char *file_name,
-                              const EntityHandle* ,
-                              const FileOptions& opts,
-                              const ReaderIface::IDTag* subset_list,
-                              int subset_list_length,
-                              const Tag* file_id_tag) 
+                            const EntityHandle* ,
+                            const FileOptions& opts,
+                            const ReaderIface::SubsetList* subset_list,
+                            const Tag* file_id_tag) 
 {
   ErrorCode result;
 
-  if (subset_list && subset_list_length) {
+  if (subset_list) {
     readUtilIface->report_error( "Reading subset of files not supported for CUB files." );
     return MB_UNSUPPORTED_OPERATION;
   }
@@ -2645,7 +2643,7 @@ int main(int argc, char* argv[])
   Tqdcfr *my_tqd = new Tqdcfr(my_impl);
   FileOptions opts(NULL);
   
-  ErrorCode result = my_tqd->load_file(file, 0, opts, 0, 0, 0);
+  ErrorCode result = my_tqd->load_file(file, 0, opts, 0, 0);
 
   if (MB_SUCCESS == result)
     std::cout << "Success." << std::endl;
@@ -2664,7 +2662,7 @@ int main(int argc, char* argv[])
   my_impl = new Core;
   my_tqd = new Tqdcfr(my_impl);
   
-  result = my_tqd->load_file(file, 0, opts, 0, 0, 0);
+  result = my_tqd->load_file(file, 0, opts, 0, 0);
 
   if (MB_SUCCESS == result)
     std::cout << "Success." << std::endl;

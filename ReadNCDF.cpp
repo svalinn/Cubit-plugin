@@ -182,13 +182,12 @@ ReadNCDF::~ReadNCDF()
   
 
 ErrorCode ReadNCDF::read_tag_values(const char* file_name,
-                                      const char* tag_name,
-                                      const FileOptions& opts,
-                                      std::vector<int>& id_array,
-                                      const IDTag* subset_list,
-                                      int subset_list_length )
+                                    const char* tag_name,
+                                    const FileOptions& opts,
+                                    std::vector<int>& id_array,
+                                    const SubsetList* subset_list )
 {
-  if (subset_list && subset_list_length) {
+  if (subset_list) {
     readMeshIface->report_error( "ExodusII reader supports subset read only by material ID." );
     return MB_UNSUPPORTED_OPERATION;
   }
@@ -255,11 +254,10 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
 
 
 ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
-                                const EntityHandle* file_set,
-                                const FileOptions& opts,
-                                const ReaderIface::IDTag* subset_list,
-                                int subset_list_length,
-                                const Tag* file_id_tag)
+                              const EntityHandle* file_set,
+                              const FileOptions& opts,
+                              const ReaderIface::SubsetList* subset_list,
+                              const Tag* file_id_tag)
 {
   ErrorCode status;
 
@@ -267,17 +265,18 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
 
   int num_blocks = 0;
   const int* blocks_to_load = 0;
-  if (subset_list && subset_list_length) {
-    if (subset_list_length > 1 && !strcmp( subset_list[0].tag_name, MATERIAL_SET_TAG_NAME) ) {
+  if (subset_list) {
+    if (subset_list->tag_list_length > 1 ||
+        !strcmp( subset_list->tag_list[0].tag_name, MATERIAL_SET_TAG_NAME) ) {
       readMeshIface->report_error( "ExodusII reader supports subset read only by material ID." );
       return MB_UNSUPPORTED_OPERATION;
     }
-    if (subset_list[0].num_parts) {
+    if (subset_list->num_parts) {
       readMeshIface->report_error( "ExodusII reader does not support mesh partitioning");
       return MB_UNSUPPORTED_OPERATION;
     }
-    blocks_to_load = subset_list[0].tag_values;
-    num_blocks = subset_list[0].num_tag_values;
+    blocks_to_load = subset_list->tag_list[0].tag_values;
+    num_blocks = subset_list->tag_list[0].num_tag_values;
   }
   
     // this function directs the reading of an exoii file, but doesn't do any of

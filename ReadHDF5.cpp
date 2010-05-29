@@ -28,6 +28,7 @@
    it will get included indirectly by HDF5 */
 #ifdef USE_MPI
 #  include "moab_mpi.h"
+#  include "moab/ParallelComm.hpp"
 #endif 
 #include <H5Tpublic.h>
 #include <H5Ppublic.h>
@@ -39,7 +40,6 @@
 #include "FileOptions.hpp"
 #ifdef HDF5_PARALLEL
 #  include "ReadParallel.hpp"
-#  include "moab/ParallelComm.hpp"
 #  include <H5FDmpi.h>
 #  include <H5FDmpio.h>
 #endif
@@ -353,11 +353,10 @@ ErrorCode ReadHDF5::clean_up_read( const FileOptions& )
 }
 
 ErrorCode ReadHDF5::load_file( const char* filename, 
-                                 const EntityHandle* file_set, 
-                                 const FileOptions& opts,
-                                 const ReaderIface::IDTag* subset_list,
-                                 int subset_list_length,
-                                 const Tag* file_id_tag )
+                               const EntityHandle* file_set, 
+                               const FileOptions& opts,
+                               const ReaderIface::SubsetList* subset_list,
+                               const Tag* file_id_tag )
 {
   ErrorCode rval;
  
@@ -365,8 +364,12 @@ ErrorCode ReadHDF5::load_file( const char* filename,
   if (MB_SUCCESS != rval)
     return rval;
  
-  if (subset_list && subset_list_length) 
-    rval = load_file_partial( subset_list, subset_list_length, opts );
+  if (subset_list) 
+    rval = load_file_partial( subset_list->tag_list, 
+                              subset_list->tag_list_length, 
+                              subset_list->num_parts,
+                              subset_list->part_number,
+                              opts );
   else
     rval = load_file_impl( opts );
     
@@ -528,39 +531,6 @@ ErrorCode ReadHDF5::get_subset_ids( const ReaderIface::IDTag* subset_list,
     if (tmp_file_ids.empty())
       return error(MB_ENTITY_NOT_FOUND);
     
-    if (subset_list[i].num_parts) {
-        // check that the tag only identified sets
-      if ((unsigned long)fileInfo->sets.start_id > tmp_file_ids.front()) {
-        dbgOut.print(1,"Ignoreing non-set entities with partition set tag\n");
-        tmp_file_ids.erase( tmp_file_ids.begin(), 
-                            tmp_file_ids.lower_bound( 
-                              (EntityHandle)fileInfo->sets.start_id ) );
-      }
-      unsigned long set_end = (unsigned long)fileInfo->sets.start_id + fileInfo->sets.count;
-      if (tmp_file_ids.back() >= set_end) {
-        dbgOut.print(1,"Ignoreing non-set entities with partition set tag\n");
-        tmp_file_ids.erase( tmp_file_ids.upper_bound( (EntityHandle)set_end ),
-                            tmp_file_ids.end() );
-      }
-      
-      Range::iterator s = tmp_file_ids.begin();
-      size_t num_per_proc = tmp_file_ids.size() / subset_list[i].num_parts;
-      size_t num_extra = tmp_file_ids.size() % subset_list[i].num_parts;
-      Range::iterator e;
-      if (subset_list[i].part_number < (long)num_extra) {
-        s += (num_per_proc+1) * subset_list[i].part_number;
-        e = s;
-        e += (num_per_proc+1);
-      }
-      else {
-        s += num_per_proc * subset_list[i].part_number + num_extra;
-        e = s;
-        e += num_per_proc;
-      }
-      tmp_file_ids.erase(e, tmp_file_ids.end());
-      tmp_file_ids.erase(tmp_file_ids.begin(), s);
-    }
-    
     if (i == 0) 
       file_ids.swap( tmp_file_ids );
     else 
@@ -570,16 +540,54 @@ ErrorCode ReadHDF5::get_subset_ids( const ReaderIface::IDTag* subset_list,
   return MB_SUCCESS;
 }
 
+ErrorCode ReadHDF5::get_partition( Range& tmp_file_ids, int num_parts, int part_number )
+{    
+     // check that the tag only identified sets
+   if ((unsigned long)fileInfo->sets.start_id > tmp_file_ids.front()) {
+     dbgOut.print(1,"Ignoreing non-set entities with partition set tag\n");
+     tmp_file_ids.erase( tmp_file_ids.begin(), 
+                         tmp_file_ids.lower_bound( 
+                           (EntityHandle)fileInfo->sets.start_id ) );
+   }
+   unsigned long set_end = (unsigned long)fileInfo->sets.start_id + fileInfo->sets.count;
+   if (tmp_file_ids.back() >= set_end) {
+     dbgOut.print(1,"Ignoreing non-set entities with partition set tag\n");
+     tmp_file_ids.erase( tmp_file_ids.upper_bound( (EntityHandle)set_end ),
+                         tmp_file_ids.end() );
+   }
+      
+  Range::iterator s = tmp_file_ids.begin();
+  size_t num_per_proc = tmp_file_ids.size() / num_parts;
+  size_t num_extra = tmp_file_ids.size() % num_parts;
+  Range::iterator e;
+  if (part_number < (long)num_extra) {
+    s += (num_per_proc+1) * part_number;
+    e = s;
+    e += (num_per_proc+1);
+  }
+  else {
+    s += num_per_proc * part_number + num_extra;
+    e = s;
+    e += num_per_proc;
+  }
+  tmp_file_ids.erase(e, tmp_file_ids.end());
+  tmp_file_ids.erase(tmp_file_ids.begin(), s);
+
+  return MB_SUCCESS;
+}
+
+
 ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
-                                         int subset_list_length,
-                                         const FileOptions& opts )
+                                       int subset_list_length,
+                                       int num_parts,
+                                       int part_number,
+                                       const FileOptions& opts )
 {
   mhdf_Status status;
   
   for (int i = 0; i < subset_list_length; ++i) {
-    dbgOut.printf( 1, "Select by \"%s\" with num_tag_values = %d, num_parts = %d, part_number = %d\n",
-                   subset_list[i].tag_name, subset_list[i].num_tag_values, 
-                   subset_list[i].num_parts, subset_list[i].part_number );
+    dbgOut.printf( 1, "Select by \"%s\" with num_tag_values = %d\n",
+                   subset_list[i].tag_name, subset_list[i].num_tag_values );
     if (subset_list[i].num_tag_values) {
       assert(0 != subset_list[i].tag_values);
       dbgOut.printf( 1, "  \"%s\" values = { %d",
@@ -589,6 +597,9 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
       dbgOut.printf(1," }\n");
     }
   }
+  if (num_parts) 
+    dbgOut.printf( 1, "Partition with num_parts = %d and part_number = %d\n", 
+                   num_parts, part_number );
   
   dbgOut.tprint( 1, "RETREIVING TAGGED ENTITIES\n" );
     
@@ -596,7 +607,13 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   ErrorCode rval = get_subset_ids( subset_list, subset_list_length, file_ids );
   if (MB_SUCCESS != rval)
     return error(rval);
-    
+  
+  if (num_parts) {
+    rval = get_partition( file_ids, num_parts, part_number );
+    if (MB_SUCCESS != rval)
+      return error(rval);
+  }
+
   dbgOut.print_ints( 2, "Set file IDs for partial read: ", file_ids );
   
   dbgOut.tprint( 1, "GATHERING ADDITIONAL ENTITIES\n" );
@@ -3666,11 +3683,10 @@ ErrorCode ReadHDF5::store_file_ids( Tag tag )
 }
 
 ErrorCode ReadHDF5::read_tag_values( const char* file_name,
-                                       const char* tag_name,
-                                       const FileOptions& opts,
-                                       std::vector<int>& tag_values_out,
-                                       const IDTag* subset_list,
-                                       int subset_list_length )
+                                     const char* tag_name,
+                                     const FileOptions& opts,
+                                     std::vector<int>& tag_values_out,
+                                     const SubsetList* subset_list )
 {
   ErrorCode rval;
   
@@ -3685,9 +3701,9 @@ ErrorCode ReadHDF5::read_tag_values( const char* file_name,
     return error(rval);
   }
   
-  if (subset_list && subset_list_length) {
+  if (subset_list) {
     Range file_ids;
-    rval = get_subset_ids( subset_list, subset_list_length, file_ids );
+    rval = get_subset_ids( subset_list->tag_list, subset_list->tag_list_length, file_ids );
     if (MB_SUCCESS != rval) {
       clean_up_read( opts );
       return error(rval);

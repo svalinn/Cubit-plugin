@@ -124,8 +124,7 @@ ErrorCode ReadABAQUS::read_tag_values( const char* /* file_name */,
 					 const char* /* tag_name */,
 					 const FileOptions& /* opts */,
 					 std::vector<int>& /* tag_values_out */,
-					 const IDTag* /* subset_list */,
-					 int /* subset_list_length */ )
+					 const SubsetList* /* subset_list */ )
 {
   return MB_NOT_IMPLEMENTED;
 }
@@ -135,11 +134,15 @@ ErrorCode ReadABAQUS::read_tag_values( const char* /* file_name */,
 ErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 				  const EntityHandle* file_set_ptr,
 				  const FileOptions& opts,
-				  const ReaderIface::IDTag* subset_list,
-				  int subset_list_length,
+				  const ReaderIface::SubsetList* subset_list,
 				  const Tag* file_id_tag)
 {
   ErrorCode status;
+
+  if (subset_list) {
+    readMeshIface->report_error( "Reading subset of files not supported for ABAQUS data." );
+    return MB_UNSUPPORTED_OPERATION;
+  }
 
   // open file
   lineNo = 0;

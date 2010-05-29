@@ -57,24 +57,22 @@ ReadNASTRAN::~ReadNASTRAN() {
 }
 
 ErrorCode ReadNASTRAN::read_tag_values( const char*        file_name,
-                                          const char*        tag_name,
-                                          const FileOptions& opts,
-                                          std::vector<int>&  tag_values_out,
-                                          const IDTag*       subset_list,
-                                          int                subset_list_length )
+                                        const char*        tag_name,
+                                        const FileOptions& opts,
+                                        std::vector<int>&  tag_values_out,
+                                        const SubsetList*  subset_list )
 {
   return MB_NOT_IMPLEMENTED;
 }
 
 // load the file as called by the Interface function
-ErrorCode ReadNASTRAN::load_file(const char                  *filename, 
-                                   const EntityHandle        *, 
-                                   const FileOptions           &options,
-                                   const ReaderIface::IDTag  *subset_list,
-                                   int                         subset_list_length,
-                                   const Tag*                file_id_tag) {
+ErrorCode ReadNASTRAN::load_file(const char                      *filename, 
+                                   const EntityHandle            *, 
+                                   const FileOptions             &options,
+                                   const ReaderIface::SubsetList *subset_list,
+                                   const Tag*                     file_id_tag) {
   // at this time there is no support for reading a subset of the file
-  if (subset_list && subset_list_length) {
+  if (subset_list) {
     readMeshIface->report_error( "Reading subset of files not supported for NASTRAN." );
     return MB_UNSUPPORTED_OPERATION;
   }

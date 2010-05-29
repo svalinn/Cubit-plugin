@@ -54,27 +54,27 @@ public:
    * \param export_sets  Array of handles to sets to export, or NULL to export all.
    * \param export_set_count Length of <code>export_sets</code> array.
    */
-  ErrorCode load_file( const char* filename,
-                         const EntityHandle* file_set,
-                         const FileOptions& opts,
-                         const ReaderIface::IDTag* subset_list = 0,
-                         int subset_list_length = 0,
-                         const Tag* file_id_tag = 0 );
+  ErrorCode load_file( const char* file_name,
+                       const EntityHandle* file_set,
+                       const FileOptions& opts,
+                       const SubsetList* subset_list = 0,
+                       const Tag* file_id_tag = 0 );
 
   ErrorCode read_tag_values( const char* file_name,
-                               const char* tag_name,
-                               const FileOptions& opts,
-                               std::vector<int>& tag_values_out,
-                               const IDTag* subset_list = 0,
-                               int subset_list_length = 0 );
+                             const char* tag_name,
+                             const FileOptions& opts,
+                             std::vector<int>& tag_values_out,
+                             const SubsetList* subset_list = 0 );
 
 protected:
 
   ErrorCode load_file_impl( const FileOptions& opts );
 
   ErrorCode load_file_partial( const ReaderIface::IDTag* subset_list,
-                                 int subset_list_length,
-                                 const FileOptions& opts );
+                               int subset_list_length,
+                               int num_parts,
+                               int part_number,
+                               const FileOptions& opts );
 
   ErrorCode read_tag_values_all( int tag_index, std::vector<int>& results );
   ErrorCode read_tag_values_partial( int tag_index, const Range& file_ids,
@@ -141,6 +141,17 @@ private:
   ErrorCode get_subset_ids( const ReaderIface::IDTag* subset_list,
                               int subset_list_length,
                               Range& file_ids_out );
+
+  /**\brief Remove all but the specified fraction of sets from the passed range
+   *
+   * Select a subset of the gathered set of file ids to read in based on
+   * communicator size and rank.
+   *\param tmp_file_ids As input: sets to be read on all procs.  
+   *                    As output: sets to read on this proc.
+   *\param num_parts    communicator size
+   *\param part_number  communicator rank
+   */
+  ErrorCode get_partition( Range& tmp_file_ids, int num_parts, int part_number );
   
   ErrorCode read_nodes( const Range& node_file_ids );
   

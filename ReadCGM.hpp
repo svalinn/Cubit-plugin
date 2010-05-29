@@ -58,19 +58,17 @@ public:
     //  * FACET_DISTANCE_TOLERANCE=<real> (default: 0.001)
     //  * MAX_FACET_EDGE_LENGTH=<real> (default: 0.0)
     //  * CGM_ATTRIBS=<yes|no>         (default: no)
-  ErrorCode load_file( const char *cgm_file_name,
-                         const EntityHandle* file_set,
-                         const FileOptions& opts,
-                         const ReaderIface::IDTag* subset_list = 0,
-                         int subset_list_length = 0,
-                         const Tag* file_id_tag = 0 );
+  ErrorCode load_file( const char* file_name,
+                       const EntityHandle* file_set,
+                       const FileOptions& opts,
+                       const SubsetList* subset_list = 0,
+                       const Tag* file_id_tag = 0 );
 
   ErrorCode read_tag_values( const char* file_name,
-                               const char* tag_name,
-                               const FileOptions& opts,
-                               std::vector<int>& tag_values_out,
-                               const IDTag* subset_list = 0,
-                               int subset_list_length = 0 );
+                             const char* tag_name,
+                             const FileOptions& opts,
+                             std::vector<int>& tag_values_out,
+                             const SubsetList* subset_list = 0 );
 
    //! Constructor
    ReadCGM(Interface* impl = NULL);

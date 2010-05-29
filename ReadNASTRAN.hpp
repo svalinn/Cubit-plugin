@@ -52,24 +52,22 @@ public:
   // factory method
   static ReaderIface* factory( Interface* );
   
-  ErrorCode load_file( const char                  *filename,
-                         const EntityHandle        *file_set,
-                         const FileOptions           &options,
-                         const ReaderIface::IDTag  *subset_list = 0,
-                         int                         subset_list_length = 0,
-                         const Tag                 *file_id_tag = 0 );
+  ErrorCode load_file( const char* file_name,
+                       const EntityHandle* file_set,
+                       const FileOptions& opts,
+                       const SubsetList* subset_list = 0,
+                       const Tag* file_id_tag = 0 );
   // constructor
   ReadNASTRAN(Interface* impl = NULL);
 
   // destructor
   virtual ~ReadNASTRAN();
 
-  ErrorCode read_tag_values( const char         *file_name,
-			       const char         *tag_name,
-			       const FileOptions  &opts,
-			       std::vector<int>   &tag_values_out,
-                               const IDTag        *subset_list,
-		      	       int                subset_list_length );
+  ErrorCode read_tag_values( const char* file_name,
+                             const char* tag_name,
+                             const FileOptions& opts,
+                             std::vector<int>& tag_values_out,
+                             const SubsetList* subset_list = 0 );
 
 protected:
   

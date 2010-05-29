@@ -171,22 +171,20 @@ const char* const vtk_type_names[] = { "bit",
 
 
 ErrorCode ReadVtk::read_tag_values( const char* /* file_name */,
-                                      const char* /* tag_name */,
-                                      const FileOptions& /* opts */,
-                                      std::vector<int>& /* tag_values_out */,
-                                      const IDTag* /* subset_list */,
-                                      int /* subset_list_length */ )
+                                    const char* /* tag_name */,
+                                    const FileOptions& /* opts */,
+                                    std::vector<int>& /* tag_values_out */,
+                                    const SubsetList* /* subset_list */ )
 {
   return MB_NOT_IMPLEMENTED;
 }
 
 
 ErrorCode ReadVtk::load_file( const char *filename,
-                                const EntityHandle* ,
-                                const FileOptions& opts,
-                                const ReaderIface::IDTag* subset_list,
-                                int subset_list_length,
-                                const Tag* file_id_tag) 
+                              const EntityHandle* ,
+                              const FileOptions& opts,
+                              const ReaderIface::SubsetList* subset_list,
+                              const Tag* file_id_tag) 
 {
   ErrorCode result;
 
@@ -195,7 +193,7 @@ ErrorCode ReadVtk::load_file( const char *filename,
   std::vector<Range> element_list;
   Range vertices;
   
-  if (subset_list && subset_list_length) {
+  if (subset_list) {
     readMeshIface->report_error( "Reading subset of files not supported for VTK." );
     return MB_UNSUPPORTED_OPERATION;
   }

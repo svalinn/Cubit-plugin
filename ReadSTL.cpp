@@ -62,11 +62,10 @@ bool ReadSTL::Point::operator<( const ReadSTL::Point& other ) const
 
 
 ErrorCode ReadSTL::read_tag_values( const char* /* file_name */,
-                                      const char* /* tag_name */,
-                                      const FileOptions& /* opts */,
-                                      std::vector<int>& /* tag_values_out */,
-                                      const IDTag* /* subset_list */,
-                                      int /* subset_list_length */ )
+                                    const char* /* tag_name */,
+                                    const FileOptions& /* opts */,
+                                    std::vector<int>& /* tag_values_out */,
+                                    const SubsetList* /* subset_list */ )
 {
   return MB_NOT_IMPLEMENTED;
 }
@@ -75,13 +74,12 @@ ErrorCode ReadSTL::read_tag_values( const char* /* file_name */,
 // pure-virtual function implemented in subclasses to read
 // the data from the file.
 ErrorCode ReadSTL::load_file( const char* filename,
-                                const EntityHandle* , 
-                                const FileOptions& opts,
-                                const ReaderIface::IDTag* subset_list,
-                                int subset_list_length,
-                                const Tag* file_id_tag )
+                              const EntityHandle* , 
+                              const FileOptions& opts,
+                              const ReaderIface::SubsetList* subset_list,
+                              const Tag* file_id_tag )
 {
-  if (subset_list && subset_list_length) {
+  if (subset_list) {
     readMeshIface->report_error( "Reading subset of files not supported for STL." );
     return MB_UNSUPPORTED_OPERATION;
   }

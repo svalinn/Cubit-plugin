@@ -108,8 +108,7 @@ ErrorCode ReadCGM::read_tag_values( const char* /* file_name */,
                                       const char* /* tag_name */,
                                       const FileOptions& /* opts */,
                                       std::vector<int>& /* tag_values_out */,
-                                      const IDTag* /* subset_list */,
-                                      int /* subset_list_length */ )
+                                      const SubsetList* /* subset_list */ )
 {
   return MB_NOT_IMPLEMENTED;
 }
@@ -120,14 +119,13 @@ ErrorCode ReadCGM::read_tag_values( const char* /* file_name */,
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
                       const EntityHandle* file_set,
                       const FileOptions& opts,
-                      const ReaderIface::IDTag* subset_list,
-                      int subset_list_length,
+                      const ReaderIface::SubsetList* subset_list,
                       const Tag* file_id_tag)
 {
   // blocks_to_load and num_blocks are ignored.
   ErrorCode rval;
 
-  if (subset_list && subset_list_length) {
+  if (subset_list) {
     readUtilIface->report_error( "Reading subset of files not supported for CGM data." );
     return MB_UNSUPPORTED_OPERATION;
   }

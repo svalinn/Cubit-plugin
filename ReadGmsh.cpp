@@ -61,32 +61,31 @@ ReadGmsh::~ReadGmsh()
 
 
 ErrorCode ReadGmsh::read_tag_values( const char* /* file_name */,
-                                       const char* /* tag_name */,
-                                       const FileOptions& /* opts */,
-                                       std::vector<int>& /* tag_values_out */,
-                                       const IDTag* /* subset_list */,
-                                       int /* subset_list_length */ )
+                                     const char* /* tag_name */,
+                                     const FileOptions& /* opts */,
+                                     std::vector<int>& /* tag_values_out */,
+                                     const SubsetList* /* subset_list */ )
 {
   return MB_NOT_IMPLEMENTED;
 }
 
 
 ErrorCode ReadGmsh::load_file( const char* filename, 
-                                 const EntityHandle*,
-                                 const FileOptions& ,
-                                 const ReaderIface::IDTag* subset_list,
-                                 int subset_list_length,
-                                 const Tag* file_id_tag )
+                               const EntityHandle*,
+                               const FileOptions& ,
+                               const ReaderIface::SubsetList* subset_list,
+                               const Tag* file_id_tag )
 {
   int num_material_sets = 0;
   const int* material_set_list = 0;
-  if (subset_list && subset_list_length) {
-    if (subset_list_length > 1 && !strcmp( subset_list[0].tag_name, MATERIAL_SET_TAG_NAME) ) {
+  if (subset_list) {
+    if (subset_list->tag_list_length > 1 && 
+        !strcmp( subset_list->tag_list[0].tag_name, MATERIAL_SET_TAG_NAME) ) {
       readMeshIface->report_error( "GMsh supports subset read only by material ID." );
       return MB_UNSUPPORTED_OPERATION;
     }
-    material_set_list = subset_list[0].tag_values;
-    num_material_sets = subset_list[0].num_tag_values;
+    material_set_list = subset_list->tag_list[0].tag_values;
+    num_material_sets = subset_list->tag_list[0].num_tag_values;
   }
 
   geomSets.clear();

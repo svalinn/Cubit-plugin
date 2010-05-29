@@ -149,13 +149,17 @@ ReadCCMIO::~ReadCCMIO()
 ErrorCode ReadCCMIO::load_file(const char *file_name,
                                  const EntityHandle* file_set,
                                  const FileOptions& opts,
-                                 const ReaderIface::IDTag* subset_list,
-                                 int subset_list_length,
+                                 const ReaderIface::SubsetList* subset_list,
                                  const Tag* file_id_tag)
 {
   CCMIOID rootID, problemID, stateID, processorID,
       verticesID, topologyID, solutionID;
   CCMIOError error = kCCMIONoErr;
+
+  if (subset_list) {
+    readUtilIface->report_error( "Reading subset of files not supported for CCMOI data." );
+    return MB_UNSUPPORTED_OPERATION;
+  }
 
   CCMIOOpenFile(&error, file_name, kCCMIORead, &rootID);
   CHKCCMERR(error, "Problem opening file.");
@@ -1196,11 +1200,10 @@ ErrorCode ReadCCMIO::get_processors(CCMIOID stateID,
 }
 
 ErrorCode ReadCCMIO::read_tag_values( const char* file_name,
-                                        const char* tag_name,
-                                        const FileOptions& opts,
-                                        std::vector<int>& tag_values_out,
-                                        const IDTag* subset_list,
-                                        int subset_list_length) 
+                                      const char* tag_name,
+                                      const FileOptions& opts,
+                                      std::vector<int>& tag_values_out,
+                                      const SubsetList* subset_list ) 
 {
   return MB_FAILURE;
 }

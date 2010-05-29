@@ -296,19 +296,17 @@ public:
   static ReaderIface* factory( Interface* );
   
     // read cub file
-  ErrorCode load_file(const char *file_name,
-                        const EntityHandle *file_set,
-                        const FileOptions& opts,
-                        const ReaderIface::IDTag* subset_list = 0,
-                        int subset_list_length = 0,
-                        const Tag* file_id_tag = 0 );
+  ErrorCode load_file( const char* file_name,
+                       const EntityHandle* file_set,
+                       const FileOptions& opts,
+                       const SubsetList* subset_list = 0,
+                       const Tag* file_id_tag = 0 );
 
   ErrorCode read_tag_values( const char* file_name,
-                               const char* tag_name,
-                               const FileOptions& opts,
-                               std::vector<int>& tag_values_out,
-                               const IDTag* subset_list = 0,
-                               int subset_list_length = 0 );
+                             const char* tag_name,
+                             const FileOptions& opts,
+                             std::vector<int>& tag_values_out,
+                             const SubsetList* subset_list = 0 );
                                
   ErrorCode read_nodeset(ModelEntry *model,
                     NodesetHeader *nodeseth);
