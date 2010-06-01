@@ -108,8 +108,7 @@ WriteCCMIO::WriteCCMIO(Interface *impl)
           mMaterialTypeTag(0), 
           mRadiationTag(0), mPorosityIdTag(0), mSpinIdTag(0), mGroupIdTag(0), mColorIdxTag(0),
           mProcessorIdTag(0), mLightMaterialTag(0), mFreeSurfaceMaterialTag(0), 
-          mThicknessTag(0), mProstarRegionNumberTag(0), mBoundaryTypeTag(0),
-
+          mThicknessTag(0), mProstarRegionNumberTag(0), mBoundaryTypeTag(0), mCreatingProgramTag(0),
           mWholeMesh(false)
 {
   assert(impl != NULL);
@@ -248,7 +247,8 @@ ErrorCode WriteCCMIO::write_file(const char *file_name,
   result = write_cells_and_faces(rootID, matset_info, neuset_info, all_verts, topologyID);
   CHKERR(result, "write_cells_and_faces failed.");
 
-  result = write_problem_description(rootID, stateID, problemID, matset_info, neuset_info);
+  result = write_problem_description(rootID, stateID, problemID, processorID,
+                                     matset_info, neuset_info);
   CHKERR(result, "write_problem_description failed.");
 
   result = write_solution_data();
@@ -386,7 +386,8 @@ ErrorCode WriteCCMIO::get_sets(const EntityHandle *ent_handles,
   return MB_SUCCESS;
 }
       
-ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID, CCMIOID &problemID,
+ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID, CCMIOID &problemID, 
+                                                CCMIOID processorID, 
                                                 std::vector<WriteCCMIO::MaterialSetData> &matset_data,
                                                 std::vector<WriteCCMIO::NeumannSetData> &neuset_data) 
 {
@@ -397,15 +398,15 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
   CCMIOError error = kCCMIONoErr;
   ErrorCode rval;
 
+  bool root_tagged = false, other_set_tagged = false;
   Tag simname;
+  Range dum_sets;
   rval = mbImpl->tag_get_handle("Title", simname);
   if (MB_SUCCESS == rval) {
     int tag_size;
     rval = mbImpl->tag_get_size(simname, tag_size);
     if (MB_SUCCESS == rval) {
       std::vector<char> title_tag(tag_size+1);
-      Range dum_sets;
-      bool root_tagged = false, other_set_tagged = false;
       rval = mbImpl->get_entities_by_type_and_tag(0, MBENTITYSET, &simname, NULL, 1, dum_sets);
       if (MB_SUCCESS == rval && !dum_sets.empty()) {
         rval = mbImpl->tag_get_data(simname, &(*dum_sets.begin()), 1, &title_tag[0]);
@@ -428,6 +429,12 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
       }
     }
   }
+  
+  if (root_tagged)
+    rval = write_str_option("CreatingProgram", 0, mCreatingProgramTag, processorID);
+  else if (other_set_tagged && !dum_sets.empty())
+    rval = write_str_option("CreatingProgram", *dum_sets.begin(), mCreatingProgramTag, processorID);
+  CHKERR(rval, "Trouble setting CreatingProgram tag.");
 
   CCMIONewEntity(&error, rootID, kCCMIOProblemDescription, NULL,
                  &problemID);
@@ -576,8 +583,11 @@ ErrorCode WriteCCMIO::write_str_option(const char *opt_name,
   rval = mbImpl->tag_get_size(tag, tag_size);
   if (MB_SUCCESS != rval) return MB_SUCCESS;
   std::vector<char> opt_val(tag_size+1);
-  
-  rval = mbImpl->tag_get_data(tag, &seth, 1, &opt_val[0]);
+
+  if (!seth)
+    rval = mbImpl->tag_get_data(tag, NULL, 0, &opt_val[0]);
+  else
+    rval = mbImpl->tag_get_data(tag, &seth, 1, &opt_val[0]);
   if (MB_SUCCESS != rval) return MB_SUCCESS;
 
     // null-terminate if necessary

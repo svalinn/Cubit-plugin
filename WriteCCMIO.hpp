@@ -157,7 +157,7 @@ private:
   Tag mNameTag, mMaterialIdTag, mMaterialTypeTag;
   Tag mRadiationTag, mPorosityIdTag, mSpinIdTag, mGroupIdTag, mColorIdxTag,
       mProcessorIdTag, mLightMaterialTag, mFreeSurfaceMaterialTag;
-  Tag mThicknessTag, mProstarRegionNumberTag, mBoundaryTypeTag;
+  Tag mThicknessTag, mProstarRegionNumberTag, mBoundaryTypeTag, mCreatingProgramTag;
 
   Tag mEntityMark;   //used to say whether an entity will be exported
 
@@ -213,6 +213,7 @@ private:
   ErrorCode transform_coords(const int dimension, const int num_nodes, double *coords);
 
   ErrorCode write_problem_description(CCMIOID rootID, CCMIOID stateID, CCMIOID &problemID,
+                                      CCMIOID processorID,
                                       std::vector<MaterialSetData> &matset_data,
                                       std::vector<NeumannSetData> &neuset_data);
 

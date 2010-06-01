@@ -79,7 +79,7 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
         : mMaterialIdTag(0), mMaterialTypeTag(0),
           mRadiationTag(0), mPorosityIdTag(0), mSpinIdTag(0), mGroupIdTag(0), mColorIdxTag(0),
           mProcessorIdTag(0), mLightMaterialTag(0), mFreeSurfaceMaterialTag(0),
-          mThicknessTag(0), mProstarRegionNumberTag(0), mbImpl(impl)
+          mThicknessTag(0), mProstarRegionNumberTag(0), mCreatingProgramTag(0), mbImpl(impl)
 {
   assert(impl != NULL);
   
@@ -160,7 +160,7 @@ ErrorCode ReadCCMIO::load_file(const char *file_name,
   CCMIOError error = kCCMIONoErr;
 
   if (subset_list) {
-    readUtilIface->report_error( "Reading subset of files not supported for CCMOI data." );
+    readMeshIface->report_error( "Reading subset of files not supported for CCMOI data." );
     return MB_UNSUPPORTED_OPERATION;
   }
 
@@ -250,7 +250,7 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
 
     // creating program
   EntityHandle dumh = (file_set ? *file_set : 0);
-  rval = get_str_option("CreatingProgram", dumh, mNameTag, processorID, NAME_TAG_NAME);
+  rval = get_str_option("CreatingProgram", dumh, mCreatingProgramTag, processorID);
   CHKERR(rval, "Trouble getting CreatingProgram tag.");
 
   rval = load_matset_data(problemID);

@@ -150,7 +150,7 @@ private:
   Tag mMaterialIdTag, mMaterialTypeTag;
   Tag mRadiationTag, mPorosityIdTag, mSpinIdTag, mGroupIdTag, mColorIdxTag,
       mProcessorIdTag, mLightMaterialTag, mFreeSurfaceMaterialTag;
-  Tag mThicknessTag, mProstarRegionNumberTag, mBoundaryTypeTag;
+  Tag mThicknessTag, mProstarRegionNumberTag, mBoundaryTypeTag, mCreatingProgramTag;
   
   Interface *mbImpl;
 
