@@ -430,12 +430,35 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
     }
   }
   
-  if (root_tagged)
-    rval = write_str_option("CreatingProgram", 0, mCreatingProgramTag, processorID);
-  else if (other_set_tagged && !dum_sets.empty())
-    rval = write_str_option("CreatingProgram", *dum_sets.begin(), mCreatingProgramTag, processorID);
-  CHKERR(rval, "Trouble setting CreatingProgram tag.");
-
+  rval = mbImpl->tag_get_handle("CreatingProgram", mCreatingProgramTag);
+  if (MB_SUCCESS == rval) {
+    int tag_size;
+    rval = mbImpl->tag_get_size(mCreatingProgramTag, tag_size);
+    if (MB_SUCCESS == rval) {
+      std::vector<char> cp_tag(tag_size+1);
+      rval = mbImpl->get_entities_by_type_and_tag(0, MBENTITYSET, &mCreatingProgramTag, NULL, 1, dum_sets);
+      if (MB_SUCCESS == rval && !dum_sets.empty()) {
+        rval = mbImpl->tag_get_data(mCreatingProgramTag, &(*dum_sets.begin()), 1, &cp_tag[0]);
+        CHKERR(rval, "Problem getting creating program tag.");
+        other_set_tagged = true;
+      }
+      else if (MB_SUCCESS == rval) {
+          // check to see if interface was tagged
+        rval = mbImpl->tag_get_data(mCreatingProgramTag, 0, 0, &cp_tag[0]);
+        if (MB_SUCCESS == rval) root_tagged = true;
+        else rval = MB_SUCCESS;
+      }
+      *cp_tag.rbegin() = '\0';
+      if (root_tagged || other_set_tagged) {
+        CCMIONode rootNode;
+        if (kCCMIONoErr == CCMIOGetEntityNode(&error, rootID, &rootNode)) {
+          CCMIOWriteOptstr(&error, processorID, "CreatingProgram", &cp_tag[0]);
+          CHKCCMERR(error, "Trouble setting creating program.");
+        }
+      }
+    }
+  }
+  
   CCMIONewEntity(&error, rootID, kCCMIOProblemDescription, NULL,
                  &problemID);
   CHKCCMERR(error, "Trouble creating problem node.");
