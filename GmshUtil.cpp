@@ -24,6 +24,12 @@ const int hex_27_node_order[] =  {
     8, 11, 12,  9, 13, 10, 14, 15, 16, 19, 17, 18, // edges
    24, 20, 23, 21, 22, 25,                         // faces
    26 };                                           // volume
+   
+const int tet_10_node_order[] = {
+    0, 1, 2, 3,
+    4, 5, 6,
+    7, 9, 8 };
+    
 // Indexed by position in MOAB order, containing cooresponding
 // position in Gmsh order.
 const int pri_15_node_order[] = { 
@@ -49,7 +55,7 @@ const GmshElemType GmshUtil::gmshElemTypes[] = {
       { "2nd order line",         8, MBEDGE,     3, 0 },
       { "2nd order triangle",     9, MBTRI,      6, 0 }, 
       { "2nd order quadrangle",  10, MBQUAD,     9, 0 }, 
-      { "2nd order tetrahedron", 11, MBTET,     10, 0 }, 
+      { "2nd order tetrahedron", 11, MBTET,     10, tet_10_node_order }, 
       { "2nd order hexahedron",  12, MBHEX,     27, hex_27_node_order }, 
       { "2nd order prism",       13, MBMAXTYPE,  0, 0 }, // prism w/ mid-face nodes on quads but not tris
       { "2nd order pyramid",     14, MBMAXTYPE,  0, 0 }, // pyramid w/ mid-face nodes on quad but not tris
