@@ -104,7 +104,13 @@ WriterIface* WriteCCMIO::factory( Interface* iface )
 { return new WriteCCMIO( iface ); }
 
 WriteCCMIO::WriteCCMIO(Interface *impl) 
-        : mbImpl(impl), mCurrentMeshHandle(0), mNameTag(0), mWholeMesh(false)
+        : mbImpl(impl), mCurrentMeshHandle(0), mNameTag(0), mMaterialIdTag(0), 
+          mMaterialTypeTag(0), 
+          mRadiationTag(0), mPorosityIdTag(0), mSpinIdTag(0), mGroupIdTag(0), mColorIdxTag(0),
+          mProcessorIdTag(0), mLightMaterialTag(0), mFreeSurfaceMaterialTag(0), 
+          mThicknessTag(0), mProstarRegionNumberTag(0), mBoundaryTypeTag(0),
+
+          mWholeMesh(false)
 {
   assert(impl != NULL);
 
@@ -147,13 +153,6 @@ WriteCCMIO::WriteCCMIO(Interface *impl)
     result = impl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mGlobalIdTag,
                               &dum_val);
   
-  dum_val = -1;
-  result = impl->tag_get_handle("__matSetIdTag", mMatSetIdTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create("__matSetIdTag", sizeof(int), MB_TAG_DENSE, mMatSetIdTag,
-                              &dum_val);
-  
-
   impl->tag_create("__WriteCCMIO element mark", 1, MB_TAG_BIT, mEntityMark, NULL);
 
   result = mbImpl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
@@ -396,25 +395,86 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
     // is valid we could skip this step.
   CCMIOID id;
   CCMIOError error = kCCMIONoErr;
+  ErrorCode rval;
 
-  CCMIONewEntity(&error, rootID, kCCMIOProblemDescription, "Dummy description",
+  Tag simname;
+  rval = mbImpl->tag_get_handle("Title", simname);
+  if (MB_SUCCESS == rval) {
+    int tag_size;
+    rval = mbImpl->tag_get_size(simname, tag_size);
+    if (MB_SUCCESS == rval) {
+      std::vector<char> title_tag(tag_size+1);
+      Range dum_sets;
+      bool root_tagged = false, other_set_tagged = false;
+      rval = mbImpl->get_entities_by_type_and_tag(0, MBENTITYSET, &simname, NULL, 1, dum_sets);
+      if (MB_SUCCESS == rval && !dum_sets.empty()) {
+        rval = mbImpl->tag_get_data(simname, &(*dum_sets.begin()), 1, &title_tag[0]);
+        CHKERR(rval, "Problem getting simulation name tag.");
+        other_set_tagged = true;
+      }
+      else if (MB_SUCCESS == rval) {
+          // check to see if interface was tagged
+        rval = mbImpl->tag_get_data(simname, 0, 0, &title_tag[0]);
+        if (MB_SUCCESS == rval) root_tagged = true;
+        else rval = MB_SUCCESS;
+      }
+      *title_tag.rbegin() = '\0';
+      if (root_tagged || other_set_tagged) {
+        CCMIONode rootNode;
+        if (kCCMIONoErr == CCMIOGetEntityNode(&error, rootID, &rootNode)) {
+          CCMIOSetTitle(&error, rootNode, &title_tag[0]);
+          CHKCCMERR(error, "Trouble setting title.");
+        }
+      }
+    }
+  }
+
+  CCMIONewEntity(&error, rootID, kCCMIOProblemDescription, NULL,
                  &problemID);
   CHKCCMERR(error, "Trouble creating problem node.");
 
     // write material types and other info
   for (unsigned int i = 0; i < matset_data.size(); i++) {
-    CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, matset_data[i].matsetId, "Material", &id);
+    if (!matset_data[i].setName.empty())
+      CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, matset_data[i].matsetId, 
+                            matset_data[i].setName.c_str(), &id);
+    else
+      CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, matset_data[i].matsetId, 
+                            "Material", &id);
     CHKCCMERR(error, "Failure creating celltype node.");
 
-    if (!matset_data[i].setName.empty()) {
-      CCMIOWriteOptstr(&error, id, "MaterialType", matset_data[i].setName.c_str());
-      CHKCCMERR(error, "Failure writing an option string MaterialType.");
-    }
+    rval = write_int_option("MaterialId", matset_data[i].setHandle, mMaterialIdTag, id);
+    CHKERR(rval, "Trouble writing MaterialId option.");
 
-    if (matset_data[i].matsetId) {
-      CCMIOWriteOpti(&error, id, "MaterialId", matset_data[i].matsetId);
-      CHKCCMERR(error, "Failure writing an option string MaterialId.");
-    }
+    rval = write_int_option("Radiation", matset_data[i].setHandle, mRadiationTag, id);
+    CHKERR(rval, "Trouble writing Radiation option.");
+
+    rval = write_int_option("PorosityId", matset_data[i].setHandle, mPorosityIdTag, id);
+    CHKERR(rval, "Trouble writing PorosityId option.");
+
+    rval = write_int_option("SpinId", matset_data[i].setHandle, mSpinIdTag, id);
+    CHKERR(rval, "Trouble writing SpinId option.");
+
+    rval = write_int_option("GroupId", matset_data[i].setHandle, mGroupIdTag, id);
+    CHKERR(rval, "Trouble writing GroupId option.");
+
+    rval = write_int_option("ColorIdx", matset_data[i].setHandle, mColorIdxTag, id);
+    CHKERR(rval, "Trouble writing ColorIdx option.");
+
+    rval = write_int_option("ProcessorId", matset_data[i].setHandle, mProcessorIdTag, id);
+    CHKERR(rval, "Trouble writing ProcessorId option.");
+
+    rval = write_int_option("LightMaterial", matset_data[i].setHandle, mLightMaterialTag, id);
+    CHKERR(rval, "Trouble writing LightMaterial option.");
+
+    rval = write_int_option("FreeSurfaceMaterial", matset_data[i].setHandle, mFreeSurfaceMaterialTag, id);
+    CHKERR(rval, "Trouble writing FreeSurfaceMaterial option.");
+
+    rval = write_dbl_option("Thickness", matset_data[i].setHandle, mThicknessTag, id);
+    CHKERR(rval, "Trouble writing Thickness option.");
+
+    rval = write_str_option("MaterialType", matset_data[i].setHandle, mMaterialTypeTag, id);
+    CHKERR(rval, "Trouble writing MaterialType option.");
   }
   
     // write neumann set info
@@ -426,14 +486,19 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
                           dum_id.str().c_str(), &id);
     CHKCCMERR(error, "Failure creating BoundaryRegion node.");
 
-    if (!neuset_data[i].setName.empty()) {
-      CCMIOWriteOptstr(&error, id, "BoundaryName", neuset_data[i].setName.c_str());
-      CHKCCMERR(error, "Failure writing an option string BoundaryName.");
-    }
+    rval = write_str_option("BoundaryName", neuset_data[i].setHandle, mNameTag,
+                            id);
+    CHKERR(rval, "Trouble writing boundary type number.");
+
+    rval = write_str_option("BoundaryType", neuset_data[i].setHandle, mBoundaryTypeTag,
+                            id);
+    CHKERR(rval, "Trouble writing boundary type number.");
+
+    rval = write_int_option("ProstarRegionNumber", neuset_data[i].setHandle, mProstarRegionNumberTag,
+                            id);
+    CHKERR(rval, "Trouble writing prostar region number.");
   }
   
-    // We have problem description recorded but our state does not know
-    // about it.  So tell the state that it has a problem description.
   CCMIOWriteState(&error, stateID, problemID, "Example state");
   CHKCCMERR(error, "Failure writing problem state.");
 
@@ -446,6 +511,88 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
   return MB_SUCCESS;
 }
 
+ErrorCode WriteCCMIO::write_int_option(const char *opt_name,
+                                       EntityHandle seth,
+                                       Tag &tag, CCMIOID &node) 
+{
+  ErrorCode rval;
+
+  if (!tag) {
+    rval = mbImpl->tag_get_handle(opt_name, tag);
+      // return success since that just means we don't have to write this option
+    if (MB_SUCCESS != rval) return MB_SUCCESS;
+  }
+  
+  int dum_val;
+  rval = mbImpl->tag_get_data(tag, &seth, 1, &dum_val);
+      // return success since that just means we don't have to write this option
+  if (MB_SUCCESS != rval) return MB_SUCCESS;
+  
+  CCMIOError error = kCCMIONoErr;
+  CCMIOWriteOpti(&error, node, opt_name, dum_val);
+  CHKCCMERR(error, "Trouble writing int option.");
+  
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteCCMIO::write_dbl_option(const char *opt_name,
+                                       EntityHandle seth,
+                                       Tag &tag, CCMIOID &node) 
+{
+  ErrorCode rval;
+
+  if (!tag) {
+    rval = mbImpl->tag_get_handle(opt_name, tag);
+      // return success since that just means we don't have to write this option
+    if (MB_SUCCESS != rval) return MB_SUCCESS;
+  }
+  
+  double dum_val;
+  rval = mbImpl->tag_get_data(tag, &seth, 1, &dum_val);
+      // return success since that just means we don't have to write this option
+  if (MB_SUCCESS != rval) return MB_SUCCESS;
+  
+  CCMIOError error = kCCMIONoErr;
+  CCMIOWriteOptf(&error, node, opt_name, dum_val);
+  CHKCCMERR(error, "Trouble writing int option.");
+  
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteCCMIO::write_str_option(const char *opt_name,
+                                       EntityHandle seth,
+                                       Tag &tag, CCMIOID &node,
+                                       const char *other_name) 
+{
+  int tag_size;
+  ErrorCode rval;
+
+  if (!tag) {
+    rval = mbImpl->tag_get_handle(opt_name, tag);
+      // return success since that just means we don't have to write this option
+    if (MB_SUCCESS != rval) return MB_SUCCESS;
+  }
+  
+  rval = mbImpl->tag_get_size(tag, tag_size);
+  if (MB_SUCCESS != rval) return MB_SUCCESS;
+  std::vector<char> opt_val(tag_size+1);
+  
+  rval = mbImpl->tag_get_data(tag, &seth, 1, &opt_val[0]);
+  if (MB_SUCCESS != rval) return MB_SUCCESS;
+
+    // null-terminate if necessary
+  if (std::find(opt_val.begin(), opt_val.end(), '\0') == opt_val.end())
+    *opt_val.rbegin() = '\0';
+
+  CCMIOError error = kCCMIONoErr;
+  if (other_name) 
+    CCMIOWriteOptstr(&error, node, other_name, &opt_val[0]);
+  else
+    CCMIOWriteOptstr(&error, node, opt_name, &opt_val[0]);
+  CHKCCMERR(error, "Failure writing an option string MaterialType.");
+  
+  return MB_SUCCESS;
+}
 
 ErrorCode WriteCCMIO::gather_matset_info(std::vector<EntityHandle> &matsets,
                                          std::vector<MaterialSetData> &matset_data,
@@ -504,6 +651,7 @@ ErrorCode WriteCCMIO::gather_matset_info(std::vector<EntityHandle> &matsets,
       result = MB_SUCCESS;
     }
   }
+  
   
   if (all_verts.empty()) {
     result = MB_FILE_WRITE_ERROR;

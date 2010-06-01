@@ -107,10 +107,14 @@ protected:
     EntityType entityType; // entity type of these elements
     int verts_per_element; // number of vertices in each element
     int matsetId; // id of this matset, from MATERIAL_SET tag
+    int materialId; // materialid, if any (from CCMIO)
     std::string setName; // name for this matset, if any
+    std::string materialType; // material type for this matset, if any
 
     MaterialSetData() 
-            : setHandle(0), entityType(MBMAXTYPE), verts_per_element(0), matsetId(-1)
+            : setHandle(0), entityType(MBMAXTYPE), verts_per_element(0), matsetId(-1),
+              materialId(-1)
+    
         {}
   };
   
@@ -150,8 +154,10 @@ private:
   Tag mPartitionSetTag;
   Tag mHasMidNodesTag;
   Tag mGlobalIdTag;
-  Tag mMatSetIdTag;
-  Tag mNameTag;
+  Tag mNameTag, mMaterialIdTag, mMaterialTypeTag;
+  Tag mRadiationTag, mPorosityIdTag, mSpinIdTag, mGroupIdTag, mColorIdxTag,
+      mProcessorIdTag, mLightMaterialTag, mFreeSurfaceMaterialTag;
+  Tag mThicknessTag, mProstarRegionNumberTag, mBoundaryTypeTag;
 
   Tag mEntityMark;   //used to say whether an entity will be exported
 
@@ -231,6 +237,19 @@ private:
 
     //! convert MOAB to CCMIO type
   int moab_to_ccmio_type(EntityType etype, int has_mid_nodes[]);
+
+  ErrorCode write_int_option(const char *opt_name,
+                             EntityHandle seth,
+                             Tag &tag, CCMIOID &node);
+  
+  ErrorCode write_dbl_option(const char *opt_name,
+                             EntityHandle seth,
+                             Tag &tag, CCMIOID &node);
+
+  ErrorCode write_str_option(const char *opt_name,
+                             EntityHandle seth,
+                             Tag &tag, CCMIOID &node,
+                             const char *other_name = NULL);
 };
 
 } // namespace moab

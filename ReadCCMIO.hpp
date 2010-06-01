@@ -127,13 +127,17 @@ private:
                           CCMIOID stateID, CCMIOID processorID,
                             const EntityHandle *file_set);
   
-  ErrorCode create_matset_tags(Tag &matNameTag, Tag &matPorosityTag, 
-                                 Tag &matSpinTag, Tag &matGroupTag);
-
   ErrorCode read_topology_types(CCMIOID &topologyID, 
                                 std::map<int,int> &cell_topo_types);
 
-  ErrorCode get_opt_string(const char *opt_name, CCMIOID node, std::vector<char> &opt_string);
+  ErrorCode get_int_option(const char *opt_str, EntityHandle seth,
+                           Tag &tag, CCMIOID node);
+  
+  ErrorCode get_dbl_option(const char *opt_str, EntityHandle seth,
+                           Tag &tag, CCMIOID node);
+  
+  ErrorCode get_str_option(const char *opt_str, EntityHandle seth, Tag &tag, 
+                           CCMIOID node, const char *tag_name = NULL);
   
     //! Cached tags for reading.  Note that all these tags are defined when the
     //! core is initialized.
@@ -143,6 +147,10 @@ private:
   Tag mHasMidNodesTag;
   Tag mGlobalIdTag;
   Tag mNameTag;
+  Tag mMaterialIdTag, mMaterialTypeTag;
+  Tag mRadiationTag, mPorosityIdTag, mSpinIdTag, mGroupIdTag, mColorIdxTag,
+      mProcessorIdTag, mLightMaterialTag, mFreeSurfaceMaterialTag;
+  Tag mThicknessTag, mProstarRegionNumberTag, mBoundaryTypeTag;
   
   Interface *mbImpl;
 

@@ -76,7 +76,10 @@ ReaderIface* ReadCCMIO::factory( Interface* iface )
 { return new ReadCCMIO( iface ); }
 
 ReadCCMIO::ReadCCMIO(Interface* impl)
-    : mbImpl(impl)
+        : mMaterialIdTag(0), mMaterialTypeTag(0),
+          mRadiationTag(0), mPorosityIdTag(0), mSpinIdTag(0), mGroupIdTag(0), mColorIdxTag(0),
+          mProcessorIdTag(0), mLightMaterialTag(0), mFreeSurfaceMaterialTag(0),
+          mThicknessTag(0), mProstarRegionNumberTag(0), mbImpl(impl)
 {
   assert(impl != NULL);
   
@@ -246,14 +249,9 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
   }
 
     // creating program
-  std::vector<char> opt_string;
-  if (MB_SUCCESS == get_opt_string("CreatingProgram", processorID, opt_string)) {
-    if (opt_string.size() >= NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
-    else (opt_string.resize(NAME_TAG_SIZE, '\0'));
-    rval = mbImpl->tag_set_data(mNameTag, file_set, (file_set ? 1 : 0), &opt_string[0]);
-    CHKERR(rval, "Failed to set neuset Name Tag.");
-  }
-  
+  EntityHandle dumh = (file_set ? *file_set : 0);
+  rval = get_str_option("CreatingProgram", dumh, mNameTag, processorID, NAME_TAG_NAME);
+  CHKERR(rval, "Trouble getting CreatingProgram tag.");
 
   rval = load_matset_data(problemID);
   CHKERR(rval, "Failure loading matset data.");
@@ -300,43 +298,113 @@ ErrorCode ReadCCMIO::load_matset_data(CCMIOID problemID)
     CHKERR(rval, "Trouble setting name tag for material set.");
 
       // material id
-    int idum;
-    if (kCCMIONoErr == CCMIOReadOpti(NULL, next, "MaterialId", &idum)) {
-      Tag matid;
-      rval = mbImpl->tag_create("MaterialId", sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER, matid, NULL, true);
-      CHKERR(rval, "Trouble creating MaterialId tag.");
-      rval = mbImpl->tag_set_data(matid, &dum_ent, 1, &idum);
-      CHKERR(rval, "Failed to set material set id tag.");
-    }
+    rval = get_int_option("MaterialId", dum_ent, mMaterialIdTag, next);
+    CHKERR(rval, "Trouble getting MaterialId tag.");
+    
+    rval = get_str_option("MaterialType", dum_ent, mMaterialTypeTag, next);
+    CHKERR(rval, "Trouble getting MaterialType tag.");
+    
+    rval = get_int_option("Radiation", dum_ent, mRadiationTag, next);
+    CHKERR(rval, "Trouble getting Radiation option.");
 
-      // MaterialType
-    if (MB_SUCCESS == get_opt_string("MaterialType", next, opt_string)) {
-      Tag mattype;
-      rval = mbImpl->tag_create("MaterialType", NAME_TAG_SIZE, MB_TAG_SPARSE, MB_TYPE_OPAQUE, mattype, NULL, true);
-      CHKERR(rval, "Trouble creating MaterialType tag.");
-      if (opt_string.size() > NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
-      else (opt_string.resize(NAME_TAG_SIZE, '\0'));
-      rval = mbImpl->tag_set_data(mattype, &dum_ent, 1, &opt_string[0]);
-      CHKERR(rval, "Failed to set material type tag.");
-    }
+    rval = get_int_option("PorosityId", dum_ent, mPorosityIdTag, next);
+    CHKERR(rval, "Trouble getting PorosityId option.");
+
+    rval = get_int_option("SpinId", dum_ent, mSpinIdTag, next);
+    CHKERR(rval, "Trouble getting SpinId option.");
+
+    rval = get_int_option("GroupId", dum_ent, mGroupIdTag, next);
+    CHKERR(rval, "Trouble getting GroupId option.");
+
+    rval = get_int_option("ColorIdx", dum_ent, mColorIdxTag, next);
+    CHKERR(rval, "Trouble getting ColorIdx option.");
+
+    rval = get_int_option("ProcessorId", dum_ent, mProcessorIdTag, next);
+    CHKERR(rval, "Trouble getting ProcessorId option.");
+
+    rval = get_int_option("LightMaterial", dum_ent, mLightMaterialTag, next);
+    CHKERR(rval, "Trouble getting LightMaterial option.");
+
+    rval = get_int_option("FreeSurfaceMaterial", dum_ent, mFreeSurfaceMaterialTag, next);
+    CHKERR(rval, "Trouble getting FreeSurfaceMaterial option.");
+
+    rval = get_dbl_option("Thickness", dum_ent, mThicknessTag, next);
+    CHKERR(rval, "Trouble getting Thickness option.");
   }
 
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCCMIO::get_opt_string(const char *opt_name, CCMIOID node, std::vector<char> &opt_string) 
+ErrorCode ReadCCMIO::get_int_option(const char *opt_str, EntityHandle seth,
+                                    Tag &tag, CCMIOID node) 
+{
+  int idum;
+  ErrorCode rval;
+  if (kCCMIONoErr == CCMIOReadOpti(NULL, node, opt_str, &idum)) {
+    if (!tag) {
+      rval = mbImpl->tag_create(opt_str, sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER, tag, 
+                                NULL, true);
+      CHKERR(rval, NULL);
+    }
+    
+    rval = mbImpl->tag_set_data(tag, &seth, 1, &idum);
+    CHKERR(rval, NULL);
+  }
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCCMIO::get_dbl_option(const char *opt_str, EntityHandle seth,
+                                    Tag &tag, CCMIOID node) 
+{
+  float fdum;
+  if (kCCMIONoErr == CCMIOReadOptf(NULL, node, opt_str, &fdum)) {
+    ErrorCode rval;
+    if (!tag) {
+      rval = mbImpl->tag_create(opt_str, sizeof(double), MB_TAG_SPARSE, MB_TYPE_DOUBLE, tag, 
+                                NULL, true);
+      CHKERR(rval, NULL);
+    }
+    
+    double dum_dbl = fdum;
+    rval = mbImpl->tag_set_data(tag, &seth, 1, &dum_dbl);
+    CHKERR(rval, NULL);
+  }
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCCMIO::get_str_option(const char *opt_str, EntityHandle seth, Tag &tag, 
+                                    CCMIOID node, const char *other_tag_name)
 {
   int len;
   CCMIOError error = kCCMIONoErr;
-  if (kCCMIONoErr == CCMIOReadOptstr(NULL, node, opt_name, &len, NULL)) {
-    opt_string.resize(len);
-    CCMIOReadOptstr(&error, node, opt_name, &len, &opt_string[0]);
+  std::vector<char> opt_string;
+  if (kCCMIONoErr != CCMIOReadOptstr(NULL, node, opt_str, &len, NULL)) 
     return MB_SUCCESS;
+    
+  opt_string.resize(len);
+  CCMIOReadOptstr(&error, node, opt_str, &len, &opt_string[0]);
+  ErrorCode rval = MB_SUCCESS;
+  if (!tag) {
+    if (other_tag_name) 
+      rval = mbImpl->tag_create(other_tag_name, NAME_TAG_SIZE, MB_TAG_SPARSE, 
+                                MB_TYPE_OPAQUE, tag, NULL, true);
+    else
+      rval = mbImpl->tag_create(opt_str, NAME_TAG_SIZE, MB_TAG_SPARSE, 
+                                MB_TYPE_OPAQUE, tag, NULL, true);
   }
-  else
-    return MB_FAILURE;
-}
+  CHKERR(rval, NULL);
 
+  if (opt_string.size() > NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
+  else (opt_string.resize(NAME_TAG_SIZE, '\0'));
+
+  rval = mbImpl->tag_set_data(tag, &seth, (seth ? 1 : 0), &opt_string[0]);
+  CHKERR(rval, NULL);
+
+  return MB_SUCCESS;
+}
+    
 ErrorCode ReadCCMIO::load_neuset_data(CCMIOID problemID) 
 {
   CCMIOSize_t i = CCMIOSIZEC(0);
@@ -361,47 +429,17 @@ ErrorCode ReadCCMIO::load_neuset_data(CCMIOID problemID)
     CHKERR(rval, "Trouble setting neumann set tag.");
 
       // set name
-    std::vector<char> opt_string;
-    if (MB_SUCCESS == get_opt_string("BoundaryName", next, opt_string)) {
-      if (opt_string.size() >= NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
-      else (opt_string.resize(NAME_TAG_SIZE, '\0'));
-      rval = mbImpl->tag_set_data(mNameTag, &dum_ent, 1, &opt_string[0]);
-      CHKERR(rval, "Trouble setting name tag for neumann set.");
-    }
+    rval = get_str_option("BoundaryName", dum_ent, mNameTag, next, NAME_TAG_NAME);
+    CHKERR(rval, "Trouble creating BoundaryName tag.");
     
       // BoundaryType
-    if (MB_SUCCESS == get_opt_string("BoundaryType", next, opt_string)) {
-      Tag bdytype;
-      rval = mbImpl->tag_create("BoundaryType", NAME_TAG_SIZE, MB_TAG_SPARSE, MB_TYPE_OPAQUE, bdytype, NULL, true);
-      CHKERR(rval, "Trouble creating BoundaryType tag.");
-      if (opt_string.size() > NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
-      else (opt_string.resize(NAME_TAG_SIZE, '\0'));
-      rval = mbImpl->tag_set_data(bdytype, &dum_ent, 1, &opt_string[0]);
-      CHKERR(rval, "Failed to set boundary type tag.");
-    }
+    rval = get_str_option("BoundaryType", dum_ent, mBoundaryTypeTag, next);
+    CHKERR(rval, "Trouble creating BoundaryType tag.");
+
+      // ProstarRegionNumber
+    rval = get_int_option("ProstarRegionNumber", dum_ent, mProstarRegionNumberTag, next);
+    CHKERR(rval, "Trouble creating ProstarRegionNumber tag.");
   }
-
-  return MB_SUCCESS;
-}
-
-ErrorCode ReadCCMIO::create_matset_tags(Tag &matNameTag, Tag &matPorosityTag, 
-                                          Tag &matSpinTag, Tag &matGroupTag)
-{
-  ErrorCode rval = mbImpl->tag_create("MaterialName", NAME_TAG_SIZE, MB_TAG_SPARSE, MB_TYPE_OPAQUE,
-                                        matNameTag, NULL, true);
-  CHKERR(rval, "Failed to create matNameTag.");
-
-  rval = mbImpl->tag_create("MaterialPorosity", sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER,
-                            matPorosityTag, NULL, true);
-  CHKERR(rval, "Failed to create matPorosityTag.");
-
-  rval = mbImpl->tag_create("MaterialSpin", sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER,
-                            matSpinTag, NULL, true);
-  CHKERR(rval, "Failed to create matSpinTag.");
-
-  rval = mbImpl->tag_create("MaterialGroup", sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER,
-                            matGroupTag, NULL, true);
-  CHKERR(rval, "Failed to create matGroupTag.");
 
   return MB_SUCCESS;
 }
