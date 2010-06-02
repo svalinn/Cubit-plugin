@@ -58,12 +58,6 @@ namespace moab {
 
 #define READ_HDF5_BUFFER_SIZE (40*1024*1024)
 
-#if !defined(WIN32) && !defined(WIN64)
-# include <sys/stat.h>
-# include <unistd.h>
-# include <errno.h>
-#endif
-
 #define assert_range( PTR, CNT ) \
   assert( (PTR) >= (void*)dataBuffer ); assert( ((PTR)+(CNT)) <= (void*)(dataBuffer + bufferSize) );
 
@@ -299,20 +293,6 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
 #endif
   }
   else {
-  
-      // first check if file exists, so we can fail w/out
-      // a lot of noise from the HDF5 library if it does not
-#if !defined(WIN32) && !defined(WIN64)
-    struct stat stat_info;
-    if (stat( filename, &stat_info)) {
-      if (ENOENT == errno)
-        return MB_FILE_DOES_NOT_EXIST;
-      else
-        return MB_FILE_WRITE_ERROR;
-    }
-    else if (S_ISDIR(stat_info.st_mode))
-      return MB_FILE_DOES_NOT_EXIST;
-#endif
   
       // Open the file
     filePtr = mhdf_openFile( filename, 0, NULL, &status );
