@@ -150,20 +150,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     act_att = false; 
 
   // always tag with the faceting_tol and geometry absolute resolution
-  // if file_set is defined, use that, otherwise create a set
-  EntityHandle facet_tol_tag_set;
-  if (NULL == file_set) {
-    EntityHandle temp_tag_set;
-    rval = mdbImpl->create_meshset( MESHSET_SET, temp_tag_set );
-    if (MB_SUCCESS != rval) return rval;
-    facet_tol_tag_set = temp_tag_set;
-  } else {
-    facet_tol_tag_set = *file_set;
-  }
-  
-  rval = mdbImpl->tag_set_data( faceting_tol_tag, &facet_tol_tag_set, 1, &faceting_tol );
+  // if file_set is defined, use that, otherwise (file_set == NULL) tag the interface
+  rval = mdbImpl->tag_set_data( faceting_tol_tag, file_set, (file_set ? 1 : 0), &faceting_tol );
   if(MB_SUCCESS != rval) return rval;
-  rval = mdbImpl->tag_set_data( geometry_resabs_tag, &facet_tol_tag_set, 1, &GEOMETRY_RESABS );
+
+  rval = mdbImpl->tag_set_data( geometry_resabs_tag, file_set, (file_set ? 1 : 0), &GEOMETRY_RESABS );
   if(MB_SUCCESS != rval) return rval;
 
   // CGM data
