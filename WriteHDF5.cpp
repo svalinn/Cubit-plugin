@@ -2849,7 +2849,7 @@ ErrorCode WriteHDF5::get_sparse_tagged_entities( const SparseTag& tag,
   results.clear();
   if (!tag.have_dense(setSet))
     results.merge( setSet.range );
-  std::list<ExportSet>::const_reverse_iterator e;
+  std::list<ExportSet>::reverse_iterator e;
   for (e = exportList.rbegin(); e != exportList.rend(); ++e) 
     if (!tag.have_dense(*e))
       results.merge( e->range );
@@ -2867,7 +2867,7 @@ void WriteHDF5::get_write_entities( Range& range )
 {
   range.clear();
   range.merge( setSet.range );
-  std::list<ExportSet>::const_reverse_iterator e;
+  std::list<ExportSet>::reverse_iterator e;
   for (e = exportList.rbegin(); e != exportList.rend(); ++e) 
     range.merge( e->range );
   range.merge( nodeSet.range );
