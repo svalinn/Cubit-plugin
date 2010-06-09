@@ -179,21 +179,12 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   // Get CGM file type
   const char* file_type = 0;
   file_type = get_geom_file_type( cgm_file_name );
-  if (!file_type) {
-    std::cerr << cgm_file_name << " : unknown file type, try '-t'" << std::endl;
+  if (!file_type || !strcmp(file_type ,"CUBIT")) 
     return MB_FAILURE;
-  }
-  else if(!strcmp(file_type ,"CUBIT"))
-  {
-    std::cerr << cgm_file_name << " : CUB files are currently not supported." << std::endl;
-    return MB_FAILURE;
-   }
-  else {
-    s = GeometryQueryTool::instance()->import_solid_model( cgm_file_name, file_type );
-  }
 
+  s = GeometryQueryTool::instance()->import_solid_model( cgm_file_name, file_type );
   if (CUBIT_SUCCESS != s) {
-    std::cerr << "Failed to read '" << cgm_file_name << "' of type '" << file_type << "'" << std::endl;
+    readUtilIface->report_error( "%s: Failed to read file of type \"%s\"", cgm_file_name, file_type );
     return MB_FAILURE;
   }
 
