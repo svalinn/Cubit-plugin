@@ -71,6 +71,9 @@
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
 #include "MBTagConventions.hpp"
+#ifdef USE_MPI  
+#include "MBParallelConventions.h"
+#endif
 #include "moab/WriteUtilIface.hpp"
 
 namespace moab {
