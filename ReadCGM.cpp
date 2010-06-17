@@ -98,6 +98,7 @@ ReadCGM::ReadCGM(Interface *impl)
 
 ReadCGM::~ReadCGM()
 {
+  InitCGMA::deinitialize_cgma();
   std::string iface_name = "ReadUtilIface";
   mdbImpl->release_interface(iface_name, readUtilIface);
   delete myGeomTool;
@@ -273,6 +274,34 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       if (MB_SUCCESS != rval)
         return rval;
     }
+  }
+
+    // store CoEdge senses
+  std::vector<EntityHandle> ents;
+  std::vector<int> senses;
+  for (ci = entmap[1].begin(); ci != entmap[1].end(); ++ci) {
+    RefEdge* edge = (RefEdge*)(ci->first);
+    ents.clear();
+    senses.clear();
+    for (SenseEntity* ce = edge->get_first_sense_entity_ptr();
+         ce; ce = ce->next_on_bte()) {
+      BasicTopologyEntity* fac = ce->get_parent_basic_topology_entity_ptr();
+      EntityHandle face = entmap[2][fac];
+      if (ce->get_sense() == CUBIT_UNKNOWN || 
+          ce->get_sense() != edge->get_curve_ptr()->bridge_sense()) {
+        ents.push_back(face);
+        senses.push_back(CUBIT_REVERSED);
+      }
+      if (ce->get_sense() == CUBIT_UNKNOWN || 
+          ce->get_sense() == edge->get_curve_ptr()->bridge_sense()) {
+        ents.push_back(face);
+        senses.push_back(CUBIT_FORWARD);
+      }
+    }
+    
+    rval = myGeomTool->set_senses( ci->second, ents, senses);
+    if (MB_SUCCESS != rval)
+      return rval;
   }
 
     // create entity sets for all ref groups
