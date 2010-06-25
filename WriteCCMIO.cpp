@@ -330,8 +330,8 @@ ErrorCode WriteCCMIO::close_and_compress(const char *filename, CCMIOID rootID)
     // to call CCMIOCompress() here to ensure that the file is as small as
     // possible.  Please see the Core API documentation for caveats on its
     // usage.
-  // CCMIOCompress(&error, const_cast<char*>(filename));
-  // CHKCCMERR(error, "Error compressing file.");
+  CCMIOCompress(&error, const_cast<char*>(filename));
+  CHKCCMERR(error, "Error compressing file.");
 
   return MB_SUCCESS;
 }
@@ -968,9 +968,31 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     // write external faces
     //================================================
   for (unsigned int i = 0; i < neuset_data.size(); i++) {
-    result = write_external_faces(rootID, topologyID, neuset_data[i].neusetId, 
-                                  neuset_data[i].elems);
+    Range::reverse_iterator rit;
+    unsigned char cmarks[2];
+    Range ext_faces;
+    std::vector<EntityHandle> cells;
+    // removing the faces connected to two regions
+    for (rit = neuset_data[i].elems.rbegin(); rit != neuset_data[i].elems.rend(); ++rit) {
+      cells.clear();
+      result = mbImpl->get_adjacencies(&(*rit), 1, mDimension, false, cells);
+      CHKERR(result, "Trouble getting bounding cells.");
+      
+      result = mbImpl->tag_get_data(mEntityMark, &cells[0], cells.size(), cmarks);
+      CHKERR(result, "Trouble getting mark tags on cells bounding facets.");
+
+      if( cells.size() == 2 && (mWholeMesh || (cmarks[0] && cmarks[1]))) {
+      }
+      else{
+	// external face
+	ext_faces.insert(*rit);
+      }
+    }
+    if (ext_faces.size() != 0)
+      result = write_external_faces(rootID, topologyID, neuset_data[i].neusetId, 
+				    ext_faces);
     CHKERR(result, "Trouble writing Neumann set facets.");
+    ext_faces.clear ();
   }
 
   if (!skin_facets.empty()) {
@@ -1203,10 +1225,6 @@ ErrorCode WriteCCMIO::write_external_faces(CCMIOID rootID, CCMIOID topologyID,
   CCMIONewEntity(&error, rootID, kCCMIOMap, NULL, &mapID);
   CHKCCMERR(error, "Problem creating face id map.");
   
-  // ignoring an empty neuset, just return
-  if(facets.size()==0)
-    return MB_SUCCESS;
-
   CCMIOWriteMap(&error, mapID, CCMIOSIZEC(facets.size()),
                 CCMIOSIZEC(maxid), gids,
                 CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
@@ -1258,9 +1276,8 @@ ErrorCode WriteCCMIO::write_external_faces(CCMIOID rootID, CCMIOID topologyID,
     result = mbImpl->tag_get_data(mEntityMark, &cells[0], cells.size(), cmarks);
     CHKERR(result, "Trouble getting mark tags on cells bounding facets.");
     if (cells.size() == 2 && (mWholeMesh || (cmarks[0] && cmarks[1]))) {
-      // commenting since neuset_data can have internal faces
-      // result = MB_FILE_WRITE_ERROR;
-      // CHKERR(result, "External facet with two output bounding cells.");
+      result = MB_FILE_WRITE_ERROR;
+      CHKERR(result, "External facet with two output bounding cells.");
     }
     else if (1 == cells.size() && !mWholeMesh && !cmarks[0]) {
       result = MB_FILE_WRITE_ERROR;
