@@ -330,8 +330,8 @@ ErrorCode WriteCCMIO::close_and_compress(const char *filename, CCMIOID rootID)
     // to call CCMIOCompress() here to ensure that the file is as small as
     // possible.  Please see the Core API documentation for caveats on its
     // usage.
-  CCMIOCompress(&error, const_cast<char*>(filename));
-  CHKCCMERR(error, "Error compressing file.");
+  // CCMIOCompress(&error, const_cast<char*>(filename));
+  // CHKCCMERR(error, "Error compressing file.");
 
   return MB_SUCCESS;
 }
@@ -468,14 +468,22 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
 
     // write material types and other info
   for (unsigned int i = 0; i < matset_data.size(); i++) {
-    if (!matset_data[i].setName.empty())
+    if (!matset_data[i].setName.empty()){
       CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, matset_data[i].matsetId, 
                             matset_data[i].setName.c_str(), &id);
-    else
+    }
+    else{
+      char dum_name[NAME_TAG_SIZE]; 
+      std::ostringstream os;
+      std::string mat_name = "Material", temp_str;
+      os << mat_name << (i+1);
+      temp_str = os.str();
+      strcpy(dum_name,temp_str.c_str());
       CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, matset_data[i].matsetId, 
-                            "Material", &id);
-    CHKCCMERR(error, "Failure creating celltype node.");
-
+                            dum_name, &id);
+      CHKCCMERR(error, "Failure creating celltype node.");
+      os.str("");
+    }
     rval = write_int_option("MaterialId", matset_data[i].setHandle, mMaterialIdTag, id);
     CHKERR(rval, "Trouble writing MaterialId option.");
 
