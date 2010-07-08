@@ -78,7 +78,7 @@ protected:
 
   ErrorCode read_tag_values_all( int tag_index, std::vector<int>& results );
   ErrorCode read_tag_values_partial( int tag_index, const Range& file_ids,
-                                       std::vector<int>& results );
+                                     std::vector<int>& results );
 
 
 private:
@@ -139,8 +139,8 @@ private:
   //! Given a list of tags and values, get the file ids for the
   //! corresponding entities in the file.
   ErrorCode get_subset_ids( const ReaderIface::IDTag* subset_list,
-                              int subset_list_length,
-                              Range& file_ids_out );
+                            int subset_list_length,
+                            Range& file_ids_out );
 
   /**\brief Remove all but the specified fraction of sets from the passed range
    *
@@ -183,7 +183,7 @@ private:
     //
     // NOTE: Collective IO calls in parallel.
   ErrorCode read_node_adj_elems( const mhdf_ElemDesc& group,
-                                   hid_t connectivity_handle );
+                                 hid_t connectivity_handle );
 
   //! Read poly(gons|hedra)
   ErrorCode read_poly( const mhdf_ElemDesc& elems, const Range& file_ids );
@@ -197,17 +197,17 @@ private:
   
   //! Read set contents
   ErrorCode read_set_contents( hid_t set_description_handle,
-                                 hid_t set_contents_handle,
-                                 const unsigned long data_len );
+                               hid_t set_contents_handle,
+                               const unsigned long data_len );
   
   //! Read set parents/children
   ErrorCode read_parents_children( bool parents, 
-                                     hid_t set_description_handle,
-                                     hid_t set_contents_handle,
-                                     const unsigned long data_len );
+                                   hid_t set_description_handle,
+                                   hid_t set_contents_handle,
+                                   const unsigned long data_len );
   
   ErrorCode read_adjacencies( hid_t adjacency_table,
-                                long table_length );
+                              long table_length );
                                 
   
   //! Create tag and read all data.
@@ -219,36 +219,36 @@ private:
   
   //! Read dense tag for all entities 
   ErrorCode read_dense_tag( Tag tag_handle,
-                              hid_t hdf_read_type,
-                              hid_t data_table,
-                              long start_id,
-                              long count );
+                            hid_t hdf_read_type,
+                            hid_t data_table,
+                            long start_id,
+                            long count );
 
   
   //! Read sparse tag for all entities.
   ErrorCode read_sparse_tag( Tag tag_handle,
-                               hid_t hdf_read_type,
-                               hid_t ent_table,
-                               hid_t val_table,
-                               long num_entities );
+                             hid_t hdf_read_type,
+                             hid_t ent_table,
+                             hid_t val_table,
+                             long num_entities );
   
   //! Read variable-length tag for all entities.
   ErrorCode read_var_len_tag( Tag tag_handle,
-                                hid_t hdf_read_type,
-                                hid_t ent_table,
-                                hid_t val_table,
-                                hid_t off_table,
-                                long num_entities,
-                                long num_values );
+                              hid_t hdf_read_type,
+                              hid_t ent_table,
+                              hid_t val_table,
+                              hid_t off_table,
+                              long num_entities,
+                              long num_values );
                                
   ErrorCode read_qa( EntityHandle file_set );
                                
   ErrorCode convert_id_to_handle( EntityHandle* in_out_array,
-                                    size_t array_length );
+                                  size_t array_length );
                                     
   ErrorCode convert_range_to_handle( const EntityHandle* ranges,
-                                       size_t num_ranges,
-                                       Range& merge );
+                                     size_t num_ranges,
+                                     Range& merge );
                                     
   static
   void convert_id_to_handle( EntityHandle* in_out_array,
@@ -277,8 +277,9 @@ private:
    *\param file_ids_out  File IDs for entities with specified tag values.
    */
   ErrorCode search_tag_values( int tag_index,
-                                 const std::vector<int>& sorted_values,
-                                 Range& file_ids_out );
+                               const std::vector<int>& sorted_values,
+                               Range& file_ids_out,
+                               bool sets_only = false );
   
   /**\brief Search for entities with specified tag 
    * 
@@ -303,9 +304,9 @@ private:
    *                       matching values were found.
    */
   ErrorCode search_tag_values( hid_t tag_table, 
-                                 unsigned long table_size,
-                                 const std::vector<int>& sorted_values,
-                                 std::vector<EntityHandle>& value_indices );
+                               unsigned long table_size,
+                               const std::vector<int>& sorted_values,
+                               std::vector<EntityHandle>& value_indices );
   
   /**\brief Get the file IDs for nodes and elements contained in sets.
    *
@@ -321,8 +322,8 @@ private:
    *  of file IDs.
    */
   ErrorCode read_set_ids_recursive( Range& sets_in_out,
-                                      bool containted_sets,
-                                      bool child_sets );
+                                    bool containted_sets,
+                                    bool child_sets );
   
   /** Find all sets containing one or more entities read from the file
    *  and added to idMap 
@@ -342,25 +343,25 @@ private:
 
   /** Find file IDs of sets containing any entities in the passed id_map */
   ErrorCode find_sets_containing( hid_t meta_handle,
-                                    hid_t content_handle, 
-                                    long content_len,
-                                    Range& file_ids );  
+                                  hid_t content_handle, 
+                                  long content_len,
+                                  Range& file_ids );  
  
   /** Given a list of file IDs for entity sets, read the list of 
    *  file IDs for all child entity sets.
    */
   ErrorCode read_child_ids( const Range& set_file_ids,
-                              hid_t meta_handle,
-                              hid_t child_handle,
-                              Range& child_file_ids );
+                            hid_t meta_handle,
+                            hid_t child_handle,
+                            Range& child_file_ids );
  
   /** Given a list of file IDs for entity sets, read the list of 
    *  file IDs for all contained entity sets.
    */
   ErrorCode read_contained_set_ids( const Range& set_file_ids,
-                                      hid_t meta_handle,
-                                      hid_t contents_handle,
-                                      Range& containd_set_file_ids );
+                                    hid_t meta_handle,
+                                    hid_t contents_handle,
+                                    Range& containd_set_file_ids );
     
     /**\brief Create sets 
      *
@@ -378,29 +379,29 @@ private:
      *                 mhdf_SET_RANGE_BIT is set in the flags.)
      */
   ErrorCode read_sets( const Range& file_ids,
-                         hid_t set_meta_handle, 
-                         Range& ranged_file_ids_out,
-                         EntityHandle& start_handle,
-                         bool create = true );
+                       hid_t set_meta_handle, 
+                       Range& ranged_file_ids_out,
+                       EntityHandle& start_handle,
+                       bool create = true );
    
-   ErrorCode read_contents( const Range& set_file_ids,
-                              EntityHandle start_handle,
-                              hid_t set_meta_data_table,
-                              hid_t set_contents_table,
-                              long set_contents_length,
-                              const Range& ranged_set_file_ids );
+  ErrorCode read_contents( const Range& set_file_ids,
+                           EntityHandle start_handle,
+                           hid_t set_meta_data_table,
+                           hid_t set_contents_table,
+                           long set_contents_length,
+                           const Range& ranged_set_file_ids );
 
-   ErrorCode read_parents( const Range& set_file_ids,
-                             EntityHandle start_handle,
-                             hid_t set_meta_data_table,
-                             hid_t set_parents_table,
-                             long set_parents_length );
+  ErrorCode read_parents( const Range& set_file_ids,
+                          EntityHandle start_handle,
+                          hid_t set_meta_data_table,
+                          hid_t set_parents_table,
+                          long set_parents_length );
 
-   ErrorCode read_children( const Range& set_file_ids,
-                              EntityHandle start_handle,
-                              hid_t set_meta_data_table,
-                              hid_t set_children_table,
-                              long set_children_length );
+  ErrorCode read_children( const Range& set_file_ids,
+                           EntityHandle start_handle,
+                           hid_t set_meta_data_table,
+                           hid_t set_children_table,
+                           long set_children_length );
    
 
   class ContentReader {
@@ -432,12 +433,12 @@ private:
      *                       are stored in ranged format.
      */
   ErrorCode read_contents( ContentReader& tool,
-                             const Range& file_ids,
-                             const long start_id,
-                             const EntityHandle start_handle,
-                             const long num_sets,
-                             const long set_content_len,
-                             const Range& ranged_file_ids );
+                           const Range& file_ids,
+                           const long start_id,
+                           const EntityHandle start_handle,
+                           const long num_sets,
+                           const long set_content_len,
+                           const Range& ranged_file_ids );
   
     /**\brief Store file IDS in tag values
      *
