@@ -481,7 +481,11 @@ ErrorCode WriteCCMIO::write_problem_description(CCMIOID rootID, CCMIOID stateID,
       strcpy(dum_name,temp_str.c_str());
       CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, matset_data[i].matsetId, 
                             dum_name, &id);
-      CHKCCMERR(error, "Failure creating celltype node.");
+      CHKCCMERR(error, "Failure creating celltype node."); 
+  
+      CCMIOWriteOptstr(&error, id, "MaterialType", dum_name);
+      CHKCCMERR(error, "Error assigning material name.");
+    
       os.str("");
     }
     rval = write_int_option("MaterialId", matset_data[i].setHandle, mMaterialIdTag, id);
@@ -869,11 +873,11 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
   CCMIOID cellMapID, cells;
   CCMIOError error = kCCMIONoErr;
   
-    // don't usually have anywhere near 31 nodes per element
+  // don't usually have anywhere near 31 nodes per element
   connect.reserve(31);
   Range::const_iterator rit;
 
-    // create the topology node, and the cell and cell map nodes
+  // create the topology node, and the cell and cell map nodes
   CCMIONewEntity(&error, rootID, kCCMIOTopology, "Topology", &topologyID);
   CHKCCMERR(error, "Trouble creating topology node.");
 
@@ -883,10 +887,11 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
   CCMIONewEntity(&error, topologyID, kCCMIOCells, "Cells", &cells);
   CHKCCMERR(error, "Trouble creating Cell node under Topology node.");
 
-    //================================================
-    // loop over material sets, doing each one at a time
-    //================================================
+  //================================================
+  // loop over material sets, doing each one at a time
+  //================================================
   Range all_elems;
+  int internal_faces_flag = 0;
   unsigned int i, num_elems = 0;
   int max_id = 1;
   std::vector<int> egids;
@@ -899,9 +904,9 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
 
     unsigned int this_num = matset_data[m].elems.size();
 
-      //================================================
-      // save all elements being output
-      //================================================
+    //================================================
+    // save all elements being output
+    //================================================
     all_elems.merge(matset_data[m].elems);
   
     //================================================
@@ -916,7 +921,7 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     // Write cell ids and material types for this matset; reuse egids for cell mat type
     //================================================
     CCMIOWriteMap(&error, cellMapID, CCMIOSIZEC(tot_elems),
-                  CCMIOSIZEC(max_id-1), &egids[0],
+                  CCMIOSIZEC(tot_elems), &egids[0],
                   CCMIOINDEXC(0 == m ? kCCMIOStart : num_elems), 
                   CCMIOINDEXC(matset_data.size() == m ? kCCMIOEnd : 
                               num_elems + this_num));
@@ -926,7 +931,7 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     CCMIOWriteCells(&error, cells, cellMapID, &egids[0],
                     CCMIOINDEXC(0 == m ? kCCMIOStart : num_elems), 
                     CCMIOINDEXC(matset_data.size() == m ? kCCMIOEnd : 
-                              num_elems + this_num));
+				num_elems + this_num));
     CHKCCMERR(error, "Trouble writing Cell node.");
 
     //================================================
@@ -952,29 +957,29 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     num_elems += this_num;
   }
 
-    //================================================
-    // get skin and neumann set faces
-    //================================================
+  //================================================
+  // get skin and neumann set faces
+  //================================================
   Range neuset_facets, skin_facets;
   Skinner skinner(mbImpl);
   result = skinner.find_skin(all_elems, mDimension-1, skin_facets);
   CHKERR(result, "Failed to get skin facets.");
 
-    // remove neumann set facets from skin facets, we have to output these
-    // separately
+  // remove neumann set facets from skin facets, we have to output these
+  // separately
   for (unsigned int i = 0; i < neuset_data.size(); i++)
     neuset_facets.merge(neuset_data[i].elems);
     
   skin_facets -= neuset_facets;
-    // make neuset_facets the union, and get ids for them
+  // make neuset_facets the union, and get ids for them
   neuset_facets.merge(skin_facets);
   result = mWriteIface->assign_ids(neuset_facets, mGlobalIdTag, 1);
 
   int fmaxid = neuset_facets.size();
 
-    //================================================
-    // write external faces
-    //================================================
+  //================================================
+  // write external faces
+  //================================================
   for (unsigned int i = 0; i < neuset_data.size(); i++) {
     Range::reverse_iterator rit;
     unsigned char cmarks[2];
@@ -990,6 +995,7 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
       CHKERR(result, "Trouble getting mark tags on cells bounding facets.");
 
       if( cells.size() == 2 && (mWholeMesh || (cmarks[0] && cmarks[1]))) {
+	internal_faces_flag = 1;
       }
       else{
 	// external face
@@ -1008,169 +1014,172 @@ ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
     CHKERR(result, "Trouble writing skin facets.");
   }
 
-    //================================================
-    // now inernal faces; loop over elements, do each face on the element
-    //================================================
-    // mark tag, for face marking on each non-polyhedral element
-  Tag fmark_tag;
-  unsigned char mval = 0x0, omval;
-  result = mbImpl->tag_create("__fmark", 1, MB_TAG_DENSE, MB_TYPE_OPAQUE, 
-                              fmark_tag, &mval);
-  CHKERR(result, "Couldn't create mark tag.");
+  //================================================
+  // now inernal faces; loop over elements, do each face on the element
+  //================================================
+  // mark tag, for face marking on each non-polyhedral element
 
-  std::vector<EntityHandle> tmp_face_cells, storage;
-  std::vector<int> iface_connect, iface_cells;
-  EntityHandle tmp_connect[CN::MAX_NODES_PER_ELEMENT]; // tmp connect vector
-  const EntityHandle *connectc, *oconnectc; int num_connectc; // cell connectivity
-  const EntityHandle *connectf; int num_connectf; // face connectivity
+  if(internal_faces_flag == 1){
+    Tag fmark_tag;
+    unsigned char mval = 0x0, omval;
+    result = mbImpl->tag_create("__fmark", 1, MB_TAG_DENSE, MB_TYPE_OPAQUE, 
+				fmark_tag, &mval);
+    CHKERR(result, "Couldn't create mark tag.");
 
-  for (i = 0, rit = all_elems.begin(); i < num_elems; i++, rit++) {
-    EntityType etype = TYPE_FROM_HANDLE(*rit);
+    std::vector<EntityHandle> tmp_face_cells, storage;
+    std::vector<int> iface_connect, iface_cells;
+    EntityHandle tmp_connect[CN::MAX_NODES_PER_ELEMENT]; // tmp connect vector
+    const EntityHandle *connectc, *oconnectc; int num_connectc; // cell connectivity
+    const EntityHandle *connectf; int num_connectf; // face connectivity
+
+    for (i = 0, rit = all_elems.begin(); i < num_elems; i++, rit++) {
+      EntityType etype = TYPE_FROM_HANDLE(*rit);
 
       //-----------------------
       // if not polyh, get mark
       //-----------------------
-    if (MBPOLYHEDRON != etype && MBPOLYGON != etype) {
-      result = mbImpl->tag_get_data(fmark_tag, &(*rit), 1, &mval);
-      if (MB_SUCCESS != result) {
-        mWriteIface->report_error("Couldn't get mark data.");
-        return result;
+      if (MBPOLYHEDRON != etype && MBPOLYGON != etype) {
+	result = mbImpl->tag_get_data(fmark_tag, &(*rit), 1, &mval);
+	if (MB_SUCCESS != result) {
+	  mWriteIface->report_error("Couldn't get mark data.");
+	  return result;
+	}
       }
-    }
 
       //-----------------------
       // get cell connectivity, and whether it's a polyhedron
       //-----------------------
-    result = mbImpl->get_connectivity(*rit, connectc, num_connectc, false, &storage);
-    CHKERR(result, "Couldn't get entity connectivity.");
+      result = mbImpl->get_connectivity(*rit, connectc, num_connectc, false, &storage);
+      CHKERR(result, "Couldn't get entity connectivity.");
 
       // if polyh, write faces directly
-    bool is_polyh = (MBPOLYHEDRON == etype);
+      bool is_polyh = (MBPOLYHEDRON == etype);
 
-    int num_facets = (is_polyh ? num_connectc : 
-                     CN::NumSubEntities(etype, mDimension-1));
+      int num_facets = (is_polyh ? num_connectc : 
+			CN::NumSubEntities(etype, mDimension-1));
 
       //----------------------------------------------------------
       // loop over each facet of element, outputing it if not marked
       //----------------------------------------------------------
-    for (int f = 0; f < num_facets; f++) {
+      for (int f = 0; f < num_facets; f++) {
 
         //.............................................
         // if this face marked, skip
         //.............................................
-      if (!is_polyh && ((mval >> f) & 0x1)) continue;
+	if (!is_polyh && ((mval >> f) & 0x1)) continue;
     
         //.................
         // get face connect and adj cells
         //.................
-      if (!is_polyh) {
+	if (!is_polyh) {
           // (from CN)
-        CN::SubEntityConn(connectc, etype, mDimension-1, f, tmp_connect, num_connectf);
-        connectf = tmp_connect;
-      }
-      else {
+	  CN::SubEntityConn(connectc, etype, mDimension-1, f, tmp_connect, num_connectf);
+	  connectf = tmp_connect;
+	}
+	else {
           // directly
-        result = mbImpl->get_connectivity(connectc[f], connectf, num_connectf, false);
-        CHKERR(result, "Couldn't get polyhedron connectivity.");
-      }
+	  result = mbImpl->get_connectivity(connectc[f], connectf, num_connectf, false);
+	  CHKERR(result, "Couldn't get polyhedron connectivity.");
+	}
 
         //............................
         // get adj cells from face connect (same for poly's and not, since both usually 
         // go through vertices anyway)
         //............................
-      tmp_face_cells.clear();
-      result = mbImpl->get_adjacencies(connectf, num_connectf, mDimension, false, tmp_face_cells);
-      CHKERR(result, "Error getting adj hexes.");
+	tmp_face_cells.clear();
+	result = mbImpl->get_adjacencies(connectf, num_connectf, mDimension, false, tmp_face_cells);
+	CHKERR(result, "Error getting adj hexes.");
 
         //...............................
         // if this face only bounds one cell, skip, since we exported external faces
         // before this loop
         //...............................
-      if (tmp_face_cells.size() != 2) continue;
+	if (tmp_face_cells.size() != 2) continue;
       
         //.................
         // switch cells so that *rit is always 1st (face connectivity is always written such
         // that that one is with forward sense)
         //.................
-      int side_num, sense, offset;
-      if (!is_polyh && tmp_face_cells[0] != *rit) {
-        EntityHandle tmph = tmp_face_cells[0]; 
-        tmp_face_cells[0] = tmp_face_cells[1]; 
-        tmp_face_cells[1] = tmph;
-      }
+	int side_num, sense, offset;
+	if (!is_polyh && tmp_face_cells[0] != *rit) {
+	  EntityHandle tmph = tmp_face_cells[0]; 
+	  tmp_face_cells[0] = tmp_face_cells[1]; 
+	  tmp_face_cells[1] = tmph;
+	}
     
         //.................
         // save ids of cells
         //.................
-      assert(tmp_face_cells[0] != tmp_face_cells[1]);
-      iface_cells.resize(iface_cells.size()+2);
-      result = mbImpl->tag_get_data(mGlobalIdTag, &tmp_face_cells[0], tmp_face_cells.size(),
-                                    &iface_cells[iface_cells.size()-2]);
-      CHKERR(result, "Trouble getting global ids for bounded cells.");
-      iface_connect.push_back(num_connectf);
+	assert(tmp_face_cells[0] != tmp_face_cells[1]);
+	iface_cells.resize(iface_cells.size()+2);
+	result = mbImpl->tag_get_data(mGlobalIdTag, &tmp_face_cells[0], tmp_face_cells.size(),
+				      &iface_cells[iface_cells.size()-2]);
+	CHKERR(result, "Trouble getting global ids for bounded cells.");
+	iface_connect.push_back(num_connectf);
 
         //.................
         // save indices of face vertices
         //.................
-      unsigned int tmp_size = iface_connect.size();
-      iface_connect.resize(tmp_size+num_connectf);
-      result = mbImpl->tag_get_data(mGlobalIdTag, connectf, num_connectf, 
-                                    &iface_connect[tmp_size]);
-      CHKERR(result, "Trouble getting global id for internal face.");
+	unsigned int tmp_size = iface_connect.size();
+	iface_connect.resize(tmp_size+num_connectf);
+	result = mbImpl->tag_get_data(mGlobalIdTag, connectf, num_connectf, 
+				      &iface_connect[tmp_size]);
+	CHKERR(result, "Trouble getting global id for internal face.");
 
         //.................
         // mark other cell with the right side #
         //.................
-      if (!is_polyh) {
+	if (!is_polyh) {
           // mark other cell for this face, if there is another cell
         
-        result = mbImpl->get_connectivity(tmp_face_cells[1], oconnectc, num_connectc, 
-                                          false, &storage);
-        CHKERR(result, "Couldn't get other entity connectivity.");
+	  result = mbImpl->get_connectivity(tmp_face_cells[1], oconnectc, num_connectc, 
+					    false, &storage);
+	  CHKERR(result, "Couldn't get other entity connectivity.");
       
           // get side number in other cell
-        CN::SideNumber(TYPE_FROM_HANDLE(tmp_face_cells[1]), oconnectc, connectf, num_connectf,
-                       mDimension-1, side_num, sense, offset);
+	  CN::SideNumber(TYPE_FROM_HANDLE(tmp_face_cells[1]), oconnectc, connectf, num_connectf,
+			 mDimension-1, side_num, sense, offset);
           // set mark for that face on the other cell
-        result = mbImpl->tag_get_data(fmark_tag, &tmp_face_cells[1], 1, &omval);
-        CHKERR(result, "Couldn't get mark data for other cell.");
-      }
+	  result = mbImpl->tag_get_data(fmark_tag, &tmp_face_cells[1], 1, &omval);
+	  CHKERR(result, "Couldn't get mark data for other cell.");
+	}
         
-      omval |= (0x1 << (unsigned int)side_num);
-      result = mbImpl->tag_set_data(fmark_tag, &tmp_face_cells[1], 1, &omval);
-      CHKERR(result, "Couldn't set mark data for other cell.");
+	omval |= (0x1 << (unsigned int)side_num);
+	result = mbImpl->tag_set_data(fmark_tag, &tmp_face_cells[1], 1, &omval);
+	CHKERR(result, "Couldn't set mark data for other cell.");
 
-    } // loop over faces in elem
-  } // loop over elems
+      } // loop over faces in elem
+    } // loop over elems
 
     //================================================
     // write internal faces
     //================================================
-  CCMIOID mapID;
-  CCMIONewEntity(&error, rootID, kCCMIOMap, NULL, &mapID);
-  CHKCCMERR(error, "Trouble creating Internal Face map node.");
+    CCMIOID mapID;
+    CCMIONewEntity(&error, rootID, kCCMIOMap, NULL, &mapID);
+    CHKCCMERR(error, "Trouble creating Internal Face map node.");
 
-  unsigned int num_ifaces = iface_cells.size()/2;
+    unsigned int num_ifaces = iface_cells.size()/2;
 
     // set gids for internal faces; reuse egids
-  egids.resize(num_ifaces);
-  for (i = 1; i <= num_ifaces; i++) egids[i-1] = fmaxid + i;
-  CCMIOWriteMap(&error, mapID, CCMIOSIZEC(num_ifaces),
-                CCMIOSIZEC(fmaxid + num_ifaces),
-                &egids[0],
-                CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
-  CHKCCMERR(error, "Trouble writing Internal Face map node.");
+    egids.resize(num_ifaces);
+    for (i = 1; i <= num_ifaces; i++) egids[i-1] = fmaxid + i;
+    CCMIOWriteMap(&error, mapID, CCMIOSIZEC(num_ifaces),
+		  CCMIOSIZEC(fmaxid + num_ifaces),
+		  &egids[0],
+		  CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
+    CHKCCMERR(error, "Trouble writing Internal Face map node.");
 
-  CCMIOID id;
-  CCMIONewEntity(&error, topologyID, kCCMIOInternalFaces, "Internal faces", &id);
-  CHKCCMERR(error, "Failed to create Internal face node under Topology node.");
-  CCMIOWriteFaces(&error, id, kCCMIOInternalFaces, mapID,
-                  CCMIOSIZEC(iface_connect.size()), &iface_connect[0],
-                  CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
-  CHKCCMERR(error, "Failure writing Internal face connectivity.");
-  CCMIOWriteFaceCells(&error, id, kCCMIOInternalFaces, mapID, &iface_cells[0],
-                      CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
-  CHKCCMERR(error, "Failure writing Internal face cells.");
+    CCMIOID id;
+    CCMIONewEntity(&error, topologyID, kCCMIOInternalFaces, "Internal faces", &id);
+    CHKCCMERR(error, "Failed to create Internal face node under Topology node.");
+    CCMIOWriteFaces(&error, id, kCCMIOInternalFaces, mapID,
+		    CCMIOSIZEC(iface_connect.size()), &iface_connect[0],
+		    CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
+    CHKCCMERR(error, "Failure writing Internal face connectivity.");
+    CCMIOWriteFaceCells(&error, id, kCCMIOInternalFaces, mapID, &iface_cells[0],
+			CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));
+    CHKCCMERR(error, "Failure writing Internal face cells.");
+  }
 
   return MB_SUCCESS;
 }
