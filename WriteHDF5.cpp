@@ -388,9 +388,8 @@ ErrorCode WriteHDF5::write_file( const char* filename,
   if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
     dbgOut.set_verbosity(tmpval);
   }
-  
+
   writeTagDense = (MB_SUCCESS == opts.get_null_option("DENSE_TAGS"));
-    
 
   // Enable some extra checks for reads.  Note: amongst other things this
   // will print errors if the entire file is not read, so if doing a 
@@ -629,12 +628,16 @@ ErrorCode WriteHDF5::initialize_mesh( const Range ranges[5] )
       Range::const_iterator first = i;
       EntityHandle const* conn;
       int len, firstlen;
-      rval = iFace->get_connectivity( *i, conn, firstlen );
+
+      // dummy storage vector for structured mesh "get_connectivity" function
+      std::vector<EntityHandle> storage;
+      
+      rval = iFace->get_connectivity( *i, conn, firstlen, false, &storage );
       if (MB_SUCCESS != rval)
         return error(rval);
       
       for (++i; i != p.second; ++i) {
-        rval = iFace->get_connectivity( *i, conn, len );
+        rval = iFace->get_connectivity( *i, conn, len, false, &storage );
         if (MB_SUCCESS != rval)
           return error(rval);
         
