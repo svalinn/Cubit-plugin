@@ -196,13 +196,12 @@ ErrorCode WriteVtk::gather_mesh( const EntityHandle* set_list,
     
     for (Range::const_iterator e = elems.begin(); e != elems.end(); ++e)
     {
-      const EntityHandle* conn;
-      int conn_len;
-      rval = mbImpl->get_connectivity( *e, conn, conn_len );
+      std::vector<EntityHandle> connect;
+      rval = mbImpl->get_connectivity( &(*e), 1, connect );
       if (MB_SUCCESS != rval) return rval;
 
-      for (int i = 0; i < conn_len; ++i)
-        nodes.insert( conn[i] );
+      for (int i = 0; i < connect.size(); ++i)
+	nodes.insert( connect[i] );
     }
   }
 
@@ -256,12 +255,14 @@ ErrorCode WriteVtk::write_elems( std::ostream& stream,
   {
     EntityType type = mbImpl->type_from_handle(*i);
     if (!VtkUtil::get_vtk_type(type, CN::VerticesPerEntity(type))) continue;
-    const EntityHandle* conn;
-    int conn_len;
-    rval = mbImpl->get_connectivity( *i, conn, conn_len );
+    
+    std::vector<EntityHandle> connect;
+    rval = mbImpl->get_connectivity( &(*i), 1, connect );
+    
     if (MB_SUCCESS != rval)
       return rval;
-    num_uses += conn_len;
+
+    num_uses += connect.size();
   }
   stream << "CELLS " << num_elems << ' ' << num_uses << std::endl;
   
@@ -275,9 +276,10 @@ ErrorCode WriteVtk::write_elems( std::ostream& stream,
     EntityType type = TYPE_FROM_HANDLE(*i);
 
       // Get element connectivity
-    const EntityHandle* conn;
-    int conn_len;
-    rval = mbImpl->get_connectivity( *i, conn, conn_len );
+    std::vector<EntityHandle> connect;
+    rval = mbImpl->get_connectivity( &(*i), 1, connect );
+    int conn_len = connect.size();
+
     if (MB_SUCCESS != rval)
       return rval;
 
@@ -299,7 +301,7 @@ ErrorCode WriteVtk::write_elems( std::ostream& stream,
     assert( conn_len > 0 );
     conn_data.resize( conn_len );
     for (int j = 0; j < conn_len; ++j)
-      conn_data[j] = nodes.index( conn[j] );
+      conn_data[j] = nodes.index( connect[j] );
     
       // Save VTK type index for later
     *t = vtk_type->vtk_type;
