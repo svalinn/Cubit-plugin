@@ -1230,6 +1230,8 @@ int WriteCCMIO::moab_to_ccmio_type(EntityType etype, int has_mid_nodes[])
 ErrorCode WriteCCMIO::write_external_faces(CCMIOID rootID, CCMIOID topologyID, 
                                            int set_num, Range &facets) 
 {
+  if (set_num == 0)
+    return MB_SUCCESS;
   CCMIOError error = kCCMIONoErr;
   CCMIOID mapID, id;
 
