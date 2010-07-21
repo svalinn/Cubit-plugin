@@ -1720,6 +1720,21 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     return MB_FAILURE;
   }
   
+  // get the time
+  NcVar *times_ptr = ncFile->get_var("time_whole");
+  if(NULL==times_ptr || !times_ptr->is_valid()) {
+    std::cout << "ReadNCDF: unable to get time variable" << std::endl;
+  } else {
+    double times[max_time_steps];
+    NcBool status = times_ptr->get(&times[0], max_time_steps);
+    if(0==status) {
+      std::cout << "ReadNCDF: unable to get time array" << std::endl;
+    } else {
+      std::cout << "  Step " << time_step << " is at " << times[time_step-1] 
+                << " seconds" << std::endl;
+    }
+  }
+
   //read in the node_num_map .
   std::vector<int> ptr(numberNodes_loading);
 
@@ -1944,7 +1959,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   if(0 != lost) {
     std::cout << "Error:  " << lost << " nodes from the exodus file could not be matched." 
               << std::endl;
-    return MB_FAILURE;
+    //return MB_FAILURE;
   }
   std::cout << "  maximum node displacement magnitude: " << max_magnitude 
             << " cm" << std::endl;
@@ -2068,12 +2083,14 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     // Get the number of nodes per element
     unsigned int nodes_per_element = ExoIIUtil::VerticesPerElement[(*i).elemType];
     
-    // read the connectivity into that memory,  this will take only part of the array
-    // 1/2 if sizeof(EntityHandle) == 64 bits.
-    int exo_conn[i->numElements][nodes_per_element];
-    NcBool status = temp_var->get( &exo_conn[0][0], i->numElements, nodes_per_element);
+    // read the connectivity into that memory. 
+    //int exo_conn[i->numElements][nodes_per_element];
+    int *exo_conn = new int [i->numElements*nodes_per_element];
+    //NcBool status = temp_var->get( &exo_conn[0][0], i->numElements, nodes_per_element);
+    NcBool status = temp_var->get( &exo_conn[0], i->numElements, nodes_per_element);
     if (0 == status) {
       std::cout << "ReadNCDF: Problem getting connectivity." << std::endl;
+      delete[] exo_conn;
       return MB_FAILURE;
     }
 
@@ -2091,16 +2108,19 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     temp_var = ncFile->get_var(array_name.c_str());
     if (NULL == temp_var || !temp_var->is_valid()) {
       std::cout << "ReadNCDF: Problem getting death_status variable." << std::endl;;
+      delete[] exo_conn;
       return MB_FAILURE;
     }
     status = temp_var->set_cur(time_step-1, 0);
     if (0 == status) {
       std::cout << "ReadNCDF: Problem setting time step for death_status." << std::endl;
+      delete[] exo_conn;
       return MB_FAILURE;
     }
     status = temp_var->get(&death_status[0], 1, i->numElements);
     if (0 == status) {
       std::cout << "ReadNCDF: Problem getting death_status array." << std::endl;
+      delete[] exo_conn;
       return MB_FAILURE;
     }
 
@@ -2116,7 +2136,8 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
           // get exodus nodes for the element
 	  std::vector<int> elem_conn(nodes_per_element);
           for(unsigned int k=0; k<nodes_per_element; ++k) {
-            elem_conn[k] = exo_conn[j][k];
+            //elem_conn[k] = exo_conn[j][k];
+            elem_conn[k] = exo_conn[j*nodes_per_element + k];
 	  }
           // get the ids of the nodes (assume we are matching by id)
           // Remember that the exodus array locations start with 1 (not 0).
@@ -2141,13 +2162,17 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
 
           if(nodes_per_element != cub_nodes.size()) {
 	    std::cout << "ReadNCDF: nodes_per_elemenet != cub_nodes.size()" << std::endl;
+            delete[] exo_conn;
             return MB_INVALID_SIZE;
           }
 
           // get the cub_file_set element with the same nodes
           int to_dim = CN::Dimension(mb_type);
           rval = mdbImpl->get_adjacencies( cub_nodes, to_dim, false, cub_elem);
-          if(MB_SUCCESS != rval) return rval;
+          if(MB_SUCCESS != rval) {
+            delete[] exo_conn;
+            return rval;
+          }
 
           // Pronto/Presto renumbers elements, so matching cub and exo elements by
           // id is not possible at this time.
@@ -2160,22 +2185,32 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
           rval = mdbImpl->get_entities_by_type_and_tag( cub_file_set, mb_type, 
 		  				        &mGlobalIdTag, id, 1, cub_elem, 
                                                         Interface::INTERSECT );
-          if(MB_SUCCESS != rval) return rval;
+          if(MB_SUCCESS != rval) {
+            delete[] exo_conn;
+            return rval;
+          }
         }
 
         if(1 == cub_elem.size()) {
           // Delete the dead element from the cub file. It will be removed from sets
           // ONLY if they are tracking meshsets.
           rval = mdbImpl->remove_entities( cub_file_set, cub_elem );
-          if(MB_SUCCESS != rval) return rval;
+          if(MB_SUCCESS != rval) {
+            delete[] exo_conn;
+            return rval;
+          }
           rval = mdbImpl->delete_entities( cub_elem );
-          if(MB_SUCCESS != rval) return rval;
+          if(MB_SUCCESS != rval) {
+            delete[] exo_conn;
+            return rval;
+          }
         } else {
       	  std::cout << "ReadNCDF: Should have found 1 element with  type=" 
                     << mb_type << " in cub_file_set, but instead found " 
                     << cub_elem.size() << std::endl;
           rval = mdbImpl->list_entities( cub_nodes );
           ++missing_elem_counter;      
+          delete[] exo_conn;
           return MB_FAILURE;
         }
         ++dead_elem_counter;
@@ -2191,9 +2226,11 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
                 << " dead elements in this block were not found in the cub_file_set. " << std::endl;
     }
  
-    // advance the pointers into element ids and block_count
+    // advance the pointers into element ids and block_count. memory cleanup.
     first_elem_id_in_block += i->numElements;
     ++block_count;
+    delete[] exo_conn;
+
   }
 
   return MB_SUCCESS;
