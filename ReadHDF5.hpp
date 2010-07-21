@@ -33,6 +33,7 @@
 namespace moab {
 
 class ParallelComm;
+class ReadHDF5Dataset;
 
 /**
  * \brief  Read mesh from MOAB HDF5 (.h5m) file.
@@ -267,6 +268,9 @@ private:
                                 const RangeMap<long,EntityHandle>& id_map,
                                 Range& merge );
   
+  ErrorCode insert_in_id_map( const Range& file_ids,
+                              EntityHandle start_id );
+  
   /**\brief Search for entities with specified tag values 
    * 
    *\NOTE For parallel reads, this function does collective IO.
@@ -406,12 +410,6 @@ private:
 
   class ContentReader {
     public:
-      virtual void 
-      read_indices( long, long, long*, mhdf_Status& ) = 0;
-      
-      virtual void 
-      read_contents( long, long, EntityHandle*, mhdf_Status& ) = 0;
-      
       virtual ErrorCode 
       store_data( EntityHandle, long file_id, EntityHandle*, long len, bool ranged = false ) = 0;
    };
@@ -433,6 +431,8 @@ private:
      *                       are stored in ranged format.
      */
   ErrorCode read_contents( ContentReader& tool,
+                           ReadHDF5Dataset& offset_data,
+                           ReadHDF5Dataset& content_data,
                            const Range& file_ids,
                            const long start_id,
                            const EntityHandle start_handle,
