@@ -389,7 +389,8 @@ ErrorCode WriteHDF5::write_file( const char* filename,
     dbgOut.set_verbosity(tmpval);
   }
 
-  writeTagDense = (MB_SUCCESS == opts.get_null_option("DENSE_TAGS"));
+  //writeTagDense = (MB_SUCCESS == opts.get_null_option("DENSE_TAGS"));
+  writeTagDense = true; 
 
   // Enable some extra checks for reads.  Note: amongst other things this
   // will print errors if the entire file is not read, so if doing a 
