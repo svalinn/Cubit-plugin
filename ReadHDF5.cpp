@@ -3050,15 +3050,15 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
     else {
       size_t beg = std::max(start_id, l->begin);
       f_ins = file_ids.insert( f_ins, beg, l->begin + l->count - 1 );
-      h_ins = handles.insert( h_ins, l->value + (beg - l->begin), l->begin + l->value - 1 );
+      h_ins = handles.insert( h_ins, l->value + (beg - l->begin), l->value + l->count - 1 );
+      for (++l; l != u; ++l) {
+        f_ins = file_ids.insert( f_ins, l->begin, l->begin + l->count - 1 );
+        h_ins = handles.insert( h_ins, l->value, l->value + l->count - 1 );
+      }
       if (u != idMap.end() && u->begin < start_id + num_values) {
         size_t end = std::min( start_id + num_values, u->begin + u->count - 1 );
         f_ins = file_ids.insert( f_ins, u->begin, end );
         h_ins = handles.insert( h_ins, u->value, u->value + end - u->begin );
-      }
-      for (++l; l != u; ++l) {
-        f_ins = file_ids.insert( f_ins, l->begin, l->begin + l->count - 1 );
-        h_ins = handles.insert( h_ins, l->value, l->value + l->count - 1 );
       }
     }
   }
