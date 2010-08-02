@@ -2053,6 +2053,8 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   // For each block
   int first_elem_id_in_block = 0;
   int block_count = 1; // NetCDF variables start with 1
+  int total_elems = 0;
+  int total_dead_elems = 0;
   for(std::vector<ReadBlockData>::iterator i=blocksLoading.begin();
       i!=blocksLoading.end(); ++i) {
 
@@ -2219,11 +2221,14 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     // Print some statistics
     temp_ss.str("");
     temp_ss << i->blockId;
+    total_dead_elems += dead_elem_counter;
+    total_elems      += i->numElements;
     std::cout << "  Block " << temp_ss.str() << " has " << dead_elem_counter << "/"
               << i->numElements << " dead elements." << std::endl;
     if(0 != missing_elem_counter) {
       std::cout << "    " << missing_elem_counter 
-                << " dead elements in this block were not found in the cub_file_set. " << std::endl;
+                << " dead elements in this block were not found in the cub_file_set. "
+                << std::endl;
     }
  
     // advance the pointers into element ids and block_count. memory cleanup.
@@ -2232,6 +2237,9 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     delete[] exo_conn;
 
   }
+
+  std::cout << " Total: " << total_dead_elems << "/" << total_elems 
+            << " dead elements." << std::endl;
 
   return MB_SUCCESS;
 }
