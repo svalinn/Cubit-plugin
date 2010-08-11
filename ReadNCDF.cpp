@@ -1843,78 +1843,87 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   if( strcmp (op, "set") && strcmp (op, " set"))
     return MB_NOT_IMPLEMENTED;
 
-  // Some accounting
-  int found = 0;
-  int lost = 0;
+  // Two methods of matching nodes (id vs. proximity)
+  const bool match_node_ids = true;
 
-  // Place cub verts in a kdtree.
+  // Get nodes in cubit file
   Range cub_verts;
   rval = mdbImpl->get_entities_by_type( cub_file_set, MBVERTEX, cub_verts );
   if(MB_SUCCESS != rval) return rval;
   std::cout << "  cub_file_set contains " << cub_verts.size() << " nodes." 
-            << std::endl;
-  AdaptiveKDTree kdtree( mdbImpl, true );
-  EntityHandle root;
-  AdaptiveKDTree::Settings settings;
-  settings.maxEntPerLeaf = 1;                                   
-  settings.candidateSplitsPerDir = 1;                
-  settings.candidatePlaneSet = AdaptiveKDTree::SUBDIVISION;
-  rval = kdtree.build_tree( cub_verts, root, &settings );      
-  if(MB_SUCCESS != rval) return rval;
-  AdaptiveKDTreeIter tree_iter;                                                     
-  rval = kdtree.get_tree_iterator( root, tree_iter );
-  if(MB_SUCCESS != rval) return rval;
+	    << std::endl;
 
+  // Some accounting
+  std::cout << "  exodus file contains " << numberNodes_loading << " nodes." 
+            << std::endl;
   double max_magnitude = 0;
   double average_magnitude = 0;
+  int found = 0;
+  int lost = 0;
+  std::map<int,EntityHandle> cub_verts_id_map;
+  AdaptiveKDTree kdtree( mdbImpl, true );
+  EntityHandle root;
 
-  // Find the matching cub node by id or proximity
-  const bool match_node_ids = true;
-
-  // We should not use cub verts unless they have been matched. Place in a map
+  // Should not use cub verts unless they have been matched. Place in a map
   // for fast handle_by_id lookup.
   std::map<int,EntityHandle> matched_cub_vert_id_map;
 
-  // For each exo vert find the closest cub vert. Use proximity because kd-tree
-  // search is O(logn) but MOAB tag search is O(n). For 150k nodes this 
-  // is 5 minutes faster. The MAX_NODE_DIST is the farthest that we will search
-  // for a node. Note that the exodus file is single precision.
-  // For the 1/12th symmetry 85 pin model, the max node dist could not be less
-  // than 1e-1 (March 26, 2010).
-  const double MAX_NODE_DIST = 1e-1;
-  std::cout << "  exodus file contains " << numberNodes_loading << " nodes." 
-            << std::endl;
+  // Place cub verts in a map for searching by id
+  if(match_node_ids) {
+    std::vector<int> cub_ids( cub_verts.size() );
+    rval = mdbImpl->tag_get_data( mGlobalIdTag, cub_verts, &cub_ids[0] );
+    if(MB_SUCCESS != rval) return rval;
+    for(unsigned i=0; i!=cub_verts.size(); ++i) {
+      cub_verts_id_map.insert ( std::pair<int,EntityHandle>(cub_ids[i],cub_verts[i]) );
+    }
+
+  // Place cub verts in a kdtree for searching by proximity
+  } else {
+    AdaptiveKDTree::Settings settings;
+    settings.maxEntPerLeaf = 1;                                   
+    settings.candidateSplitsPerDir = 1;                
+    settings.candidatePlaneSet = AdaptiveKDTree::SUBDIVISION;
+    rval = kdtree.build_tree( cub_verts, root, &settings );      
+    if(MB_SUCCESS != rval) return rval;
+    AdaptiveKDTreeIter tree_iter;                                                     
+    rval = kdtree.get_tree_iterator( root, tree_iter );
+    if(MB_SUCCESS != rval) return rval;
+  }
+
+  // For each exo vert, find the matching cub vert
   for(int i=0; i<numberNodes_loading; ++i) {
-    EntityHandle cub_vert = 0;
-    std::vector<EntityHandle> leaves;
     int exo_id = ptr[i];
     CartVect exo_coords( orig_coords[0][i], orig_coords[1][i], orig_coords[2][i] );
+    EntityHandle cub_vert = -1;
+    bool found_match = false;
 
-    double min_dist = MAX_NODE_DIST;
+    // by id
+    if(match_node_ids) {
+      std::map<int,EntityHandle>::iterator i_iter;
+      i_iter = cub_verts_id_map.find( exo_id );
+      if(i_iter != cub_verts_id_map.end()) {
+        found_match = true;
+        cub_vert = i_iter->second;
+      }
 
-    rval = kdtree.leaves_within_distance( root, exo_coords.array(), MAX_NODE_DIST, leaves );    
-    if(MB_SUCCESS != rval) return rval;
-    for(std::vector<EntityHandle>::const_iterator j=leaves.begin(); 
-      j!=leaves.end(); ++j) {
-      //if(0 != cub_vert) break;
-      std::vector<EntityHandle> leaf_verts;
-      rval = mdbImpl->get_entities_by_type( *j, MBVERTEX, leaf_verts );
+    // by proximity
+    } else {
+      // The MAX_NODE_DIST is the farthest distance to  search for a node.
+      // For the 1/12th symmetry 85 pin model, the max node dist could not be less
+      // than 1e-1 (March 26, 2010).
+      const double MAX_NODE_DIST = 1e-1;
+
+      std::vector<EntityHandle> leaves;
+      double min_dist = MAX_NODE_DIST;
+      rval = kdtree.leaves_within_distance( root, exo_coords.array(), MAX_NODE_DIST, leaves );    
       if(MB_SUCCESS != rval) return rval;
-
-      // Find the matching cub node by id or proximity
-      for(std::vector<EntityHandle>::const_iterator k=leaf_verts.begin(); 
-        k!=leaf_verts.end(); ++k) {
-        if(match_node_ids) {
-          int cub_id;
-          rval = mdbImpl->tag_get_data( mGlobalIdTag, &(*k), 1, &cub_id );
-          if(MB_SUCCESS != rval) return rval;
-          if(exo_id == cub_id) {
-            cub_vert = *k;
-            break;
-          }
-        } else {
-          CartVect orig_cub_coords, difference;
-          rval = mdbImpl->get_coords( &(*k), 1, orig_cub_coords.array() );
+      for(std::vector<EntityHandle>::const_iterator j=leaves.begin(); j!=leaves.end(); ++j) {
+	std::vector<EntityHandle> leaf_verts;
+	rval = mdbImpl->get_entities_by_type( *j, MBVERTEX, leaf_verts );
+	if(MB_SUCCESS != rval) return rval;
+	for(std::vector<EntityHandle>::const_iterator k=leaf_verts.begin(); k!=leaf_verts.end(); ++k) {
+	  CartVect orig_cub_coords, difference;
+	  rval = mdbImpl->get_coords( &(*k), 1, orig_cub_coords.array() );
           if(MB_SUCCESS != rval) return rval;
           difference = orig_cub_coords - exo_coords;
           double dist = difference.length();
@@ -1922,13 +1931,15 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
             min_dist = dist;
             cub_vert = *k;
           }
-	}
+        }
       }
+      if(-1 != cub_vert) found_match = true;
     }
-    // If a cub vert is found, update it with the deformed coords from the exo file.
-    if(0 != cub_vert) {
+
+    // If a match is found, update it with the deformed coords from the exo file.
+    if(found_match) {
       CartVect updated_exo_coords;
-      matched_cub_vert_id_map[exo_id] = cub_vert;
+      matched_cub_vert_id_map.insert( std::pair<int,EntityHandle>(exo_id,cub_vert) );
       updated_exo_coords[0] = orig_coords[0][i] + deformed_arrays[0][i];
       updated_exo_coords[1] = orig_coords[1][i] + deformed_arrays[1][i];
       if(numberDimensions_loading == 3 )
@@ -1937,8 +1948,8 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
       if(MB_SUCCESS != rval) return rval;
       ++found;
       double magnitude = sqrt(deformed_arrays[0][i]*deformed_arrays[0][i] +
-                     deformed_arrays[1][i]*deformed_arrays[1][i] +
-                     deformed_arrays[2][i]*deformed_arrays[2][i]);
+      			      deformed_arrays[1][i]*deformed_arrays[1][i] +
+			      deformed_arrays[2][i]*deformed_arrays[2][i]);
       if(magnitude>max_magnitude) max_magnitude = magnitude;
       average_magnitude += magnitude;
     } else {
@@ -1946,9 +1957,9 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
       std::cout << "cannot match exo vert " << exo_id << " " << exo_coords << std::endl;
     }
   }
-  
-  std::cout << "  " << found 
-            << " nodes from the exodus file were matched in the cub_file_set ";
+
+  // Summarize statistics
+  std::cout << "  " << found << " nodes from the exodus file were matched in the cub_file_set ";
   if(match_node_ids) {
     std::cout << "by id." << std::endl;
   } else {
