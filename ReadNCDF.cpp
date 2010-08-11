@@ -1894,7 +1894,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   for(int i=0; i<numberNodes_loading; ++i) {
     int exo_id = ptr[i];
     CartVect exo_coords( orig_coords[0][i], orig_coords[1][i], orig_coords[2][i] );
-    EntityHandle cub_vert = -1;
+    EntityHandle cub_vert = 0;
     bool found_match = false;
 
     // by id
@@ -1933,7 +1933,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
           }
         }
       }
-      if(-1 != cub_vert) found_match = true;
+      if(0 != cub_vert) found_match = true;
     }
 
     // If a match is found, update it with the deformed coords from the exo file.
@@ -1954,8 +1954,29 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
       average_magnitude += magnitude;
     } else {
       ++lost;
-      std::cout << "cannot match exo vert " << exo_id << " " << exo_coords << std::endl;
+      std::cout << "cannot match exo node " << exo_id << " " << exo_coords << std::endl;
     }
+  }
+
+  // Exo verts that could not be matched have already been printed. Now print the
+  // cub verts that could not be matched.
+  if(matched_cub_vert_id_map.size() < cub_verts.size()) {
+    Range unmatched_cub_verts = cub_verts;
+    for(std::map<int,EntityHandle>::const_iterator i=matched_cub_vert_id_map.begin();
+        i!=matched_cub_vert_id_map.end(); ++i) {
+      unmatched_cub_verts.erase( i->second ); 
+    }
+    for(Range::const_iterator i=unmatched_cub_verts.begin(); i!=unmatched_cub_verts.end(); ++i) {
+      int cub_id;
+      rval = mdbImpl->tag_get_data( mGlobalIdTag, &(*i), 1, &cub_id );
+      if(MB_SUCCESS != rval) return rval;
+      CartVect cub_coords;
+      rval = mdbImpl->get_coords( &(*i), 1, cub_coords.array() );      
+      if(MB_SUCCESS != rval) return rval;
+      std::cout << "cannot match cub node " << cub_id << " " << cub_coords << std::endl;
+    }
+    std::cout << "  " << unmatched_cub_verts.size() 
+              << " nodes from the cub file could not be matched." << std::endl;
   }
 
   // Summarize statistics
