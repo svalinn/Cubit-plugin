@@ -3474,8 +3474,8 @@ void ReadHDF5::convert_range_to_handle( const EntityHandle* ranges,
       continue;
     if (id < it->begin)
       id = it->begin;
-    const long off = id - it->begin;
     while (id < end) {
+      const long off = id - it->begin;
       long count = std::min( it->count - off,  end - id );
       merge.insert( it->value + off, it->value + off + count - 1 );
       id += count;
