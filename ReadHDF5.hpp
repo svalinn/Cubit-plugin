@@ -17,11 +17,12 @@
 #ifndef READ_HDF5_HPP
 #define READ_HDF5_HPP
 
+#ifdef USE_MPI
+# include <moab_mpi.h>
+#endif
+
 #include <stdlib.h>
 #include <list>
-#ifdef USE_MPI
-#  include "moab_mpi.h"
-#endif
 #include "mhdf.h"
 #include "moab/Forward.hpp"
 #include "moab/ReadUtilIface.hpp"
@@ -43,6 +44,12 @@ class ReadHDF5Dataset;
 class ReadHDF5 : public ReaderIface
 {
 public:
+
+#ifdef USE_MPI
+  typedef MPI_Comm Comm;
+#else
+  typedef int Comm;
+#endif
 
   static ReaderIface* factory( Interface* );
 
@@ -132,6 +139,8 @@ private:
   DebugOutput dbgOut;
   //! Doing true parallel read (PARALLEL=READ_PART)
   bool nativeParallel;
+  //! MPI_Comm value (unused if \c !nativeParallel)
+  Comm* mpiComm;
   
   ErrorCode set_up_read( const char* file_name, const FileOptions& opts );
   ErrorCode clean_up_read( const FileOptions& opts );

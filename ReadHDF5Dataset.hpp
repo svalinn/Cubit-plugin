@@ -6,11 +6,16 @@
 #ifndef moab_READ_HDF5DATASET_HPP
 #define moab_READ_HDF5DATASET_HPP
 
+#ifdef USE_MPI
+# include <moab_mpi.h>
+#endif
+
 #include <H5Spublic.h>
 #include <H5Ppublic.h>
 #include <stdlib.h> // for size_t
 
 #include "moab/Range.hpp"
+#include <vector>
 
 namespace moab {
 
@@ -30,40 +35,13 @@ class ReadHDF5Dataset
 {
 public:
 
+#ifdef USE_MPI
+  typedef MPI_Comm Comm;
+#else
+  typedef int Comm;
+#endif
+
   class Exception { public: int line_no; Exception(int l) : line_no(l) {} };
-
-  /**\brief Setup to read rows of table
-   *\param data_set_handle The HDF5 DataSet to read.
-   *\param file_ids  A list of file ids to be read, where the table
-   *                 is assumed to contain entities with sequential
-   *                 file IDs, starting with start_id.
-   *\param start_id  File ID corresponding to first row of table.
-   *\param param     The data type of the buffer into which table values
-   *                 are to be read.
-   *\param close_data_set_on_destruct Call \c H5Dclose on passed
-   *                 \c data_set_handle in desturctor.
-   *
-   * Set up to read rows of table indicated by the set of offsets
-   * constructed by subtracting start_id from every value in file_ids.
-   */
-  ReadHDF5Dataset( hid_t data_set_handle,
-                   const Range& file_ids,
-                   EntityHandle start_id,
-                   hid_t data_type,
-                   bool close_data_set_on_destruct = true );
-
-
-
-  /**\brief Setup to read rows of one column table
-   *\copydetails moab::ReadHDF5DataSet::ReadHDF5DataSet(const Range&,EntityHandle)
-   *\param column The column of the table to read.
-   */
-  ReadHDF5Dataset( hid_t data_set_handle,
-                   const Range& file_ids,
-                   EntityHandle start_id,
-                   hid_t data_type,
-                   int column,
-                   bool close_data_set_on_destruct = false );
   
   /**\brief Setup to read entire table
    *\param data_set_handle The HDF5 DataSet to read.
@@ -71,22 +49,13 @@ public:
    *                 are to be read.
    *\param close_data_set_on_destruct Call \c H5Dclose on passed
    *                 \c data_set_handle in desturctor.
+   *
+   *\NOTE Class instance will not be usable until one of either
+   *      \c set_file_ids or \c set_all_file_ids is called.
    */
   ReadHDF5Dataset( hid_t data_set_handle ,
                    hid_t data_type,
                    bool close_data_set_on_destruct = true );
-  
-  /**\brief Setup to read single column for all rows 
-   *\param data_set_handle The HDF5 DataSet to read.
-   *\param param     The data type of the buffer into which table values
-   *                 are to be read.
-   *\param close_data_set_on_destruct Call \c H5Dclose on passed
-   *                 \c data_set_handle in desturctor.
-   */
-  ReadHDF5Dataset( hid_t data_set_handle ,
-                   hid_t data_type,
-                   int column,
-                   bool close_data_set_on_destruct = false );
   
   bool will_close_data_set() const { return closeDataSet; }
   void close_data_set_on_destruct( bool val ) { closeDataSet = true; }
@@ -94,9 +63,18 @@ public:
   ~ReadHDF5Dataset();
   
   
-  /**\brief Change file ids to read from. */
-  void set_file_ids( const Range& file_ids, EntityHandle start_id );
+  /**\brief Change file ids to read from. 
+   *
+   *\param io_prop     Read property taht will be passed to read calls.
+   *\param communictor If \c io_prop is \c H5FD_MPIO_COLLECTIVE, then this
+   *                   must be a pointer to the MPI_Communicator value.
+   */
+  void set_file_ids( const Range& file_ids, 
+                     EntityHandle start_id,
+                     hid_t io_prop = H5P_DEFAULT,
+                     const Comm* communicator = 0 );
   
+  void set_all_file_ids( hid_t io_prop = H5P_DEFAULT, const Comm* communicator = 0 );
   
   /**\brief Return false if more data to read, true otherwise
    *
@@ -118,8 +96,7 @@ public:
    */
   void read( void* buffer, 
              size_t max_rows,
-             size_t& rows_read,
-             hid_t io_prop = H5P_DEFAULT );
+             size_t& rows_read );
   
   /**\brief Return position in \c Range of file IDs at which next read will start
    */
@@ -132,25 +109,50 @@ public:
    * same number of read calls.  To prevent deadlock in this case, processes
    * that have finished their necessary read calls can call this function
    * so that all processes are calling the read method collectively.
-   *
-   *\param io_prop  Should be collective I/O.
    */
-  void null_read(hid_t io_prop);
+  void null_read();
   
   void set_data_type( hid_t type ) { dataType = type; }
   
   unsigned columns() const;
   void set_column( unsigned c );
 
+  enum Mode {
+    HYPERSLAB = 0, //!< Use H5Sselect_hyperslab for reading subsets
+    POINT = 1,     //!< Use H5Sselect_elements for reading subsets
+    CONTIGUOUS = 2 //!< Read contiguous blocks of data and eliminate unwanted values
+  };
+  
+  Mode get_mode() const { return ioMode; }
+  
+  const char* get_mode_str() const;
+
 private:
-  void init( const Range* file_ids, EntityHandle start_id, int column = -1 );
+  
+  Mode ioMode;
 
-  Range internalRange;
+  void init( int column = -1 );
+  
+  void read_hyperslab( void* buffer, 
+                       size_t max_rows,
+                       size_t& rows_read );
+  
+  void read_point( void* buffer, 
+                   size_t max_rows,
+                   size_t& rows_read );
+  
+  void read_contig( void* buffer, 
+                    size_t max_rows,
+                    size_t& rows_read );
 
-  bool closeDataSet;
+  Range internalRange; //!< used when reading entire dataset
+  std::vector<hsize_t> selectData; //!< array used for H5Sselect_elements
+
+  bool closeDataSet; //!< close dataset in destructor
   hsize_t dataSetOffset[H5S_MAX_RANK], dataSetCount[H5S_MAX_RANK];
-  hid_t dataSet, dataSpace, dataType;
+  hid_t dataSet, dataSpace, dataType, ioProp;
   int dataSpaceRank;
+  hsize_t rowsInTable;
   
   Range::const_iterator currOffset, rangeEnd;
   EntityHandle startID;
