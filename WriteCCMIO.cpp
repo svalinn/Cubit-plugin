@@ -926,12 +926,16 @@ namespace moab {
 				num_elems + this_num));
       CHKCCMERR(error, "Trouble writing cell map.");
 
+    if (-1 == matset_data[m].matsetId) 
+      for (i = 0; i < this_num; i++) egids[i] = m;
+    else
       for (i = 0; i < this_num; i++) egids[i] = matset_data[m].matsetId;
-      CCMIOWriteCells(&error, cells, cellMapID, &egids[0],
-		      CCMIOINDEXC(0 == m ? kCCMIOStart : num_elems), 
-		      CCMIOINDEXC(matset_data.size() == m ? kCCMIOEnd : 
-				  num_elems + this_num));
-      CHKCCMERR(error, "Trouble writing Cell node.");
+
+    CCMIOWriteCells(&error, cells, cellMapID, &egids[0],
+                    CCMIOINDEXC(0 == m ? kCCMIOStart : num_elems), 
+                    CCMIOINDEXC(matset_data.size() == m ? kCCMIOEnd : 
+                              num_elems + this_num));
+    CHKCCMERR(error, "Trouble writing Cell node.");
 
       //================================================
       // Write cell entity types

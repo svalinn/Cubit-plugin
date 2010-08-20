@@ -10,10 +10,12 @@
 #include <sstream>
 #include <map>
 
-#include "moab/Interface.hpp"
+#include "moab/Core.hpp"
 #include "moab/ReaderIface.hpp"
 #include "moab/ReadUtilIface.hpp"
 #include "MBTagConventions.hpp"
+#include "SequenceManager.hpp"
+#include "VertexSequence.hpp"
 
 #define ERRORR(rval, str) \
     if (MB_SUCCESS != rval) {readMeshIface->report_error(str); return rval;}
@@ -111,7 +113,9 @@ ErrorCode ReadNC::load_file(const char *file_name,
 
   rval = init_ijk_vals(opts);
   ERRORR(rval, "Trouble initializing ijk values.");
-  
+
+  rval = create_verts();
+  ERRORR(rval, "Trouble creating vertices.");
 /*  
   status = mdbImpl->get_entities_by_handle(0, initRange);
   if (MB_FAILURE == status) return status;
@@ -124,6 +128,27 @@ ErrorCode ReadNC::load_file(const char *file_name,
   status = read_variables(file_id_tag);
   if (MB_FAILURE == status) return status;
 */
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::create_verts() 
+{
+  Core *tmpImpl = dynamic_cast<Core*>(mbImpl);
+  SequenceManager *seq_mgr = tmpImpl->sequence_manager();
+  VertexSequence *vert_seq;
+  EntitySequence *dum_seq;
+  ErrorCode rval = seq_mgr->create_scd_sequence(ilMin, jlMin, (-1 != klMin ? klMin : 0),
+                                                ilMax, jlMax, (-1 != klMax ? klMax : 0),
+                                                MBVERTEX, (moab::EntityID)0, startVertex, dum_seq);
+  ERRORR(rval, "Trouble creating scd vertex sequence.");
+  
+  vert_seq = dynamic_cast<VertexSequence*>(dum_seq);
+  
+    // set the vertex coordinates
+  double *xc, *yc, *zc;
+  rval = vert_seq->get_coordinate_arrays(xc, yc, zc);
+  ERRORR(rval, "Couldn't get vertex coordinate arrays.");
+
   return MB_SUCCESS;
 }
 
@@ -162,12 +187,55 @@ ErrorCode ReadNC::init_ijk_vals(const FileOptions &opts)
   if (-1 != klMin) klVals.resize(klMax - klMin + 1);
 
     // ... then read actual values
+  ErrorCode rval;
+  if (ilMin != -1) {
+    rval = read_coordinate("lon", ilMin, ilMax, ilVals);
+    if (MB_SUCCESS != rval) 
+      rval = read_coordinate("x1", ilMin, ilMax, ilVals);
+    ERRORR(rval, "Couldn't find x coordinate.");
+  }
   
+  if (jlMin != -1) {
+    rval = read_coordinate("lat", jlMin, jlMax, jlVals);
+    if (MB_SUCCESS != rval) 
+      rval = read_coordinate("y1", jlMin, jlMax, jlVals);
+    ERRORR(rval, "Couldn't find y coordinate.");
+  }
+
+  if (klMin != -1) {
+    rval = read_coordinate("lev", klMin, klMax, klVals);
+  }
   
   return MB_SUCCESS;
 }
     
+ErrorCode ReadNC::read_coordinate(const char *var_name, int lmin, int lmax,
+                                  std::vector<double> &cvals) 
+{
+  std::map<std::string,VarData>::iterator vmit = varInfo.find(var_name);
+  if (varInfo.end() == vmit) return MB_FAILURE;
+  
+    // check to make sure it's a float or double
+  int success;
+  size_t tmin = lmin, tcount = lmax - lmin + 1;
+  ptrdiff_t dum_stride = 1;
+  if (NC_DOUBLE == (*vmit).second.varDataType) {
+    cvals.resize(tcount);
+    success = nc_get_vars_double(fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &cvals[0]);
+    ERRORS(success, "Failed to get coordinate values.");
+  }
+  else if (NC_FLOAT == (*vmit).second.varDataType) {
+    std::vector<float> tcvals(tcount);
+    success = nc_get_vars_float(fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &tcvals[0]);
+    ERRORS(success, "Failed to get coordinate values.");
+    std::copy(tcvals.begin(), tcvals.end(), cvals.begin());
+  }
+  else
+    ERRORR(MB_FAILURE, "Wrong data type for coordinate variable.");
 
+  return MB_SUCCESS;
+}
+      
 ErrorCode ReadNC::read_header()
 {
   CPU_WORD_SIZE = sizeof(double);  // With ExodusII version 2, all floats

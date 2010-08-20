@@ -109,8 +109,14 @@ private:
     //! parse min/max i/j/k in options, if any
   ErrorCode init_ijk_vals(const FileOptions &opts);
 
+  ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
+                            std::vector<double> &cvals);
+  
     //! number of dimensions in this nc file
   int number_dimensions();
+
+    //! create vertices for the file
+  ErrorCode create_verts();
 
   //------------member variables ------------//
 
@@ -119,9 +125,6 @@ private:
   
   int CPU_WORD_SIZE;
   int IO_WORD_SIZE;
-
-    //! int to offset vertex ids with
-  int vertexOffset;
 
     //! file name
   std::string fileName;
@@ -165,6 +168,9 @@ private:
     //! Meshset Handle for the mesh that is currently being read
   EntityHandle mCurrentMeshHandle;
 
+    //! starting vertex handle for this read
+  EntityHandle startVertex;
+
   //! Cached tags for reading.  Note that all these tags are defined when the
   //! core is initialized.
   Tag mGlobalIdTag;
@@ -173,6 +179,10 @@ private:
 
     //! range of entities in initial mesh, before this read
   Range initRange;
+
+    //! offset of first vertex id
+  int vertexOffset;
+  
 };
 
 // inline functions
