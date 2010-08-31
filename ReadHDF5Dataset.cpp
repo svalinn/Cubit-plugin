@@ -473,6 +473,8 @@ void ReadHDF5Dataset::null_read()
   err = H5Dread( dataSet, dataType, mem_id, dataSpace, ioProp, 0 );
   if (err < 0)
     throw Exception(__LINE__);
+    
+  H5Sclose( mem_id );
 }
 
 } // namespace moab
