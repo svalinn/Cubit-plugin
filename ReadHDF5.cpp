@@ -54,7 +54,7 @@
 
 namespace moab {
 
-#undef BLOCKED_COORD_IO
+#define BLOCKED_COORD_IO
 
 #define READ_HDF5_BUFFER_SIZE (40*1024*1024)
 
