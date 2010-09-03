@@ -597,7 +597,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
       return error(rval);
   }
 
-  dbgOut.print_ints( 3, "Set file IDs for partial read: ", file_ids );
+  dbgOut.print_ints( 2, "Set file IDs for partial read: ", file_ids );
   
   dbgOut.tprint( 1, "GATHERING ADDITIONAL ENTITIES\n" );
   
@@ -629,6 +629,8 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     if (MB_SUCCESS != rval)
       return error(rval);
   }
+  
+  debug_barrier();
   
     // get elements and vertices contained in sets
   rval = get_set_contents( sets, file_ids );
@@ -1067,7 +1069,8 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
 #ifdef BLOCKED_COORD_IO
   try {
     for (int d = 0; d < dim; ++d) {
-      ReadHDF5Dataset reader( data_id, H5T_NATIVE_DOUBLE, d );
+      ReadHDF5Dataset reader( data_id, H5T_NATIVE_DOUBLE, false );
+      reader.set_column( d );
       reader.set_file_ids( node_file_ids, fileInfo->nodes.start_id, collIO, mpiComm );
       dbgOut.tprintf(1,"Reading Node %c Coords (mode=%s)\n",(char)('X' + d),reader.get_mode_str()); 
       // should normally only have one read call, unless sparse nature
@@ -1814,6 +1817,7 @@ ErrorCode ReadHDF5::read_set_ids_recursive( Range& sets_in_out,
         break;
     }
     new_children = subtract( children,  sets_in_out );
+    dbgOut.print_ints( 2, "Adding additional contained/child sets", new_children );
     sets_in_out.merge( new_children );
   } while (!new_children.empty());
   
@@ -1997,6 +2001,9 @@ ErrorCode ReadHDF5::read_child_ids( const Range& input_file_ids,
                                     hid_t child_handle,
                                     Range& child_file_ids )
 {
+
+  dbgOut.tprintf(2,"Reading child set IDs for %ld ranges\n", (long)input_file_ids.psize());
+
   mhdf_Status status;
   long* buffer = reinterpret_cast<long*>(dataBuffer);
   long buffer_size = bufferSize / sizeof(long);
@@ -2073,6 +2080,8 @@ ErrorCode ReadHDF5::read_contained_set_ids( const Range& input_file_ids,
   long* content_buffer = reinterpret_cast<long*>(dataBuffer);
   unsigned short* flag_buffer = reinterpret_cast<unsigned short*>(content_buffer + buffer_size);
   long first, range[2], count, remaining, sets_offset;
+
+  dbgOut.tprintf(2,"Reading contained set IDs for %ld ranges\n", (long)input_file_ids.psize());
 
   Range sets(input_file_ids);
   Range::iterator hint;
@@ -2206,6 +2215,7 @@ ErrorCode ReadHDF5::read_sets( const Range& file_ids,
       reader.read( iter, remaining, count );
       iter += count;
       remaining -= count;
+      assert(reader.done() || reader.get_mode() == ReadHDF5Dataset::CONTIGUOUS);
     }
     assert(!remaining);
     assert(iter - buffer == (ptrdiff_t)num_sets);
@@ -2600,7 +2610,7 @@ ErrorCode ReadHDF5::get_set_contents( const Range& sets, Range& file_ids )
   if (sets.empty())
     return MB_SUCCESS;
 
-  dbgOut.print(1,"Reading set contained file IDs\n");
+  dbgOut.tprint(1,"Reading set contained file IDs\n");
   try {
     mhdf_Status status;
     long content_len;
