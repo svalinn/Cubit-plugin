@@ -139,16 +139,18 @@ ErrorCode ReadSmf::load_file( const char *filename,
   ivar.next_vertex = 1;
   state.push_back( SMF_State(ivar) );
 
-  while( !smfFile.eof() )
-    {
-	if( smfFile.getline(line, SMF_MAXLINE, '\n').good() )
-        {
-            ++lineNo;
-	    result = parse_line(line);
-            if (MB_SUCCESS != result)
-    		return result;
-	}
-    }
+  while( smfFile.getline(line, SMF_MAXLINE, '\n').good() ){
+    	
+    ++lineNo;
+    result = parse_line(line);
+    if (MB_SUCCESS != result)
+      return result;
+  }
+  
+  if( !smfFile.eof() ){
+    // parsing terminated for a reason other than EOF: signal failure.
+    return MB_FILE_WRITE_ERROR;
+  }
 
   // at this point we have _numNodesInFile vertices and _numElementsInFile triangles
   // the coordinates are in _coords, and connectivities in _connec
