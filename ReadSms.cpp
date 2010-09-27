@@ -160,9 +160,11 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
   if (MB_SUCCESS != result)
     return result;
     
-  result = add_entities( vstart, nvertices, file_id_tag );
-  if (MB_SUCCESS != result)
-    return result;
+  if (file_id_tag) {
+    result = add_entities( vstart, nvertices, file_id_tag );
+    if (MB_SUCCESS != result)
+      return result;
+  }
   
   EntityHandle this_gent, new_handle;
   std::vector<EntityHandle> gentities[4];
@@ -187,7 +189,7 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
     result = mdbImpl->add_entities(this_gent, &new_handle, 1);
     CHECK("Adding vertex to geom set failed.");
     if (MB_SUCCESS != result) return result;
-
+    
     switch(gent_type)
     {
       case 1:
@@ -220,11 +222,13 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
   result = readMeshIface->get_element_connect(nedges, 2, MBEDGE, 1, estart, connect);
   CHECK("Failed to create array of edges.");
   if (MB_SUCCESS != result) return result;
-    
-  result = add_entities( estart, nedges, file_id_tag );
-  if (MB_SUCCESS != result)
-    return result;
 
+  if (file_id_tag) {
+    result = add_entities( estart, nedges, file_id_tag );
+    if (MB_SUCCESS != result)
+      return result;
+  }
+  
   for(int i = 0; i < nedges; i++)
   {
     n = fscanf(file_ptr,"%d",&gent_id);
@@ -432,7 +436,7 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
 }
 
 ErrorCode ReadSms::get_set(std::vector<EntityHandle> *sets,
-                             int set_dim, int set_id,
+                           int set_dim, int set_id,
                              Tag dim_tag,
                              EntityHandle &this_set,
                              const Tag* file_id_tag) 
@@ -476,8 +480,8 @@ ErrorCode ReadSms::get_set(std::vector<EntityHandle> *sets,
 
 ErrorCode ReadSms::read_parallel_info(FILE *file_ptr) 
 {
-  return MB_FAILURE;
-    /*
+  ErrorCode result;
+
     // read partition info
   int nparts, part_id, num_ifaces, num_corner_ents;
   fscanf(file_ptr, "%d %d %d %d", &nparts, &part_id, &num_ifaces, &num_corner_ents);
@@ -490,23 +494,21 @@ ErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
     fscanf(file_ptr, "%d %d %d %d", &iface_id, &iface_dim, &iface_own,
            &num_iface_corners);
     
-    result = get_set(iface_id, iface_dim, iface_own, this_iface);
-    CHECK("Failed to make iface set.");
+//    result = get_set(sets, iface_dim, iface_id, dim_tag, iface_own, this_iface);
+//    CHECK("Failed to make iface set.");
     
       // read the corner ids and store them on the set for now
     iface_corners = new std::vector<int>(num_iface_corners);
     for (int j = 0; j < num_iface_corners; j++)
       fscanf(file_ptr, "%d", &(*iface_corners)[j]);
 
-    result = tag_set_data(ifaceCornerTag, &this_iface, 1,
-                          &iface_corners);
-    CHECK("Failed to set iface corner tag.");
-
+//    result = tag_set_data(ifaceCornerTag, &this_iface, 1,
+//                          &iface_corners);
+//    CHECK("Failed to set iface corner tag.");
   }
 
     // interface data has been read
   return MB_SUCCESS;
-    */
 }
 
 ErrorCode ReadSms::add_entities( EntityHandle start,
