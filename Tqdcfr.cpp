@@ -2628,7 +2628,9 @@ using namespace moab;
 
 int main(int argc, char* argv[])
 {
-
+#ifdef USE_MPI
+  int err = MPI_Init(&argc, &argv);
+#endif
     // Check command line arg
   const char* file = STRINGIFY(SRCDIR) "/brick_cubit10.2.cub";
   if (argc < 2)
@@ -2678,7 +2680,6 @@ int main(int argc, char* argv[])
   delete my_impl;
 
 #ifdef USE_MPI
-  int err = MPI_Init(&argc, &argv);
   int nprocs, rank;
   err = MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
   err = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
