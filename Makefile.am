@@ -27,6 +27,8 @@ if HDF5_FILE
                    ReadHDF5.hpp \
                    ReadHDF5Dataset.hpp \
                    ReadHDF5Dataset.cpp \
+                   ReadHDF5VarLen.hpp \
+                   ReadHDF5VarLen.cpp \
                    WriteHDF5.cpp \
                    WriteHDF5.hpp
   AM_CPPFLAGS += -I$(srcdir)/mhdf/include

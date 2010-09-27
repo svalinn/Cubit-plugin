@@ -10,9 +10,8 @@
 # include <moab_mpi.h>
 #endif
 
-#include <H5Spublic.h>
-#include <H5Ppublic.h>
 #include <stdlib.h> // for size_t
+#include <H5Ipublic.h>
 
 #include "moab/Range.hpp"
 #include <vector>
@@ -30,6 +29,8 @@ namespace moab {
  * NOTE: This class also implements an RAII pattern for the data set handle:
  *       It will close the data set in its destructor unless it is specified
  *       to the constructor that only a single column should be read.
+ *
+ * NOTE: This class will always do collective IO for parallel reads.
  */
 class ReadHDF5Dataset 
 {
@@ -45,16 +46,26 @@ public:
   
   /**\brief Setup to read entire table
    *\param data_set_handle The HDF5 DataSet to read.
-   *\param param     The data type of the buffer into which table values
-   *                 are to be read.
+   *\param parallel    Doing true partial-read parallel read (as opposed
+   *                   to read and delete where collective IO is done for
+   *                   everything because all procs read the same stuff.)
+   *\param communictor If \c parallel is \c true and \c io_prop is 
+   *                   \c H5FD_MPIO_COLLECTIVE, then this
+   *                   must be a pointer to the MPI_Communicator value.
    *\param close_data_set_on_destruct Call \c H5Dclose on passed
    *                 \c data_set_handle in desturctor.
    *
+   *\NOTE If \c parallel is \c true and \c io_prop is \c H5FD_MPIO_COLLECTIVE,
+   *      then not only must \c communicator be non-null, but this call must
+   *      be made collectively!
+
    *\NOTE Class instance will not be usable until one of either
    *      \c set_file_ids or \c set_all_file_ids is called.
    */
-  ReadHDF5Dataset( hid_t data_set_handle ,
-                   hid_t data_type,
+  ReadHDF5Dataset( const char* debug_desc,
+                   hid_t data_set_handle,
+                   bool parallel,
+                   const Comm* communicator = 0,
                    bool close_data_set_on_destruct = true );
   
   bool will_close_data_set() const { return closeDataSet; }
@@ -65,38 +76,41 @@ public:
   
   /**\brief Change file ids to read from. 
    *
-   *\param io_prop     Read property taht will be passed to read calls.
-   *\param communictor If \c io_prop is \c H5FD_MPIO_COLLECTIVE, then this
-   *                   must be a pointer to the MPI_Communicator value.
+   *\param file_ids    List of rows to read from dataset
+   *\param start_id    Rows of dataset are enumerating beginning with
+   *                   this value.  Thus the offset row to be read from
+   *                   dataset will be \c file_ids.begin() - \c start_id .
+   *\param row_count   Read buffer size in number of table rows.
+   *\param data_type       The data type of the buffer into which table values
+   *                       are to be read.
    */
   void set_file_ids( const Range& file_ids, 
                      EntityHandle start_id,
-                     hid_t io_prop = H5P_DEFAULT,
-                     const Comm* communicator = 0 );
+                     hsize_t row_cout,
+                     hid_t data_type );
   
-  void set_all_file_ids( hid_t io_prop = H5P_DEFAULT, const Comm* communicator = 0 );
+  /**\brief Read all values in dataset (undo set_file_ids)
+   *
+   *\param row_count   Read buffer size in number of table rows.
+   *\param data_type       The data type of the buffer into which table values
+   *                       are to be read.
+   */
+  void set_all_file_ids( hsize_t row_count, hid_t data_type );
   
   /**\brief Return false if more data to read, true otherwise
    *
    * Test if the iterative read has reached the end.
    */
-  bool done() const { return (currOffset == rangeEnd); }
+  bool done() const { return (currOffset == rangeEnd) && (readCount == 0); }
   
   /**\brief Read rows of table
    *
    * Read up to max_num_rows from data set.
    *\param buffer    Memory in which to store values read from data set
-   *\param type      HDF5 data type in which to store values in memory
-   *                 (data type of values in memory pointed to by \c buffer)
-   *\param max_rows  The maximum number of rows that will fit in \c buffer
    *\param rows_read The actual number of rows read from the table.  Will
    *                 never exceed \c max_rows .
-   *\param io_prop   Used to request collective IO or other special read
-   *                 options.
    */
-  void read( void* buffer, 
-             size_t max_rows,
-             size_t& rows_read );
+  void read( void* buffer, size_t& rows_read );
   
   /**\brief Return position in \c Range of file IDs at which next read will start
    */
@@ -112,50 +126,41 @@ public:
    */
   void null_read();
   
-  void set_data_type( hid_t type ) { dataType = type; }
-  
   unsigned columns() const;
   void set_column( unsigned c );
-
-  enum Mode {
-    HYPERSLAB = 0, //!< Use H5Sselect_hyperslab for reading subsets
-    POINT = 1,     //!< Use H5Sselect_elements for reading subsets
-    CONTIGUOUS = 2 //!< Read contiguous blocks of data and eliminate unwanted values
-  };
   
-  Mode get_mode() const { return ioMode; }
-  
-  const char* get_mode_str() const;
+  unsigned long get_read_count() const { return readCount; }
+  const char* get_debug_desc() const { return mpeDesc.c_str(); }
 
 private:
-  
-  Mode ioMode;
 
-  void init( int column = -1 );
-  
-  void read_hyperslab( void* buffer, 
-                       size_t max_rows,
-                       size_t& rows_read );
-  
-  void read_point( void* buffer, 
-                   size_t max_rows,
-                   size_t& rows_read );
-  
-  void read_contig( void* buffer, 
-                    size_t max_rows,
-                    size_t& rows_read );
+  Range::const_iterator next_end( Range::const_iterator iter, size_t num_rows );
 
   Range internalRange; //!< used when reading entire dataset
-  std::vector<hsize_t> selectData; //!< array used for H5Sselect_elements
 
   bool closeDataSet; //!< close dataset in destructor
-  hsize_t dataSetOffset[H5S_MAX_RANK], dataSetCount[H5S_MAX_RANK];
-  hid_t dataSet, dataSpace, dataType, ioProp;
-  int dataSpaceRank;
-  hsize_t rowsInTable;
+  hsize_t dataSetOffset[64], dataSetCount[64];
+  hid_t dataSet;       //!< Handle for HDF5 data set
+  hid_t dataSpace;     //!< Data space for data set
+  hid_t dataType;      //!< Data type client code wants for data
+  hid_t fileType;      //!< Data type as stored in data set
+  hid_t ioProp;        //!< Used to specify collective IO
+  int dataSpaceRank;   //!< Rank of data set
+  hsize_t rowsInTable; //!< Total number of rows in dataset
+  bool doConversion;   //!< True if dataType != fileType
+  bool nativeParallel; //!< If true then reading different data on different procs
+  
+  hsize_t readCount;  //!< Number of actual reads to do
+  hsize_t bufferSize; //!< size of buffer passed to \c read, in number of rows
+  const Comm* mpiComm;
   
   Range::const_iterator currOffset, rangeEnd;
   EntityHandle startID;
+  
+  static bool haveMPEEvents;
+  static std::pair<int,int> mpeReadEvent;
+  static std::pair<int,int> mpeReduceEvent;
+  std::string mpeDesc;
 }; 
 
 

@@ -73,6 +73,18 @@ public:
                              const FileOptions& opts,
                              std::vector<int>& tag_values_out,
                              const SubsetList* subset_list = 0 );
+  Interface* moab() const
+    { return iFace; }
+  
+  //! Store old HDF5 error handling function
+  struct HDF5ErrorHandler {
+#if defined(H5E_auto_t_vers) && H5E_auto_t_vers > 1
+    herr_t (*func)( hid_t, void* );
+#else
+    herr_t (*func)( void* );
+#endif
+    void* data;
+  };
 
 protected:
 
@@ -141,6 +153,9 @@ private:
   bool nativeParallel;
   //! MPI_Comm value (unused if \c !nativeParallel)
   Comm* mpiComm;
+  
+  //! Store old HDF5 error handling function
+  HDF5ErrorHandler errorHandler;
   
   ErrorCode set_up_read( const char* file_name, const FileOptions& opts );
   ErrorCode clean_up_read( const FileOptions& opts );
@@ -229,6 +244,7 @@ private:
   
   //! Read dense tag for all entities 
   ErrorCode read_dense_tag( Tag tag_handle,
+                            const char* ent_name,
                             hid_t hdf_read_type,
                             hid_t data_table,
                             long start_id,
@@ -250,11 +266,47 @@ private:
                               hid_t off_table,
                               long num_entities,
                               long num_values );
-                               
+
+  /**\brief Read index table for sparse tag.
+   *
+   * Read ID table for a sparse or veriable-length tag, returning
+   * the handles and offsets within the table for each file ID 
+   * that corresponds to an entity we've read from the file (an
+   * entity that is in \c idMap ).
+   *
+   * \param id_table     The MOAB handle for the tag
+   * \param start_offset Some non-zero value because ranges (in this case
+   *                     the offset_range) cannot contain zeros.
+   * \param offset_range Output: The offsets in the id table for which IDs 
+   *                     that occur in \c idMap were found.  All values
+   *                     are increased by \c start_offset to avoid 
+   *                     putting zeros in the range.
+   * \param handle_range Output: For each valid ID read from the table,
+   *                     the corresponding entity handle.  Note: if
+   *                     the IDs did not occur in handle order, then 
+   *                     this will be empty.  Use \c handle_vect instead.
+   * \param handle_vect  Output: For each valid ID read from the table,
+   *                     the corresponding entity handle.  Note: if
+   *                     the IDs occured in handle order, then 
+   *                     this will be empty.  Use \c handle_range instead.
+   */
+  ErrorCode read_sparse_tag_indices( const char* name,
+                                     hid_t id_table,
+                                     EntityHandle start_offset,
+                                     Range& offset_range,
+                                     Range& handle_range,
+                                     std::vector<EntityHandle>& handle_vect );
+  
   ErrorCode read_qa( EntityHandle file_set );
-                               
+
+public:                               
   ErrorCode convert_id_to_handle( EntityHandle* in_out_array,
                                   size_t array_length );
+                                    
+  void convert_id_to_handle( EntityHandle* in_out_array,
+                             size_t array_length,
+                             size_t& array_length_out ) const
+    { return convert_id_to_handle( in_out_array, array_length, array_length_out, idMap ); }
                                     
   ErrorCode convert_range_to_handle( const EntityHandle* ranges,
                                      size_t num_ranges,
@@ -279,7 +331,10 @@ private:
   
   ErrorCode insert_in_id_map( const Range& file_ids,
                               EntityHandle start_id );
-  
+                              
+  ErrorCode insert_in_id_map( long file_id, EntityHandle handle );
+private:
+
   /**\brief Search for entities with specified tag values 
    * 
    *\NOTE For parallel reads, this function does collective IO.
@@ -415,40 +470,7 @@ private:
                            hid_t set_meta_data_table,
                            hid_t set_children_table,
                            long set_children_length );
-   
 
-  class ContentReader {
-    public:
-      virtual ErrorCode 
-      store_data( EntityHandle, long file_id, EntityHandle*, long len, bool ranged = false ) = 0;
-   };
-   
-   /**\brief Read end-indexed variable length handle lists such as
-     *       set parents, set children, set contents, and old-format
-     *       poly connectivity.
-     *
-     * Read the contents of each entity set from the file, and add to
-     * the corresponding entity set in MOAB any contained entities that
-     * have been read from the file.
-     *\param file_ids        File IDs of entity sets to read.
-     *\param start_id        ID of first entity in table.
-     *\param start_handle    EntityHandle for first entity set in file_ids
-     *                       (assumes all sets in file_ids have sequential
-     *                        handles.)
-     *\param set_content_len Length of set contents table.
-     *\param ranged_file_ids Subset of file_ids for which set contents
-     *                       are stored in ranged format.
-     */
-  ErrorCode read_contents( ContentReader& tool,
-                           ReadHDF5Dataset& offset_data,
-                           ReadHDF5Dataset& content_data,
-                           const Range& file_ids,
-                           const long start_id,
-                           const EntityHandle start_handle,
-                           const long num_sets,
-                           const long set_content_len,
-                           const Range& ranged_file_ids );
-  
     /**\brief Store file IDS in tag values
      *
      * Copy fild ID from IDMap for each entity read from file
