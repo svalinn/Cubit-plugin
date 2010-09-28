@@ -132,6 +132,10 @@ public:
   unsigned long get_read_count() const { return readCount; }
   const char* get_debug_desc() const { return mpeDesc.c_str(); }
 
+  static void set_hyperslab_selection_limit( size_t val )
+    { hyperslabSelectionLimit = val; }
+  static void default_hyperslab_selection_limit();
+
 private:
 
   Range::const_iterator next_end( Range::const_iterator iter );
@@ -161,6 +165,8 @@ private:
   static std::pair<int,int> mpeReadEvent;
   static std::pair<int,int> mpeReduceEvent;
   std::string mpeDesc;
+  
+  static size_t hyperslabSelectionLimit;
 }; 
 
 

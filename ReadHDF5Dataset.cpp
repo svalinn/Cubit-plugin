@@ -27,7 +27,10 @@ namespace moab {
 
 // Selection of hyperslabs appears to be superlinear.  Don't try to select
 // more than a few thousand at a time or things start to get real slow.
-const size_t HYPERSLAB_SELECTION_LIMIT = 3000;
+const size_t DEFAULT_HYPERSLAB_SELECTION_LIMIT = 1000;
+size_t ReadHDF5Dataset::hyperslabSelectionLimit = DEFAULT_HYPERSLAB_SELECTION_LIMIT;
+void ReadHDF5Dataset::default_hyperslab_selection_limit()
+  { hyperslabSelectionLimit = DEFAULT_HYPERSLAB_SELECTION_LIMIT; }
 
 static std::pair<int,int> allocate_mpe_state( const char* name, const char* color )
 {
@@ -124,7 +127,7 @@ void ReadHDF5Dataset::set_column( unsigned column )
 
 Range::const_iterator ReadHDF5Dataset::next_end( Range::const_iterator iter )
 {
-  size_t slabs_remaining = HYPERSLAB_SELECTION_LIMIT;
+  size_t slabs_remaining = hyperslabSelectionLimit;
   size_t avail = bufferSize;
   while (iter != rangeEnd && slabs_remaining) {
     size_t count = *(iter.end_of_block()) - *iter + 1;

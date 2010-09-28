@@ -56,7 +56,7 @@
 
 namespace moab {
 
-#define BLOCKED_COORD_IO
+#undef BLOCKED_COORD_IO
 
 #define READ_HDF5_BUFFER_SIZE (40*1024*1024)
 
@@ -258,6 +258,12 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   else if (bufferSize < (int)std::max( sizeof(EntityHandle), sizeof(void*) )) {
     return error(MB_INVALID_SIZE);
   }
+  
+  ReadHDF5Dataset::default_hyperslab_selection_limit();
+  int hslimit;
+  rval = opts.get_int_option( "HYPERSLAB_SELECT_LIMIT", hslimit );
+  if (MB_SUCCESS == rval && hslimit > 0)
+    ReadHDF5Dataset::set_hyperslab_selection_limit( hslimit );
   
   dataBuffer = (char*)malloc( bufferSize );
   if (!dataBuffer)
