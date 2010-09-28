@@ -69,7 +69,7 @@ public:
                    bool close_data_set_on_destruct = true );
   
   bool will_close_data_set() const { return closeDataSet; }
-  void close_data_set_on_destruct( bool val ) { closeDataSet = true; }
+  void close_data_set_on_destruct( bool val ) { closeDataSet = val; }
   
   ~ReadHDF5Dataset();
   
@@ -134,7 +134,7 @@ public:
 
 private:
 
-  Range::const_iterator next_end( Range::const_iterator iter, size_t num_rows );
+  Range::const_iterator next_end( Range::const_iterator iter );
 
   Range internalRange; //!< used when reading entire dataset
 

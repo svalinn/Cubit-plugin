@@ -304,8 +304,8 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     }
       // Broadcast the size of the struct (zero indicates an error)
     dbgOut.tprint( 1, "Communicating file summary\n" );
-    int err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
-    if (err || !size)
+    int mpi_err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
+    if (mpi_err || !size)
       return MB_FAILURE;
     
       // allocate structure
@@ -1150,7 +1150,7 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
       }
     }
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     mhdf_closeData( filePtr, data_id, &status );
     return error(MB_FAILURE);
   }
@@ -1176,7 +1176,7 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
       coffset += count;
     }
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
 #endif
@@ -1248,7 +1248,7 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
     }
     assert(iter - array == (ptrdiff_t)count * nodes_per_elem);
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
   
@@ -1412,7 +1412,7 @@ ErrorCode ReadHDF5::read_elems( int i, const Range& elems_in, Range& nodes )
       copy_sorted_file_ids( buffer, num_read, nodes );
     }
   } 
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
   
@@ -2087,7 +2087,7 @@ ErrorCode ReadHDF5::read_contained_set_ids( const Range& input_file_ids,
     while (sets_offset < count) {
         // Find block of sets with same value for ranged flag
       long start_idx = sets_offset;
-      unsigned short ranged = flag_buffer[start_idx] & mhdf_SET_RANGE_BIT;
+      unsigned short ranged = static_cast<unsigned short>(flag_buffer[start_idx] & mhdf_SET_RANGE_BIT);
       for (++sets_offset; sets_offset < count; ++sets_offset)
         if ((flag_buffer[sets_offset] & mhdf_SET_RANGE_BIT) != ranged)
           break;
@@ -2196,7 +2196,7 @@ ErrorCode ReadHDF5::read_sets( const Range& file_ids,
       flags.insert( flags.end(), buffer, buffer+count );
     }
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
   
@@ -2229,7 +2229,7 @@ ErrorCode ReadHDF5::read_contents( const Range& set_file_ids,
                                    EntityHandle start_handle,
                                    hid_t set_meta_data_table,
                                    hid_t set_contents_table,
-                                   long set_contents_length,
+                                   long /*set_contents_length*/,
                                    const Range& ranged_set_file_ids )
 {
 
@@ -2285,7 +2285,7 @@ ErrorCode ReadHDF5::read_contents( const Range& set_file_ids,
                       handleType,
                       &ranged_set_file_ids );
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
 }
@@ -2295,7 +2295,7 @@ ErrorCode ReadHDF5::read_children( const Range& set_file_ids,
                                    EntityHandle start_handle,
                                    hid_t set_meta_data_table,
                                    hid_t set_contents_table,
-                                   long set_contents_length )
+                                   long /*set_contents_length*/ )
 {
   class ReadSetChildren : public ReadHDF5VarLen {
     ReadHDF5* readHDF5;
@@ -2337,7 +2337,7 @@ ErrorCode ReadHDF5::read_children( const Range& set_file_ids,
     return tool.read( met_dat, cnt_dat, set_file_ids, 
                       fileInfo->sets.start_id, handleType );
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
 }
@@ -2346,7 +2346,7 @@ ErrorCode ReadHDF5::read_parents( const Range& set_file_ids,
                                   EntityHandle start_handle,
                                   hid_t set_meta_data_table,
                                   hid_t set_contents_table,
-                                  long set_contents_length )
+                                  long /*set_contents_length*/ )
 {
   class ReadSetParents : public ReadHDF5VarLen {
     ReadHDF5* readHDF5;
@@ -2388,7 +2388,7 @@ ErrorCode ReadHDF5::read_parents( const Range& set_file_ids,
     return tool.read( met_dat, cnt_dat, set_file_ids, 
                       fileInfo->sets.start_id, handleType );
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
 }
@@ -2472,7 +2472,7 @@ ErrorCode ReadHDF5::get_set_contents( const Range& sets, Range& file_ids )
                       fileInfo->sets.start_id, handleType, &ranged );
     return rval;
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
 }
@@ -2990,7 +2990,6 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
       dbgOut.printf( 3, "Reading chunk %d of \"%s\" data\n", ++nn, tn.c_str() );
     
       size_t count;
-      Range::const_iterator iter = reader.next_file_id();
       reader.read( dataBuffer, count );
 
       if (MB_TYPE_HANDLE == mb_type) {
@@ -3010,7 +3009,7 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
         return error(MB_FAILURE);
     }
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
     
@@ -3083,7 +3082,7 @@ ErrorCode ReadHDF5::read_sparse_tag_indices( const char* name,
       offset += count;
     }  
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
 
@@ -3096,7 +3095,7 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
                                      hid_t hdf_read_type,
                                      hid_t id_table,
                                      hid_t value_table,
-                                     long num_values )
+                                     long /*num_values*/ )
 {
     // Read entire ID table and for those file IDs corresponding
     // to entities that we have read from the file add both the
@@ -3162,7 +3161,7 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
         return error(rval);
     }
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
   
@@ -3174,8 +3173,8 @@ ErrorCode ReadHDF5::read_var_len_tag( Tag tag_handle,
                                       hid_t ent_table,
                                       hid_t val_table,
                                       hid_t off_table,
-                                      long num_entities,
-                                      long num_values )
+                                      long /*num_entities*/,
+                                      long /*num_values*/ )
 {
   ErrorCode rval;
   DataType mbtype;
@@ -3280,7 +3279,7 @@ ErrorCode ReadHDF5::read_var_len_tag( Tag tag_handle,
     if (MB_SUCCESS != rval)
       return error(rval);
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception) {
     return error(MB_FAILURE);
   }
   
@@ -3546,7 +3545,7 @@ ErrorCode ReadHDF5::read_tag_values_partial( int tag_index,
         tag_values.insert( tag_values.end(), data_buffer, data_buffer+count );
       }
     }
-    catch (ReadHDF5Dataset::Exception e) {
+    catch (ReadHDF5Dataset::Exception) {
       return error(MB_FAILURE);
     }
   }
@@ -3605,7 +3604,7 @@ ErrorCode ReadHDF5::read_tag_values_partial( int tag_index,
         curr_data.insert( curr_data.end(), data_buffer, data_buffer + count );
       }
     }
-    catch (ReadHDF5Dataset::Exception e) {
+    catch (ReadHDF5Dataset::Exception) {
       return error(MB_FAILURE);
     }
     

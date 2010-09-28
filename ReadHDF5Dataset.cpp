@@ -32,9 +32,11 @@ const size_t HYPERSLAB_SELECTION_LIMIT = 3000;
 static std::pair<int,int> allocate_mpe_state( const char* name, const char* color )
 {
   std::pair<int,int> result;
+#ifdef USE_MPE
   result.first = MPE_Allocate_event();
   result.second = MPE_Allocate_event();
   MPE_Describe_state( result.first, result.second, name, color );
+#endif
   return result;
 }
 
@@ -114,14 +116,13 @@ unsigned ReadHDF5Dataset::columns() const
 
 void ReadHDF5Dataset::set_column( unsigned column )
 {
-  if (dataSpaceRank != 2 || column < 0 || column >= dataSetCount[1])
+  if (dataSpaceRank != 2 || column >= dataSetCount[1])
     throw Exception(__LINE__);
   dataSetCount[1] = 1;
   dataSetOffset[1] = column;
 }
 
-Range::const_iterator ReadHDF5Dataset::next_end( Range::const_iterator iter,
-                                                 size_t num_rows )
+Range::const_iterator ReadHDF5Dataset::next_end( Range::const_iterator iter )
 {
   size_t slabs_remaining = HYPERSLAB_SELECTION_LIMIT;
   size_t avail = bufferSize;
@@ -159,7 +160,7 @@ void ReadHDF5Dataset::set_file_ids( const Range& file_ids,
     Range::const_iterator iter = currOffset;
     while (iter != rangeEnd) {
       ++readCount;
-      iter = next_end( iter, row_count );
+      iter = next_end( iter );
     }
     
     MPE_Log_event(mpeReduceEvent.first, (int)readCount, mpeDesc.c_str());
@@ -224,7 +225,7 @@ void ReadHDF5Dataset::read( void* buffer,
       // Build H5S hyperslab selection describing the portions of the
       // data set to read
     H5S_seloper_t sop = H5S_SELECT_SET;
-    Range::iterator new_end = next_end( currOffset, bufferSize );
+    Range::iterator new_end = next_end( currOffset );
     while (currOffset != new_end) {
       size_t count = *(currOffset.end_of_block()) - *currOffset + 1;
       if (new_end != rangeEnd && *currOffset + count > *new_end) {
