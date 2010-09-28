@@ -589,6 +589,11 @@ void
 mhdf_closeFile( mhdf_FileHandle handle,
                 mhdf_Status* status );
 
+/**\brief Check for open handles in file
+ **/
+int
+mhdf_checkOpenHandles( mhdf_FileHandle handle, mhdf_Status* status );
+
 /** \brief Common close function for all data handle types.
  *
  * Close an hid_t-type handle returned from any of the following

@@ -388,6 +388,36 @@ mhdf_getElemName( mhdf_FileHandle file_handle,
   API_END;
 }
 
+int
+mhdf_checkOpenHandles( mhdf_FileHandle handle,
+                       mhdf_Status* status )
+{
+  FileHandle* file_ptr;
+  API_BEGIN;
+
+  file_ptr = (FileHandle*)(handle);
+  if (!mhdf_check_valid_file( file_ptr, status ))
+    return -1;
+  
+  /* Check for open handles.  HDF5 will not actually close the
+     file until all handles are closed. */
+  int result = H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_ALL );
+  if (result != 1)
+  {
+    mhdf_setFail( status, "Cannot close file with open handles: "
+                 "%d file, %d data, %d group, %d type, %d attr\n",
+                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_FILE ) - 1,
+                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_DATASET ),
+                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_GROUP ),
+                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_DATATYPE ),
+                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_ATTR ) );
+    return result - 1;
+  }
+
+  API_END_H( 0 );
+  return 0;
+}
+
 void 
 mhdf_closeFile( mhdf_FileHandle handle,
                 mhdf_Status* status )
@@ -409,17 +439,8 @@ mhdf_closeFile( mhdf_FileHandle handle,
   
   /* Check for open handles.  HDF5 will not actually close the
      file until all handles are closed. */
-  if (H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_ALL ) != 1)
-  {
-    mhdf_setFail( status, "Cannot close file with open handles: "
-                 "%d file, %d data, %d group, %d type, %d attr\n",
-                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_FILE ) - 1,
-                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_DATASET ),
-                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_GROUP ),
-                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_DATATYPE ),
-                  H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_ATTR ) );
+  if (mhdf_checkOpenHandles( handle, status ))
     return;
-  }
  
   if (0 > H5Fclose( file_ptr->hdf_handle ))
   {

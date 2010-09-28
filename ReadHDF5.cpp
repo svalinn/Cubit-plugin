@@ -1151,6 +1151,7 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
         offset += count;
       }
       if (offset != num_nodes) {
+        mhdf_closeData( filePtr, data_id, &status );
         assert(false);
         return MB_FAILURE;
       }
@@ -1160,7 +1161,6 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
     mhdf_closeData( filePtr, data_id, &status );
     return error(MB_FAILURE);
   }
-  mhdf_closeData( filePtr, data_id, &status );
 #else
   double* buffer = (double*)dataBuffer;
   long chunk_size = bufferSize / (3*sizeof(double));
@@ -1183,9 +1183,11 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
     }
   }
   catch (ReadHDF5Dataset::Exception) {
+    mhdf_closeData( filePtr, data_id, &status );
     return error(MB_FAILURE);
   }
 #endif
+  mhdf_closeData( filePtr, data_id, &status );
   for (int d = dim; d < cdim; ++d)
     memset( arrays[d], 0, num_nodes*sizeof(double) );
     
