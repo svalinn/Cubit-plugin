@@ -1630,6 +1630,8 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
   }
   
     // now delete anything remaining in all_elems
+  dbgOut.printf( 2, "Deleting %lu elements\n", (unsigned long)all_elems.size() );
+  dbgOut.print( 4, "\tDead entities: ", all_elems );
   rval = iFace->delete_entities( all_elems );
   if (MB_SUCCESS != rval)
     return error(rval);
@@ -2980,7 +2982,9 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
     // Given that all of the entities for this dense tag data should
     // have been created as a single contiguous block, the resulting
     // MOAB handle range should be contiguous. 
-  assert( handles.empty() || handles.size() == (handles.back() - handles.front() + 1));
+    // THE ABOVE IS NOT NECESSARILY TRUE.  SOMETIMES LOWER-DIMENSION
+    // ENTS ARE READ AND THEN DELETED FOR PARTIAL READS.
+  //assert( handles.empty() || handles.size() == (handles.back() - handles.front() + 1));
   
   std::string tn("<error>");
   iFace->tag_get_name( tag_handle, tn );
