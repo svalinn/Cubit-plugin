@@ -58,7 +58,7 @@ namespace moab {
 
 #undef BLOCKED_COORD_IO
 
-#define READ_HDF5_BUFFER_SIZE (40*1024*1024)
+#define READ_HDF5_BUFFER_SIZE (128*1024*1024)
 
 #define assert_range( PTR, CNT ) \
   assert( (PTR) >= (void*)dataBuffer ); assert( ((PTR)+(CNT)) <= (void*)(dataBuffer + bufferSize) );
