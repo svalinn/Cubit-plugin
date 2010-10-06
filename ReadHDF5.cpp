@@ -1240,10 +1240,12 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
     return error(MB_FAILURE);
   }
 #endif
+  dbgOut.print(3,"Closing node coordinate table\n");
   mhdf_closeData( filePtr, data_id, &status );
   for (int d = dim; d < cdim; ++d)
     memset( arrays[d], 0, num_nodes*sizeof(double) );
     
+  dbgOut.printf(3,"Updating ID to handle map for %lu nodes\n", (unsigned long)node_file_ids.size());
   return insert_in_id_map( node_file_ids, handle );
 }
 
@@ -3086,6 +3088,7 @@ ErrorCode ReadHDF5::read_sparse_tag_indices( const char* name,
             std::copy( handle_range.begin(), handle_range.end(), handle_vect.begin() );
             handle_range.clear();
             handle_vect.push_back( idbuf[i] );
+            dbgOut.print(2,"Switching to unordered list for tag handle list\n");
           }
         }
       }
@@ -3145,11 +3148,13 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
     // Now read data values
   size_t chunk_size = bufferSize / read_size;
   try {
-    tn += " values";
-    ReadHDF5Dataset val_reader( tn.c_str(), value_table, nativeParallel, mpiComm, false );
+    ReadHDF5Dataset val_reader( (tn + " values").c_str(), value_table, nativeParallel, mpiComm, false );
     val_reader.set_file_ids( offset_range, base_offset, chunk_size, hdf_read_type );
+    dbgOut.printf( 3, "Reading sparse values for tag \"%s\" in %lu chunks\n", tn.c_str(), val_reader.get_read_count() );
+    int nn = 0;
     size_t offset = 0;
     while (!val_reader.done()) {
+      dbgOut.printf( 3, "Reading chunk %d of \"%s\" IDs\n", ++nn, tn.c_str() );
       size_t count;
       val_reader.read( dataBuffer, count );
       if (MB_TYPE_HANDLE == mbtype) {
@@ -3366,13 +3371,19 @@ ErrorCode ReadHDF5::convert_range_to_handle( const EntityHandle* array,
 ErrorCode ReadHDF5::insert_in_id_map( const Range& file_ids,
                                       EntityHandle start_id )
 {
+  IDMap tmp_map;
+  bool merge = !idMap.empty() && !file_ids.empty() && idMap.back().begin > (long)file_ids.front();
+  IDMap& map = merge ? tmp_map : idMap;
   Range::const_pair_iterator p;
   for (p = file_ids.const_pair_begin(); p != file_ids.const_pair_end(); ++p) {
     size_t count = p->second - p->first + 1;
-    if (!idMap.insert( p->first, start_id, count ).second) 
+    if (!map.insert( p->first, start_id, count ).second) 
       return error(MB_FAILURE);
     start_id += count;
   }
+  if (merge && !idMap.merge( tmp_map ))
+    return error(MB_FAILURE);
+  
   return MB_SUCCESS;
 }
 
