@@ -710,7 +710,32 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     
   dbgOut.tprint( 1, "GATHERING NODE IDS\n" );
   
-    // if input contained any polyhedra, need to get faces
+    // Figure out the maximum dimension of entity to be read
+  int max_dim = 0;
+  for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
+    EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
+    if (type <= MBVERTEX || type >= MBENTITYSET) {
+      assert( false ); // for debug code die for unknown element tyoes
+      continue; // for release code, skip unknown element types
+    }
+    int dim = CN::Dimension(type);
+    if (dim > max_dim) {
+      Range subset;
+      intersect( fileInfo->elems[i].desc, file_ids, subset );
+      if (!subset.empty())
+        max_dim = dim;
+    }
+  }
+#ifdef USE_MPI
+  if (nativeParallel) {
+    int send = max_dim;
+    MPI_Allreduce( &send, &max_dim, 1, MPI_INT, MPI_MAX, *mpiComm );
+  }
+#endif
+  
+    // if input contained any polyhedra, then need to get faces
+    // of the polyhedra before the next loop because we need to 
+    // read said faces in that loop.
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
     EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
     if (type != MBPOLYHEDRON)
@@ -721,7 +746,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     
     Range polyhedra;
     intersect( fileInfo->elems[i].desc, file_ids, polyhedra );
-    rval = read_elems( i, polyhedra, file_ids );
+    rval = read_elems( i, polyhedra, &file_ids );
     if (MB_SUCCESS != rval)
       return error(rval);
   }
@@ -737,13 +762,24 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     }
     if (MBPOLYHEDRON == type)
       continue;
-    
+      
     debug_barrier();
     dbgOut.printf( 2, "    Getting element node IDs for: %s\n", fileInfo->elems[i].handle );
     
     Range subset;
     intersect( fileInfo->elems[i].desc, file_ids, subset );
-    rval = read_elems( i, subset, nodes );
+    
+      // If dimension is max_dim, then we can create the elements now
+      // so we don't have to read the table again later (connectivity 
+      // will be fixed up after nodes are created when update_connectivity())
+      // is called.  For elements of a smaller dimension, we just build
+      // the node ID range now because a) we'll have to read the whole 
+      // connectivity table again later, and b) we don't want to worry
+      // about accidentally creating multiple copies of the same element.
+    if (CN::Dimension(type) == max_dim)
+      rval = read_elems( i, subset, &nodes );
+    else
+      rval = read_elems( i, subset, nodes );
     if (MB_SUCCESS != rval)
       return error(rval);
   }
@@ -757,7 +793,6 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   rval = read_nodes( nodes );
   if (MB_SUCCESS != rval)
     return error(rval);
-
  
   debug_barrier();
   dbgOut.tprint( 1, "READING ELEMENTS\n" );
@@ -767,13 +802,9 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   const char* const options[] = { "EXPLICIT", "NODES", "SIDES", 0 };
   rval = opts.match_option( "ELEMENTS", options, side_mode );
   if (MB_ENTITY_NOT_FOUND == rval) {
-      // Chose default based on whether or not any elements have been
-      // specified.
-    Range tmp;
-    intersect( fileInfo->nodes, file_ids, tmp );
       // If only nodes were specified, then default to "NODES", otherwise
       // default to "SIDES".
-    if (!tmp.empty() && (tmp.size() + sets.size()) == file_ids.size())
+    if (0 == max_dim)
       side_mode = 1;
     else
       side_mode = 2;
@@ -783,46 +814,86 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     return error(rval);
   }
   
-  switch (side_mode) {
-    case 0: // ELEMENTS=EXPLICIT : read only specified element IDS
-    for (int dim = 1; dim <= 3; ++dim) {
-      for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-        EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
-        if (CN::Dimension(type) == dim) {
-          debug_barrier();
-          dbgOut.tprintf( 2, "    Reading element connectivity for: %s\n", fileInfo->elems[i].handle );
-          Range subset;
-          intersect( fileInfo->elems[i].desc, file_ids, subset );
-          rval = read_elems( fileInfo->elems[i],  subset );
-          if (MB_SUCCESS != rval)
-            return error(rval);
-        }
-      }
-    }
-    break;
-    
-    case 1: // ELEMENTS=NODES : read all elements for which all nodes have been read
-    for (int dim = 1; dim <= 3; ++dim) {
+  if (side_mode == 2 /*ELEMENTS=SIDES*/ && max_dim == 0 /*node-based*/) {
+      // Read elements until we find something.  Once we find someting,
+      // read only elements of the same dimension.  NOTE: loop termination
+      // criterion changes on both sides (max_dim can be changed in loop
+      // body).
+    for (int dim = 3; dim >= max_dim; --dim) {
       for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
         EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
         if (CN::Dimension(type) == dim) {
           debug_barrier();
           dbgOut.tprintf( 2, "    Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle );
+          Range ents;
           rval = read_node_adj_elems( fileInfo->elems[i] );
+          if (MB_SUCCESS != rval)
+            return error(rval);
+          if (!ents.empty())
+            max_dim = 3;
+        }
+      }
+    }
+  }
+
+  Range side_entities;
+  if (side_mode != 0 /*ELEMENTS=NODES || ELEMENTS=SIDES*/) {
+    if (0 == max_dim)
+      max_dim = 4;
+      // now read any additional elements for which we've already read all
+      // of the nodes.
+    for (int dim = max_dim - 1; dim > 0; --dim) {
+      for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
+        EntityType type = CN::EntityTypeFromName( fileInfo->elems[i].type );
+        if (CN::Dimension(type) == dim) {
+          debug_barrier();
+          dbgOut.tprintf( 2, "    Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle );
+          rval = read_node_adj_elems( fileInfo->elems[i], &side_entities );
           if (MB_SUCCESS != rval)
             return error(rval);
         }
       }
     }
-    break;
-    
-    case 2: // ELEMENTS=SIDES : read explicitly specified elems and any sides of those elems
+  }
+
+    // We need to do this here for polyhedra to be handled coorectly.
+    // We have to wait until the faces are read in the above code block,
+    // but need to create the connectivity before doing update_connectivity, 
+    // which might otherwise delete polyhedra faces.
+  debug_barrier();
+  dbgOut.tprint( 1, "UPDATING CONNECTIVITY ARRAYS FOR READ ELEMENTS\n" );
+  rval = update_connectivity();
+  if (MB_SUCCESS != rval)
+    return error(rval);
+
+  
+  dbgOut.tprint( 1, "READING ADJACENCIES\n" );
+  for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
+    if (fileInfo->elems[i].have_adj &&
+        idMap.intersects( fileInfo->elems[i].desc.start_id, fileInfo->elems[i].desc.count )) {
+      long len;
+      hid_t th = mhdf_openAdjacency( filePtr, fileInfo->elems[i].handle, &len, &status );
+      if (is_error(status))
+        return error(MB_FAILURE);
+
+      rval = read_adjacencies( th, len );
+      mhdf_closeData( filePtr, th, &status );
+      if (MB_SUCCESS != rval)
+        return error(rval);
+    }
+  }
+  
+    // If doing ELEMENTS=SIDES then we need to delete any entities
+    // that we read that aren't actually sides (e.g. an interior face
+    // that connects two disjoint portions of the part).  Both
+    // update_connectivity and reading of any explicit adjacencies must
+    // happen before this.
+  if (side_mode == 2) {
     debug_barrier();
-    dbgOut.tprint( 2, "    Reading elements and sides\n");
-    rval = read_elements_and_sides( file_ids );
+    dbgOut.tprint( 1, "CHECKING FOR AND DELETING NON-SIDE ELEMENTS\n" );
+    rval = delete_non_side_elements( side_entities );
     if (MB_SUCCESS != rval)
       return error(rval);
-    break;
   }
   
   debug_barrier();
@@ -849,24 +920,6 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   rval = read_sets( sets );
   if (MB_SUCCESS != rval)
     return error(rval);
-
-  
-  dbgOut.tprint( 1, "READING ADJACENCIES\n" );
-    
-  for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    if (fileInfo->elems[i].have_adj &&
-        idMap.intersects( fileInfo->elems[i].desc.start_id, fileInfo->elems[i].desc.count )) {
-      long len;
-      hid_t th = mhdf_openAdjacency( filePtr, fileInfo->elems[i].handle, &len, &status );
-      if (is_error(status))
-        return error(MB_FAILURE);
-
-      rval = read_adjacencies( th, len );
-      mhdf_closeData( filePtr, th, &status );
-      if (MB_SUCCESS != rval)
-        return error(rval);
-    }
-  }
   
   dbgOut.tprint( 1, "READING TAGS\n" );
   
@@ -1202,15 +1255,18 @@ ErrorCode ReadHDF5::read_elems( int i )
   return read_elems( i, ids );
 }
 
-ErrorCode ReadHDF5::read_elems( int i, const Range& file_ids )
+ErrorCode ReadHDF5::read_elems( int i, const Range& file_ids, Range* node_ids )
 {
-  if (fileInfo->elems[i].desc.vals_per_ent < 0)
+  if (fileInfo->elems[i].desc.vals_per_ent < 0) {
+    if (node_ids != 0) // not implemented for version 3 format of poly data
+      return error(MB_TYPE_OUT_OF_RANGE);
     return read_poly( fileInfo->elems[i], file_ids );
+  }
   else
-    return read_elems( fileInfo->elems[i], file_ids );
+    return read_elems( fileInfo->elems[i], file_ids, node_ids );
 }
 
-ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_ids )
+ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_ids, Range* node_ids )
 {
 
   debug_barrier();
@@ -1253,6 +1309,12 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
       size_t num_read;
       reader.read( buffer, num_read );
       iter = std::copy( buffer, buffer+num_read*nodes_per_elem, iter );
+      
+      if (node_ids) {
+        std::sort( buffer, buffer + num_read*nodes_per_elem );
+        num_read = std::unique( buffer, buffer + num_read*nodes_per_elem ) - buffer;
+        copy_sorted_file_ids( buffer, num_read, *node_ids );
+      }
     }
     assert(iter - array == (ptrdiff_t)count * nodes_per_elem);
   }
@@ -1260,18 +1322,45 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
     return error(MB_FAILURE);
   }
   
-  rval = convert_id_to_handle( array, count*nodes_per_elem );
-  if (MB_SUCCESS != rval)
-    return error(rval);
+  if (!node_ids) {
+    rval = convert_id_to_handle( array, count*nodes_per_elem );
+    if (MB_SUCCESS != rval)
+      return error(rval);
+
+    rval = readUtil->update_adjacencies( handle, count, nodes_per_elem, array );
+    if (MB_SUCCESS != rval)
+      return error(rval);
+  }
+  else {
+    IDConnectivity t;
+    t.handle = handle;
+    t.count = count;
+    t.nodes_per_elem = nodes_per_elem;
+    t.array = array;
+    idConnectivityList.push_back(t);
+  }
   
-  rval = readUtil->update_adjacencies( handle, count, nodes_per_elem, array );
-  if (MB_SUCCESS != rval)
-    return error(rval);
- 
   return insert_in_id_map( file_ids, handle );
 }
 
-ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group )
+ErrorCode ReadHDF5::update_connectivity()
+{
+  ErrorCode rval;
+  std::vector<IDConnectivity>::iterator i;
+  for (i = idConnectivityList.begin(); i != idConnectivityList.end(); ++i) {
+    rval = convert_id_to_handle( i->array, i->count * i->nodes_per_elem );
+    if (MB_SUCCESS != rval)
+      return error(rval);
+    
+    rval = readUtil->update_adjacencies( i->handle, i->count, i->nodes_per_elem, i->array );
+    if (MB_SUCCESS != rval)
+      return error(rval);
+  }
+  idConnectivityList.clear();
+  return MB_SUCCESS;    
+}
+
+ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group, Range* handles_out )
 {
   mhdf_Status status;
   ErrorCode rval;
@@ -1280,7 +1369,7 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group )
   if (is_error(status))
     return error(MB_FAILURE);
     
-  rval = read_node_adj_elems( group, table );
+  rval = read_node_adj_elems( group, table, handles_out );
   
   mhdf_closeData( filePtr, table, &status );
   if (MB_SUCCESS == rval && is_error(status))
@@ -1289,7 +1378,8 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group )
 }
 
 ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group, 
-                                         hid_t table_handle )
+                                         hid_t table_handle,
+                                         Range* handles_out )
 {
 
   debug_barrier();
@@ -1312,6 +1402,9 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group,
   dbgOut.printf( 3, "Reading node-adjacent elements from \"%s\" in %ld chunks\n",
     group.handle, (remaining + buffer_size - 1) / buffer_size );
   int nn = 0;
+  Range::iterator hint;
+  if (handles_out)
+    hint = handles_out->begin();
   while (remaining) {
     dbgOut.printf( 3, "Reading chunk %d of connectivity data for \"%s\"\n", ++nn, group.handle );
   
@@ -1358,7 +1451,7 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group,
                                          array );
     if (MB_SUCCESS != rval)
       return error(rval);
-    
+   
       // copy all non-zero connectivity values
     iter = buffer;
     EntityHandle* iter2 = array;
@@ -1377,7 +1470,12 @@ ErrorCode ReadHDF5::read_node_adj_elems( const mhdf_ElemDesc& group,
     }
     assert( iter2 - array == num_elem * node_per_elem );
     start_id += count;
-  }
+    
+    rval = readUtil->update_adjacencies( handle, num_elem, node_per_elem, array );
+    if (MB_SUCCESS != rval) return error(rval);
+    if (handles_out)
+      hint = handles_out->insert( hint, handle, handle + num_elem - 1 );
+   }
   
   debug_track.all_reduce();
   return MB_SUCCESS;
@@ -1426,6 +1524,7 @@ ErrorCode ReadHDF5::read_elems( int i, const Range& elems_in, Range& nodes )
   
   return MB_SUCCESS;
 }
+
 
 ErrorCode ReadHDF5::read_poly( const mhdf_ElemDesc& elems, const Range& file_ids )
 {
@@ -1481,165 +1580,65 @@ ErrorCode ReadHDF5::read_poly( const mhdf_ElemDesc& elems, const Range& file_ids
   return tool.read( offset_reader, connect_reader, file_ids, first_id, handleType );
 }
 
-ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
+
+ErrorCode ReadHDF5::delete_non_side_elements( const Range& side_ents )
 {
   ErrorCode rval;
-  EntityType type;
-    
-    // determine largest element dimension
-  int max_dim = 0;
-  for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    type = CN::EntityTypeFromName( fileInfo->elems[i].type );
-    int dim = CN::Dimension(type);
-    if (dim > max_dim) {
-      EntityHandle start = (EntityHandle)fileInfo->elems[i].desc.start_id;
-      Range::iterator it = file_ids.lower_bound( start );
-      if (it != file_ids.end() && (long)(*it - start ) < fileInfo->elems[i].desc.count)
-        max_dim = dim;
-    }
-  }
-  
-    // Need to do some communication here to make sure that
-    // things work correctly if some proc ended up w/ no entities
-#ifdef USE_MPI
-  if (nativeParallel) {
-    int send_val = max_dim;
-    MPI_Allreduce( &send_val, &max_dim, 1, MPI_INT, MPI_MAX, 
-                   myPcomm->proc_config().proc_comm() );
-  }
-#endif
 
-  dbgOut.printf(2, "read_elements_and_sides: max_dim = %d\n", max_dim);
-  
-    // Get Range of element IDs only
-  Range elem_ids( file_ids );
-  Range::iterator s, e;
-  if (fileInfo->nodes.count) {
-    EntityHandle first = (EntityHandle)fileInfo->nodes.start_id;
-    s = elem_ids.lower_bound( first );
-    e = Range::lower_bound( s, elem_ids.end(), first + fileInfo->nodes.count );
-    elem_ids.erase( s, e );
+  // build list of entities that we need to find the sides of
+  Range explicit_ents;
+  Range::iterator hint = explicit_ents.begin();
+  for (IDMap::iterator i = idMap.begin(); i != idMap.end(); ++i) {
+    EntityHandle start = i->value;
+    EntityHandle end = i->value + i->count - 1;
+    EntityType type = TYPE_FROM_HANDLE(start);
+    assert( type == TYPE_FROM_HANDLE(end) ); // otherwise handle space entirely full!!
+    if (type != MBVERTEX && type != MBENTITYSET)
+      hint = explicit_ents.insert( hint, start, end );
   }
-  if (fileInfo->sets.count) {
-    EntityHandle first = (EntityHandle)fileInfo->sets.start_id;
-    s = elem_ids.lower_bound( first );
-    e = Range::lower_bound( s, elem_ids.end(), first + fileInfo->sets.count );
-    elem_ids.erase( s, e );
-  }
+  explicit_ents = subtract( explicit_ents, side_ents );
   
-    // read all node-adjacent elements of smaller dimensions
-  for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    type = CN::EntityTypeFromName( fileInfo->elems[i].type );
-    if (CN::Dimension(type) < max_dim) {
-      dbgOut.tprintf(2, "   Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle);
-      rval = read_node_adj_elems( fileInfo->elems[i] );
-      if (MB_SUCCESS != rval)
-        return error(rval);
-    }
-  }
-  
-    // Read the subset of the explicitly sepecified elements that are of the
-    // largest dimension.   We could read all explicitly specified elements,
-    // but then the lower-dimension elements will be read a second time when 
-    // reading node-adjacent elements.
-  for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    type = CN::EntityTypeFromName( fileInfo->elems[i].type );
-    if (CN::Dimension(type) == max_dim) {
-      Range subset;
-      intersect( fileInfo->elems[i].desc, elem_ids, subset );
-      if (!subset.empty() || nativeParallel) {
-        subtract( elem_ids,  subset );
-        dbgOut.tprintf(2, "   Reading connectivity for: %s\n", fileInfo->elems[i].handle);
-        rval = read_elems( fileInfo->elems[i],  subset );
-        if (MB_SUCCESS != rval)
-          return error(rval); 
-      } 
-    }
-  } 
-
-  debug_barrier();
-  dbgOut.tprint(2, "  Deleting entities\n");
-      
-    // delete anything we read in that we should not have
-    // (e.g. an edge spanning two disjoint blocks of elements)
-    
-    // get Range of all explicitly specified elements, grouped by dimension
-  Range explicit_elems[4];
-  Range::iterator hints[4] = { explicit_elems[0].begin(),
-                               explicit_elems[1].begin(),
-                               explicit_elems[2].begin(),
-                               explicit_elems[3].begin() };
-  RangeMap<long, EntityHandle>::iterator rit;
-  while (!elem_ids.empty()) {
-    long start = elem_ids.front();
-    long count = elem_ids.const_pair_begin()->second - start + 1;
-    rit = idMap.lower_bound( start );
-    assert( rit != idMap.end() );
-    assert( rit->begin <= start && rit->begin + rit->count > start );
-    long offset = start - rit->begin;
-    long avail = rit->count - offset;
-    if (avail > count)
-      count = avail;
-    EntityHandle start_h = rit->value + offset;
-    int d = CN::Dimension( TYPE_FROM_HANDLE( start_h ) );
-    if (CN::Dimension( TYPE_FROM_HANDLE( start_h + count - 1 ) ) != d) 
-      count = start - LAST_HANDLE( TYPE_FROM_HANDLE(start_h) ) + 1;
-    
-    elem_ids.erase( elem_ids.begin(), elem_ids.begin() + count );
-    hints[d] = explicit_elems[d].insert( hints[d], rit->value + offset, rit->value + offset + count - 1 );
-  }
-  
-    // get Range of all read elements, and remove any that were explicity specified
-    // get handles for everything we've read
-  Range all_elems;
-  Range::iterator hint = all_elems.begin();
-  for (rit = idMap.begin(); rit != idMap.end(); ++rit)
-    hint = all_elems.insert( hint, rit->value, rit->value + rit->count - 1 );
-    // remove any vertex handles
-  all_elems.erase( all_elems.begin(), all_elems.upper_bound( MBVERTEX ) );
-    // remove any set handles and any handles for elements >= max_dim
-  all_elems.erase( all_elems.lower_bound( CN::TypeDimensionMap[max_dim].first ), all_elems.end() );
-    // remove explicit elements < max_dim
-  if (!explicit_elems[1].empty() && max_dim > 1)
-    all_elems = subtract( all_elems,  explicit_elems[1] );
-  if (!explicit_elems[2].empty() && max_dim > 2)
-    all_elems = subtract( all_elems,  explicit_elems[2] );
- 
-    // remove any elements that are adjacent to some explicity specified element.
-  if (max_dim > 1 && !explicit_elems[2].empty()) {
-    Range adj;
-    rval = iFace->get_adjacencies( explicit_elems[2], 1, false, adj, Interface::UNION );
+    // figure out which entities we want to delete
+  Range dead_ents( side_ents );
+  Range::iterator ds, de, es;
+  ds = dead_ents.lower_bound( CN::TypeDimensionMap[1].first );
+  de = dead_ents.lower_bound( CN::TypeDimensionMap[2].first, ds );
+  if (ds != de) {
+    // get subset of explicit ents of dimension greater than 1
+    es = explicit_ents.lower_bound( CN::TypeDimensionMap[2].first );
+    Range subset, adj;
+    subset.insert( es, explicit_ents.end() );
+    rval = iFace->get_adjacencies( subset, 1, false, adj, Interface::UNION );
     if (MB_SUCCESS != rval)
-      return error(rval);
-    if (!adj.empty())
-      all_elems = subtract( all_elems,  adj );
+      return rval;
+    dead_ents = subtract( dead_ents, adj );
   }
-  if (max_dim == 3) {
-    Range adj;
-    rval = iFace->get_adjacencies( explicit_elems[3], 1, false, adj, Interface::UNION );
+  ds = dead_ents.lower_bound( CN::TypeDimensionMap[2].first );
+  de = dead_ents.lower_bound( CN::TypeDimensionMap[3].first, ds );
+  assert(de == dead_ents.end());
+  if (ds != de) {
+    // get subset of explicit ents of dimension 3
+    es = explicit_ents.lower_bound( CN::TypeDimensionMap[3].first );
+    Range subset, adj;
+    subset.insert( es, explicit_ents.end() );
+    rval = iFace->get_adjacencies( subset, 2, false, adj, Interface::UNION );
     if (MB_SUCCESS != rval)
-      return error(rval);
-    if (!adj.empty())
-      all_elems = subtract( all_elems,  adj );
-    adj.clear();
-    rval = iFace->get_adjacencies( explicit_elems[3], 2, false, adj, Interface::UNION );
-    if (MB_SUCCESS != rval)
-      return error(rval);
-    if (!adj.empty())
-      all_elems = subtract( all_elems,  adj );
+      return rval;
+    dead_ents = subtract( dead_ents, adj );
   }
   
-    // now delete anything remaining in all_elems
-  dbgOut.printf( 2, "Deleting %lu elements\n", (unsigned long)all_elems.size() );
-  dbgOut.print( 4, "\tDead entities: ", all_elems );
-  rval = iFace->delete_entities( all_elems );
+    // now delete anything remaining in dead_ents
+  dbgOut.printf( 2, "Deleting %lu elements\n", (unsigned long)dead_ents.size() );
+  dbgOut.print( 4, "\tDead entities: ", dead_ents );
+  rval = iFace->delete_entities( dead_ents );
   if (MB_SUCCESS != rval)
     return error(rval);
   
     // remove dead entities from ID map
-  while (!all_elems.empty()) {
-    EntityHandle start = all_elems.front();
-    EntityID count = all_elems.const_pair_begin()->second - start + 1;
+  while (!dead_ents.empty()) {
+    EntityHandle start = dead_ents.front();
+    EntityID count = dead_ents.const_pair_begin()->second - start + 1;
+    IDMap::iterator rit;
     for (rit = idMap.begin(); rit != idMap.end(); ++rit) 
       if (rit->value <= start && (long)(start - rit->value) < rit->count)
         break;
@@ -1651,7 +1650,7 @@ ErrorCode ReadHDF5::read_elements_and_sides( const Range& file_ids )
     if (avail < count)
       count = avail;
     
-    all_elems.erase( all_elems.begin(), all_elems.begin() + count );
+    dead_ents.erase( dead_ents.begin(), dead_ents.begin() + count );
     idMap.erase( rit->begin + offset, count );
   }
   

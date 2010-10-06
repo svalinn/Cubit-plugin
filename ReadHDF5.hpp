@@ -135,6 +135,18 @@ private:
   //! The type of an EntityHandle
   hid_t handleType;
   
+  //! List of connectivity arrays for which conversion from file ID
+  //! to handle was deferred until later.
+  struct IDConnectivity {
+    EntityHandle handle; // start_handle
+    size_t count; // num entities
+    int nodes_per_elem; // per-element connectivity length
+    EntityHandle* array; // connectivity arrray
+  };
+  //! List of connectivity arrays for which conversion from file ID
+  //! to handle was deferred until later.
+  std::vector<IDConnectivity> idConnectivityList;  
+  
   //! read/write property handle
   //! indepIO -> idependent IO during true parallel read
   //! collIO  -> collective IO during true parallel read
@@ -184,11 +196,19 @@ private:
   ErrorCode read_elems( int index );
   
     // Read subset of elements in fileInfo->elems[index]
-  ErrorCode read_elems( int index, const Range& file_ids );
+  ErrorCode read_elems( int index, const Range& file_ids, Range* node_ids = 0 );
   
   //! Read element connectivity.
-  ErrorCode read_elems( const mhdf_ElemDesc& elems, const Range& file_ids );
+  //!
+  //!\param node_ids  If this is non-null, the union of the connectivity list
+  //!                 for all elements is passed back as FILE IDS in this
+  //!                 range AND the connectivity list is left in the form
+  //!                 of file IDs (NOT NODE HANDLES).  
+  ErrorCode read_elems( const mhdf_ElemDesc& elems, const Range& file_ids, Range* node_ids = 0 );
   
+  //! Update connectivity data for all element groups for which read_elems
+  //! was called with a non-null \c node_ids argument.
+  ErrorCode update_connectivity();
   
     // Read connectivity data for a list of element file ids.
     // passing back the file IDs for the element connectivity 
@@ -200,7 +220,8 @@ private:
     // elements are added to idMap.
     //
     // NOTE: Collective IO calls in parallel.
-  ErrorCode read_node_adj_elems( const mhdf_ElemDesc& group );
+  ErrorCode read_node_adj_elems( const mhdf_ElemDesc& group,
+                                 Range* read_entities = 0 );
   
     // Scan all elements in specified file table.  For each element for 
     // which all vertices are contained in idMap (class member), read the 
@@ -208,14 +229,16 @@ private:
     //
     // NOTE: Collective IO calls in parallel.
   ErrorCode read_node_adj_elems( const mhdf_ElemDesc& group,
-                                 hid_t connectivity_handle );
+                                 hid_t connectivity_handle,
+                                 Range* read_entities = 0 );
 
   //! Read poly(gons|hedra)
   ErrorCode read_poly( const mhdf_ElemDesc& elems, const Range& file_ids );
   
-  //! Read specified elements and any adjacent elements of lower dimension.
-  //! Assumes vertices are already read in.
-  ErrorCode read_elements_and_sides( const Range& file_ids );
+  //! Clean up elements that were a) read because we had read all of the
+  //! nodes and b) weren't actually sides of the top-dimension elements
+  //! we were trying to read.
+  ErrorCode delete_non_side_elements( const Range& side_ents );
   
   //! Read sets
   ErrorCode read_sets( const Range& set_file_ids );
