@@ -27,7 +27,7 @@ namespace moab {
 
 // Selection of hyperslabs appears to be superlinear.  Don't try to select
 // more than a few thousand at a time or things start to get real slow.
-const size_t DEFAULT_HYPERSLAB_SELECTION_LIMIT = 1000;
+const size_t DEFAULT_HYPERSLAB_SELECTION_LIMIT = 2500;
 size_t ReadHDF5Dataset::hyperslabSelectionLimit = DEFAULT_HYPERSLAB_SELECTION_LIMIT;
 void ReadHDF5Dataset::default_hyperslab_selection_limit()
   { hyperslabSelectionLimit = DEFAULT_HYPERSLAB_SELECTION_LIMIT; }

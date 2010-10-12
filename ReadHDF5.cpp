@@ -3154,7 +3154,7 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
     int nn = 0;
     size_t offset = 0;
     while (!val_reader.done()) {
-      dbgOut.printf( 3, "Reading chunk %d of \"%s\" IDs\n", ++nn, tn.c_str() );
+      dbgOut.printf( 3, "Reading chunk %d of \"%s\" values\n", ++nn, tn.c_str() );
       size_t count;
       val_reader.read( dataBuffer, count );
       if (MB_TYPE_HANDLE == mbtype) {
