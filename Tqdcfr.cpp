@@ -261,20 +261,12 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
   if (-1 == md_index) data_version = 1.0;
   else data_version = modelMetaData.metadataEntries[md_index].mdDblValue;
   
-  if (MB_SUCCESS != opts.get_null_option("IGNORE_VERSION")) {
-    md_index = modelMetaData.get_md_entry(2, "CubitVersion");
-    if (md_index >= 0 && !modelMetaData.metadataEntries[md_index].mdStringValue.empty()) {
-      int major, minor;
-      if (2 == sscanf( modelMetaData.metadataEntries[md_index].mdStringValue.c_str(), "%d.%d",
-         &major, &minor)) {
-        if (major > 10 || minor > 2) {
-          readUtilIface->report_error( "Unsupported Cubit version: %d.%d\n", major, minor );
-          return MB_FAILURE;
-        }
-      }
-    }
-  }
-  
+    // get the major/minor cubit version that wrote this file
+  int major = -1, minor = -1;
+  md_index = modelMetaData.get_md_entry(2, "CubitVersion");
+  if (md_index >= 0 && !modelMetaData.metadataEntries[md_index].mdStringValue.empty())
+    sscanf( modelMetaData.metadataEntries[md_index].mdStringValue.c_str(), "%d.%d",
+            &major, &minor);
   
     // ***********************
     // read mesh...
@@ -517,21 +509,43 @@ ErrorCode Tqdcfr::read_nodeset(Tqdcfr::ModelEntry *model,
   FSEEK(model->modelOffset+nodeseth->memOffset);
   
     // read ids for each entity type
-  unsigned int this_type, num_ents;
+  unsigned int this_type, num_ents, uid;
+  std::vector<char> bc_data;
+  unsigned int num_read = 0;
   std::vector<EntityHandle> ns_entities, excl_entities;
   for (unsigned int i = 0; i < nodeseth->memTypeCt; i++) {
       // get how many and what type
-    FREADI(2);
+    FREADI(2); num_read += 2*sizeof(int);
     this_type = uint_buf[0];
     num_ents = uint_buf[1];
 
       // now get the ids
-    FREADI(num_ents);
+    FREADI(num_ents); num_read += sizeof(int);
     CONVERT_TO_INTS(num_ents);
     
     ErrorCode result = get_entities(this_type+2, &int_buf[0], num_ents, 
                                       ns_entities, excl_entities);
     if (MB_SUCCESS != result) return result;
+  }
+
+    // check for more data
+  if (num_read < nodeseth->nsLength) {
+    FREADC(2); num_read += 2;
+    if (char_buf[0] == 'i' && char_buf[1] == 'd') {
+      FREADI(1); num_read += sizeof(int);
+      uid = int_buf[0];
+    }
+    
+    if (num_read < nodeseth->nsLength) {
+        // check for bc_data
+      FREADC(2); num_read += 2;
+      if (char_buf[0] == 'b' && char_buf[1] == 'c') {
+        FREADI(1); num_read += sizeof(int);
+        int num_bcs = int_buf[0];
+        bc_data.resize(num_bcs);
+        FREADCA(num_bcs, &bc_data[0]); num_read += num_bcs;
+      }
+    }
   }
 
     // and put entities into this nodeset's set
@@ -553,18 +567,20 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
     // read ids for each entity type
   unsigned int this_type, num_ents, sense_size;
 
+  std::vector<char> bc_data;
+  unsigned int num_read = 0, uid;
   std::vector<EntityHandle> ss_entities, excl_entities;
   std::vector<double> ss_dfs;
   if (data_version <= 1.0) {
     for (unsigned int i = 0; i < sideseth->memTypeCt; i++) {
         // get how many and what type
-      FREADI(3);
+      FREADI(3); num_read += 3*sizeof(int);
       this_type = uint_buf[0];
       num_ents = uint_buf[1];
       sense_size = uint_buf[2];
 
         // now get the ids
-      FREADI(num_ents);
+      FREADI(num_ents); num_read += sizeof(int);
       CONVERT_TO_INTS(num_ents);
     
       ErrorCode result = get_entities(this_type+2, &int_buf[0], num_ents, 
@@ -575,12 +591,12 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
           // byte-size sense flags; make sure read ends aligned...
         unsigned int read_length = (num_ents / 8) * 8;
         if (read_length < num_ents) read_length += 8;
-        FREADC(read_length);
+        FREADC(read_length); num_read += read_length;
       
       }
       else if (sense_size == 2) {
           // int-size sense flags
-        FREADI(num_ents);
+        FREADI(num_ents); num_read += sizeof(int);
       }
 
         // now do something with them...
@@ -591,13 +607,13 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
   else {
     for (unsigned int i = 0; i < sideseth->memTypeCt; i++) {
         // get how many and what type
-      FREADI(1);
+      FREADI(1); num_read += sizeof(int);
       num_ents = uint_buf[0];
 
         // get the types, and ids
       std::vector<unsigned int> mem_types(num_ents), mem_ids(num_ents);
-      FREADIA(num_ents, &mem_types[0]);
-      FREADI(num_ents);
+      FREADIA(num_ents, &mem_types[0]); num_read += num_ents*sizeof(int);
+      FREADI(num_ents); num_read += sizeof(int);
 
       std::vector<EntityHandle> ss_entities;
       ErrorCode result = get_entities(&mem_types[0], &int_buf[0], num_ents, false,
@@ -607,12 +623,12 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
         // byte-size sense flags; make sure read ends aligned...
       unsigned int read_length = (num_ents / 8) * 8;
       if (read_length < num_ents) read_length += 8;
-      FREADC(read_length);
+      FREADC(read_length); num_read += read_length;
 
         // wrt entities
-      FREADI(1);
+      FREADI(1); num_read += sizeof(int);
       int num_wrts = uint_buf[0];
-      FREADI(num_wrts);
+      FREADI(num_wrts); num_read += num_wrts*sizeof(int);
       
       result = process_sideset_11(ss_entities, num_wrts, sideseth);
       if (MB_SUCCESS != result) return result;
@@ -622,7 +638,7 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
     // now set the dist factors
   if (sideseth->numDF > 0) {
       // have to read dist factors
-    FREADD(sideseth->numDF);
+    FREADD(sideseth->numDF); num_read += sideseth->numDF*sizeof(double);
     Tag distFactorTag;
     ErrorCode result = mdbImpl->tag_create_variable_length( "distFactor", 
                                                                MB_TAG_SPARSE,
@@ -635,6 +651,26 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
     if (MB_SUCCESS != result) return result;
   }
   
+    // check for more data
+  if (data_version > 1.0 && num_read < sideseth->ssLength) {
+    FREADC(2); num_read += 2;
+    if (char_buf[0] == 'i' && char_buf[1] == 'd') {
+      FREADI(1); num_read += sizeof(int);
+      uid = int_buf[0];
+    }
+    
+    if (num_read < sideseth->ssLength) {
+        // check for bc_data
+      FREADC(2); num_read += 2;
+      if (char_buf[0] == 'b' && char_buf[1] == 'c') {
+        FREADI(1); num_read += sizeof(int);
+        int num_bcs = int_buf[0];
+        bc_data.resize(num_bcs);
+        FREADCA(num_bcs, &bc_data[0]); num_read += num_bcs;
+      }
+    }
+  }
+
   return MB_SUCCESS;
 }
 
@@ -766,16 +802,18 @@ ErrorCode Tqdcfr::read_block(const double data_version,
   FSEEK(model->modelOffset+blockh->memOffset);
   
     // read ids for each entity type
-  int this_type, num_ents;
+  unsigned int num_read = 0;
+  int this_type, num_ents, uid;
+  std::vector<char> bc_data;
   std::vector<EntityHandle> block_entities, excl_entities;
   for (unsigned int i = 0; i < blockh->memTypeCt; i++) {
       // get how many and what type
-    FREADI(2);
+    FREADI(2); num_read += 2*sizeof(int);
     this_type = uint_buf[0];
     num_ents = uint_buf[1];
 
       // now get the ids
-    FREADI(num_ents);
+    FREADI(num_ents); num_read += num_ents*sizeof(int);
     CONVERT_TO_INTS(num_ents);
 
     ErrorCode result = get_entities(this_type+2, &int_buf[0], num_ents, 
@@ -791,7 +829,7 @@ ErrorCode Tqdcfr::read_block(const double data_version,
   if (blockh->attribOrder > 0) {
     Tag block_attribs;
     
-    FREADD(blockh->attribOrder);
+    FREADD(blockh->attribOrder); num_read += sizeof(double);
       // now do something with them...
     ErrorCode result = mdbImpl->tag_create("Block_Attributes", 
                                              blockh->attribOrder*sizeof(double), MB_TAG_SPARSE, 
@@ -802,6 +840,26 @@ ErrorCode Tqdcfr::read_block(const double data_version,
     if (MB_SUCCESS != result) return result;
   }
 
+    // check for more data
+  if (num_read < blockh->blockLength) {
+    FREADC(2); num_read += 2;
+    if (char_buf[0] == 'i' && char_buf[1] == 'd') {
+      FREADI(1); num_read += sizeof(int);
+      uid = int_buf[0];
+    }
+    
+    if (num_read < blockh->blockLength) {
+        // check for bc_data
+      FREADC(2); num_read += 2;
+      if (char_buf[0] == 'b' && char_buf[1] == 'c') {
+        FREADI(1); num_read += sizeof(int);
+        int num_bcs = int_buf[0];
+        bc_data.resize(num_bcs);
+        FREADCA(num_bcs, &bc_data[0]); num_read += num_bcs;
+      }
+    }
+  }
+  
     // Put additional higher-order nodes into element connectivity list.
     // Cubit saves full connectivity list only for NodeHex and NodeTet
     // elements.  Other element types will only have the corners and
