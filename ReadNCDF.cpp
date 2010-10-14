@@ -2204,6 +2204,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
           int to_dim = CN::Dimension(mb_type);
           rval = mdbImpl->get_adjacencies( cub_nodes, to_dim, false, cub_elem);
           if(MB_SUCCESS != rval) {
+	    std::cout << "ReadNCDF: could not get dead cub element" << std::endl;
             delete[] exo_conn;
             return rval;
           }
