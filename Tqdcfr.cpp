@@ -866,7 +866,8 @@ ErrorCode Tqdcfr::read_block(const double data_version,
     // the mid-element node if there is one.  Need to reconsturct additional
     // connectivity entries from mid-nodes of adjacent lower-order entities.
   int node_per_elem = cub_elem_num_verts[blockh->blockElemType];
-  if (CN::VerticesPerEntity(blockh->blockEntityType) == node_per_elem)
+  if (52 == blockh->blockElemType ||
+      CN::VerticesPerEntity(blockh->blockEntityType) == node_per_elem)
     return MB_SUCCESS;
   
     // Can't use Interface::convert_entities because block could contain
@@ -1755,9 +1756,13 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
       block_headers[i].blockElemType += 4;
     
     if (block_headers[i].blockElemType >= (unsigned)cub_elem_num_verts_len) {
-      std::cerr << "Invalid block element type: " << block_headers[i].blockElemType << std::endl;
-      instance->readUtilIface->report_error( "Invalid block element type: %d", block_headers[i].blockElemType );
-      return MB_FAILURE;
+        // block element type unassigned, will have to infer from verts/element; make sure it's 
+        // the expected value of 52
+      assert(52 == block_headers[i].blockElemType);
+      
+//      std::cerr << "Invalid block element type: " << block_headers[i].blockElemType << std::endl;
+//      instance->readUtilIface->report_error( "Invalid block element type: %d", block_headers[i].blockElemType );
+//      return MB_FAILURE;
     }
 
       // set the material set tag and id tag both to id
@@ -1776,25 +1781,27 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     if (!block_headers[i].memCt) continue;
     
       // check the number of vertices in the element type, and set the has mid nodes tag
-      // accordingly
-    int num_verts = cub_elem_num_verts[block_headers[i].blockElemType];
-    block_headers[i].blockEntityType = block_type_to_mb_type[block_headers[i].blockElemType];
-    if (num_verts != CN::VerticesPerEntity(block_headers[i].blockEntityType)) {
-        // not a linear element; try to find hasMidNodes values
-      for (int j = 0; j < 4; j++) block_headers[i].hasMidNodes[j] = 0;
-      if (0 == instance->hasMidNodesTag) {
-        result = instance->mdbImpl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, 
-                                               MB_TYPE_INTEGER, instance->hasMidNodesTag, block_headers[i].hasMidNodes);
-        if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
-      }
+      // accordingly; if element type wasn't set, they're unlikely to have mid nodes
+    if (52 != block_headers[i].blockElemType) {
+      int num_verts = cub_elem_num_verts[block_headers[i].blockElemType];
+      block_headers[i].blockEntityType = block_type_to_mb_type[block_headers[i].blockElemType];
+      if (num_verts != CN::VerticesPerEntity(block_headers[i].blockEntityType)) {
+          // not a linear element; try to find hasMidNodes values
+        for (int j = 0; j < 4; j++) block_headers[i].hasMidNodes[j] = 0;
+        if (0 == instance->hasMidNodesTag) {
+          result = instance->mdbImpl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, 
+                                                 MB_TYPE_INTEGER, instance->hasMidNodesTag, block_headers[i].hasMidNodes);
+          if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+        }
       
-      CN::HasMidNodes(block_headers[i].blockEntityType, num_verts, 
-                      block_headers[i].hasMidNodes);
+        CN::HasMidNodes(block_headers[i].blockEntityType, num_verts, 
+                        block_headers[i].hasMidNodes);
 
-        // now set the tag on this set
-      result = instance->mdbImpl->tag_set_data(instance->hasMidNodesTag, &block_headers[i].setHandle, 1,
-                                               block_headers[i].hasMidNodes);
-      if (MB_SUCCESS != result) return result;
+          // now set the tag on this set
+        result = instance->mdbImpl->tag_set_data(instance->hasMidNodesTag, &block_headers[i].setHandle, 1,
+                                                 block_headers[i].hasMidNodes);
+        if (MB_SUCCESS != result) return result;
+      }
     }
   }
 
