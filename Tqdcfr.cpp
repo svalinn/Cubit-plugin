@@ -186,6 +186,16 @@ Tqdcfr::Tqdcfr(Interface *impl)
   mdbImpl->tag_get_handle(DIRICHLET_SET_TAG_NAME, nsTag);
   mdbImpl->tag_get_handle(NEUMANN_SET_TAG_NAME, ssTag);
 
+  if (0 == entityNameTag) {
+    ErrorCode result = mdbImpl->tag_get_handle(NAME_TAG_NAME, entityNameTag);
+    if (MB_SUCCESS != result || 0 == entityNameTag) {
+      char name_tag_data[NAME_TAG_SIZE];
+      memset( name_tag_data, 0, NAME_TAG_SIZE );
+      result = mdbImpl->tag_create(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TAG_SPARSE, 
+                                   entityNameTag, &name_tag_data);
+    }
+  }
+
   cubMOABVertexMap = NULL;
 }
 
@@ -341,7 +351,7 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
        blindex < mesh_model->feModelHeader.blockArray.numEntities;
        blindex++) {
     BlockHeader *block_header = &mesh_model->feBlockH[blindex];
-    result = read_block(data_version, mesh_model, block_header); 
+    result = read_block(blindex, data_version, mesh_model, block_header); 
     if (MB_SUCCESS != result)
       return result;
   }
@@ -359,7 +369,7 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
        nsindex < mesh_model->feModelHeader.nodesetArray.numEntities;
        nsindex++) {
     NodesetHeader *nodeset_header = &mesh_model->feNodeSetH[nsindex];
-    result = read_nodeset(mesh_model, nodeset_header); 
+    result = read_nodeset(nsindex, mesh_model, nodeset_header); 
     if (MB_SUCCESS != result)
       return result;
   }
@@ -374,7 +384,7 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
        ssindex < mesh_model->feModelHeader.sidesetArray.numEntities;
        ssindex++) {
     SidesetHeader *sideset_header = &mesh_model->feSideSetH[ssindex];
-    result = read_sideset(data_version, mesh_model, sideset_header); 
+    result = read_sideset(ssindex, data_version, mesh_model, sideset_header); 
     if (MB_SUCCESS != result)
       return result;
   }
@@ -500,7 +510,8 @@ ErrorCode Tqdcfr::convert_nodesets_sidesets()
   return result;
 }
 
-ErrorCode Tqdcfr::read_nodeset(Tqdcfr::ModelEntry *model,
+ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
+                               Tqdcfr::ModelEntry *model,
                                  Tqdcfr::NodesetHeader *nodeseth)  
 {
   if (nodeseth->memTypeCt == 0) return MB_SUCCESS;
@@ -552,15 +563,21 @@ ErrorCode Tqdcfr::read_nodeset(Tqdcfr::ModelEntry *model,
   ErrorCode result = put_into_set(nodeseth->setHandle, ns_entities, excl_entities);
   if (MB_SUCCESS != result) return result;
 
+  result = get_names(model->nodesetMD, nsindex, nodeseth->setHandle);
+  if (MB_SUCCESS != result) return result;
+  
   return result;
 }
 
-ErrorCode Tqdcfr::read_sideset(const double data_version,
-                                 Tqdcfr::ModelEntry *model,
-                                 Tqdcfr::SidesetHeader *sideseth)  
+ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
+                               const double data_version,
+                               Tqdcfr::ModelEntry *model,
+                               Tqdcfr::SidesetHeader *sideseth)  
 {
   if (sideseth->memCt == 0) return MB_SUCCESS;
 
+  ErrorCode result;
+  
     // position file
   FSEEK(model->modelOffset+sideseth->memOffset);
   
@@ -583,8 +600,8 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
       FREADI(num_ents); num_read += sizeof(int);
       CONVERT_TO_INTS(num_ents);
     
-      ErrorCode result = get_entities(this_type+2, &int_buf[0], num_ents, 
-                                        ss_entities, excl_entities);
+      result = get_entities(this_type+2, &int_buf[0], num_ents, 
+                            ss_entities, excl_entities);
       if (MB_SUCCESS != result) return result;
 
       if (sense_size == 1) {
@@ -616,8 +633,8 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
       FREADI(num_ents); num_read += sizeof(int);
 
       std::vector<EntityHandle> ss_entities;
-      ErrorCode result = get_entities(&mem_types[0], &int_buf[0], num_ents, false,
-                                        ss_entities);
+      result = get_entities(&mem_types[0], &int_buf[0], num_ents, false,
+                            ss_entities);
       if (MB_SUCCESS != result) return result;
 
         // byte-size sense flags; make sure read ends aligned...
@@ -640,10 +657,10 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
       // have to read dist factors
     FREADD(sideseth->numDF); num_read += sideseth->numDF*sizeof(double);
     Tag distFactorTag;
-    ErrorCode result = mdbImpl->tag_create_variable_length( "distFactor", 
-                                                               MB_TAG_SPARSE,
-                                                               MB_TYPE_DOUBLE,
-                                                               distFactorTag );
+    result = mdbImpl->tag_create_variable_length( "distFactor", 
+                                                  MB_TAG_SPARSE,
+                                                  MB_TYPE_DOUBLE,
+                                                  distFactorTag );
     if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
     const void* dist_data = &dbl_buf[0];
     const int dist_size = sideseth->numDF * sizeof(double);
@@ -671,6 +688,9 @@ ErrorCode Tqdcfr::read_sideset(const double data_version,
     }
   }
 
+  result = get_names(model->sidesetMD, ssindex, sideseth->setHandle);
+  if (MB_SUCCESS != result) return result;
+  
   return MB_SUCCESS;
 }
 
@@ -792,7 +812,8 @@ ErrorCode Tqdcfr::process_sideset_11(std::vector<EntityHandle> &ss_entities,
   return result;
 }
 
-ErrorCode Tqdcfr::read_block(const double data_version,
+ErrorCode Tqdcfr::read_block(const unsigned int blindex,
+                             const double data_version,
                              Tqdcfr::ModelEntry *model,
                              Tqdcfr::BlockHeader *blockh)  
 {
@@ -860,6 +881,9 @@ ErrorCode Tqdcfr::read_block(const double data_version,
     }
   }
   
+  result = get_names(model->blockMD, blindex, blockh->setHandle);
+  if (MB_SUCCESS != result) return result;
+  
     // Put additional higher-order nodes into element connectivity list.
     // Cubit saves full connectivity list only for NodeHex and NodeTet
     // elements.  Other element types will only have the corners and
@@ -890,6 +914,50 @@ ErrorCode Tqdcfr::read_block(const double data_version,
   HigherOrderFactory ho_fact( dynamic_cast<Core*>(mdbImpl), 0 );
   return ho_fact.convert( entities, !!blockh->hasMidNodes[1], !!blockh->hasMidNodes[2], 
                           !!blockh->hasMidNodes[3] );
+}
+
+ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, EntityHandle seth) 
+{
+  ErrorCode result = MB_SUCCESS;
+  
+    // now get block names, if any
+  int md_index = md.get_md_entry(set_index, "Name");
+  if (-1 == md_index) return result;
+  MetaDataContainer::MetaDataEntry *md_entry = &(md.metadataEntries[md_index]);
+  assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
+  char name_tag_data[NAME_TAG_SIZE];
+  memset( name_tag_data, 0, NAME_TAG_SIZE ); // make sure any extra bytes zeroed
+  strncpy( name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE );
+  result = mdbImpl->tag_set_data(entityNameTag, &seth, 1, name_tag_data);
+  if (MB_SUCCESS != result) return result;
+    
+    // look for extra names
+  md_index = md.get_md_entry(set_index, "NumExtraNames");
+  if (-1 == md_index) return result;
+  int num_names = md.metadataEntries[md_index].mdIntValue;
+  for (int i = 0; i < num_names; i++) {
+    std::ostringstream extra_name_label( "ExtraName" );
+    extra_name_label << i;
+    std::ostringstream moab_extra_name( "EXTRA_" );
+    moab_extra_name << NAME_TAG_NAME << i;
+    md_index = md.get_md_entry(set_index, extra_name_label.str().c_str());
+    if (-1 != md_index) {
+      md_entry = &(md.metadataEntries[md_index]);
+      Tag extra_name_tag;
+      result = mdbImpl->tag_get_handle(moab_extra_name.str().c_str(), extra_name_tag);
+      assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
+      if (MB_SUCCESS != result || 0 == extra_name_tag) {
+        memset( name_tag_data, 0, NAME_TAG_SIZE );
+        result = mdbImpl->tag_create(moab_extra_name.str().c_str(), NAME_TAG_SIZE, MB_TAG_SPARSE, 
+                                     extra_name_tag, &name_tag_data );
+      }
+      memset( name_tag_data, 0, NAME_TAG_SIZE ); // make sure any extra bytes zeroed
+      strncpy( name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE );
+      result = mdbImpl->tag_set_data(extra_name_tag, &seth, 1, name_tag_data);
+    }
+  }
+
+  return result;
 }
 
 ErrorCode Tqdcfr::read_group(const unsigned int group_index,

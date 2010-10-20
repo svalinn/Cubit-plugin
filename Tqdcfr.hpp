@@ -308,14 +308,17 @@ public:
                              std::vector<int>& tag_values_out,
                              const SubsetList* subset_list = 0 );
                                
-  ErrorCode read_nodeset(ModelEntry *model,
-                    NodesetHeader *nodeseth);
-  ErrorCode read_sideset(const double data_version,
-                    ModelEntry *model,
-                    SidesetHeader *sideseth);
-  ErrorCode read_block(const double data_version,
-                  ModelEntry *model,
-                  BlockHeader *blockh);
+  ErrorCode read_nodeset(const unsigned int nsindex,
+                         ModelEntry *model,
+                         NodesetHeader *nodeseth);
+  ErrorCode read_sideset(const unsigned int ssindex,
+                         const double data_version,
+                         ModelEntry *model,
+                         SidesetHeader *sideseth);
+  ErrorCode read_block(const unsigned int blindex,
+                       const double data_version,
+                       ModelEntry *model,
+                       BlockHeader *blockh);
   ErrorCode read_group(const unsigned int gr_index,
                          ModelEntry *model,
                          GroupHeader *grouph);
@@ -431,6 +434,10 @@ private:
   ErrorCode put_into_set(EntityHandle set_handle,
                            std::vector<EntityHandle> &entities,
                            std::vector<EntityHandle> &excl_entities);
+  
+    // look in metadatacontainer[set_index] for name data; if found, set name (and extra names,
+    // if multiple found) on set handle
+  ErrorCode get_names(MetaDataContainer &md, unsigned int set_index, EntityHandle seth);
   
 };
 
