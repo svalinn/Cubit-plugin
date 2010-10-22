@@ -430,7 +430,6 @@ ErrorCode ReadNCDF::read_exodus_header()
  
 ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
 {
-
     // read the nodes into memory
 
   assert(NULL != ncFile);
@@ -446,45 +445,48 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
   vertexOffset = ID_FROM_HANDLE( node_handle ) - MB_START_ID;
 
   // read in the coordinates
-  NcBool status;
-  NcVar *coords = ncFile->get_var("coord");
-  if (NULL == coords || !coords->is_valid()) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting coords variable.");
-    return MB_FAILURE;
-  }
-  status = coords->get(arrays[0], 1, numberNodes_loading);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting x coord array.");
-    return MB_FAILURE;
-  }
-  status = coords->set_cur(1, 0);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting y coord array.");
-    return MB_FAILURE;
-  }
-  status = coords->get(arrays[1], 1, numberNodes_loading);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting y coord array.");
-    return MB_FAILURE;
-  }
-  if (numberDimensions_loading == 2 )
+  NcVar *coord = 0;
   {
-    // if no z coords, fill with 0's
-    for (int i = 0; i < numberNodes_loading; i++)
-      arrays[2][i] = 0.0;
+    // block error messages while we check for the existence of "coord"
+    NcError foo(NcError::silent_nonfatal);
+    coord = ncFile->get_var("coord");
+    if (coord && !coord->is_valid()) 
+      coord = 0;
   }
+  
+  // single var for all coords
+  if (coord) {
+    for (int d = 0; d < numberDimensions_loading; ++d) {
+      assert((unsigned)d < arrays.size());
+      if (!coord->set_cur(d, 0) || !coord->get(arrays[d], 1, numberNodes_loading)) {
+        readMeshIface->report_error("ReadNCDF:: Problem getting %c coord array.", 'x'+d);
+        return MB_FAILURE;
+      }
+    }
+  }
+  // var for each coord
   else {
-    status = coords->set_cur(2, 0);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting z coord array.");
-      return MB_FAILURE;
-    }
-    status = coords->get(arrays[2], 1, numberNodes_loading);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting z coord array.");
-      return MB_FAILURE;
+    char varname[] = "coord ";
+    for (int d = 0; d < numberDimensions_loading; ++d) {
+      varname[5] = 'x'+d;
+      coord = ncFile->get_var(varname);
+      if (!coord || !coord->is_valid()) {
+        readMeshIface->report_error("ReadNCDF:: Problem getting %c coord variable.", 'x'+d);
+	return MB_FAILURE;
+      }
+      
+      assert((unsigned)d < arrays.size());
+      if (!coord->get(arrays[d], numberNodes_loading)) {
+        readMeshIface->report_error("ReadNCDF:: Problem getting %c coord array.", 'x'+d);
+        return MB_FAILURE;
+      }
     }
   }
+  
+  // zero out any coord values that are in database but not in file
+  // (e.g. if MOAB has 3D coords but file is 2D then set Z coords to zero.)
+  for (unsigned d = numberDimensions_loading; d < arrays.size(); ++d)
+    std::fill( arrays[d], arrays[d]+numberNodes_loading, 0.0 );
   
   if (file_id_tag) {
     Range nodes;
@@ -739,72 +741,62 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
 ErrorCode ReadNCDF::read_global_ids()
 {
     // read in the map from the exodus file
-  int* ptr = new int [numberElements_loading];
+  std::vector<int> ids(std::max(numberElements_loading, numberNodes_loading));
 
-  NcVar *temp_var = ncFile->get_var("elem_map");
-  if (NULL == temp_var || !temp_var->is_valid()) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting element number map variable.");
-    delete [] ptr;
-    return MB_FAILURE;
-  }
-  NcBool status = temp_var->get(ptr, numberElements_loading);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting element number map data.");
-    delete [] ptr;
-    return MB_FAILURE;
-  }
+  int varid = -1;
+  int cstatus = nc_inq_varid (ncFile->id(), "elem_map", &varid);
+  if (cstatus == NC_NOERR && varid != -1) {
+    NcVar *temp_var = ncFile->get_var("elem_map");
+    if (NULL == temp_var || !temp_var->is_valid()) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting element number map variable.");
+      return MB_FAILURE;
+    }
+    NcBool status = temp_var->get(&ids[0], numberElements_loading);
+    if (0 == status) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting element number map data.");
+      return MB_FAILURE;
+    }
 
-  std::vector<ReadBlockData>::iterator iter;
-  int ptr_pos = 0;
-  for(iter = blocksLoading.begin(); iter != blocksLoading.end(); ++iter)
-  {
-    if (iter->reading_in)
+    std::vector<ReadBlockData>::iterator iter;
+    int id_pos = 0;
+    for(iter = blocksLoading.begin(); iter != blocksLoading.end(); ++iter)
     {
-      if (iter->startMBId != 0)
+      if (iter->reading_in)
       {
-        Range range(iter->startMBId, iter->startMBId+iter->numElements-1);
-        ErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag, 
-                                                  range, &ptr[ptr_pos]);
-        if (error != MB_SUCCESS)
+        if (iter->startMBId != 0)
         {
-          delete [] ptr;
-          return error;
+          Range range(iter->startMBId, iter->startMBId+iter->numElements-1);
+          ErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag, 
+                                                    range, &ids[id_pos]);
+          if (error != MB_SUCCESS)
+            return error;
+          id_pos += iter->numElements;
         }
-        ptr_pos += iter->numElements;
-      }
-      else
-      {
-        delete [] ptr;
-        return MB_FAILURE;
+        else
+        {
+          return MB_FAILURE;
+        }
       }
     }
   }
 
     // read in node map next
-  if (numberNodes_loading > numberElements_loading) {
-    delete [] ptr;
-    ptr = new int [numberNodes_loading];
-  }
-
-  int varid = -1;
-  int cstatus = nc_inq_varid (ncFile->id(), "node_num_map", &varid);
+  varid = -1;
+  cstatus = nc_inq_varid (ncFile->id(), "node_num_map", &varid);
   if (cstatus == NC_NOERR && varid != -1) {
-    temp_var = ncFile->get_var("node_num_map");
-    status = temp_var->get(ptr, numberNodes_loading);
+    NcVar* temp_var = ncFile->get_var("node_num_map");
+    NcBool status = temp_var->get(&ids[0], numberNodes_loading);
     if (0 == status) {
       readMeshIface->report_error("ReadNCDF:: Problem getting node number map data.");
-      delete [] ptr;
       return MB_FAILURE;
     } 
     Range range(MB_START_ID+vertexOffset, 
                   MB_START_ID+vertexOffset+numberNodes_loading-1);
     ErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag, 
-                                              range, &ptr[0]);
+                                              range, &ids[0]);
     if (MB_SUCCESS != error)
       readMeshIface->report_error("ReadNCDF:: Problem setting node global ids.");
   }
-  
-  delete [] ptr;
   
   return MB_SUCCESS;
 }
