@@ -471,6 +471,10 @@ namespace moab {
       if (!matset_data[i].setName.empty()){
 	CCMIONewIndexedEntity(&error, problemID, kCCMIOCellType, matset_data[i].matsetId, 
 			      matset_data[i].setName.c_str(), &id);
+	CHKCCMERR(error, "Failure creating celltype node."); 
+
+	CCMIOWriteOptstr(&error, id, "MaterialType", matset_data[i].setName.c_str());
+	CHKCCMERR(error, "Error assigning material name.");
       }
       else{
 	char dum_name[NAME_TAG_SIZE]; 
