@@ -2446,8 +2446,11 @@ ErrorCode Tqdcfr::process_record(AcisRecord &this_record)
       type_substr-this_record.att_string.c_str() < 20) {
     this_record.rec_type = Tqdcfr::ATTRIB;
     bool simple_attrib = false;
+    bool generic_attrib = false;
     if ((type_substr = strstr(this_record.att_string.c_str(), "simple-snl-attrib")) != NULL)
       simple_attrib = true;
+    else if ((type_substr = strstr(this_record.att_string.c_str(), "integer_attrib-name_attrib-gen-attrib")) != NULL)
+      generic_attrib = true;
     else {
       this_record.rec_type = Tqdcfr::UNKNOWN;
       return MB_SUCCESS;
@@ -2469,6 +2472,13 @@ ErrorCode Tqdcfr::process_record(AcisRecord &this_record)
       type_substr = strstr(type_substr, "@");
       if (NULL == type_substr) return MB_FAILURE;
       type_substr = strstr(type_substr, " ") + 1;
+      if (NULL == type_substr) return MB_FAILURE;
+        // copy the rest of the string to a dummy string
+      std::string dum_str(type_substr);
+      this_record.att_string = dum_str;
+    }
+    else if (generic_attrib) {
+      type_substr = strstr(this_record.att_string.c_str(), "CUBIT_ID");
       if (NULL == type_substr) return MB_FAILURE;
         // copy the rest of the string to a dummy string
       std::string dum_str(type_substr);
