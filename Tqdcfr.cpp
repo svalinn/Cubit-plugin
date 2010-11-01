@@ -991,7 +991,7 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
   if (MB_SUCCESS != result) return result;
   
     // now get group names, if any
-  int md_index = model->groupMD.get_md_entry(group_index, "NAME");
+  int md_index = model->groupMD.get_md_entry(grouph->grpID, "NAME");
   if (-1 != md_index) {
     MetaDataContainer::MetaDataEntry *md_entry = &(model->groupMD.metadataEntries[md_index]);
     if (0 == entityNameTag) {
