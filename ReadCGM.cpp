@@ -144,6 +144,10 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (MB_SUCCESS != opts.get_real_option("MAX_FACET_EDGE_LENGTH", len_tol))
     len_tol = DEFAULT_LEN_TOL;
 
+  bool verbose_curve_warnings = false;
+  if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_CURVE_WARNINGS"))
+    verbose_curve_warnings = true;
+
   const char* name = "CGM_ATTRIBS";
   const char* value = "no";
   rval = opts.match_option(name,value); 
@@ -441,6 +445,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     
     ci->second = vh;
   }
+
+  // maximum allowable curve-endpoint proximity warnings
+  // if this integer becomes negative, then abs(curve_warnings) is the 
+  // number of warnings that were suppressed.
+  int curve_warnings = 10;
   
     // create geometry for all curves
   GMem data;
@@ -489,7 +498,15 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       // check proximity of vertices to end coordinates
     if ((start_vtx->coordinates() - points.front()).length() > GEOMETRY_RESABS
      || (  end_vtx->coordinates() - points.back() ).length() > GEOMETRY_RESABS ) {
-      std::cerr << "Warning: vertices not at ends of curve " << edge->id() << std::endl;
+
+      curve_warnings--;
+      if( curve_warnings >= 0 || verbose_curve_warnings ){ 
+	std::cerr << "Warning: vertices not at ends of curve " << edge->id() << std::endl;
+	if( curve_warnings == 0 && !verbose_curve_warnings ){
+	  std::cerr << "         further instances of this warning will be suppressed..." << std::endl;
+	}
+      }
+
     }
     
       // create interior points
@@ -524,6 +541,12 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     rval = mdbImpl->add_entities( ci->second, &edges[0], edges.size() );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
+  }
+
+  if( !verbose_curve_warnings && curve_warnings < 0 ){
+    std::cerr << "Suppressed " << -curve_warnings 
+	      << " 'vertices not at ends of curve' warnings." << std::endl;
+    std::cerr << "To see all warnings, use reader param VERBOSE_CGM_CURVE_WARNINGS." << std::endl;
   }
   
     // create geometry for all surfaces
