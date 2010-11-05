@@ -73,35 +73,14 @@ ErrorCode ReadNC::load_file(const char *file_name,
 {
   ErrorCode rval;
 
-    /*
-  int num_blocks = 0;
-  const int* blocks_to_load = 0;
-  if (subset_list) {
-    if (subset_list->tag_list_length > 1 ||
-        !strcmp( subset_list->tag_list[0].tag_name, MATERIAL_SET_TAG_NAME) ) {
-      readMeshIface->report_error( "ExodusII reader supports subset read only by material ID." );
-      return MB_UNSUPPORTED_OPERATION;
-    }
-    if (subset_list->num_parts) {
-      readMeshIface->report_error( "ExodusII reader does not support mesh partitioning");
-      return MB_UNSUPPORTED_OPERATION;
-    }
-    blocks_to_load = subset_list->tag_list[0].tag_values;
-    num_blocks = subset_list->tag_list[0].num_tag_values;
-  }
+  //See if opts has variable(s) specified
+  std::vector<std::string> var_names;
+  std::vector<int> tstep_nums;
+  std::vector<double> tstep_vals;
+  bool nomesh = false;
   
-    // this function directs the reading of an exoii file, but doesn't do any of
-    // the actual work
-  
-  //See if opts has tdata.
-  ErrorCode rval;
-  std::string s;
-  rval = opts.get_str_option("tdata", s ); 
-  if(MB_SUCCESS == rval && !s.empty())
-    return update(exodus_file_name, opts, num_blocks, blocks_to_load, *file_set); 
-
-  reset();
-    */
+//  rval = parse_options(opts, var_names, tstep_nums, tstep_vals, nomesh);
+  ERRORR(rval, "Trouble parsing option string.");
 
   // 0. Open the file.
   int success = nc_open(file_name, 0, &fileId);
@@ -130,6 +109,32 @@ ErrorCode ReadNC::load_file(const char *file_name,
 */
   return MB_SUCCESS;
 }
+
+/*
+ErrorCode ReadNC::parse_options(FileOptions &opts,
+                                std::vector<std::string> &var_names, 
+                                std::vector<int> &tstep_nums,
+                                std::vector<double> &tstep_vals,
+                                bool &nomesh) 
+{
+  std::string s;
+  ErrorCode rval = opts.get_str_option("variable", s ); 
+  char *tmp_str;
+  if (MB_SUCCESS == rval) {
+    if (s == "MOAB_ALL_VARIABLES") {
+      allVars = true;
+    }
+    else {
+      tmp_str = strdup(s.c_str());
+      for (char* i = strtok(tmp_str, ","); i; i = strtok(NULL, ",")) 
+        if (!strempty(i)) // skip empty strings
+          var_names.push_back(std::string(i));
+    }
+  }
+  
+  rval = opts.get_ints_option("timestep", tstep_nums); 
+      
+*/
 
 ErrorCode ReadNC::create_verts() 
 {
