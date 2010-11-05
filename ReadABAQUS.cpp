@@ -1184,7 +1184,7 @@ ErrorCode ReadABAQUS::read_element_list(EntityHandle parent_set, EntityHandle as
   nodes_per_element[abq_eletype_ds4]    = 4;
   entityTypeMap[abq_eletype_ds4]        = MBQUAD;
   
-  abaqus_element_type element_type;
+  abaqus_element_type element_type = abq_eletype_dc3d8;
   
   bool make_element_set = false;
   std::string element_set_name;

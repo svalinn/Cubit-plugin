@@ -2154,7 +2154,7 @@ ErrorCode WriteHDF5::gather_tags( const Tag* user_tag_list, int num_tags )
   for (t_itor = tag_list.begin(); t_itor != tag_list.end(); ++t_itor)
   {
       // Add tag to export list
-    SparseTag tag_data;
+    SparseTag tag_data; tag_data.write = false;
     tag_data.tag_id = *t_itor;
     tag_data.offset = 0;
     tag_data.varDataOffset = 0;
@@ -2518,7 +2518,7 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
     // the file_type.  The only case where it is non-zero is
     // if the user specified a specific type via a mesh tag.
   hdf_type = (hid_t)0;
-  bool close_hdf_type;
+  bool close_hdf_type = false;
   
   rval = iFace->tag_get_data_type( tag, moab_type ); CHK_MB_ERR_0(rval);
   rval = iFace->tag_get_size( tag, num_bytes );     

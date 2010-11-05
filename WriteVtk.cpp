@@ -200,7 +200,7 @@ ErrorCode WriteVtk::gather_mesh( const EntityHandle* set_list,
       rval = mbImpl->get_connectivity( &(*e), 1, connect );
       if (MB_SUCCESS != rval) return rval;
 
-      for (int i = 0; i < connect.size(); ++i)
+      for (unsigned int i = 0; i < connect.size(); ++i)
 	nodes.insert( connect[i] );
     }
   }

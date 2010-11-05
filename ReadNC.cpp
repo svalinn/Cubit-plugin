@@ -71,7 +71,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
                             const ReaderIface::SubsetList* subset_list,
                             const Tag* file_id_tag)
 {
-  ErrorCode rval;
+  ErrorCode rval = MB_SUCCESS;
 
   //See if opts has variable(s) specified
   std::vector<std::string> var_names;
