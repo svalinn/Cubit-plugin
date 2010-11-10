@@ -275,6 +275,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     free(dataBuffer);
     return MB_NOT_IMPLEMENTED;
 #else
+
     int pcomm_no = 0;
     rval = opts.get_int_option("PARALLEL_COMM", pcomm_no);
     if (rval == MB_TYPE_OUT_OF_RANGE) {
@@ -293,8 +294,13 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     dbgOut.tprint( 1, "Getting file summary\n" );
     fileInfo = 0;
     unsigned long size = 0;
+
+
+    /*
     if (rank == 0) {
+
       filePtr = mhdf_openFile( filename, 0, NULL, &status );
+     
       if (filePtr) {  
         fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );
         if (!is_error(status)) {
@@ -308,24 +314,28 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
         fileInfo = 0;
       }
     }
-      // Broadcast the size of the struct (zero indicates an error)
-    dbgOut.tprint( 1, "Communicating file summary\n" );
+
+    */
+
+
+    /* dbgOut.tprint( 1, "Communicating file summary\n" );
     int mpi_err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
     if (mpi_err || !size)
       return MB_FAILURE;
     
-      // allocate structure
+      
     if (rank != 0) 
       fileInfo = reinterpret_cast<mhdf_FileDesc*>( malloc( size ) );
-      // bcast file summary
+      
     MPI_Bcast( fileInfo, size, MPI_BYTE, 0, myPcomm->proc_config().proc_comm() );
-      // fix up internal pointers in file summary struct
+      
     if (rank != 0)
       mhdf_fixFileDesc( fileInfo, reinterpret_cast<mhdf_FileDesc*>(fileInfo->offset) );
+    */
   
-      // configure HDF5 properties  
     hid_t file_prop = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(file_prop, myPcomm->proc_config().proc_comm(), MPI_INFO_NULL);
+
     collIO = H5Pcreate(H5P_DATASET_XFER);
     H5Pset_dxpl_mpio(collIO, H5FD_MPIO_COLLECTIVE);
     indepIO = nativeParallel ? H5P_DEFAULT : collIO;
@@ -333,6 +343,24 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       // re-open file in parallel
     dbgOut.tprintf( 1, "Re-opening \"%s\" for parallel IO\n", filename );
     filePtr = mhdf_openFileWithOpt( filename, 0, NULL, file_prop, &status );
+    
+    if (filePtr) {                                                                                                                                                                                                                                                           
+      fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );                                                                                                                                                                                                        
+      if (!is_error(status)) {                                                                                                                                                                                                                                               
+	size = fileInfo->total_size;                                                                                                                                                                                                                                         
+	fileInfo->offset = (unsigned char*)fileInfo;                                                                                                                                                                                                                         
+      }
+    }
+    
+
+      
+
+
+      
+      
+
+      
+
     H5Pclose( file_prop );
     if (!filePtr)
     {
