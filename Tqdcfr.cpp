@@ -924,7 +924,7 @@ ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, Entit
   int md_index = md.get_md_entry(set_index, "Name");
   if (-1 == md_index) return result;
   MetaDataContainer::MetaDataEntry *md_entry = &(md.metadataEntries[md_index]);
-  assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
+  //assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
   char name_tag_data[NAME_TAG_SIZE];
   memset( name_tag_data, 0, NAME_TAG_SIZE ); // make sure any extra bytes zeroed
   strncpy( name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE );
@@ -945,7 +945,7 @@ ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, Entit
       md_entry = &(md.metadataEntries[md_index]);
       Tag extra_name_tag;
       result = mdbImpl->tag_get_handle(moab_extra_name.str().c_str(), extra_name_tag);
-      assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
+      //assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
       if (MB_SUCCESS != result || 0 == extra_name_tag) {
         memset( name_tag_data, 0, NAME_TAG_SIZE );
         result = mdbImpl->tag_create(moab_extra_name.str().c_str(), NAME_TAG_SIZE, MB_TAG_SPARSE, 
@@ -1003,7 +1003,7 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
       }
     }
     if (0 == entityNameTag) return MB_FAILURE;
-    assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
+    //assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
     memset( name_tag_data, 0, NAME_TAG_SIZE ); // make sure any extra bytes zeroed
     strncpy( name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE );
     result = mdbImpl->tag_set_data(entityNameTag, &grouph->setHandle, 1, 
@@ -1023,7 +1023,7 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
           md_entry = &(model->groupMD.metadataEntries[md_index]);
           Tag extra_name_tag;
           result = mdbImpl->tag_get_handle(moab_extra_name.str().c_str(), extra_name_tag);
-          assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
+          //assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
           if (MB_SUCCESS != result || 0 == extra_name_tag) {
             memset( name_tag_data, 0, NAME_TAG_SIZE );
             result = mdbImpl->tag_create(moab_extra_name.str().c_str(), NAME_TAG_SIZE, MB_TAG_SPARSE, 
@@ -2393,6 +2393,8 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
     if (0 == entityNameTag) return MB_FAILURE;
 
     size_t len = name_tag.size();
+    if (len>=NAME_TAG_SIZE)
+       len = NAME_TAG_SIZE-1;// truncate a name that is too big
     memcpy( name_tag_val, name_tag.c_str(), len );
     memset( name_tag_val+len, '\0', NAME_TAG_SIZE-len );
     result = mdbImpl->tag_set_data(entityNameTag, &(records[entity_rec_num].entity), 1, name_tag_val);
