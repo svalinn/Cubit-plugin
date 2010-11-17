@@ -25,6 +25,7 @@
 
 #include "WriteVtk.hpp"
 #include "VtkUtil.hpp"
+#include "SysUtil.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -505,6 +506,13 @@ ErrorCode WriteVtk::write_tag( std::ostream& stream, Tag tag, const Range& entit
     // the entities that actually have the tag set.
   std::vector<T> data;
   data.resize( n * vals_per_tag, 0 );
+  // if there is a default value for the tag, set the actual default value
+  T def_value[vals_per_tag];
+  rval = mbImpl-> tag_get_default_value( tag, &(def_value[0]));
+  if (MB_SUCCESS==rval)
+  {
+     SysUtil::setmem(&(data[0]), &(def_value[0]), size, n);
+  }
   Range::const_iterator t = tagged.begin();
   typename std::vector<T>::iterator d = data.begin();
   for (Range::const_iterator i = entities.begin(); 
