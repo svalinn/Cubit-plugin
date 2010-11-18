@@ -77,7 +77,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
   std::vector<std::string> var_names;
   std::vector<int> tstep_nums;
   std::vector<double> tstep_vals;
-  bool nomesh = false;
+//  bool nomesh = false;
   
 //  rval = parse_options(opts, var_names, tstep_nums, tstep_vals, nomesh);
   ERRORR(rval, "Trouble parsing option string.");
