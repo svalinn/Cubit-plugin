@@ -480,7 +480,7 @@ ErrorCode ReadSms::get_set(std::vector<EntityHandle> *sets,
 
 ErrorCode ReadSms::read_parallel_info(FILE *file_ptr) 
 {
-  ErrorCode result;
+//  ErrorCode result;
 
     // read partition info
   int nparts, part_id, num_ifaces, num_corner_ents;
@@ -488,7 +488,7 @@ ErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
   
     // read interfaces
   int iface_id, iface_dim, iface_own, num_iface_corners;
-  EntityHandle this_iface;
+//  EntityHandle this_iface;
   std::vector<int> *iface_corners;
   for (int i = 0; i < num_ifaces; i++) {
     fscanf(file_ptr, "%d %d %d %d", &iface_id, &iface_dim, &iface_own,
