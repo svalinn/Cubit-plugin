@@ -507,7 +507,7 @@ ErrorCode WriteVtk::write_tag( std::ostream& stream, Tag tag, const Range& entit
   std::vector<T> data;
   data.resize( n * vals_per_tag, 0 );
   // if there is a default value for the tag, set the actual default value
-  T def_value[vals_per_tag];
+  std::vector<T> def_value(vals_per_tag);
   rval = mbImpl-> tag_get_default_value( tag, &(def_value[0]));
   if (MB_SUCCESS==rval)
   {

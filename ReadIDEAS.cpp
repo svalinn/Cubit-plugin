@@ -271,8 +271,8 @@ ErrorCode ReadIDEAS::create_elements(EntityHandle vstart,
 
     // Get the connectivity out of the 2nd line
     std::stringstream ss(line2);
-    int n_conn = CN::VerticesPerEntity(mb_type);
-    EntityHandle conn[n_conn];
+    const int n_conn = CN::VerticesPerEntity(mb_type);
+    EntityHandle conn[CN::MAX_NODES_PER_ELEMENT];
     EntityHandle vert;
     for(int i=0; i<n_conn; ++i) {
       ss >> vert;
