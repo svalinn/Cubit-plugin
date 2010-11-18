@@ -1717,7 +1717,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   if(NULL==times_ptr || !times_ptr->is_valid()) {
     std::cout << "ReadNCDF: unable to get time variable" << std::endl;
   } else {
-    double times[max_time_steps];
+    std::vector<double> times(max_time_steps);
     NcBool status = times_ptr->get(&times[0], max_time_steps);
     if(0==status) {
       std::cout << "ReadNCDF: unable to get time array" << std::endl;
@@ -2005,7 +2005,10 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   // Get element variable names
   varid = -1;
   cstatus = nc_inq_varid(ncFile->id(), "name_elem_var", &varid);
-  char names[n_elem_var][max_str_length];
+  std::vector<char> names_memory(n_elem_var * max_str_length);
+  std::vector<char*> names(n_elem_var);
+  for (int i = 0; i < n_elem_var; ++i)
+    names[i] = &names_memory[i*max_str_length];
   if (cstatus!=NC_NOERR || varid == -1) {
     std::cout << "ReadNCDF: name_elem_var does not exist" << std::endl;
     return MB_FAILURE;
@@ -2015,7 +2018,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     readMeshIface->report_error("ReadNCDF:: Problem getting element variable variable.");
     return MB_FAILURE;
   }
-  status = temp_var->get(&names[0][0], n_elem_var, max_str_length);
+  status = temp_var->get(&names_memory[0], n_elem_var, max_str_length);
   if (0 == status) {
     readMeshIface->report_error("ReadNCDF: Problem getting element variable names.");
     return MB_FAILURE;
