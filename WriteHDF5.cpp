@@ -57,6 +57,13 @@
 #include "moab/Version.h"
 #include "IODebugTrack.hpp"
 #include "mhdf.h"
+
+#ifdef USE_MPI
+#define RUNTIME MPI_Wtime()
+#else
+#define RUNTIME (clock()/(double)CLOCKS_PER_SEC)
+#endif
+
 /* Access HDF5 file handle for debugging
 #include <H5Fpublic.h>
 struct file { uint32_t magic; hid_t handle; };
@@ -468,9 +475,18 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   std::list<SparseTag>::const_iterator t_itor;
   std::list<ExportSet>::iterator ex_itor;
   EntityHandle elem_count, max_id;
+  double init_time, gather_time, create_time, node_time, element_time, set_time, tag_time, total_time;
   
   if (MB_SUCCESS != init())
     return error(MB_FAILURE);
+
+    // see if we need to report times
+  bool cputime = false;
+  result = opts.get_null_option("CPUTIME");
+  if (MB_SUCCESS == result) {
+    cputime = true;
+    init_time = RUNTIME;
+  }
 
   dbgOut.tprint(1,"Gathering Mesh\n");
   
@@ -488,6 +504,8 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     if (MB_SUCCESS != result) 
       return error(result);
   }
+  
+  if (cputime) gather_time = RUNTIME;
   
   //if (nodeSet.range.size() == 0)
   //  return error(MB_ENTITY_NOT_FOUND);
@@ -538,6 +556,8 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   if (MB_SUCCESS != result)
     return error(result);
 
+  if (cputime) create_time = RUNTIME;
+
   dbgOut.tprint(1,"Writing Nodes.\n");
   
     // Write node coordinates
@@ -546,6 +566,8 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     if (MB_SUCCESS != result)
       return error(result);
   }
+
+  if (cputime) node_time = RUNTIME;
 
   dbgOut.tprint(1,"Writing connectivity.\n");
   
@@ -556,6 +578,8 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
       return error(result);
   }
 
+  if (cputime) element_time = RUNTIME;
+
   dbgOut.tprint(1,"Writing sets.\n");
   
     // Write meshsets
@@ -564,6 +588,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     return error(result);
 
   debug_barrier();
+  if (cputime) set_time = RUNTIME;
   dbgOut.tprint(1,"Writing adjacencies.\n");
   
     // Write adjacencies
@@ -588,7 +613,24 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     if (MB_SUCCESS != result)
       return error(result);
   }
-  
+
+  if (cputime) {
+    tag_time = RUNTIME;
+    total_time = RUNTIME;
+
+    std::cout << "Write times: "
+              << total_time -init_time << " " 
+              << init_time << " " 
+              << gather_time - init_time << " " 
+              << create_time - gather_time << " "
+              << node_time - create_time << " " 
+              << element_time - node_time << " " 
+              << set_time - node_time << " " 
+              << tag_time - set_time
+              << " (TOTAL/INIT/GATHER/CREATE/NODES/ELEMS/SETS/TAGS)"
+              << std::endl;
+  }
+
   return MB_SUCCESS;
 }
 
