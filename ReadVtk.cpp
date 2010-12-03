@@ -713,8 +713,22 @@ ErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
   long i, num_verts, num_elems[2];
   EntityHandle tmp_conn_list[27];
 
-  if (!tokens.match_token( "POINTS" )        ||
-      !tokens.get_long_ints( 1, &num_verts ) ||
+    // Poorly formatted VTK legacy format document seems to
+    // lead many to think that a FIELD block can occur within
+    // an UNSTRUCTURED_GRID dataset rather than as its own data 
+    // set.  So allow for field data between other blocks of
+    // data.  
+    
+  const char* pts_str[] = { "FIELD", "POINTS", 0 };
+  while (1 == (i = tokens.match_token(pts_str))) {
+    result = vtk_read_field(tokens);
+    if (MB_SUCCESS != result)
+      return result;
+  }    
+  if (i != 2)
+    return MB_FAILURE;
+
+  if (!tokens.get_long_ints( 1, &num_verts ) ||
       !tokens.match_token( vtk_type_names)   ||
       !tokens.get_newline( ))
     return MB_FAILURE;
@@ -731,9 +745,17 @@ ErrorCode ReadVtk::vtk_read_unstructured_grid( FileTokenizer& tokens,
   if (MB_SUCCESS != result)
     return result;
   vertex_list.insert( first_vertex, first_vertex + num_verts - 1 );
+    
+  const char* cell_str[] = { "FIELD", "CELLS", 0 };
+  while (1 == (i = tokens.match_token(cell_str))) {
+    result = vtk_read_field(tokens);
+    if (MB_SUCCESS != result)
+      return result;
+  }    
+  if (i != 2)
+    return MB_FAILURE;
   
-  if (!tokens.match_token( "CELLS" )        ||
-      !tokens.get_long_ints( 2, num_elems ) ||
+  if (!tokens.get_long_ints( 2, num_elems ) ||
       !tokens.get_newline( ))
     return MB_FAILURE;
   
@@ -935,7 +957,8 @@ ErrorCode ReadVtk::vtk_read_field( FileTokenizer& tokens )
     // For now, read it and throw it out.
 
   long num_arrays;
-  if (!tokens.get_long_ints( 1, &num_arrays ))
+  if (!tokens.get_string() || // name
+      !tokens.get_long_ints( 1, &num_arrays ))
     return MB_FAILURE;
   
   for (long i = 0; i < num_arrays; ++i)
