@@ -98,7 +98,6 @@ ReadCGM::ReadCGM(Interface *impl)
 
 ReadCGM::~ReadCGM()
 {
-  InitCGMA::deinitialize_cgma();
   std::string iface_name = "ReadUtilIface";
   mdbImpl->release_interface(iface_name, readUtilIface);
   delete myGeomTool;
