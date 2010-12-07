@@ -120,7 +120,7 @@ private:
   int number_dimensions();
 
     //! create vertices for the file
-  ErrorCode create_verts();
+  ErrorCode create_verts_hexes();
 
   //------------member variables ------------//
 
@@ -172,8 +172,8 @@ private:
     //! Meshset Handle for the mesh that is currently being read
   EntityHandle mCurrentMeshHandle;
 
-    //! starting vertex handle for this read
-  EntityHandle startVertex;
+    //! starting vertex and element handles for this read
+  EntityHandle startVertex, startElem;
 
   //! Cached tags for reading.  Note that all these tags are defined when the
   //! core is initialized.

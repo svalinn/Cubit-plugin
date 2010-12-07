@@ -15,6 +15,7 @@
 #include "moab/ReadUtilIface.hpp"
 #include "MBTagConventions.hpp"
 #include "SequenceManager.hpp"
+#include "StructuredElementSeq.hpp"
 #include "VertexSequence.hpp"
 #include "FileOptions.hpp"
 
@@ -99,23 +100,18 @@ ErrorCode ReadNC::load_file(const char *file_name,
   rval = read_header();
   ERRORR(rval, " ");
 
+    // 2. Get bounds on ijk space
   rval = init_ijk_vals(opts);
   ERRORR(rval, "Trouble initializing ijk values.");
 
-  rval = create_verts();
+    // 3. Create structured mesh vertex/hex sequences
+  rval = create_verts_hexes();
   ERRORR(rval, "Trouble creating vertices.");
-/*  
-  status = mdbImpl->get_entities_by_handle(0, initRange);
-  if (MB_FAILURE == status) return status;
 
-    // 2. Read/create nodes and elements
-  status = read_nodes_elements(file_id_tag);
-  if (MB_FAILURE == status) return status;
- 
     // 3. Read variables onto grid
-  status = read_variables(file_id_tag);
-  if (MB_FAILURE == status) return status;
-*/
+//  rval = read_variables(file_id_tag);
+  if (MB_FAILURE == rval) return rval;
+
   return MB_SUCCESS;
 }
 
@@ -145,12 +141,18 @@ ErrorCode ReadNC::parse_options(FileOptions &opts,
       
 */
 
-ErrorCode ReadNC::create_verts() 
+ErrorCode ReadNC::create_verts_hexes() 
 {
   Core *tmpImpl = dynamic_cast<Core*>(mbImpl);
-  SequenceManager *seq_mgr = tmpImpl->sequence_manager();
   VertexSequence *vert_seq;
   EntitySequence *dum_seq;
+
+    // get the seq manager from gMB
+  SequenceManager *seq_mgr = tmpImpl->sequence_manager();
+  
+//  klMin = 0;
+//  klMax = 1;
+//  klVals.resize(2, 0);
   ErrorCode rval = seq_mgr->create_scd_sequence(ilMin, jlMin, (-1 != klMin ? klMin : 0),
                                                 ilMax, jlMax, (-1 != klMax ? klMax : 0),
                                                 MBVERTEX, (moab::EntityID)0, startVertex, dum_seq);
@@ -168,7 +170,7 @@ ErrorCode ReadNC::create_verts()
   int dj = jlMax - jlMin + 1;
 
   assert(di == (int)ilVals.size() && dj == (int)jlVals.size() && 
-         (-1 == klMin || klMax-klMin+1 == klVals.size()));
+         (-1 == klMin || klMax-klMin+1 == (int)klVals.size()));
   for (kl = klMin; kl <= klMax; kl++) {
     k = kl - klMin;
     for (jl = jlMin; jl <= jlMax; jl++) {
@@ -183,6 +185,42 @@ ErrorCode ReadNC::create_verts()
     }
   }
     
+    // create element sequence
+  rval = seq_mgr->create_scd_sequence(ilMin, jlMin, (-1 != klMin ? klMin : 0),
+                                      ilMax, jlMax, (-1 != klMax ? klMax : 0),
+                                      (-1 != klMin ? MBHEX : MBQUAD), (moab::EntityID)0, startElem, dum_seq);
+  ERRORR(rval, "Trouble creating scd element sequence.");
+  
+  StructuredElementSeq *elem_seq = dynamic_cast<StructuredElementSeq*>(dum_seq);
+  assert (MB_FAILURE != rval && dum_seq != NULL && elem_seq != NULL);
+  
+    // add vertex seq to element seq, forward orientation, unity transform
+  ScdVertexData *dum_data = dynamic_cast<ScdVertexData*>(vert_seq->data());
+  rval = elem_seq->sdata()->add_vsequence(dum_data,
+                                            // p1: imin,jmin
+                                          HomCoord(ilMin, jlMin, (-1 == klMin ? 0 : klMin)),
+                                          HomCoord(ilMin, jlMin, (-1 == klMin ? 0 : klMin)),
+                                            // p2: imax,jmin
+                                          HomCoord(ilMax, jlMin, (-1 == klMin ? 0 : klMin)),
+                                          HomCoord(ilMax, jlMin, (-1 == klMin ? 0 : klMin)),
+                                            // p3: imin,jmax
+                                          HomCoord(ilMin, jlMax, (-1 == klMin ? 0 : klMin)),
+                                          HomCoord(ilMin, jlMax, (-1 == klMin ? 0 : klMin)));
+  ERRORR(rval, "Error constructing structured element sequence.");
+
+  if (2 <= dbgOut.get_verbosity()) {
+    assert(elem_seq->boundary_complete());
+    rval = mbImpl->list_entities(&startElem, 1);
+    ERRORR(rval, "Trouble listing first hex.");
+  
+    std::vector<EntityHandle> connect;
+    rval = mbImpl->get_connectivity(&startElem, 1, connect);
+    ERRORR(rval, "Trouble getting connectivity.");
+  
+    rval = mbImpl->list_entities(&connect[0], connect.size());
+    ERRORR(rval, "Trouble listing element connectivity.");
+  }
+  
   return MB_SUCCESS;
 }
 
