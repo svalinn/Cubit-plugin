@@ -16,6 +16,7 @@
 #include "MBTagConventions.hpp"
 #include "SequenceManager.hpp"
 #include "VertexSequence.hpp"
+#include "FileOptions.hpp"
 
 #define ERRORR(rval, str) \
     if (MB_SUCCESS != rval) {readMeshIface->report_error(str); return rval;}
@@ -31,7 +32,8 @@ ReaderIface* ReadNC::factory( Interface* iface )
   { return new ReadNC( iface ); }
 
 ReadNC::ReadNC(Interface* impl)
-    : mbImpl(impl), max_line_length(-1), max_str_length(-1)
+        : mbImpl(impl), max_line_length(-1), max_str_length(-1), dbgOut(stderr)
+
 {
   assert(impl != NULL);
   reset();
@@ -79,10 +81,17 @@ ErrorCode ReadNC::load_file(const char *file_name,
   std::vector<double> tstep_vals;
 //  bool nomesh = false;
   
+  int tmpval;
+  if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
+    dbgOut.set_verbosity(tmpval);
+    dbgOut.set_prefix("NC ");
+  }
+  
 //  rval = parse_options(opts, var_names, tstep_nums, tstep_vals, nomesh);
   ERRORR(rval, "Trouble parsing option string.");
 
   // 0. Open the file.
+  dbgOut.tprintf(1, "Opening file %s\n", file_name);
   int success = nc_open(file_name, 0, &fileId);
   ERRORS(success, "Trouble opening file.");
   
@@ -154,6 +163,26 @@ ErrorCode ReadNC::create_verts()
   rval = vert_seq->get_coordinate_arrays(xc, yc, zc);
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
+  int i, j, k, il, jl, kl;
+  int di = ilMax - ilMin + 1;
+  int dj = jlMax - jlMin + 1;
+
+  assert(di == (int)ilVals.size() && dj == (int)jlVals.size() && 
+         (-1 == klMin || klMax-klMin+1 == klVals.size()));
+  for (kl = klMin; kl <= klMax; kl++) {
+    k = kl - klMin;
+    for (jl = jlMin; jl <= jlMax; jl++) {
+      j = jl - jlMin;
+      for (il = ilMin; il <= ilMax; il++) {
+        i = il - ilMin;
+        unsigned int pos = i + j*di + k*di*dj;
+        xc[pos] = ilVals[i];
+        yc[pos] = jlVals[j];
+        zc[pos] = (-1 == klMin ? 0.0 : klVals[k]);
+      }
+    }
+  }
+    
   return MB_SUCCESS;
 }
 
@@ -193,24 +222,52 @@ ErrorCode ReadNC::init_ijk_vals(const FileOptions &opts)
 
     // ... then read actual values
   ErrorCode rval;
+  std::map<std::string,VarData>::iterator vmit;
   if (ilMin != -1) {
-    rval = read_coordinate("lon", ilMin, ilMax, ilVals);
-    if (MB_SUCCESS != rval) 
+      // look for x1 first, sometimes lon is a time-dependent variable
+    if ((vmit = varInfo.find("x1")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       rval = read_coordinate("x1", ilMin, ilMax, ilVals);
-    ERRORR(rval, "Couldn't find x coordinate.");
+      ERRORR(rval, "Trouble reading x1 variable.");
+    }
+    else if ((vmit = varInfo.find("lon")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("lon", ilMin, ilMax, ilVals);
+      ERRORR(rval, "Trouble reading lon variable.");
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find x coordinate.");
+    }
   }
   
   if (jlMin != -1) {
-    rval = read_coordinate("lat", jlMin, jlMax, jlVals);
-    if (MB_SUCCESS != rval) 
+      // look for y1 first, sometimes lon is a time-dependent variable
+    if ((vmit = varInfo.find("y1")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       rval = read_coordinate("y1", jlMin, jlMax, jlVals);
-    ERRORR(rval, "Couldn't find y coordinate.");
+      ERRORR(rval, "Trouble reading y1 variable.");
+    }
+    else if ((vmit = varInfo.find("lat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("lat", jlMin, jlMax, jlVals);
+      ERRORR(rval, "Trouble reading lat variable.");
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find y coordinate.");
+    }
   }
 
   if (klMin != -1) {
-    rval = read_coordinate("lev", klMin, klMax, klVals);
+      // look for z1 first, sometimes lon is a time-dependent variable
+    if ((vmit = varInfo.find("z1")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("z1", klMin, klMax, klVals);
+      ERRORR(rval, "Trouble reading z1 variable.");
+    }
+    else if ((vmit = varInfo.find("lev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("lev", klMin, klMax, klVals);
+      ERRORR(rval, "Trouble reading lev variable.");
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find z coordinate.");
+    }
   }
-  
+
   return MB_SUCCESS;
 }
     
@@ -243,48 +300,60 @@ ErrorCode ReadNC::read_coordinate(const char *var_name, int lmin, int lmax,
       
 ErrorCode ReadNC::read_header()
 {
-  CPU_WORD_SIZE = sizeof(double);  // With ExodusII version 2, all floats
-  IO_WORD_SIZE = sizeof(double);   // should be changed to doubles
+  CPU_WORD_SIZE = sizeof(double);
+  IO_WORD_SIZE = sizeof(double);
   
+  dbgOut.tprint(1, "Reading header...\n");
+
     // get the global attributes
   int numgatts;
   int success = nc_inq_natts (fileId, &numgatts);
   ERRORS(success, "Couldn't get number of global attributes.");
-  
-  ErrorCode result = get_attributes(numgatts, NC_GLOBAL, globalAtts);
-  ERRORR(result, "Getting attributes.");
 
-    // read in dimensions
+    // read attributes into globalAtts
+  ErrorCode result = get_attributes(NC_GLOBAL, numgatts, globalAtts);
+  ERRORR(result, "Getting attributes.");
+  dbgOut.tprintf(1, "Read %u attributes\n", (unsigned int)globalAtts.size());
+
+    // read in dimensions into dimVals
   result = get_dimensions();
   ERRORR(result, "Getting dimensions.");
+  dbgOut.tprintf(1, "Read %u dimensions\n", (unsigned int)dimVals.size());
 
-    // read in variables
+    // read in variables into varInfo
   result = get_variables();
   ERRORR(result, "Getting variables.");
+  dbgOut.tprintf(1, "Read %u variables\n", (unsigned int)varInfo.size());
 
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string,AttData> &atts) 
+ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string,AttData> &atts,
+                                 const char *prefix) 
 {
 
   char dum_name[120];
 
   for (int i = 0; i < num_atts; i++) {
       // get the name
-    int success = nc_inq_attname(fileId, NC_GLOBAL, i, dum_name);
+    int success = nc_inq_attname(fileId, var_id, i, dum_name);
     ERRORS(success, "Trouble getting attribute name.");
     
-    AttData &data = globalAtts[std::string(dum_name)];
-    success = nc_inq_att(fileId, NC_GLOBAL, dum_name, &data.attDataType, &data.attLen);
+    AttData &data = atts[std::string(dum_name)];
+    data.attName = std::string(dum_name);
+    success = nc_inq_att(fileId, var_id, dum_name, &data.attDataType, &data.attLen);
     ERRORS(success, "Trouble getting attribute info.");
-    data.attVarId = NC_GLOBAL;
+    data.attVarId = var_id;
+
+    dbgOut.tprintf(2, "%sAttribute %s: length=%u, varId=%d, type=%d\n",
+                   (prefix ? prefix : ""), data.attName.c_str(), (unsigned int)data.attLen, 
+                   data.attVarId, data.attDataType);
   }
   
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::get_dimensions() 
+ErrorCode ReadNC::get_dimensions()
 {
     // get the number of dimensions
   int success = nc_inq_ndims(fileId, &numDims);
@@ -304,6 +373,9 @@ ErrorCode ReadNC::get_dimensions()
     ERRORS(success, "Trouble getting dimension info.");
     
     dimVals[std::string(dim_name)] = dum_len;
+
+    dbgOut.tprintf(2, "Dimension %s, length=%u\n",
+                   dim_name, (unsigned int)dum_len);
   }
   
   return MB_SUCCESS;
@@ -322,13 +394,15 @@ ErrorCode ReadNC::get_variables()
   }
   
   char var_name[NC_MAX_NAME+1];
-  int var_ndims, var_natts;
+  int var_ndims;
   
   for (int i = 0; i < numVars; i++) {
       // get the name first, so we can allocate a map iterate for this var
     success = nc_inq_varname (fileId, i, var_name);
     ERRORS(success, "Trouble getting var name.");
     VarData &data = varInfo[std::string(var_name)];
+    data.varName = std::string(var_name);
+    data.varId = i;
 
       // get the data type
     success = nc_inq_vartype(fileId, i, &data.varDataType);
@@ -343,11 +417,17 @@ ErrorCode ReadNC::get_variables()
     ERRORS(success, "Trouble getting variable dimensions.");
 
       // finally, get the number of attributes, then the attributes
-    success = nc_inq_varnatts(fileId, i, &var_natts);
+    success = nc_inq_varnatts(fileId, i, &data.numAtts);
     ERRORS(success, "Trouble getting number of dims of a variable.");
 
-    ErrorCode rval = get_attributes(i, var_natts, data.varAtts);
+      // print debug info here so attribute info comes afterwards
+    dbgOut.tprintf(2, "Variable %s: Id=%d, numAtts=%d, datatype=%d, num_dims=%d\n",
+                   data.varName.c_str(), data.varId, data.numAtts, data.varDataType, 
+                   (unsigned int)data.varDims.size());
+
+    ErrorCode rval = get_attributes(i, data.numAtts, data.varAtts, "   ");
     ERRORR(rval, "Trouble getting attributes for a variable.");
+
   }
   
   return MB_SUCCESS;

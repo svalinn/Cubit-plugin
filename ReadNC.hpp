@@ -21,6 +21,7 @@
 #include "moab/Forward.hpp"
 #include "moab/ReaderIface.hpp"
 #include "moab/Range.hpp"
+#include "DebugOutput.hpp"
 
 namespace moab {
 
@@ -77,6 +78,7 @@ private:
     size_t attLen;
     int attVarId;
     nc_type attDataType;
+    std::string attName;
   };
 
   struct VarData 
@@ -86,6 +88,7 @@ private:
     nc_type varDataType;
     std::vector<int> varDims;
     std::map<std::string,AttData> varAtts;
+    std::string varName;
   };
 
   ReadUtilIface* readMeshIface;
@@ -98,7 +101,8 @@ private:
   ErrorCode read_header();
 
     //! get all global attributes in the file
-  ErrorCode get_attributes(int var_id, int num_atts, std::map<std::string,AttData> &atts);
+  ErrorCode get_attributes(int var_id, int num_atts, std::map<std::string,AttData> &atts,
+                           const char *prefix="");
   
     //! get all dimensions in the file
   ErrorCode get_dimensions();
@@ -182,7 +186,9 @@ private:
 
     //! offset of first vertex id
   int vertexOffset;
-  
+
+    //! debug stuff
+  DebugOutput dbgOut;
 };
 
 // inline functions
