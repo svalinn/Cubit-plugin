@@ -393,6 +393,7 @@ mhdf_checkOpenHandles( mhdf_FileHandle handle,
                        mhdf_Status* status )
 {
   FileHandle* file_ptr;
+  int result;
   API_BEGIN;
 
   file_ptr = (FileHandle*)(handle);
@@ -401,7 +402,7 @@ mhdf_checkOpenHandles( mhdf_FileHandle handle,
   
   /* Check for open handles.  HDF5 will not actually close the
      file until all handles are closed. */
-  int result = H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_ALL );
+  result = H5Fget_obj_count( file_ptr->hdf_handle, H5F_OBJ_ALL );
   if (result != 1)
   {
     mhdf_setFail( status, "Cannot close file with open handles: "

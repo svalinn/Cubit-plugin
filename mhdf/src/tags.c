@@ -563,10 +563,10 @@ mhdf_getTagDataType( mhdf_FileHandle file_handle,
                      const char* tag_name, 
                      mhdf_Status* status )
 {
-  API_BEGIN;
   FileHandle* file_ptr;
   hid_t result;
   char* path;
+  API_BEGIN;
 
     /* Validate input */
   
@@ -802,7 +802,7 @@ static int get_attrib_array_length_handle( hid_t attrib_id )
       break;
     case H5T_ARRAY:
 #if defined(H5Tget_array_dims_vers) && H5Tget_array_dims_vers > 1
-      (void)perm; // eliminate warning
+      (void)perm; /* suppress warning */
       rank = H5Tget_array_dims2( type_id, dims );
 #else
       rank = H5Tget_array_dims( type_id, dims, perm );
@@ -1036,7 +1036,7 @@ mhdf_getTagInfo( mhdf_FileHandle file_handle,
     case H5T_ARRAY:
       
 #if defined(H5Tget_array_dims_vers) && H5Tget_array_dims_vers > 1
-      (void)perm; // eliminate warning
+      (void)perm; /* suppress warning */
       rank = H5Tget_array_dims2( type_id, dims );
 #else
       rank = H5Tget_array_dims( type_id, dims, perm );
