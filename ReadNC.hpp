@@ -72,8 +72,10 @@ public:
 
 private:
 
-  struct AttData 
+  class AttData 
   {
+    public:
+    AttData() : attId(-1), attLen(0), attVarId(-2) {}
     int attId;
     size_t attLen;
     int attVarId;
@@ -81,14 +83,18 @@ private:
     std::string attName;
   };
 
-  struct VarData 
+  class VarData 
   {
+    public:
+    VarData() : varId(-1), numAtts(-1), read(false) {}
     int varId;
     int numAtts;
     nc_type varDataType;
     std::vector<int> varDims;
     std::map<std::string,AttData> varAtts;
     std::string varName;
+    bool read;
+    std::vector<Tag> varTags;
   };
 
   ReadUtilIface* readMeshIface;
@@ -111,18 +117,32 @@ private:
   ErrorCode get_variables();
   
     //! parse min/max i/j/k in options, if any
-  ErrorCode init_ijk_vals(const FileOptions &opts);
+  ErrorCode init_ijkt_vals(const FileOptions &opts);
 
   ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
                             std::vector<double> &cvals);
   
     //! number of dimensions in this nc file
-  int number_dimensions();
+  unsigned int number_dimensions();
 
     //! create vertices for the file
-  ErrorCode create_verts_hexes();
+  ErrorCode create_verts_hexes(EntityHandle file_set);
 
-  //------------member variables ------------//
+  ErrorCode parse_options(const FileOptions &opts,
+                          std::vector<std::string> &var_names, 
+                          std::vector<int> &tstep_nums,
+                          std::vector<double> &tstep_vals,
+                          bool &nomesh);
+  
+  ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
+                           std::vector<int> &tstep_nums, bool nomesh);
+  
+  ErrorCode read_variable(EntityHandle file_set,
+                          VarData &var_data, int tstep_num);
+  
+  ErrorCode get_tag(VarData &var_data, int tstep_num, Tag &tagh);
+  
+//------------member variables ------------//
 
     //! interface instance
   Interface* mbImpl;
@@ -136,37 +156,30 @@ private:
     //! file number assigned by netcdf
   int fileId;
   
-    //! number of dimensions
-  int numDims;
-
     //! dimensions
-  std::map<std::string,int> dimVals;
-
-    //! number of global attributes
-  int numGAtts;
+  std::vector<std::string> dimNames;
+  std::vector<int> dimVals;
+  std::string iName, jName, kName;
 
     //! global attribs
   std::map<std::string,AttData> globalAtts;
   
-    //! number of variables
-  int numVars;
-
     //! variable info
   std::map<std::string,VarData> varInfo;
   
     //! dimensions of grid in file
-  int iMin, iMax, jMin, jMax, kMin, kMax;
+  int iMin, iMax, jMin, jMax, kMin, kMax, tMin, tMax;
   
     //! dimensions of my part of grid
   int ilMin, ilMax, jlMin, jlMax, klMin, klMax;
 
-    //! the actual dimension and variable names used for the i/j/k dimensions
-  std::string iName, jName, kName;
-
     //! values for i/j/k
-  std::vector<double> ilVals, jlVals, klVals;
+  std::vector<double> ilVals, jlVals, klVals, tVals;
+
+    //! dimension numbers for i, j, k, t
+  int iDim, jDim, kDim, tDim;
   
-    //! number of the variable of unlimited dimension, if any
+    //! number of the dimension of unlimited dimension, if any
   int numUnLim;
 
     //! Meshset Handle for the mesh that is currently being read
@@ -192,9 +205,9 @@ private:
 };
 
 // inline functions
-inline int ReadNC::number_dimensions() 
+inline unsigned int ReadNC::number_dimensions() 
 {
-   return numDims;
+  return dimVals.size();
 }
 
 } // namespace moab
