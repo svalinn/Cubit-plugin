@@ -38,7 +38,7 @@
 #include <iostream>
 #include <assert.h>
 
-#include "netcdf.hh"
+#include "netcdf.h"
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
 #include "moab/CN.hpp"
@@ -52,6 +52,17 @@ namespace moab {
 #define INS_ID(stringvar, prefix, id) \
           sprintf(stringvar, prefix, id)
 
+#define GET_VAR(name, id, dims) \
+    {                           \
+    id = -1;\
+    int fail = nc_inq_varid(ncFile, name, &id);   \
+    if (NC_NOERR == fail) {       \
+    int ndims;\
+    fail = nc_inq_varndims(ncFile, id, &ndims);\
+    if (NC_NOERR == fail) {\
+    dims.resize(ndims);    \
+    fail = nc_inq_vardimid(ncFile, id, &dims[0]);}}}
+    
 WriterIface* WriteSLAC::factory( Interface* iface )
   { return new WriteSLAC( iface ); }
 
@@ -111,9 +122,6 @@ WriteSLAC::~WriteSLAC()
   mbImpl->release_interface(iface_name, mWriteIface);
 
   mbImpl->tag_delete(mEntityMark);
-
-  if (NULL != ncFile)
-    delete ncFile;
 }
 
 void WriteSLAC::reset_matset(std::vector<WriteSLAC::MaterialSetData> &matset_info)
@@ -195,8 +203,8 @@ ErrorCode WriteSLAC::write_file(const char *file_name,
 
 
   // try to open the file after gather mesh info succeeds
-  ncFile = new NcFile(file_name, overwrite ? NcFile::Replace : NcFile::New );
-  if (NULL == ncFile) {
+  int fail = nc_create(file_name, overwrite ? NC_CLOBBER : NC_NOCLOBBER, &ncFile);
+  if (NC_NOERR != fail) {
     reset_matset(matset_info);
     return MB_FAILURE;
   }
@@ -219,6 +227,10 @@ ErrorCode WriteSLAC::write_file(const char *file_name,
     return MB_FAILURE;
   }
 
+  fail = nc_close(ncFile);
+  if (NC_NOERR != fail) 
+    return MB_FAILURE;
+  
   return MB_SUCCESS;
 }
 
@@ -601,23 +613,21 @@ ErrorCode WriteSLAC::write_nodes(const int num_nodes, const Range& nodes, const 
 
 
   // write the nodes 
-  NcVar *coord = ncFile->get_var("coords");
-  if (NULL == coord) return MB_FAILURE;
-  bool status = coord->put(coord_arrays[0], num_nodes, 1) != 0;
-  if (!status)
+  int nc_var = -1;
+  std::vector<int> dims;
+  GET_VAR("coords", nc_var, dims);
+  if (-1 == nc_var) return MB_FAILURE;
+  size_t start[2] = {0, 0}, count[2] = {num_nodes, 1};
+  int fail = nc_put_vara_double(ncFile, nc_var, start, count, coord_arrays[0]) != 0;
+  if (NC_NOERR != fail) 
     return MB_FAILURE;
-  status = coord->set_cur(0, 1) != 0;
-  if (!status)
+  start[1] = 1;
+  fail = nc_put_vara_double(ncFile, nc_var, start, count, coord_arrays[1]) != 0;
+  if (NC_NOERR != fail) 
     return MB_FAILURE;
-  status = coord->put(&(coord_arrays[1][0]), num_nodes, 1) != 0;
-  if (!status)
-    return MB_FAILURE;
-  status = coord->set_cur(0, 2) != 0;
-  if (!status)
-    return MB_FAILURE;
-  status = coord->put(&(coord_arrays[2][0]), num_nodes, 1) != 0;
-  if (!status)
-    return MB_FAILURE;
+  start[1] = 2;
+  fail = nc_put_vara_double(ncFile, nc_var, start, count, coord_arrays[2]) != 0;
+  if (NC_NOERR != fail) 
   
   delete [] coord_arrays[0];
   delete [] coord_arrays[1];
@@ -696,17 +706,19 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
   ErrorCode result;
   
     // first write the interior hexes
-  NcVar *hex_conn = NULL;
+  int hex_conn = -1;
+  std::vector<int> dims;
   if (mesh_info.bdy_hexes.size() != 0 || mesh_info.num_int_hexes != 0) {
-    const char *hex_name = "hexahedron_interior";
-    hex_conn = ncFile->get_var(hex_name);
-    if (NULL == hex_conn) return MB_FAILURE;
+    GET_VAR("hexahedron_interior", hex_conn, dims);
+    if (-1 == hex_conn) return MB_FAILURE;
   }
   connect.reserve(13);
   Range::iterator rit;
 
   int elem_num = 0;
   WriteSLAC::MaterialSetData matset;
+  size_t start[2] = {0, 0}, count[2] = {1, 1};
+  int fail;
   for (i = 0; i < matset_data.size(); i++) {
     matset = matset_data[i];
     if (matset.moab_type != MBHEX) continue;
@@ -727,20 +739,20 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
       if (MB_SUCCESS != result) return result;
       
         // put the variable at the right position
-      hex_conn->set_cur(elem_num++, 0);
+      start[0] = elem_num++;
+      count[1] = 9;
       
         // write the data
-      NcBool err = hex_conn->put(&connect[0], 1, 9);
-      if(!err)
+      fail = nc_put_vara_int(ncFile, hex_conn, start, count, &connect[0]);
+      if(NC_NOERR != fail)
         return MB_FAILURE;
     }
   }
 
-  NcVar *tet_conn = NULL;
+  int tet_conn = -1;
   if (mesh_info.bdy_tets.size() != 0 || mesh_info.num_int_tets != 0) {
-    const char *tet_name = "tetrahedron_interior";
-    tet_conn = ncFile->get_var(tet_name);
-    if (NULL == tet_conn) return MB_FAILURE;
+    GET_VAR("tetrahedron_interior", tet_conn, dims);
+    if (-1 == tet_conn) return MB_FAILURE;
   }
 
     // now the interior tets
@@ -751,7 +763,8 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
     
     int id = matset.id;
     connect[0] = id;
-
+    elem_num = 0;
+    int fail;
     for (rit = matset.elements->begin(); rit != matset.elements->end(); rit++) {
         // skip if it's on the bdy
       if (mesh_info.bdy_tets.find(*rit) != mesh_info.bdy_tets.end()) continue;
@@ -765,20 +778,20 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
       if (MB_SUCCESS != result) return result;
       
         // put the variable at the right position
-      tet_conn->set_cur(elem_num, 0);
-      
+      start[0] = elem_num++;
+      count[1] = 5;
+      fail = nc_put_vara_int(ncFile, tet_conn, start, count, &connect[0]);
         // write the data
-      NcBool err = tet_conn->put(&connect[0], 1, 5);
-      if(!err)
+      if(NC_NOERR != fail)
         return MB_FAILURE;
     }
   }
   
     // now the exterior hexes
   if (mesh_info.bdy_hexes.size() != 0) {
-    const char *hex_name = "hexahedron_exterior";
-    hex_conn = ncFile->get_var(hex_name);
-    if (NULL == hex_conn) return MB_FAILURE;
+    hex_conn = -1;
+    GET_VAR("hexahedron_exterior", hex_conn, dims);
+    if (-1 == hex_conn) return MB_FAILURE;
 
     connect.reserve(15);
     int elem_num = 0;
@@ -816,20 +829,20 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
         }
       
           // put the variable at the right position
-        hex_conn->set_cur(elem_num, 0);
-      
+        start[0] = elem_num++;
+        count[1] = 15;
+        fail = nc_put_vara_int(ncFile, hex_conn, start, count, &connect[0]);
           // write the data
-        NcBool err = hex_conn->put(&connect[0], 1, 15);
-        if(!err)
+        if(NC_NOERR != fail)
           return MB_FAILURE;
     }
   }
 
     // now the exterior tets
   if (mesh_info.bdy_tets.size() != 0) {
-    const char *tet_name = "tetrahedron_exterior";
-    tet_conn = ncFile->get_var(tet_name);
-    if (NULL == tet_conn) return MB_FAILURE;
+    tet_conn = -1;
+    GET_VAR("tetrahedron_exterior", tet_conn, dims);
+    if (-1 == tet_conn) return MB_FAILURE;
 
     connect.reserve(9);
     int elem_num = 0;
@@ -867,11 +880,11 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
         }
       
           // put the variable at the right position
-        tet_conn->set_cur(elem_num, 0);
-      
+        start[0] = elem_num++;
+        count[1] = 9;
+        fail = nc_put_vara_int(ncFile, tet_conn, start, count, &connect[0]);
           // write the data
-        NcBool err = tet_conn->put(&connect[0], 1, 9);
-        if(!err)
+        if(NC_NOERR != fail)
           return MB_FAILURE;
     }
   }
@@ -883,70 +896,70 @@ ErrorCode WriteSLAC::initialize_file(MeshInfo &mesh_info)
 {
     // perform the initializations
 
-  NcDim *coord_size, *ncoords;
+  int coord_size = -1, ncoords = -1;
     // initialization to avoid warnings on linux
-  NcDim *hexinterior = NULL, *hexinteriorsize, *hexexterior = NULL, *hexexteriorsize;
-  NcDim *tetinterior = NULL, *tetinteriorsize, *tetexterior = NULL, *tetexteriorsize;
+  int hexinterior = -1, hexinteriorsize, hexexterior = -1, hexexteriorsize = -1;
+  int tetinterior = -1, tetinteriorsize, tetexterior = -1, tetexteriorsize = -1;
   
-  if (!(coord_size = ncFile->add_dim("coord_size", (long)mesh_info.num_dim)))
+  if (nc_def_dim(ncFile, "coord_size", (size_t)mesh_info.num_dim, &coord_size) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define number of dimensions");
     return (MB_FAILURE);
   }
 
-  if (!(ncoords = ncFile->add_dim("ncoords", (long)mesh_info.num_nodes)))
+  if (nc_def_dim(ncFile, "ncoords", (size_t)mesh_info.num_nodes, &ncoords) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define number of nodes");
     return (MB_FAILURE);
   }
 
   if (0 != mesh_info.num_int_hexes &&
-      !(hexinterior = ncFile->add_dim("hexinterior", (long)mesh_info.num_int_hexes)))
+      nc_def_dim(ncFile, "hexinterior", (size_t)mesh_info.num_int_hexes, &hexinterior) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define number of interior hex elements");
     return (MB_FAILURE);
   }
 
-  if (!(hexinteriorsize = ncFile->add_dim("hexinteriorsize", (long)9)))
+  if (nc_def_dim(ncFile, "hexinteriorsize", (size_t)9, &hexinteriorsize) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define interior hex element size");
     return (MB_FAILURE);
   }
 
   if (0 != mesh_info.bdy_hexes.size() &&
-      !(hexexterior = ncFile->add_dim("hexexterior", (long)mesh_info.bdy_hexes.size())))
+      nc_def_dim(ncFile, "hexexterior", (size_t)mesh_info.bdy_hexes.size(), &hexexterior) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define number of exterior hex elements");
     return (MB_FAILURE);
   }
 
-  if (!(hexexteriorsize = ncFile->add_dim("hexexteriorsize", (long)15)))
+  if (nc_def_dim(ncFile, "hexexteriorsize", (size_t)15, &hexexteriorsize) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define exterior hex element size");
     return (MB_FAILURE);
   }
 
   if (0 != mesh_info.num_int_tets &&
-      !(tetinterior = ncFile->add_dim("tetinterior", (long)mesh_info.num_int_tets)))
+      nc_def_dim(ncFile, "tetinterior", (size_t)mesh_info.num_int_tets, &tetinterior) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define number of interior tet elements");
     return (MB_FAILURE);
   }
 
-  if (!(tetinteriorsize = ncFile->add_dim("tetinteriorsize", (long)5)))
+  if (nc_def_dim(ncFile, "tetinteriorsize", (size_t)5, &tetinteriorsize) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define interior tet element size");
     return (MB_FAILURE);
   }
 
   if (0 != mesh_info.bdy_tets.size() &&
-      !(tetexterior = ncFile->add_dim("tetexterior", (long)mesh_info.bdy_tets.size())))
+      nc_def_dim(ncFile, "tetexterior", (size_t)mesh_info.bdy_tets.size(), &tetexterior) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define number of exterior tet elements");
     return (MB_FAILURE);
   }
 
-  if (!(tetexteriorsize = ncFile->add_dim("tetexteriorsize", (long)9)))
+  if (nc_def_dim(ncFile, "tetexteriorsize", (size_t)9, &tetexteriorsize) != NC_NOERR)
   {
     mWriteIface->report_error("WriteSLAC: failed to define exterior tet element size");
     return (MB_FAILURE);
@@ -954,33 +967,39 @@ ErrorCode WriteSLAC::initialize_file(MeshInfo &mesh_info)
 
 /* ...and some variables */
 
+  int dims[2];
+  dims[0] = hexinterior;
+  dims[1] = hexinteriorsize;
+  int dum_var;
   if (0 != mesh_info.num_int_hexes &&
-      NULL == ncFile->add_var("hexahedron_interior", ncLong, 
-                              hexinterior, hexinteriorsize))
+      NC_NOERR != nc_def_var(ncFile, "hexahedron_interior", NC_LONG, 2, dims, &dum_var))
   {
     mWriteIface->report_error("WriteSLAC: failed to create connectivity array for interior hexes.");
     return (MB_FAILURE);
   }
 
+  dims[0] = hexexterior;
+  dims[1] = hexexteriorsize;
   if (0 != mesh_info.bdy_hexes.size() &&
-      NULL == ncFile->add_var("hexahedron_exterior", ncLong, 
-                              hexexterior, hexexteriorsize))
+      NC_NOERR != nc_def_var(ncFile, "hexahedron_exterior", NC_LONG, 2, dims, &dum_var))
   {
     mWriteIface->report_error("WriteSLAC: failed to create connectivity array for exterior hexes.");
     return (MB_FAILURE);
   }
 
+  dims[0] = tetinterior;
+  dims[1] = tetinteriorsize;
   if (0 != mesh_info.num_int_tets &&
-      NULL == ncFile->add_var("tetrahedron_interior", ncLong, 
-                              tetinterior, tetinteriorsize))
+      NC_NOERR != nc_def_var(ncFile, "tetrahedron_exterior", NC_LONG, 2, dims, &dum_var))
   {
     mWriteIface->report_error("WriteSLAC: failed to create connectivity array for interior tets.");
     return (MB_FAILURE);
   }
 
+  dims[0] = tetexterior;
+  dims[1] = tetexteriorsize;
   if (0 != mesh_info.bdy_tets.size() &&
-      NULL == ncFile->add_var("tetrahedron_exterior", ncLong, 
-                              tetexterior, tetexteriorsize))
+      NC_NOERR != nc_def_var(ncFile, "tetrahedron_exterior", NC_LONG, 2, dims, &dum_var))
   {
     mWriteIface->report_error("WriteSLAC: failed to create connectivity array for exterior tets.");
     return (MB_FAILURE);
@@ -988,7 +1007,9 @@ ErrorCode WriteSLAC::initialize_file(MeshInfo &mesh_info)
 
 /* node coordinate arrays: */
 
-   if (ncFile->add_var("coords", ncDouble, ncoords, coord_size) == NULL)
+  dims[0] = ncoords;
+  dims[1] = coord_size;
+  if (NC_NOERR != nc_def_var(ncFile, "coords", NC_DOUBLE, 2, dims, &dum_var))
    {
      mWriteIface->report_error("WriteSLAC: failed to define node coordinate array");
      return (MB_FAILURE);
@@ -1007,10 +1028,9 @@ ErrorCode WriteSLAC::open_file(const char* filename)
       return MB_FAILURE;
    }
 
-   ncFile = new NcFile(filename, NcFile::Replace);
-
+   int fail = nc_create(filename, NC_CLOBBER, &ncFile);
    // file couldn't be opened
-   if(ncFile == NULL)
+   if(NC_NOERR != fail) 
    {
      mWriteIface->report_error("Cannot open %s", filename);
      return MB_FAILURE;

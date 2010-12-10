@@ -42,8 +42,6 @@
 #include "moab/ExoIIInterface.hpp"
 #include "moab/WriterIface.hpp"
 
-class NcFile;
-
 namespace moab {
 
 class WriteUtilIface;
@@ -144,7 +142,7 @@ private:
   
     //! file name
   std::string fileName;
-  NcFile *ncFile;
+  int ncFile;
 
     //! Meshset Handle for the mesh that is currently being read
   EntityHandle mCurrentMeshHandle;
