@@ -631,7 +631,6 @@ mhdf_createVarLenTag( mhdf_FileHandle file_handle,
                       hid_t hdf_base_type,
                       mhdf_Status* status )
 {
-  herr_t rval;
   hid_t tag_id;
   int one = 1;
   
@@ -641,11 +640,11 @@ mhdf_createVarLenTag( mhdf_FileHandle file_handle,
                               global_value, global_value_length, 
                               hdf_type, hdf_base_type, status );
   if (tag_id >= 0) {
-    rval = mhdf_create_scalar_attrib( tag_id, 
-                                      TAG_VARLEN_ATTRIB,
-                                      H5T_NATIVE_INT,
-                                      &one,
-                                      status );
+    mhdf_create_scalar_attrib( tag_id, 
+                               TAG_VARLEN_ATTRIB,
+                               H5T_NATIVE_INT,
+                               &one,
+                               status );
     H5Gclose( tag_id );
   }
   API_END;

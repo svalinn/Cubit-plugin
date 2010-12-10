@@ -137,9 +137,9 @@ ErrorCode ReadSTL::load_file( const char* filename,
   
     // Create vertices 
   std::vector<double*> coord_arrays;
-  EntityHandle handle = 0;
+  EntityHandle vtx_handle = 0;
   result = readMeshIface->get_node_coords( 3, vertex_map.size(), MB_START_ID,
-                                           handle, coord_arrays );
+                                           vtx_handle, coord_arrays );
   if (MB_SUCCESS != result)
     return result;
     
@@ -149,20 +149,20 @@ ErrorCode ReadSTL::load_file( const char* filename,
   for (std::map<Point,EntityHandle>::iterator i = vertex_map.begin();
        i != vertex_map.end(); ++i)
   {
-    i->second = handle; ++handle;
+    i->second = vtx_handle; ++vtx_handle;
     *x = i->first.coords[0]; ++x;
     *y = i->first.coords[1]; ++y;
     *z = i->first.coords[2]; ++z;
   }
   
     // Allocate triangles
-  handle = 0;
+  EntityHandle elm_handle = 0;
   EntityHandle* connectivity;
   result = readMeshIface->get_element_connect( triangles.size(),
                                              3,
                                              MBTRI,
                                              MB_START_ID,
-                                             handle,
+                                             elm_handle,
                                              connectivity );
   if (MB_SUCCESS != result)
     return result;
@@ -178,9 +178,16 @@ ErrorCode ReadSTL::load_file( const char* filename,
   }
   
     // notify MOAB of the new elements
-  result = readMeshIface->update_adjacencies(handle, triangles.size(), 
+  result = readMeshIface->update_adjacencies(elm_handle, triangles.size(), 
                                              3, conn_sav);
   if (MB_SUCCESS != result) return result;
+
+  if (file_id_tag) {
+    Range vertices(vtx_handle, vtx_handle+vertex_map.size()-1);
+    Range elements(elm_handle, elm_handle+triangles.size()-1);
+    readMeshIface->assign_ids( *file_id_tag, vertices );
+    readMeshIface->assign_ids( *file_id_tag, elements );
+  }
 
   return MB_SUCCESS;
 }

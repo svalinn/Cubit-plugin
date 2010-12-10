@@ -75,7 +75,7 @@ static inline ErrorCode error( ErrorCode rval )
 // works the same as the default (H5Eprint), except that it 
 // also calls the \c error fuction as a no-op.
 #if defined(H5E_auto_t_vers) && H5E_auto_t_vers > 1
-herr_t handle_hdf5_error( hid_t stack, void* data )
+static herr_t handle_hdf5_error( hid_t stack, void* data )
 {
   ReadHDF5::HDF5ErrorHandler* h = reinterpret_cast<ReadHDF5::HDF5ErrorHandler*>(data);
   herr_t result = (*h->func)(stack,h->data);
@@ -83,7 +83,7 @@ herr_t handle_hdf5_error( hid_t stack, void* data )
   return result;
 }
 #else
-herr_t handle_hdf5_error( void* data )
+static herr_t handle_hdf5_error( void* data )
 {
   ReadHDF5::HDF5ErrorHandler* h = reinterpret_cast<ReadHDF5::HDF5ErrorHandler*>(data);
   herr_t result = (*h->func)(h->data);

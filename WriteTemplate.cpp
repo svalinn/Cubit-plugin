@@ -122,7 +122,7 @@ void WriteTEMPLATE::reset_matset(std::vector<WriteTEMPLATE::MaterialSetData> &ma
 
 ErrorCode WriteTEMPLATE::write_file(const char *file_name, 
                                       const bool /* overwrite (commented out to remove warning) */,
-                                      const FileOptions& opts,
+                                      const FileOptions& /*opts*/,
                                       const EntityHandle *ent_handles,
                                       const int num_sets,
                                       const std::vector<std::string>&,
@@ -189,7 +189,7 @@ ErrorCode WriteTEMPLATE::write_file(const char *file_name,
 
 
   // try to open the file after gather mesh info succeeds
-  if (/* test for file open failure */ true) {
+  if (/* test for file open failure */ false) {
     reset_matset(matset_info);
     return MB_FAILURE;
   }

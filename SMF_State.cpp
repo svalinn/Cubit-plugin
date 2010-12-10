@@ -4,7 +4,7 @@
 #include <cstring>
 #include <cstdlib>
 
-static inline int streq(const char *a,const char *b) { return std::strcmp(a,b)==0; }
+//static inline int streq(const char *a,const char *b) { return std::strcmp(a,b)==0; }
 
 namespace moab {
 

@@ -32,16 +32,20 @@ size_t ReadHDF5Dataset::hyperslabSelectionLimit = DEFAULT_HYPERSLAB_SELECTION_LI
 void ReadHDF5Dataset::default_hyperslab_selection_limit()
   { hyperslabSelectionLimit = DEFAULT_HYPERSLAB_SELECTION_LIMIT; }
 
+#ifdef USE_MPE
 static std::pair<int,int> allocate_mpe_state( const char* name, const char* color )
 {
   std::pair<int,int> result;
-#ifdef USE_MPE
   result.first = MPE_Allocate_event();
   result.second = MPE_Allocate_event();
   MPE_Describe_state( result.first, result.second, name, color );
-#endif
   return result;
 }
+#else
+static std::pair<int,int> allocate_mpe_state( const char* , const char* )
+{
+}
+#endif
 
 bool ReadHDF5Dataset::haveMPEEvents = false;
 std::pair<int,int> ReadHDF5Dataset::mpeReadEvent;

@@ -201,8 +201,14 @@ ErrorCode ReadSmf::load_file( const char *filename,
   if (MB_SUCCESS != result)
     return result;
 
-  Range range(start_handle_out, start_handle_out+_numElementsInFile-1);
  
+ 
+  if (file_id_tag) {
+    Range nodes(start_handle_out, start_handle_out+_numNodesInFile-1);
+    Range elems(start_handle_elem_out, start_handle_elem_out+_numElementsInFile-1);
+    readMeshIface->assign_ids( *file_id_tag, nodes );
+    readMeshIface->assign_ids( *file_id_tag, elems );
+  }
  
   return MB_SUCCESS;
 }
@@ -389,15 +395,15 @@ ErrorCode ReadSmf::vertex(std::vector<std::string> & argv)
     //model->in_Vertex(v);
     return MB_SUCCESS;
 }
-ErrorCode ReadSmf::v_normal( std::vector<std::string> & argv )
+ErrorCode ReadSmf::v_normal( std::vector<std::string> & /*argv*/ )
 {
   return MB_SUCCESS;
 }
-ErrorCode ReadSmf::v_color(std::vector<std::string> & argv)
+ErrorCode ReadSmf::v_color(std::vector<std::string> & /*argv*/)
 {
   return MB_SUCCESS;
 }
-ErrorCode ReadSmf::f_color(std::vector<std::string> & argv)
+ErrorCode ReadSmf::f_color(std::vector<std::string> & /*argv*/)
 {
   return MB_SUCCESS;
 }
@@ -426,12 +432,12 @@ ErrorCode ReadSmf::face(std::vector<std::string> & argv )
   return MB_SUCCESS;
 }
 
-ErrorCode ReadSmf::begin(std::vector<std::string> & argv)
+ErrorCode ReadSmf::begin(std::vector<std::string> & /*argv*/)
 {
    state.push_back(SMF_State(ivar,&state.back()));
    return MB_SUCCESS;
 }
-ErrorCode ReadSmf::end(std::vector<std::string> & argv)
+ErrorCode ReadSmf::end(std::vector<std::string> & /*argv*/)
 {
     // There must always be at least one state on the stack.
     // Don't let mismatched begin/end statements cause us
@@ -461,7 +467,7 @@ ErrorCode ReadSmf::set(std::vector<std::string> & argv)
   state.back().set_vertex_correction(val);
   return MB_SUCCESS;
 }
-ErrorCode ReadSmf::inc(std::vector<std::string> & argv)
+ErrorCode ReadSmf::inc(std::vector<std::string> & /*argv*/)
 {
     //std::cerr << "SMF: INC not yet implemented." << std::endl;
     return MB_SUCCESS;

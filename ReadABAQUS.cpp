@@ -133,9 +133,9 @@ ErrorCode ReadABAQUS::read_tag_values( const char* /* file_name */,
 
 ErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 				  const EntityHandle* file_set_ptr,
-				  const FileOptions& opts,
+				  const FileOptions& /*opts*/,
 				  const ReaderIface::SubsetList* subset_list,
-				  const Tag* file_id_tag)
+				  const Tag* /*file_id_tag*/)
 {
   ErrorCode status;
 
@@ -271,7 +271,7 @@ ErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 }
   
 
-ErrorCode ReadABAQUS::read_heading(EntityHandle file_set)
+ErrorCode ReadABAQUS::read_heading(EntityHandle /*file_set*/)
 {
   
   std::vector<std::string> tokens;
@@ -1714,7 +1714,7 @@ Tag ReadABAQUS::get_tag(const char* tag_name,
 ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
 						const EntityHandle assembly_set,
 						const std::string part_name,
-						const std::string instance_name,
+						const std::string /*instance_name*/,
 						EntityHandle &instance_set,
 						const std::vector<double> &translation,
 						const std::vector<double> &rotation)

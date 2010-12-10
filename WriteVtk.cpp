@@ -195,10 +195,10 @@ ErrorCode WriteVtk::gather_mesh( const EntityHandle* set_list,
       std::copy( a.begin(), a.end(), std::back_inserter(sets) );
     }
     
-    for (Range::const_iterator e = elems.begin(); e != elems.end(); ++e)
+    for (Range::const_iterator ei = elems.begin(); ei != elems.end(); ++ei)
     {
       std::vector<EntityHandle> connect;
-      rval = mbImpl->get_connectivity( &(*e), 1, connect );
+      rval = mbImpl->get_connectivity( &(*ei), 1, connect );
       if (MB_SUCCESS != rval) return rval;
 
       for (unsigned int i = 0; i < connect.size(); ++i)
@@ -365,14 +365,14 @@ ErrorCode WriteVtk::write_tags( std::ostream& stream,
   
     // For each tag...  
   bool entities_have_tags = false;
-  for (std::vector<Tag>::iterator i = tags.begin(); i != tags.end(); ++i)
+  for (i = tags.begin(); i != tags.end(); ++i)
   {
       // Skip tags holding entity handles -- no way to save them
-    DataType type;
-    rval = mbImpl->tag_get_data_type( *i, type );
+    DataType dtype;
+    rval = mbImpl->tag_get_data_type( *i, dtype );
     if (MB_SUCCESS != rval)
       return rval;
-    if (type == MB_TYPE_HANDLE)
+    if (dtype == MB_TYPE_HANDLE)
       continue;
       
       // Get size.  Variable-length tags should have been filtered
@@ -386,7 +386,7 @@ ErrorCode WriteVtk::write_tags( std::ostream& stream,
       // attribute type (SCALAR : 1 to 4 values, VECTOR : 3 values, TENSOR : 9 values)
     if (mStrict) {
       int count = 0;
-      switch (type) {
+      switch (dtype) {
         case MB_TYPE_INTEGER:
           count = size/sizeof(int);
           break;

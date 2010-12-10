@@ -435,7 +435,7 @@ bool FileTokenizer::get_newline( )
           readUtilPtr->report_error( "File truncated at line %d.", line_number() );
         else
           readUtilPtr->report_error( "I/O Error" );
-        return false;
+        break;
       }
       
       nextToken = buffer;
@@ -446,7 +446,7 @@ bool FileTokenizer::get_newline( )
     if (!isspace(*nextToken))
     {
       readUtilPtr->report_error( "Expected newline at line %d.", line_number() );
-      return false;
+      break;
     }
       
       // If the current space character is a newline,
@@ -461,7 +461,6 @@ bool FileTokenizer::get_newline( )
     ++nextToken;
   }
   
-    // should never reach this
   return false;
 }
 

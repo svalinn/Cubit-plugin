@@ -149,7 +149,7 @@ mhdf_compact_to_ranges( int* length_in_out, int* ids_in, int ordered );
 hid_t 
 get_elem_type_enum( FileHandle* file_ptr, mhdf_Status* status );
 
-void mhdf_api_begin_internal( );
+void mhdf_api_begin_internal( void );
 void mhdf_api_end_internal( int expected_diff,
                             const char* filename,
                             int linenumber );

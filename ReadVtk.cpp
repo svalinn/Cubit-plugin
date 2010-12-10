@@ -881,7 +881,7 @@ ErrorCode ReadVtk::vtk_create_structured_elems( const long* dims,
                                             std::vector<Range>& elem_list )
 {
   ErrorCode result;
-  int non_zero[3] = {0,0,0};  // True if dim > 0 for x, y, z respectively
+  //int non_zero[3] = {0,0,0};  // True if dim > 0 for x, y, z respectively
   long elem_dim = 0;          // Element dimension (2->quad, 3->hex)
   long num_elems = 1;         // Total number of elements
   long vert_per_elem;         // Element connectivity length
@@ -891,7 +891,8 @@ ErrorCode ReadVtk::vtk_create_structured_elems( const long* dims,
   for (int d = 0; d < 3; d++) 
     if (dims[d] > 1)
     {
-      non_zero[elem_dim++] = d;
+      //non_zero[elem_dim] = d;
+      ++elem_dim;
       edims[d] = dims[d] - 1;
       num_elems *= edims[d];
     }
@@ -1011,11 +1012,9 @@ ErrorCode ReadVtk::vtk_read_attrib_data( FileTokenizer& tokens,
     case 5: return vtk_read_texture_attrib( tokens, entities, name ); 
     case 6: return vtk_read_tensor_attrib ( tokens, entities, name ); 
     case 7: return vtk_read_field_attrib  ( tokens, entities, name );
-    default:
-      return MB_FAILURE;
   }
 
-  return MB_SUCCESS;
+  return MB_FAILURE;
 }
 
 ErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens, 

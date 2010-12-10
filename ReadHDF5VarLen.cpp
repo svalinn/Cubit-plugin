@@ -51,7 +51,7 @@ ErrorCode ReadHDF5VarLen::read_data(
   try {
     data_set.set_file_ids( offsets, start_offset, buffer_size, data_type );
   }
-  catch (ReadHDF5Dataset::Exception e) {
+  catch (ReadHDF5Dataset::Exception ) {
     return MB_FAILURE;
   }
   
@@ -62,7 +62,7 @@ ErrorCode ReadHDF5VarLen::read_data(
     try { 
       data_set.read( data_buffer, count );
     }
-    catch (ReadHDF5Dataset::Exception e) {
+    catch (ReadHDF5Dataset::Exception ) {
       return MB_FAILURE;
     }
     
@@ -338,7 +338,7 @@ ErrorCode ReadHDF5VarLen::read_offsets( ReadHDF5Dataset& data_set,
     try {
       data_set.read( buffer, count );
     }
-    catch (ReadHDF5Dataset::Exception e) {
+    catch (ReadHDF5Dataset::Exception ) {
       return MB_FAILURE;
     }
     if (!count) // might have been NULL read for collectve IO

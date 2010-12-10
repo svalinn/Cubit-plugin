@@ -135,7 +135,7 @@ ErrorCode WriteGMV::write_file(const char *file_name,
 
 ErrorCode WriteGMV::write_file( const char* filename,
                                   const bool ,
-                                  const FileOptions& opts,
+                                  const FileOptions& /*opts*/,
                                   const EntityHandle* output_sets,
                                   const int num_output_sets,
                                   const std::vector<std::string>& ,
@@ -248,7 +248,7 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
     
     ofile << "cells " << elements.size() << std::endl;
   
-    for (EntityType otype = CN::TypeDimensionMap[user_dimension].first;
+    for (otype = CN::TypeDimensionMap[user_dimension].first;
          otype <= CN::TypeDimensionMap[user_dimension].second; otype++) {
 
       if (otype == MBPOLYGON || otype == MBPOLYHEDRON) continue;

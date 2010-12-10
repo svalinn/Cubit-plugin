@@ -46,7 +46,7 @@
 namespace moab {
 
 const int DEFAULT_PRECISION = 10;
-const bool DEFAULT_STRICT = true;
+//const bool DEFAULT_STRICT = true;
 
 WriterIface *WriteSmf::factory( Interface* iface )
   { return new WriteSmf( iface ); }
@@ -72,8 +72,8 @@ ErrorCode WriteSmf::write_file(const char *file_name,
                                  const EntityHandle *output_list,
                                  const int num_sets,
                                  const std::vector<std::string>& ,
-                                 const Tag* tag_list,
-                                 int num_tags,
+                                 const Tag* /*tag_list*/,
+                                 int /*num_tags*/,
                                  int )
 {
   ErrorCode rval;

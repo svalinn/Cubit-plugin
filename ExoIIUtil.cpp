@@ -344,7 +344,7 @@ ExoIIElementType ExoIIUtil::static_get_element_type(Interface *mdbImpl,
   }
 
     // if we've gotten here, we failed
-  return EXOII_MAX_ELEM_TYPE;
+  //return EXOII_MAX_ELEM_TYPE;
 }
 
 ExoIIElementType ExoIIUtil::get_element_type_from_num_verts(const int num_verts, 

@@ -40,7 +40,7 @@
 namespace moab {
 
 const bool debug = false;
-const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
+//const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
 const char Tqdcfr::geom_categories[][CATEGORY_TAG_SIZE] = 
 {"Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
 const EntityType Tqdcfr::group_type_to_mb_type[] = {
@@ -520,7 +520,7 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
   FSEEK(model->modelOffset+nodeseth->memOffset);
   
     // read ids for each entity type
-  unsigned int this_type, num_ents, uid;
+  unsigned int this_type, num_ents; //, uid;
   std::vector<char> bc_data;
   unsigned int num_read = 0;
   std::vector<EntityHandle> ns_entities, excl_entities;
@@ -544,7 +544,7 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
     FREADC(2); num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
       FREADI(1); num_read += sizeof(int);
-      uid = int_buf[0];
+      //uid = int_buf[0];
     }
     
     if (num_read < nodeseth->nsLength) {
@@ -585,7 +585,7 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
   unsigned int this_type, num_ents, sense_size;
 
   std::vector<char> bc_data;
-  unsigned int num_read = 0, uid;
+  unsigned int num_read = 0; //, uid;
   std::vector<EntityHandle> ss_entities, excl_entities;
   std::vector<double> ss_dfs;
   if (data_version <= 1.0) {
@@ -673,7 +673,7 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
     FREADC(2); num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
       FREADI(1); num_read += sizeof(int);
-      uid = int_buf[0];
+      //uid = int_buf[0];
     }
     
     if (num_read < sideseth->ssLength) {
@@ -813,7 +813,7 @@ ErrorCode Tqdcfr::process_sideset_11(std::vector<EntityHandle> &ss_entities,
 }
 
 ErrorCode Tqdcfr::read_block(const unsigned int blindex,
-                             const double data_version,
+                             const double /*data_version*/,
                              Tqdcfr::ModelEntry *model,
                              Tqdcfr::BlockHeader *blockh)  
 {
@@ -824,7 +824,7 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   
     // read ids for each entity type
   unsigned int num_read = 0;
-  int this_type, num_ents, uid;
+  int this_type, num_ents; //, uid;
   std::vector<char> bc_data;
   std::vector<EntityHandle> block_entities, excl_entities;
   for (unsigned int i = 0; i < blockh->memTypeCt; i++) {
@@ -852,9 +852,9 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
     
     FREADD(blockh->attribOrder); num_read += sizeof(double);
       // now do something with them...
-    ErrorCode result = mdbImpl->tag_create("Block_Attributes", 
-                                             blockh->attribOrder*sizeof(double), MB_TAG_SPARSE, 
-                                             MB_TYPE_DOUBLE, block_attribs, NULL);
+    result = mdbImpl->tag_create("Block_Attributes", 
+                                 blockh->attribOrder*sizeof(double), MB_TAG_SPARSE, 
+                                 MB_TYPE_DOUBLE, block_attribs, NULL);
     if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
     result = mdbImpl->tag_set_data(block_attribs, &(blockh->setHandle), 1,
                                    &(dbl_buf[0]));
@@ -866,7 +866,7 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
     FREADC(2); num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
       FREADI(1); num_read += sizeof(int);
-      uid = int_buf[0];
+      //uid = int_buf[0];
     }
     
     if (num_read < blockh->blockLength) {
@@ -1052,9 +1052,10 @@ ErrorCode Tqdcfr::put_into_set(EntityHandle set_handle,
     // check for excluded entities, and add them to a vector hung off the block if there
   Tag excl_tag;
   if (!excl_entities.empty()) {
-    ErrorCode result = mdbImpl->tag_create("Exclude_Entities", 
-                                             sizeof(std::vector<EntityHandle>), MB_TAG_SPARSE, 
-                                             excl_tag, NULL);
+    result = mdbImpl->tag_create("Exclude_Entities", 
+                                   sizeof(std::vector<EntityHandle>), 
+                                   MB_TAG_SPARSE, 
+                                   excl_tag, NULL);
     if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
     std::vector<EntityHandle> *new_vector = new std::vector<EntityHandle>;
     new_vector->swap(excl_entities);

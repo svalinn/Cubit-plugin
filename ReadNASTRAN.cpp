@@ -56,11 +56,11 @@ ReadNASTRAN::~ReadNASTRAN() {
   }
 }
 
-ErrorCode ReadNASTRAN::read_tag_values( const char*        file_name,
-                                        const char*        tag_name,
-                                        const FileOptions& opts,
-                                        std::vector<int>&  tag_values_out,
-                                        const SubsetList*  subset_list )
+ErrorCode ReadNASTRAN::read_tag_values( const char*        /*file_name*/,
+                                        const char*        /*tag_name*/,
+                                        const FileOptions& /*opts*/,
+                                        std::vector<int>&  /*tag_values_out*/,
+                                        const SubsetList*  /*subset_list*/ )
 {
   return MB_NOT_IMPLEMENTED;
 }
@@ -345,7 +345,7 @@ ErrorCode ReadNASTRAN::read_node( const std::vector<std::string> tokens,
 ErrorCode ReadNASTRAN::read_element( const std::vector<std::string> tokens, 
 				       std::vector<Range> &materials,
 				       const EntityType element_type,
-				       const bool debug ) {
+				       const bool /*debug*/ ) {
 
   // read the element's id (unique) and material set
   ErrorCode result;

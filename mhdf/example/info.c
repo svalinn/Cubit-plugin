@@ -98,7 +98,6 @@ static const char* tag_type_name( enum mhdf_TagDataType type )
     case mhdf_BITFIELD:  return bits;
     case mhdf_BOOLEAN:   return boolean;
     case mhdf_ENTITY_ID: return id;
-    default:             return unknown;
   }
   return unknown;
 }
@@ -185,12 +184,12 @@ static const char* string_tag_value( const void* value,
       break;
     case mhdf_ENTITY_ID:
       if (size == 1) {
-        offset += sprintf( offset, "%ld", idptr[0] );
+        offset += sprintf( offset, "%lu", idptr[0] );
       }
       else {
-        offset += sprintf( offset, "{%ld", idptr[0] );
+        offset += sprintf( offset, "{%lu", idptr[0] );
         for (i = 1; i < size; ++i)
-          offset += sprintf( offset, ",%ld", idptr[i] );
+          offset += sprintf( offset, ",%lu", idptr[i] );
         offset += sprintf( offset, "}" );
       }
       break;

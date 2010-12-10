@@ -40,7 +40,7 @@ ErrorCode ReadIDEAS::read_tag_values( const char* /* file_name */,
 
 ErrorCode ReadIDEAS::load_file(const char* fname, 
                                const EntityHandle* , 
-                               const FileOptions& options,
+                               const FileOptions& /*options*/,
                                const ReaderIface::SubsetList* subset_list,
                                const Tag* file_id_tag ) {
 
@@ -87,6 +87,8 @@ ErrorCode ReadIDEAS::load_file(const char* fname,
     // skip everything else
     else {
       rval = skip_header(); 
+      if (MB_SUCCESS != rval)
+        return MB_FAILURE;
     }
   }
 
@@ -119,7 +121,7 @@ ErrorCode ReadIDEAS::skip_header() {
 
   }
 
-  return MB_FAILURE;
+  return MB_SUCCESS;
 }
 
 

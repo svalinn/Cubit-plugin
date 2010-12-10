@@ -593,8 +593,8 @@ ErrorCode ReadMCNP5::read_mesh_planes( std::fstream        &file,
     if (debug) std::cout << "R direction:=| ";
     b = a.find("R direction:");
     if (std::string::npos != b) {
-      std::istringstream ss(a.substr(b+sizeof("R direction"),10000));
-      result = get_mesh_plane( ss, debug, planes[0] );
+      std::istringstream ss2(a.substr(b+sizeof("R direction"),10000));
+      result = get_mesh_plane( ss2, debug, planes[0] );
       if(MB_SUCCESS != result) return result;
     } else return MB_FAILURE;
 
@@ -604,8 +604,8 @@ ErrorCode ReadMCNP5::read_mesh_planes( std::fstream        &file,
     if (debug) std::cout << "Z direction:=| ";
     b = a.find("Z direction:");
     if (std::string::npos != b) {
-      std::istringstream ss(a.substr(b+sizeof("Z direction"),10000));
-      result = get_mesh_plane( ss, debug, planes[1] );
+      std::istringstream ss2(a.substr(b+sizeof("Z direction"),10000));
+      result = get_mesh_plane( ss2, debug, planes[1] );
       if(MB_SUCCESS != result) return result;
     } else return MB_FAILURE;
 
@@ -615,8 +615,8 @@ ErrorCode ReadMCNP5::read_mesh_planes( std::fstream        &file,
     if (debug) std::cout << "Theta direction:=| ";
     b = a.find("Theta direction (revolutions):");
     if (std::string::npos != b) {
-      std::istringstream ss(a.substr(b+sizeof("Theta direction (revolutions):"),10000));
-      result = get_mesh_plane( ss, debug, planes[2] );
+      std::istringstream ss2(a.substr(b+sizeof("Theta direction (revolutions):"),10000));
+      result = get_mesh_plane( ss2, debug, planes[2] );
       if(MB_SUCCESS != result) return result;
     } else return MB_FAILURE;
     
@@ -627,8 +627,8 @@ ErrorCode ReadMCNP5::read_mesh_planes( std::fstream        &file,
     if (debug) std::cout << "X direction:=| ";
     b = a.find("X direction:");
     if (std::string::npos != b) {
-      std::istringstream ss(a.substr(b+sizeof("X direction"),10000));
-      result = get_mesh_plane( ss, debug, planes[0] );
+      std::istringstream ss2(a.substr(b+sizeof("X direction"),10000));
+      result = get_mesh_plane( ss2, debug, planes[0] );
       if(MB_SUCCESS != result) return result;
     } else return MB_FAILURE;
 
@@ -638,8 +638,8 @@ ErrorCode ReadMCNP5::read_mesh_planes( std::fstream        &file,
     if (debug) std::cout << "Y direction:=| ";
     b = a.find("Y direction:");
     if (std::string::npos != b) {
-      std::istringstream ss(a.substr(b+sizeof("Y direction"),10000));
-      result = get_mesh_plane( ss, debug, planes[1] );
+      std::istringstream ss2(a.substr(b+sizeof("Y direction"),10000));
+      result = get_mesh_plane( ss2, debug, planes[1] );
       if(MB_SUCCESS != result) return result;
     } else return MB_FAILURE;
 
@@ -649,8 +649,8 @@ ErrorCode ReadMCNP5::read_mesh_planes( std::fstream        &file,
     if (debug) std::cout << "Z direction:=| ";
     b = a.find("Z direction:");
     if (std::string::npos != b) {
-      std::istringstream ss(a.substr(b+sizeof("Z direction"),10000));
-      result = get_mesh_plane( ss, debug, planes[2] );
+      std::istringstream ss2(a.substr(b+sizeof("Z direction"),10000));
+      result = get_mesh_plane( ss2, debug, planes[2] );
       if(MB_SUCCESS != result) return result;
     } else return MB_FAILURE;
 
@@ -677,7 +677,7 @@ ErrorCode ReadMCNP5::get_mesh_plane( std::istringstream  &ss,
 
 ErrorCode ReadMCNP5::read_element_values_and_errors( 
                                             std::fstream        &file,
-                                            bool                debug,
+                                            bool                /*debug*/,
                                             std::vector<double> planes[3],
                                             unsigned int        n_chopped_x0_planes,
                                             unsigned int        n_chopped_x2_planes,
@@ -798,8 +798,8 @@ ErrorCode ReadMCNP5::create_vertices( std::vector<double> planes[3],
 
 ErrorCode ReadMCNP5::create_elements( bool                debug, 
                                         std::vector<double> planes[3],
-                                        unsigned int        n_chopped_x0_planes,
-                                        unsigned int        n_chopped_x2_planes,
+                                        unsigned int        /*n_chopped_x0_planes*/,
+                                        unsigned int        /*n_chopped_x2_planes*/,
                                         EntityHandle      start_vert,
                                         double              *values,
                                         double              *errors,
