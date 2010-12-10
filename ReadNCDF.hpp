@@ -42,8 +42,6 @@
 #include "moab/ExoIIInterface.hpp"
 #include "moab/Range.hpp"
 
-class NcFile;
-
 namespace moab {
 
 class ReadUtilIface;
@@ -176,7 +174,7 @@ private:
     //! interface instance
   Interface* mdbImpl;
   
-  NcFile *ncFile;        // netcdf/exodus file
+  int ncFile;        // netcdf/exodus file
 
   int CPU_WORD_SIZE;
   int IO_WORD_SIZE;

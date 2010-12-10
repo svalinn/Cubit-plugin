@@ -344,7 +344,7 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
   rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
   ERRORR(rval, "Trouble getting vertices in set.");
   assert("Should only have a single vertex subrange, since they were read in one shot" &&
-         verts.num_sub_ranges() == 1);
+         verts.psize() == 1);
   
     // get ptr to tag space
   Range::iterator viter = verts.begin();

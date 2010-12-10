@@ -18,7 +18,7 @@
 #endif
 
 #include "ReadNCDF.hpp"
-#include "netcdf.hh"
+#include "netcdf.h"
 
 #include <algorithm>
 #include <string>
@@ -27,6 +27,7 @@
 #include <string.h>
 #include <cmath>
 #include <sstream>
+#include <iostream>
 #include <map>
 
 #include "moab/CN.hpp"
@@ -46,26 +47,59 @@ namespace moab {
 #define INS_ID(stringvar, prefix, id) \
           sprintf(stringvar, prefix, id)
           
-#define GET_DIM(ncdim, name, val) \
-          if (dimension_exists(name)) { \
-            ncdim = ncFile->get_dim(name); \
-            if (!ncdim->is_valid()) {\
-               readMeshIface->report_error("ReadNCDF:: name wasn't valid.");\
-               return MB_FAILURE;\
-            }\
-            val = ncdim->size();\
-          } else val = 0; 
+#define GET_DIM(ncdim, name, val)\
+    {                            \
+    int fail = nc_inq_dimid(ncFile, name, &ncdim);          \
+    if (NC_NOERR == fail) {                                             \
+      size_t tmp_val;                                                   \
+      fail = nc_inq_dimlen(ncFile, ncdim, &tmp_val);                        \
+      if (NC_NOERR != fail) {                                           \
+        readMeshIface->report_error("ReadNCDF:: couldn't get dimension length."); \
+        return MB_FAILURE;                                              \
+      }                                                                 \
+      else val = tmp_val;                                               \
+    } else val = 0;}
 
 #define GET_DIMB(ncdim, name, varname, id, val) \
           INS_ID(name, varname, id); \
-          if (dimension_exists(name)) { \
-            ncdim = ncFile->get_dim(name); \
-            if (!ncdim->is_valid()) {\
-               readMeshIface->report_error("ReadNCDF:: name wasn't valid.");\
-               return MB_FAILURE;\
-            }\
-            val = ncdim->size();\
-          } else val = 0;
+          GET_DIM(ncdim, name, val);
+
+#define GET_VAR(name, id, dims) \
+    {                           \
+    id = -1;\
+    int fail = nc_inq_varid(ncFile, name, &id);   \
+    if (NC_NOERR == fail) {       \
+    int ndims;\
+    fail = nc_inq_varndims(ncFile, id, &ndims);\
+    if (NC_NOERR == fail) {\
+    dims.resize(ndims);    \
+    fail = nc_inq_vardimid(ncFile, id, &dims[0]);}}}
+    
+#define GET_1D_INT_VAR(name, id, vals) \
+    {GET_VAR(name, id, vals);  \
+  if (-1 != id) {\
+    size_t ntmp;\
+    int fail = nc_inq_dimlen(ncFile, vals[0], &ntmp);\
+    vals.resize(ntmp);\
+    size_t ntmp1 = 0;                                                           \
+    fail = nc_get_vara_int(ncFile, id, &ntmp1, &ntmp, &vals[0]);\
+    if (NC_NOERR != fail) {\
+      readMeshIface->report_error("ReadNCDF:: Problem getting variable %s.", name);\
+      return MB_FAILURE;}}}
+
+
+#define GET_1D_DBL_VAR(name, id, vals) \
+    {std::vector<int> dum_dims;        \
+  GET_VAR(name, id, dum_dims);\
+  if (-1 != id) {\
+    size_t ntmp;\
+    int fail = nc_inq_dimlen(ncFile, dum_dims[0], &ntmp);\
+    vals.resize(ntmp);\
+    size_t ntmp1 = 0;                                                           \
+    fail = nc_get_vara_double(ncFile, id, &ntmp1, &ntmp, &vals[0]);\
+    if (NC_NOERR != fail) {\
+      readMeshIface->report_error("ReadNCDF:: Problem getting variable %s.", name);\
+      return MB_FAILURE;}}}
 
 ReaderIface* ReadNCDF::factory( Interface* iface )
   { return new ReadNCDF( iface ); }
@@ -150,7 +184,7 @@ ReadNCDF::ReadNCDF(Interface* impl)
                               MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
   
 
-  ncFile = NULL;
+  ncFile = 0;
 }
 
 void ReadNCDF::reset()
@@ -192,13 +226,9 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
     return MB_UNSUPPORTED_OPERATION;
   }
 
-  NcError ncError(NcError::verbose_nonfatal);
-
       // open netcdf/exodus file
-  NcFile fileObject(file_name, NcFile::ReadOnly);
-  ncFile = &fileObject;
-  if (!ncFile->is_valid())
-  {
+  int fail = nc_open(file_name, 0, &ncFile);
+  if (NC_NOWRITE != fail) {
     readMeshIface->report_error("ReadNCDF:: problem opening Netcdf/Exodus II file %s",file_name);
     return MB_FILE_DOES_NOT_EXIST;
   }
@@ -232,22 +262,14 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
   }
   
   if (count) {
-    NcVar *nc_var = ncFile->get_var( prop );
-    if (NULL == nc_var || !nc_var->is_valid()) {
+    int nc_var = -1;
+    GET_1D_INT_VAR(prop, nc_var, id_array);
+    if (!nc_var) {
       readMeshIface->report_error("Problem getting prop variable.");
       return MB_FAILURE;
     }
-    else {
-      id_array.resize( count );
-      NcBool status = nc_var->get(&id_array[0], count);
-      if (0 == status) {
-        readMeshIface->report_error("Problem getting element id vector.");
-        return MB_FAILURE;
-      }
-    }
   }
   
-  ncFile = 0;
   return MB_SUCCESS;
 }
 
@@ -260,9 +282,8 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
                               const Tag* file_id_tag)
 {
   ErrorCode status;
-
-  NcError ncError(NcError::verbose_nonfatal);
-
+  int fail;
+  
   int num_blocks = 0;
   const int* blocks_to_load = 0;
   if (subset_list) {
@@ -294,9 +315,8 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
   // 0. Open the file.
 
       // open netcdf/exodus file
-  NcFile fileObject(exodus_file_name, NcFile::ReadOnly);
-  ncFile = &fileObject;
-  if (!ncFile->is_valid())
+  fail = nc_open(exodus_file_name, 0, &ncFile);
+  if (NC_NOERR != fail)
   {
     readMeshIface->report_error("ReadNCDF:: problem opening Netcdf/Exodus II file %s",exodus_file_name);
     return MB_FILE_DOES_NOT_EXIST;
@@ -355,50 +375,55 @@ ErrorCode ReadNCDF::read_exodus_header()
     // NetCDF doesn't check its own limits on file read, so check
     // them here so it doesn't corrupt memory any more than absolutely
     // necessary.
-  if (ncFile->num_dims() > NC_MAX_DIMS) {
+  int ndims;
+  int fail = nc_inq_ndims(ncFile, &ndims);
+  if (NC_NOERR != fail || ndims > NC_MAX_DIMS) {
     readMeshIface->report_error("ReadNCDF: File contains %d dims but NetCDF library supports only %d\n",
-                                (int)ncFile->num_dims(), (int)NC_MAX_DIMS);
+                                ndims, (int)NC_MAX_DIMS);
     return MB_FAILURE;
   }
-  if (ncFile->num_vars() > NC_MAX_VARS) {
+  int nvars;
+  fail = nc_inq_nvars(ncFile, &nvars);
+  if (nvars > NC_MAX_VARS) {
     readMeshIface->report_error("ReadNCDF: File contains %d vars but NetCDF library supports only %d\n",
-                                (int)ncFile->num_vars(), (int)NC_MAX_VARS);
+                                nvars, (int)NC_MAX_VARS);
     return MB_FAILURE;
   }
   
     // get the attributes
 
     // get the word size, scalar value
-  NcAtt *temp_att = ncFile->get_att("floating_point_word_size");
-  if (NULL == temp_att || !temp_att->is_valid()) {
+  nc_type att_type;
+  size_t att_len;
+  fail = nc_inq_att(ncFile, NC_GLOBAL, "floating_point_word_size", &att_type, &att_len);
+  if (NC_NOERR != fail) {
     readMeshIface->report_error("ReadNCDF:: Problem getting floating_point_word_size attribute.");
-    delete temp_att;
     return MB_FAILURE;
   }
-  if (temp_att->type() != ncInt || temp_att->num_vals() != 1) {
+  if (att_type != NC_INT || att_len != 1) {
     readMeshIface->report_error("ReadNCDF:: Word size didn't have type int or size 1.");
     return MB_FAILURE;
   }
-  IO_WORD_SIZE = temp_att->as_int(0);
-  delete temp_att;
-
-    // exodus version
-  temp_att = ncFile->get_att("version");
-  if (NULL == temp_att || !temp_att->is_valid()) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting version attribute.");
-    delete temp_att;
+  fail = nc_get_att_int(ncFile, NC_GLOBAL, "floating_point_word_size", &IO_WORD_SIZE);
+  if (NC_NOERR != fail) {
+    readMeshIface->report_error("ReadNCDF:: Trouble getting word size.");
     return MB_FAILURE;
   }
-  if (temp_att->type() != ncFloat || temp_att->num_vals() != 1) {
+
+    // exodus version
+  fail = nc_inq_att(ncFile, NC_GLOBAL, "version", &att_type, &att_len);
+  if (NC_NOERR != fail) {
+    readMeshIface->report_error("ReadNCDF:: Problem getting version attribute.");
+    return MB_FAILURE;
+  }
+  if (att_type != NC_FLOAT || att_len != 1) {
     readMeshIface->report_error("ReadNCDF:: Version didn't have type float or size 1.");
     return MB_FAILURE;
   }
-  delete temp_att;
-
     // float version = temp_att->as_float(0);
 
     // read in initial variables
-  NcDim *temp_dim;
+  int temp_dim;
   GET_DIM(temp_dim, "num_dim", numberDimensions_loading);
   GET_DIM(temp_dim, "num_nodes", numberNodes_loading);
   GET_DIM(temp_dim, "num_elem", numberElements_loading);
@@ -409,21 +434,23 @@ ErrorCode ReadNCDF::read_exodus_header()
   GET_DIM(temp_dim, "len_string", max_str_length);
   GET_DIM(temp_dim, "len_line", max_line_length);
 
-    // title
+    // title; why are we even bothering if we're not going to keep it???
   char *title = new char[max_line_length+1];
-  temp_att = ncFile->get_att("title");
-  if (NULL == temp_att || !temp_att->is_valid()) {
+  fail = nc_inq_att(ncFile, NC_GLOBAL, "title", &att_type, &att_len);
+  if (NC_NOERR != fail) {
     readMeshIface->report_error("ReadNCDF:: Problem getting title attribute.");
-    delete temp_att;
     return MB_FAILURE;
   }
-  if (temp_att->num_vals() == 1) {
-    char *dum_str = temp_att->as_string(0);
-    strcpy(title, dum_str);
-    delete dum_str;
+  if (att_type != NC_CHAR || (int)att_len > max_line_length) {
+    readMeshIface->report_error("ReadNCDF:: title didn't have type char or was too long.");
+    return MB_FAILURE;
+  }
+  fail = nc_get_att_text(ncFile, NC_GLOBAL, "title", title);
+  if (NC_NOERR != fail) {
+    readMeshIface->report_error("ReadNCDF:: trouble getting title.");
+    return MB_FAILURE;
   }
   delete [] title;
-  delete temp_att;
 
   return MB_SUCCESS;
 }
@@ -432,7 +459,7 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
 {
     // read the nodes into memory
 
-  assert(NULL != ncFile);
+  assert(0 != ncFile);
 
   // create a sequence to hold the node coordinates
   // get the current number of entities and start at the next slot
@@ -445,20 +472,18 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
   vertexOffset = ID_FROM_HANDLE( node_handle ) - MB_START_ID;
 
   // read in the coordinates
-  NcVar *coord = 0;
-  {
-    // block error messages while we check for the existence of "coord"
-    NcError foo(NcError::silent_nonfatal);
-    coord = ncFile->get_var("coord");
-    if (coord && !coord->is_valid()) 
-      coord = 0;
-  }
+  int fail;
+  int coord = 0;
+  nc_inq_varid(ncFile, "coord", &coord );
   
   // single var for all coords
+  size_t start[2] = {0, 0}, count[2] = {1, numberNodes_loading};
   if (coord) {
+    
     for (int d = 0; d < numberDimensions_loading; ++d) {
-      assert((unsigned)d < arrays.size());
-      if (!coord->set_cur(d, 0) || !coord->get(arrays[d], 1, numberNodes_loading)) {
+      start[0] = d;
+      fail = nc_get_vara_double(ncFile, coord, start, count, arrays[d]);
+      if (NC_NOERR != fail) {
         readMeshIface->report_error("ReadNCDF:: Problem getting %c coord array.", 'x'+d);
         return MB_FAILURE;
       }
@@ -469,14 +494,14 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
     char varname[] = "coord ";
     for (int d = 0; d < numberDimensions_loading; ++d) {
       varname[5] = 'x'+d;
-      coord = ncFile->get_var(varname);
-      if (!coord || !coord->is_valid()) {
+      fail = nc_inq_varid(ncFile, varname, &coord );
+      if (NC_NOERR != fail) {
         readMeshIface->report_error("ReadNCDF:: Problem getting %c coord variable.", 'x'+d);
-	return MB_FAILURE;
+        return MB_FAILURE;
       }
       
-      assert((unsigned)d < arrays.size());
-      if (!coord->get(arrays[d], numberNodes_loading)) {
+      fail = nc_get_vara_double(ncFile, coord, start, &count[1], arrays[d]);
+      if (NC_NOERR != fail) {
         readMeshIface->report_error("ReadNCDF:: Problem getting %c coord array.", 'x'+d);
         return MB_FAILURE;
       }
@@ -508,14 +533,10 @@ ErrorCode ReadNCDF::read_block_headers(const int *blocks_to_load,
 
   // get the ids of all the blocks of this file we're reading in
   std::vector<int> block_ids(numberElementBlocks_loading);
-  NcVar *nc_block_ids = ncFile->get_var("eb_prop1");
-  if (NULL == nc_block_ids || !nc_block_ids->is_valid()) {
+  int nc_block_ids = -1;
+  GET_1D_INT_VAR("eb_prop1", nc_block_ids, block_ids);
+  if (-1 == nc_block_ids) {
     readMeshIface->report_error("ReadNCDF:: Problem getting eb_prop1 variable.");
-    return MB_FAILURE;
-  }
-  NcBool status = nc_block_ids->get(&block_ids[0], numberElementBlocks_loading);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting element block id vector.");
     return MB_FAILURE;
   }
 
@@ -535,7 +556,7 @@ ErrorCode ReadNCDF::read_block_headers(const int *blocks_to_load,
   end_iter = block_ids.end();
 
     // read header information and initialize header-type block information
-  NcDim *temp_dim;
+  int temp_dim;
   std::vector<char> temp_string_storage(max_str_length+1);
   char *temp_string = &temp_string_storage[0];
   int block_seq_id = 1;
@@ -580,19 +601,6 @@ ErrorCode ReadNCDF::read_block_headers(const int *blocks_to_load,
   return MB_SUCCESS;
 }
 
-bool ReadNCDF::dimension_exists(const char *attrib_name) 
-{
-  int num_dim = ncFile->num_dims();
-  for (int i = 0; i < num_dim; i++) {
-    NcDim *temp_dim = ncFile->get_dim(i);
-    if (NULL != temp_dim && temp_dim->is_valid() &&
-        0 == strcmp(attrib_name, temp_dim->name()))
-      return true;
-  }
-  
-  return false;
-}
-
 ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
 {
     // read in elements
@@ -609,9 +617,10 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
 
   std::vector<char> temp_string_storage(max_str_length+1);
   char *temp_string = &temp_string_storage[0];
-  NcVar *temp_var;
-  NcAtt *temp_att;
+  int nc_var;
   int block_seq_id = 1;
+  std::vector<int> dims;
+  size_t start[2] = {0, 0}, count[2];
   
   for (; this_it != blocksLoading.end(); this_it++, block_seq_id++) 
   {
@@ -625,22 +634,26 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
 
       // get the ncdf connect variable and the element type
     INS_ID(temp_string, "connect%d", block_seq_id);
-    temp_var = ncFile->get_var(temp_string);
-    if (NULL == temp_var || !temp_var->is_valid()) {
+    GET_VAR(temp_string, nc_var, dims);
+    if (!nc_var) {
       readMeshIface->report_error("ReadNCDF:: Problem getting connect variable.");
       return MB_FAILURE;
     }
-    temp_att = temp_var->get_att("elem_type");
-    if (NULL == temp_att || !temp_att->is_valid()) {
+    nc_type att_type;
+    size_t att_len;
+    int fail = nc_inq_att(ncFile, nc_var, "elem_type", &att_type, &att_len);
+    if (NC_NOERR != fail) {
       readMeshIface->report_error("ReadNCDF:: Problem getting elem type attribute.");
-      delete temp_att;
       return MB_FAILURE;
     }
-    char *dum_str = temp_att->as_string(0);
-    delete temp_att;
+    std::vector<char> dum_str(att_len+1);
+    fail = nc_get_att_text(ncFile, nc_var, "elem_type", &dum_str[0]);
+    if (NC_NOERR != fail) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting elem type.");
+      return MB_FAILURE;
+    }
     ExoIIElementType elem_type = 
-      ExoIIUtil::static_element_name_to_type(dum_str);
-    delete [] dum_str;
+      ExoIIUtil::static_element_name_to_type(&dum_str[0]);
     (*this_it).elemType = elem_type;
     
     int verts_per_element = ExoIIUtil::VerticesPerElement[(*this_it).elemType];
@@ -687,8 +700,10 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
     
     // read the connetivity into that memory,  this will take only part of the array
     // 1/2 if sizeof(EntityHandle) == 64 bits.
-    NcBool status = temp_var->get(tmp_ptr, this_it->numElements, verts_per_element);
-    if (status == 0) {
+    count[0] = this_it->numElements;
+    count[1] = verts_per_element;
+    fail = nc_get_vara_int(ncFile, nc_var, start, count, tmp_ptr);
+    if (NC_NOERR != fail) {
       readMeshIface->report_error("ReadNCDF:: Problem getting connectivity.");
       return MB_FAILURE;
     }
@@ -744,19 +759,8 @@ ErrorCode ReadNCDF::read_global_ids()
   std::vector<int> ids(std::max(numberElements_loading, numberNodes_loading));
 
   int varid = -1;
-  int cstatus = nc_inq_varid (ncFile->id(), "elem_map", &varid);
-  if (cstatus == NC_NOERR && varid != -1) {
-    NcVar *temp_var = ncFile->get_var("elem_map");
-    if (NULL == temp_var || !temp_var->is_valid()) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting element number map variable.");
-      return MB_FAILURE;
-    }
-    NcBool status = temp_var->get(&ids[0], numberElements_loading);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting element number map data.");
-      return MB_FAILURE;
-    }
-
+  GET_1D_INT_VAR("elem_map", varid, ids);
+  if (-1 != varid) {
     std::vector<ReadBlockData>::iterator iter;
     int id_pos = 0;
     for(iter = blocksLoading.begin(); iter != blocksLoading.end(); ++iter)
@@ -782,14 +786,8 @@ ErrorCode ReadNCDF::read_global_ids()
 
     // read in node map next
   varid = -1;
-  cstatus = nc_inq_varid (ncFile->id(), "node_num_map", &varid);
-  if (cstatus == NC_NOERR && varid != -1) {
-    NcVar* temp_var = ncFile->get_var("node_num_map");
-    NcBool status = temp_var->get(&ids[0], numberNodes_loading);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting node number map data.");
-      return MB_FAILURE;
-    } 
+  GET_1D_INT_VAR("node_num_map", varid, ids);
+  if (-1 != varid) {
     Range range(MB_START_ID+vertexOffset, 
                   MB_START_ID+vertexOffset+numberNodes_loading-1);
     ErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag, 
@@ -809,17 +807,12 @@ ErrorCode ReadNCDF::read_nodesets()
   std::vector<int> id_array(numberNodeSets_loading);
 
     // read in the nodeset ids
-  NcVar *temp_var = ncFile->get_var("ns_prop1");
-  if (NULL == temp_var || !temp_var->is_valid()) {
+  int nc_var;
+  GET_1D_INT_VAR("ns_prop1", nc_var, id_array);
+  if (-1 == nc_var) {
     readMeshIface->report_error("ReadNCDF:: Problem getting ns_prop1 variable.");
     return MB_FAILURE;
   }
-  NcBool status = temp_var->get(&id_array[0], numberNodeSets_loading);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting nodeset id vector.");
-    return MB_FAILURE;
-  }
-
 
     // use a vector of ints to read node handles
   std::vector<int> node_handles;
@@ -827,7 +820,7 @@ ErrorCode ReadNCDF::read_nodesets()
   int i;
   std::vector<char> temp_string_storage(max_str_length+1);
   char *temp_string = &temp_string_storage[0];
-  NcDim *temp_dim;
+  int temp_dim;
   for(i = 0; i < numberNodeSets_loading; i++)
   {
       // get nodeset parameters
@@ -843,15 +836,9 @@ ErrorCode ReadNCDF::read_nodesets()
     if( number_dist_factors_in_set != 0)
     {
       INS_ID(temp_string, "dist_fact_ns%d", i+1);
-      temp_var = ncFile->get_var(temp_string);
-      if (NULL == temp_var || !temp_var->is_valid()) {
+      GET_1D_DBL_VAR(temp_string, temp_dim, temp_dist_factor_vector);
+      if (-1 == temp_dim) {
         readMeshIface->report_error("ReadNCDF:: Problem getting dist fact variable.");
-        return MB_FAILURE;
-      }
-      NcBool status = temp_var->get(&(temp_dist_factor_vector[0]),
-                                    number_dist_factors_in_set);
-      if (0 == status) {
-        readMeshIface->report_error("ReadNCDF:: Problem getting dist factors.");
         return MB_FAILURE;
       }
     }
@@ -863,15 +850,10 @@ ErrorCode ReadNCDF::read_nodesets()
     }
 
     INS_ID(temp_string, "node_ns%d", i+1);
-    temp_var = ncFile->get_var(temp_string);
-    if (NULL == temp_var || !temp_var->is_valid()) {
+    int temp_var = -1;
+    GET_1D_INT_VAR(temp_string, temp_var, node_handles);
+    if (-1 == temp_var) {
       readMeshIface->report_error("ReadNCDF:: Problem getting nodeset node variable.");
-      return MB_FAILURE;
-    }
-    NcBool status = temp_var->get(&node_handles[0],
-                                  number_nodes_in_set);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting nodeset nodes data.");
       return MB_FAILURE;
     }
 
@@ -997,14 +979,10 @@ ErrorCode ReadNCDF::read_sidesets()
   
     // read in the sideset ids
   std::vector<int> id_array(numberSideSets_loading);
-  NcVar *temp_var = ncFile->get_var("ss_prop1");
-  if (NULL == temp_var || !temp_var->is_valid()) {
+  int temp_var = -1;
+  GET_1D_INT_VAR("ss_prop1", temp_var, id_array);
+  if (-1 == temp_var) {
     readMeshIface->report_error("ReadNCDF:: Problem getting ss_prop1 variable.");
-    return MB_FAILURE;
-  }
-  NcBool status = temp_var->get(&id_array[0], numberSideSets_loading);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting sideset id vector.");
     return MB_FAILURE;
   }
 
@@ -1026,7 +1004,7 @@ ErrorCode ReadNCDF::read_sidesets()
   int i;
   std::vector<char> temp_string_storage(max_str_length+1);
   char *temp_string = &temp_string_storage[0];
-  NcDim *temp_dim;
+  int temp_dim;
   for(i = 0; i < numberSideSets_loading; i++)
   {
 
@@ -1038,28 +1016,18 @@ ErrorCode ReadNCDF::read_sidesets()
     std::vector<int> side_list(number_sides_in_set);
     std::vector<int> element_list(number_sides_in_set);
     INS_ID(temp_string, "side_ss%d", i+1);
-    temp_var = ncFile->get_var(temp_string);
-    if (NULL == temp_var || !temp_var->is_valid()) {
+    temp_var = -1;
+    GET_1D_INT_VAR(temp_string, temp_var, side_list);
+    if (-1 == temp_var) {
       readMeshIface->report_error("ReadNCDF:: Problem getting sideset side variable.");
-      return MB_FAILURE;
-    }
-    NcBool status = temp_var->get(&side_list[0],
-                                  number_sides_in_set);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting sideset sides data.");
       return MB_FAILURE;
     }
 
     INS_ID(temp_string, "elem_ss%d", i+1);
-    temp_var = ncFile->get_var(temp_string);
-    if (NULL == temp_var || !temp_var->is_valid()) {
+    temp_var = -1;
+    GET_1D_INT_VAR(temp_string, temp_var, element_list);
+    if (-1 == temp_var) {
       readMeshIface->report_error("ReadNCDF:: Problem getting sideset elem variable.");
-      return MB_FAILURE;
-    }
-    status = temp_var->get(&element_list[0],
-                           number_sides_in_set);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting sideset elems data.");
       return MB_FAILURE;
     }
 
@@ -1183,19 +1151,14 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
   std::vector<double> temp_dist_factor_vector(num_dist_factors);
   std::vector<char> temp_string_storage(max_str_length+1);
   char *temp_string = &temp_string_storage[0];
-  NcVar *temp_var;
+  int temp_var;
   if( num_dist_factors )
   {
     INS_ID(temp_string, "dist_fact_ss%d", ss_seq_id);
-    temp_var = ncFile->get_var(temp_string);
-    if (NULL == temp_var || !temp_var->is_valid()) {
+    temp_var = -1;
+    GET_1D_DBL_VAR(temp_string, temp_var, temp_dist_factor_vector);
+    if (-1 == temp_var) {
       readMeshIface->report_error("ReadNCDF:: Problem getting dist fact variable.");
-      return MB_FAILURE;
-    }
-    NcBool status = temp_var->get(&(temp_dist_factor_vector[0]),
-                                  num_dist_factors);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting dist factors.");
       return MB_FAILURE;
     }
   }
@@ -1560,7 +1523,7 @@ ErrorCode ReadNCDF::read_qa_information(std::vector<std::string> &qa_record_list
 
   int number_records = 0;
 
-  NcDim *temp_dim;
+  int temp_dim;
   GET_DIM(temp_dim, "num_qa_rec", number_records);
   std::vector<char> data(max_str_length+1);
   
@@ -1583,20 +1546,19 @@ ErrorCode ReadNCDF::read_qa_string(char *temp_string,
                                      int record_number,
                                      int record_position)
 {
-  NcVar *temp_var = ncFile->get_var("qa_records");
-  if (NULL == temp_var || !temp_var->is_valid()) {
+  std::vector<int> dims;
+  int temp_var = -1;
+  GET_VAR("qa_records", temp_var, dims);
+  if (-1 == temp_var) {
     readMeshIface->report_error("ReadNCDF:: Problem getting qa record variable.");
     return MB_FAILURE;
   }
-  NcBool status = temp_var->set_cur(record_number, record_position);
-  if (0 == status) {
+  size_t count[3], start[3];
+  start[0] = record_number; start[1] = record_position; start[2] = 0;
+  count[0] = 1; count[1] = 1; count[2] = max_str_length;
+  int fail = nc_get_vara_text(ncFile, temp_var, start, count, temp_string);
+  if (NC_NOERR != fail) {
     readMeshIface->report_error("ReadNCDF:: Problem setting current record number variable position.");
-    return MB_FAILURE;
-  }
-  status = temp_var->get(temp_string,
-                         1, 1, max_str_length);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting qa record string.");
     return MB_FAILURE;
   }
     // get the variable id in the exodus file
@@ -1685,11 +1647,10 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   else
     des = "";
 
-
       // open netcdf/exodus file
-  NcFile fileObject( exodus_file_name, NcFile::ReadOnly );
-  ncFile = &fileObject;
-  if (!ncFile->is_valid())
+  ncFile = 0;
+  int fail = nc_open(exodus_file_name, 0, &ncFile);
+  if (!ncFile)
   {
     readMeshIface->report_error("ReadNCDF:: problem opening Netcdf/Exodus II file %s",exodus_file_name);
     return MB_FILE_DOES_NOT_EXIST;
@@ -1700,12 +1661,13 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     return rval;
 
   // check to make sure that the requested time step exists
-  NcDim *ncdim = ncFile->get_dim("time_step");
-  if (!ncdim->is_valid()) {
+  int ncdim = -1;
+  int max_time_steps;
+  GET_DIM(ncdim, "time_step", max_time_steps);
+  if (-1 == ncdim) {
     std::cout << "ReadNCDF: could not get number of time steps" << std::endl;
     return MB_FAILURE;
   }
-  const int max_time_steps = ncdim->size();
   std::cout << "  Maximum time step=" << max_time_steps << std::endl;
   if(max_time_steps < time_step) {
     std::cout << "ReadNCDF: time step is greater than max_time_steps" << std::endl;
@@ -1713,32 +1675,24 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   }
   
   // get the time
-  NcVar *times_ptr = ncFile->get_var("time_whole");
-  if(NULL==times_ptr || !times_ptr->is_valid()) {
+  std::vector<double> times(max_time_steps);
+  int nc_var = -1;
+  GET_1D_DBL_VAR("time_whole", nc_var, times);
+  if(-1 == nc_var) {
     std::cout << "ReadNCDF: unable to get time variable" << std::endl;
   } else {
-    std::vector<double> times(max_time_steps);
-    NcBool status = times_ptr->get(&times[0], max_time_steps);
-    if(0==status) {
-      std::cout << "ReadNCDF: unable to get time array" << std::endl;
-    } else {
-      std::cout << "  Step " << time_step << " is at " << times[time_step-1] 
-                << " seconds" << std::endl;
-    }
+    std::cout << "  Step " << time_step << " is at " << times[time_step-1] 
+              << " seconds" << std::endl;
   }
 
   //read in the node_num_map .
   std::vector<int> ptr(numberNodes_loading);
 
   int varid = -1;
-  int cstatus = nc_inq_varid (ncFile->id(), "node_num_map", &varid);
-  if (cstatus == NC_NOERR && varid != -1) {
-    NcVar *temp_var = ncFile->get_var("node_num_map");
-    NcBool status = temp_var->get(&ptr[0], numberNodes_loading);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting node number map data.");
-      return MB_FAILURE;
-    }
+  GET_1D_INT_VAR("node_num_map", varid, ptr);
+  if (-1 == varid) {
+    readMeshIface->report_error("ReadNCDF:: Problem getting node number map data.");
+    return MB_FAILURE;
   }
 
   // read in the deformations.
@@ -1750,79 +1704,54 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   orig_coords[0].reserve(numberNodes_loading);
   orig_coords[1].reserve(numberNodes_loading);
   orig_coords[2].reserve(numberNodes_loading);
-
-  NcVar *coordx = ncFile->get_var("vals_nod_var1");
-  NcVar *coordy = ncFile->get_var("vals_nod_var2");
-  NcVar *coordz = 0;
+  size_t start[2] = {time_step-1,0}, count[2] = {1, numberNodes_loading};
+  std::vector<int> dims;
+  int coordx = -1, coordy = -1, coordz = -1;
+  GET_VAR("vals_nod_var1", coordx, dims);
+  GET_VAR("vals_nod_var2", coordy, dims);
   if(numberDimensions_loading == 3)
-    coordz = ncFile->get_var("vals_nod_var3");
-  if (NULL == coordx || !coordx->is_valid() ||
-      NULL == coordy || !coordy->is_valid() ||
-      (numberDimensions_loading == 3 && (NULL == coordz || !coordz->is_valid())) ) {
-     readMeshIface->report_error("ReadNCDF:: Problem getting coords variable.");
-     return MB_FAILURE;
-  }
-
-  NcBool status = coordx->set_cur(time_step-1, 0);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting x deformation array.");
-    return MB_FAILURE;
-  }
-  status = coordx->get(&deformed_arrays[0][0], 1,  numberNodes_loading);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting x deformation array.");
-    return MB_FAILURE;
-  }
-  status = coordy->set_cur(time_step-1, 0);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting y deformation array.");
-    return MB_FAILURE;
-  }
-  status = coordy->get(&deformed_arrays[1][0],  1, numberNodes_loading);
-  if (0 == status) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting y deformation array.");
-    return MB_FAILURE;
-  } 
-  if (numberDimensions_loading == 3 )
-  {
-    status = coordz->set_cur(time_step-1, 0);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting z deformation array.");
-      return MB_FAILURE;
-    }
-    status = coordz->get(&deformed_arrays[2][0], 1,numberNodes_loading);
-    if (0 == status) {
-      readMeshIface->report_error("ReadNCDF:: Problem getting z deformation array.");
-      return MB_FAILURE;
-    }
-  }
-
-  NcVar *coord1 = ncFile->get_var("coordx");
-  NcVar *coord2 = ncFile->get_var("coordy");
-  NcVar *coord3 = 0;
-  if(numberDimensions_loading == 3)
-    coord3 = ncFile->get_var("coordz");
-  if (NULL == coord1 || !coord1->is_valid() ||
-      NULL == coord2 || !coord2->is_valid() ||
-      (numberDimensions_loading == 3 && (NULL == coord3 || !coord3->is_valid())) ) {
+    GET_VAR("vals_nod_var3", coordz, dims);
+  if (-1 == coordx || -1 == coordy || 
+      (numberDimensions_loading == 3 && -1 == coordz)) {
     readMeshIface->report_error("ReadNCDF:: Problem getting coords variable.");
     return MB_FAILURE;
-   }
+  }
 
-  status = coord1->get(&orig_coords[0][0],  numberNodes_loading);
-  if (0 == status) {
+  fail = nc_get_vara_double(ncFile, coordx, start, count, &deformed_arrays[0][0]);
+  if (NC_NOERR != fail) {
+    readMeshIface->report_error("ReadNCDF:: Problem getting x deformation array.");
+    return MB_FAILURE;
+  }
+
+  fail = nc_get_vara_double(ncFile, coordy, start, count, &deformed_arrays[1][0]);
+  if (NC_NOERR != fail) {
+    readMeshIface->report_error("ReadNCDF:: Problem getting y deformation array.");
+    return MB_FAILURE;
+  }
+  if (numberDimensions_loading == 3 )
+  {
+    fail = nc_get_vara_double(ncFile, coordz, start, count, &deformed_arrays[2][0]);
+    if (NC_NOERR != fail) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting z deformation array.");
+      return MB_FAILURE;
+    }
+  }
+
+  int coord1 = -1, coord2 = -1, coord3 = -1;
+  GET_1D_DBL_VAR("coordx", coord1, orig_coords[0]);
+  if (-1 == coord1) {
     readMeshIface->report_error("ReadNCDF:: Problem getting x coord array.");
     return MB_FAILURE;
   }
-  status = coord2->get(&orig_coords[1][0],  numberNodes_loading);
-  if (0 == status) {
+  GET_1D_DBL_VAR("coordy", coord2, orig_coords[1]);
+  if (-1 == coord2) {
     readMeshIface->report_error("ReadNCDF:: Problem getting y coord array.");
     return MB_FAILURE;
   }
   if (numberDimensions_loading == 3 )
   {
-    status = coord3->get(&orig_coords[2][0],  numberNodes_loading);
-    if (0 == status) {
+    GET_1D_DBL_VAR("coordz", coord3, orig_coords[2]);
+    if (-1 == coord3) {
       readMeshIface->report_error("ReadNCDF:: Problem getting z coord array.");
       return MB_FAILURE;
     }
@@ -1995,16 +1924,12 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   // *******************************************************************
 
   // How many element variables are in the file?
-  ncdim = ncFile->get_dim("num_elem_var");
-  if (!ncdim->is_valid()) {
-    readMeshIface->report_error("ReadNCDF: Problem getting the number of element variable names.");
-    return MB_FAILURE;
-  }
-  const int n_elem_var = ncdim->size();
+  int n_elem_var;
+  GET_DIM(ncdim, "num_elem_var", n_elem_var);
 
   // Get element variable names
   varid = -1;
-  cstatus = nc_inq_varid(ncFile->id(), "name_elem_var", &varid);
+  int cstatus = nc_inq_varid(ncFile, "name_elem_var", &varid);
   std::vector<char> names_memory(n_elem_var * max_str_length);
   std::vector<char*> names(n_elem_var);
   for (int i = 0; i < n_elem_var; ++i)
@@ -2013,13 +1938,8 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     std::cout << "ReadNCDF: name_elem_var does not exist" << std::endl;
     return MB_FAILURE;
   }
-  NcVar *temp_var = ncFile->get_var("name_elem_var");
-  if (NULL == temp_var || !temp_var->is_valid()) {
-    readMeshIface->report_error("ReadNCDF:: Problem getting element variable variable.");
-    return MB_FAILURE;
-  }
-  status = temp_var->get(&names_memory[0], n_elem_var, max_str_length);
-  if (0 == status) {
+  int status = nc_get_var_text(ncFile, varid, &names_memory[0]);
+  if (NC_NOERR != status) {
     readMeshIface->report_error("ReadNCDF: Problem getting element variable names.");
     return MB_FAILURE;
   }
@@ -2065,13 +1985,8 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   // elem_num_map( blk1 elem ids, blk2 elem ids, blk3 elem ids, ... )
   std::vector<int> elem_ids(numberNodes_loading);
   if(!match_elems_by_connectivity) {
-    temp_var = ncFile->get_var("elem_num_map");
-    if (NULL == temp_var || !temp_var->is_valid()) {
-      std::cout << "ReadNCDF: Problem getting element number map variable." << std::endl;
-      return MB_FAILURE;
-    }
-    status = temp_var->get(&elem_ids[0], numberElements_loading);
-    if (0 == status) {
+    GET_1D_INT_VAR("elem_num_map", varid, elem_ids);
+    if (-1 == varid) {
       std::cout << "ReadNCDF: Problem getting element number map data." << std::endl;
       return MB_FAILURE;
     }
@@ -2091,21 +2006,28 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     temp_ss << block_count;
     temp_string += temp_ss.str();
     temp_string += "\0";
-    temp_var = ncFile->get_var(temp_string.c_str());
-    if (NULL == temp_var || !temp_var->is_valid()) {
-      std::cout << "ReadNCDF: Problem getting connect variable." << std::endl;
+    int nc_var;
+    std::vector<int> dims;
+    GET_VAR(temp_string.c_str(), nc_var, dims);
+    if (!nc_var) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting connect variable.");
       return MB_FAILURE;
     }
     // the element type is an attribute of the connectivity variable
-    NcAtt *temp_att = temp_var->get_att("elem_type");
-    if (NULL == temp_att || !temp_att->is_valid()) {
-      std::cout << "ReadNCDF:: Problem getting elem type attribute." << std::endl;
+    nc_type att_type;
+    size_t att_len;
+    int fail = nc_inq_att(ncFile, nc_var, "elem_type", &att_type, &att_len);
+    if (NC_NOERR != fail) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting elem type attribute.");
       return MB_FAILURE;
     }
-    // Get the MOAB element type from the Exodus attribute type
-    char *dum_str = temp_att->as_string(0);
-    ExoIIElementType elem_type = ExoIIUtil::static_element_name_to_type(dum_str);
-    delete [] dum_str;
+    std::vector<char> dum_str(att_len+1);
+    fail = nc_get_att_text(ncFile, nc_var, "elem_type", &dum_str[0]);
+    if (NC_NOERR != fail) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting elem type.");
+      return MB_FAILURE;
+    }
+    ExoIIElementType elem_type = ExoIIUtil::static_element_name_to_type(&dum_str[0]);
     (*i).elemType = elem_type;
     const EntityType mb_type = ExoIIUtil::ExoIIElementMBEntity[(*i).elemType];
 
@@ -2116,10 +2038,13 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     //int exo_conn[i->numElements][nodes_per_element];
     int *exo_conn = new int [i->numElements*nodes_per_element];
     //NcBool status = temp_var->get( &exo_conn[0][0], i->numElements, nodes_per_element);
-    NcBool status = temp_var->get( &exo_conn[0], i->numElements, nodes_per_element);
-    if (0 == status) {
-      std::cout << "ReadNCDF: Problem getting connectivity." << std::endl;
-      delete[] exo_conn;
+    size_t start[2] = {0, 0}, count[2];
+    count[0] = i->numElements;
+    count[1] = nodes_per_element;
+    fail = nc_get_vara_int(ncFile, nc_var, start, count, exo_conn);
+    if (NC_NOERR != fail) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting connectivity.");
+      delete [] exo_conn;
       return MB_FAILURE;
     }
 
@@ -2134,21 +2059,17 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     temp_ss << block_count;
     array_name += temp_ss.str();
     array_name += "\0";
-    temp_var = ncFile->get_var(array_name.c_str());
-    if (NULL == temp_var || !temp_var->is_valid()) {
-      std::cout << "ReadNCDF: Problem getting death_status variable." << std::endl;;
-      delete[] exo_conn;
+    GET_VAR(array_name.c_str(), nc_var, dims);
+    if (!nc_var) {
+      readMeshIface->report_error("ReadNCDF:: Problem getting death status variable.");
       return MB_FAILURE;
     }
-    status = temp_var->set_cur(time_step-1, 0);
-    if (0 == status) {
+    start[0] = time_step-1; start[1] = 0;
+    count[0] = 1;
+    count[1] = i->numElements;
+    status = nc_get_vara_double(ncFile, nc_var, start, count, &death_status[0]);
+    if (NC_NOERR != status) {
       std::cout << "ReadNCDF: Problem setting time step for death_status." << std::endl;
-      delete[] exo_conn;
-      return MB_FAILURE;
-    }
-    status = temp_var->get(&death_status[0], 1, i->numElements);
-    if (0 == status) {
-      std::cout << "ReadNCDF: Problem getting death_status array." << std::endl;
       delete[] exo_conn;
       return MB_FAILURE;
     }
