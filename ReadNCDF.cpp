@@ -435,14 +435,14 @@ ErrorCode ReadNCDF::read_exodus_header()
   GET_DIM(temp_dim, "len_line", max_line_length);
 
     // title; why are we even bothering if we're not going to keep it???
-  char *title = new char[max_line_length+1];
   fail = nc_inq_att(ncFile, NC_GLOBAL, "title", &att_type, &att_len);
   if (NC_NOERR != fail) {
     readMeshIface->report_error("ReadNCDF:: Problem getting title attribute.");
     return MB_FAILURE;
   }
-  if (att_type != NC_CHAR || (int)att_len > max_line_length) {
-    readMeshIface->report_error("ReadNCDF:: title didn't have type char or was too long.");
+  char *title = new char[att_len+1];
+  if (att_type != NC_CHAR) {
+    readMeshIface->report_error("ReadNCDF:: title didn't have type char.");
     return MB_FAILURE;
   }
   fail = nc_get_att_text(ncFile, NC_GLOBAL, "title", title);
@@ -707,6 +707,7 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
       readMeshIface->report_error("ReadNCDF:: Problem getting connectivity.");
       return MB_FAILURE;
     }
+
       // Convert from exodus indices to vertex handles.
       // Iterate backwards in case handles are larger than ints.
     for (int i = number_nodes - 1; i >= 0; --i)

@@ -37,7 +37,6 @@
 #include <vector>
 #include <string>
 
-#include "netcdf.hh"
 #include "moab/Forward.hpp"
 #include "moab/Range.hpp"
 #include "moab/ExoIIInterface.hpp"
@@ -135,7 +134,7 @@ private:
   
     //! file name
   std::string exodusFile;
-  NcFile *ncFile;
+  int ncFile;
 
     //! Meshset Handle for the mesh that is currently being read
   EntityHandle mCurrentMeshHandle;

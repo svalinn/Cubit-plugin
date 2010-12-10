@@ -28,6 +28,7 @@
 
 #include "WriteNCDF.hpp"
 
+#include "netcdf.h"
 #include <utility>
 #include <algorithm>
 #include <time.h>
@@ -53,6 +54,34 @@ const int TIME_STR_LEN = 11;
 #define INS_ID(stringvar, prefix, id) \
           sprintf(stringvar, prefix, id)
 
+#define GET_DIM(ncdim, name, val)\
+    {                            \
+    int fail = nc_inq_dimid(ncFile, name, &ncdim);          \
+    if (NC_NOERR == fail) {                                             \
+      size_t tmp_val;                                                   \
+      fail = nc_inq_dimlen(ncFile, ncdim, &tmp_val);                        \
+      if (NC_NOERR != fail) {                                           \
+        readMeshIface->report_error("ReadNCDF:: couldn't get dimension length."); \
+        return MB_FAILURE;                                              \
+      }                                                                 \
+      else val = tmp_val;                                               \
+    } else val = 0;}
+
+#define GET_DIMB(ncdim, name, varname, id, val) \
+          INS_ID(name, varname, id); \
+          GET_DIM(ncdim, name, val);
+
+#define GET_VAR(name, id, dims) \
+    {                           \
+    id = -1;\
+    int fail = nc_inq_varid(ncFile, name, &id);   \
+    if (NC_NOERR == fail) {       \
+    int ndims;\
+    fail = nc_inq_varndims(ncFile, id, &ndims);\
+    if (NC_NOERR == fail) {\
+    dims.resize(ndims);    \
+    fail = nc_inq_vardimid(ncFile, id, &dims[0]);}}}
+    
 WriterIface* WriteNCDF::factory( Interface* iface )
   { return new WriteNCDF( iface ); }
 
@@ -121,8 +150,7 @@ WriteNCDF::~WriteNCDF()
 
   mdbImpl->tag_delete(mEntityMark);
 
-  if (NULL != ncFile)
-    delete ncFile;
+  if (ncFile) ncFile = 0;
 }
 
 void WriteNCDF::reset_block(std::vector<MaterialSetData> &block_info)
@@ -258,8 +286,8 @@ ErrorCode WriteNCDF::write_file(const char *exodus_file_name,
 
 
   // try to open the file after gather mesh info succeeds
-  ncFile = new NcFile(exodus_file_name, overwrite ? NcFile::Replace : NcFile::New );
-  if (NULL == ncFile) {
+  int fail = nc_create(exodus_file_name, overwrite ? NC_CLOBBER : NC_NOCLOBBER, &ncFile);
+  if (NC_NOERR != fail) {
     reset_block(block_info);
     return MB_FAILURE;
   }
@@ -318,6 +346,12 @@ ErrorCode WriteNCDF::write_file(const char *exodus_file_name,
 
   // copy the qa records into the argument
   //mesh_info.qaRecords.swap(qa_records);
+  // close the file
+  fail = nc_close(ncFile);
+  if (NC_NOERR != fail) {
+    mWriteIface->report_error("Trouble closing file.");
+    return MB_FAILURE;
+  }
   
   return MB_SUCCESS;
 }
@@ -743,16 +777,16 @@ ErrorCode WriteNCDF::write_qa_string(const char *string,
 {
       // get the variable id in the exodus file
 
-  NcVar *qavar = ncFile->get_var("qa_records");
-  if (NULL == qavar) {
-    mWriteIface->report_error("Failed to find qa record array in file");
+  std::vector<int> dims;
+  int temp_var = -1;
+  GET_VAR("qa_records", temp_var, dims);
+  if (-1 == temp_var) {
+    mWriteIface->report_error("WriteNCDF:: Problem getting qa record variable.");
     return MB_FAILURE;
   }
+  size_t count[3], start[3];
 
 //  write out the record
-
-  long start[3], count[3];
-
   start[0] = record_number;
   start[1] = record_position;
   start[2] = 0;
@@ -760,14 +794,9 @@ ErrorCode WriteNCDF::write_qa_string(const char *string,
   count[0] = 1;
   count[1] = 1;
   count[2] = (long)strlen(string) +1;
-  NcBool status = qavar->set_cur(record_number, record_position, 0);
-  if (!status) {
+  int fail = nc_put_vara_text(ncFile, temp_var, start, count, string);
+  if (NC_NOERR != fail) {
     mWriteIface->report_error("Failed to position qa string variable.");
-    return MB_FAILURE;
-  }
-  status = qavar->put(string, 1, 1, strlen(string)+1);
-  if (!status) {
-    mWriteIface->report_error("Failed to write qa string variable.");
     return MB_FAILURE;
   }
 
@@ -778,18 +807,44 @@ ErrorCode WriteNCDF::write_qa_string(const char *string,
 ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
 {
   // write coordinates names
-  NcVar *coord_var = ncFile->get_var("coor_names");
-  if (NULL == coord_var) return MB_FAILURE;
-  NcBool status = coord_var->put("x", 1, 1);
-  if (!status) return MB_FAILURE;
-  status = coord_var->set_cur(1, 0);
-  if (!status) return MB_FAILURE;
-  status = coord_var->put("y", 1, 1);
-  if (!status) return MB_FAILURE;
-  status = coord_var->set_cur(2, 0);
-  if (!status) return MB_FAILURE;
-  status = coord_var->put("z", 1, 1);
-  if (!status) return MB_FAILURE;
+  int nc_var = -1;
+  std::vector<int> dims;
+  GET_VAR("coor_names", nc_var, dims);
+  if (-1 == nc_var) {
+    mWriteIface->report_error("Trouble getting coordinate name variable.");
+    return MB_FAILURE;
+  }
+  
+  size_t start[2] = {0, 0}, count[2] = {1, ExoIIInterface::MAX_STR_LENGTH};
+  char dum_str[ExoIIInterface::MAX_STR_LENGTH];
+  strcpy(dum_str, "x");
+  int fail = nc_put_vara_text(ncFile, nc_var, start, count, dum_str);
+  if (NC_NOERR != fail) {
+    mWriteIface->report_error("Trouble adding x coordinate name; netcdf message:");
+    const char *err = nc_strerror(fail);
+    mWriteIface->report_error(err);
+    return MB_FAILURE;
+  }
+
+  start[0] = 1;
+  strcpy(dum_str, "y");
+  fail = nc_put_vara_text(ncFile, nc_var, start, count, dum_str);
+  if (NC_NOERR != fail) {
+    mWriteIface->report_error("Trouble adding y coordinate name.");
+    const char *err = nc_strerror(fail);
+    mWriteIface->report_error(err);
+    return MB_FAILURE;
+  }
+  
+  start[0] = 2;
+  strcpy(dum_str, "z");
+  fail = nc_put_vara_text(ncFile, nc_var, start, count, dum_str);
+  if (NC_NOERR != fail) {
+    mWriteIface->report_error("Trouble adding z coordinate name.");
+    const char *err = nc_strerror(fail);
+    mWriteIface->report_error(err);
+    return MB_FAILURE;
+  }
   
   //see if should transform coordinates
   ErrorCode result;
@@ -855,18 +910,33 @@ ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
 
 
   // write the nodes 
-  NcVar *coord = ncFile->get_var("coord");
-  if (NULL == coord) return MB_FAILURE;
-  status = coord->put(coord_arrays[0], 1, num_nodes);
-  if (!status) return MB_FAILURE;
-  status = coord->set_cur(1, 0);
-  if (!status) return MB_FAILURE;
-  status = coord->put(&(coord_arrays[1][0]), 1, num_nodes);
-  if (!status) return MB_FAILURE;
-  status = coord->set_cur(2, 0);
-  if (!status) return MB_FAILURE;
-  status = coord->put(&(coord_arrays[2][0]), 1, num_nodes);
-  if (!status) return MB_FAILURE;
+  nc_var = -1;
+  GET_VAR("coord", nc_var, dims);
+  if (-1 == nc_var) {
+    mWriteIface->report_error("Trouble getting coordinate variable.");
+    return MB_FAILURE;
+  }
+  start[0] = 0;
+  count[1] = num_nodes;
+  fail = nc_put_vara_double(ncFile, nc_var, start, count, &(coord_arrays[0][0]));
+  if (NC_NOERR != fail) {
+    mWriteIface->report_error("Trouble writing x coordinate.");
+    return MB_FAILURE;
+  }
+  
+  start[0] = 1;
+  fail = nc_put_vara_double(ncFile, nc_var, start, count, &(coord_arrays[1][0]));
+  if (NC_NOERR != fail) {
+    mWriteIface->report_error("Trouble writing y coordinate.");
+    return MB_FAILURE;
+  }
+  
+  start[0] = 2;
+  fail = nc_put_vara_double(ncFile, nc_var, start, count, &(coord_arrays[2][0]));
+  if (NC_NOERR != fail) {
+    mWriteIface->report_error("Trouble writing z coordinate.");
+    return MB_FAILURE;
+  }
   
   delete [] coord_arrays[0];
   delete [] coord_arrays[1];
@@ -975,16 +1045,23 @@ ErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_dat
 
     char wname[80];
     INS_ID(wname, "connect%d", i+1);
-    NcVar *conn = ncFile->get_var(wname);
-    if (NULL == conn) {
+    std::vector<int> dims;
+    int nc_var = -1;
+    GET_VAR(wname, nc_var, dims);
+    if (-1 == nc_var) {
+      mWriteIface->report_error("Couldn't get connectivity variable.");
       delete [] connectivity;
       return MB_FAILURE;
     }
-    NcBool err = conn->put(connectivity, num_elem, num_nodes_per_elem);
-    delete [] connectivity;
-    if(!err)
-      return MB_FAILURE;
 
+    size_t start[2] = {0, 0}, count[2] = {num_elem, num_nodes_per_elem};
+    int fail = nc_put_vara_int(ncFile, nc_var, start, count, connectivity);
+    if (NC_NOERR != fail) {
+      mWriteIface->report_error("Couldn't write connectivity variable.");
+      delete [] connectivity;
+      return MB_FAILURE;
+    }
+    
     block_index++;
 
   }
@@ -1120,9 +1197,10 @@ ErrorCode WriteNCDF::write_exodus_integer_variable(const char* variable_name,
    // write directly to netcdf interface for efficiency
 
    // get the variable id of the element map
-
-  NcVar *ivar = ncFile->get_var(variable_name);
-  if (NULL == ivar)
+  int nc_var = -1;
+  std::vector<int> dims;
+  GET_VAR(variable_name, nc_var, dims);
+  if (-1 == nc_var)
   {
     mWriteIface->report_error("WriteNCDF: failed to locate variable %s in file.", variable_name);
     return MB_FAILURE;
@@ -1130,26 +1208,21 @@ ErrorCode WriteNCDF::write_exodus_integer_variable(const char* variable_name,
    // this contortion is necessary because netCDF is expecting nclongs;
    // fortunately it's necessary only when ints and nclongs aren't the same size
 
-   long start[1], count[1];
-   NcBool iresult = true;
+   size_t start[1], count[1];
    start[0] = start_position;
    count[0] = number_values;
 
-   if (0 != start_position) iresult = ivar->set_cur(start_position);
-   
-   if (sizeof(int) == sizeof(ncLong)) {
-     iresult = ivar->put(variable_array, number_values);
+   int fail = NC_NOERR;
+   if (sizeof(int) == sizeof(long)) {
+     fail = nc_put_vara_int(ncFile, nc_var, start, count, variable_array);
    } else {
      long *lptr = new long[number_values];
      for (int jj = 0; jj < number_values; jj++)
        lptr[jj] = variable_array[jj];
-     iresult = ivar->put(lptr, number_values);
+     fail = nc_put_vara_long(ncFile, nc_var, start, count, lptr);
      delete [] lptr;
    }
-
-   //int error = 0;
-
-   if (!iresult)
+   if (NC_NOERR != fail)
    {
      mWriteIface->report_error("Failed to store variable %s", variable_name);
      return MB_FAILURE;
@@ -1239,12 +1312,18 @@ ErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
 
       //write it out
     char wname[80];
+    int nc_var = -1;
+    std::vector<int> dims;
     INS_ID(wname, "node_ns%d", ns_index+1);
-    NcVar *nsvar = ncFile->get_var(wname);
-    if (NULL == nsvar) return MB_FAILURE;
-    
-    NcBool error = nsvar->put(exodus_id_array, number_nodes);
-    if(!error)
+    GET_VAR(wname, nc_var, dims);
+    if (-1 == nc_var) {
+      mWriteIface->report_error("Failed to get node_ns variable.");
+      return MB_FAILURE;
+    }
+      
+    size_t start = 0, count = number_nodes;
+    int fail = nc_put_vara_int(ncFile, nc_var, &start, &count, exodus_id_array);
+    if(NC_NOERR != fail) 
     {
       mWriteIface->report_error("Failed writing exodus id array");
       return MB_FAILURE;
@@ -1252,13 +1331,16 @@ ErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
 
       // write out nodeset distribution factors
     INS_ID(wname, "dist_fact_ns%d", ns_index+1);
-    nsvar = ncFile->get_var(wname);
-    if (NULL == nsvar) return MB_FAILURE;
-    
-    error = nsvar->put(dist_factor_array, number_nodes);
-    if(!error)
+    nc_var = -1;
+    GET_VAR(wname, nc_var, dims);
+    if (-1 == nc_var) {
+      mWriteIface->report_error("Failed to get dist_fact variable.");
+      return MB_FAILURE;
+    }
+    fail = nc_put_vara_double(ncFile, nc_var, &start, &count, dist_factor_array);
+    if(NC_NOERR != fail) 
     {
-      mWriteIface->report_error("Failed writing nodeset distribution factors");
+      mWriteIface->report_error("Failed writing dist factor array");
       return MB_FAILURE;
     }
 
@@ -1356,31 +1438,46 @@ ErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
       ++ss_index;
 
       char wname[80];
+      int nc_var;
+      std::vector<int> dims;
       INS_ID(wname, "elem_ss%d", ss_index);
-      NcVar *ssvar = ncFile->get_var(wname);
-      if (NULL == ssvar) return MB_FAILURE;
-      NcBool error = ssvar->put(output_element_ids, number_elements);
-      if(!error)
+      GET_VAR(wname, nc_var, dims);
+      if (-1 == nc_var) {
+        mWriteIface->report_error("Failed to get elem_ss variable.");
+        return MB_FAILURE;
+      }
+      size_t start = 0, count = number_elements;
+      int fail = nc_put_vara_int(ncFile, nc_var, &start, &count, output_element_ids);
+      if(NC_NOERR != fail) 
       {
         mWriteIface->report_error("Failed writing sideset element array");
         return MB_FAILURE;
       }
 
       INS_ID(wname, "side_ss%d", ss_index);
-      ssvar = ncFile->get_var(wname);
-      if (NULL == ssvar) return MB_FAILURE;
-      error = ssvar->put(output_element_side_numbers, number_elements);
-      if(!error)
+      nc_var = -1;
+      GET_VAR(wname, nc_var, dims);
+      if (-1 == nc_var) {
+        mWriteIface->report_error("Failed to get side_ss variable.");
+        return MB_FAILURE;
+      }
+      fail = nc_put_vara_int(ncFile, nc_var, &start, &count, output_element_side_numbers);
+      if(NC_NOERR != fail) 
       {
         mWriteIface->report_error("Failed writing sideset side array");
         return MB_FAILURE;
       }
 
       INS_ID(wname, "dist_fact_ss%d", ss_index);
-      ssvar = ncFile->get_var(wname);
-      if (NULL == ssvar) return MB_FAILURE;
-      error = ssvar->put(&(sideset_data.ss_dist_factors[0]), sideset_data.ss_dist_factors.size());
-      if(!error)
+      nc_var = -1;
+      GET_VAR(wname, nc_var, dims);
+      if (-1 == nc_var) {
+        mWriteIface->report_error("Failed to get sideset dist factors variable.");
+        return MB_FAILURE;
+      }
+      count = sideset_data.ss_dist_factors.size();
+      fail = nc_put_vara_double(ncFile, nc_var, &start, &count, &(sideset_data.ss_dist_factors[0]));
+      if(NC_NOERR != fail) 
       {
         mWriteIface->report_error("Failed writing sideset dist factors array");
         return MB_FAILURE;
@@ -1395,12 +1492,12 @@ ErrorCode WriteNCDF::write_BCs(std::vector<NeumannSetData> &sidesets,
 }
 
 ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
-                                                std::vector<MaterialSetData> &block_data,
-                                                std::vector<NeumannSetData> & sideset_data,
-                                                std::vector<DirichletSetData> & nodeset_data,
-                                                const char* title_string,
-                                                bool write_maps,
-                                                bool /* write_sideset_distribution_factors */)
+                                            std::vector<MaterialSetData> &block_data,
+                                            std::vector<NeumannSetData> & sideset_data,
+                                            std::vector<DirichletSetData> & nodeset_data,
+                                            const char* title_string,
+                                            bool write_maps,
+                                            bool /* write_sideset_distribution_factors */)
 {
     // This routine takes the place of the exodusii routine ex_put_init,
     // and additionally pre-defines variables such as qa, element blocks,
@@ -1424,23 +1521,23 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
     // inquire on defined string dimension and general dimension for qa
 
-  NcDim *dim_str, *dim_four, *dim_line, *dim_time;
-  if ((dim_str = ncFile->add_dim("len_string", ExoIIInterface::MAX_STR_LENGTH)) == NULL)
+  int dim_str, dim_four, dim_line, dim_time;
+  if (nc_def_dim(ncFile, "len_string", ExoIIInterface::MAX_STR_LENGTH, &dim_str) != NC_NOERR)
   {
     mWriteIface->report_error("WriteNCDF: failed to get string length in file");
     return (MB_FAILURE);
   }
-  if ((dim_line = ncFile->add_dim("len_line", ExoIIInterface::MAX_LINE_LENGTH)) == NULL)
+  if (nc_def_dim(ncFile, "len_line", ExoIIInterface::MAX_STR_LENGTH, &dim_line) != NC_NOERR)
   {
     mWriteIface->report_error("WriteNCDF: failed to get line length in file");
     return (MB_FAILURE);
   }
-  if ((dim_four = ncFile->add_dim("four", 4)) == NULL)
+  if (nc_def_dim(ncFile, "four", 4, &dim_four) != NC_NOERR)
   {
     mWriteIface->report_error("WriteNCDF: failed to locate four in file");
     return (MB_FAILURE);
   }
-  if ((dim_time = ncFile->add_dim("time_step")) == NULL)
+  if (nc_def_dim(ncFile, "time_step", 1, &dim_time) != NC_NOERR)
   {
     mWriteIface->report_error("WriteNCDF: failed to locate time step in file");
     return (MB_FAILURE);
@@ -1458,7 +1555,7 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
     // get a working copy of the title_string;
 
   char working_title[80];
-  strncpy(working_title,title_string,79);
+  strncpy(working_title,title_string, 79);
 
   int length = strlen(working_title);
   for(int pos = 0; pos < length; pos++)
@@ -1467,7 +1564,7 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
       strncpy(&working_title[pos],"/",1);
   }
 
-  if (!ncFile->add_att("title", working_title))
+  if (NC_NOERR != nc_put_att_text(ncFile, NC_GLOBAL, "title", length, working_title))
   {
     mWriteIface->report_error("WriteNCDF: failed to define title attribute");
     return (MB_FAILURE);
@@ -1475,43 +1572,43 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
     // add other attributes while we're at it
   float dum_vers = 3.04F;
-  if (!ncFile->add_att("api_version", dum_vers)) {
+  if (NC_NOERR != nc_put_att_float(ncFile, NC_GLOBAL, "api_version", NC_FLOAT, 1, &dum_vers)) {
     mWriteIface->report_error("WriteNCDF: failed to define api_version attribute");
     return (MB_FAILURE);
   }
   dum_vers = 2.05F;
-  if (!ncFile->add_att("version", dum_vers)) {
+  if (NC_NOERR != nc_put_att_float(ncFile, NC_GLOBAL, "version", NC_FLOAT, 1, &dum_vers)) {
     mWriteIface->report_error("WriteNCDF: failed to define version attribute");
     return (MB_FAILURE);
   }
   int dum_siz = sizeof(double);
-  if (!ncFile->add_att("floating_point_word_size", dum_siz)) {
+  if (NC_NOERR != nc_put_att_int(ncFile, NC_GLOBAL, "floating_point_word_size", NC_INT, 1, &dum_siz)) {
     mWriteIface->report_error("WriteNCDF: failed to define floating pt word size attribute");
     return (MB_FAILURE);
   }
 
     // set up number of dimensions
 
-  NcDim *num_el_blk, *num_elem, *num_nodes, *num_dim;
-  if (!(num_dim = ncFile->add_dim("num_dim", (long)mesh_info.num_dim)))
+  int num_el_blk, num_elem, num_nodes, num_dim;
+  if (nc_def_dim(ncFile, "num_dim", (size_t)mesh_info.num_dim, &num_dim) != NC_NOERR)
   {
     mWriteIface->report_error("WriteNCDF: failed to define number of dimensions");
     return (MB_FAILURE);
   }
 
-  if (!(num_nodes = ncFile->add_dim("num_nodes", (long)mesh_info.num_nodes)))
+  if (nc_def_dim(ncFile, "num_nodes", mesh_info.num_nodes, &num_nodes) != NC_NOERR)
   {
     mWriteIface->report_error("WriteNCDF: failed to define number of nodes");
     return (MB_FAILURE);
   }
 
-  if (!(num_elem = ncFile->add_dim("num_elem", (long)mesh_info.num_elements)))
+  if (nc_def_dim(ncFile, "num_elem", mesh_info.num_elements, &num_elem) != NC_NOERR)
   {
     mWriteIface->report_error("WriteNCDF: failed to define number of elements");
     return (MB_FAILURE);
   }
 
-  if (!(num_el_blk = ncFile->add_dim("num_el_blk", (long)mesh_info.num_elementblocks)))
+  if (nc_def_dim(ncFile, "num_el_blk", mesh_info.num_elementblocks, &num_el_blk) != NC_NOERR)
   {
     mWriteIface->report_error("WriteNCDF: failed to define number of element blocks");
     return (MB_FAILURE);
@@ -1520,8 +1617,8 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 /* ...and some variables */
 
     /* element block id status array */
-  NcVar *idstat;
-  if ((idstat = ncFile->add_var("eb_status", ncLong, num_el_blk)) == NULL)
+  int idstat = -1;
+  if (NC_NOERR != nc_def_var(ncFile, "eb_status", NC_LONG, 1, &num_el_blk, &idstat))
   {
     mWriteIface->report_error("WriteNCDF: failed to define element block status array");
     return (MB_FAILURE);
@@ -1529,15 +1626,15 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
     /* element block id array */
 
-  NcVar *idarr;
-  if ((idarr = ncFile->add_var("eb_prop1", ncLong, num_el_blk)) == NULL)
+  int idarr = -1;
+  if (NC_NOERR != nc_def_var(ncFile, "eb_prop1", NC_LONG, 1, &num_el_blk, &idarr))
   {
     mWriteIface->report_error("WriteNCDF: failed to define element block id array");
     return (MB_FAILURE);
   }
 
     /*   store property name as attribute of property array variable */
-  if (!idarr->add_att("name", "ID"))
+  if (NC_NOERR != nc_put_att_text(ncFile, idarr, "name", strlen("ID"), "ID"))
   {
     mWriteIface->report_error("WriteNCDF: failed to store element block property name ID");
     return (MB_FAILURE);
@@ -1552,14 +1649,13 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
     MaterialSetData block = block_data[i];
 
     element_block_index = i+1;
-    NcDim *num_el_in_blk, *num_att_in_blk = NULL;
-    NcVar *blk_attrib, *connect;
+    int num_el_in_blk = -1, num_att_in_blk = -1;
+    int blk_attrib, connect;
 
       /* define number of elements in this block */
     
     INS_ID(wname, "num_el_in_blk%d", element_block_index);
-    if ((num_el_in_blk = ncFile->add_dim(wname, (long)block.number_elements))
-        == NULL)
+    if (nc_def_dim(ncFile, wname, (size_t)block.number_elements, &num_el_in_blk) != NC_NOERR)
     {
       mWriteIface->report_error("WriteNCDF: failed to define number of elements/block for block %d", 
                                 i+1);
@@ -1569,9 +1665,8 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
       /* define number of nodes per element for this block */
     INS_ID(wname, "num_nod_per_el%d", element_block_index);
-    NcDim *num_nod_per_el;
-    if ((num_nod_per_el = ncFile->add_dim(wname, (long)block.number_nodes_per_element))
-         == NULL)
+    int num_nod_per_el = -1;
+    if (nc_def_dim(ncFile, wname, (size_t)block.number_nodes_per_element, &num_nod_per_el) != NC_NOERR)
     {
       mWriteIface->report_error("WriteNCDF: failed to define number of nodes/element for block %d", 
                                 block.id);
@@ -1579,18 +1674,20 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
     }
 
       /* define element attribute array for this block */
+    int dims[3];
     if (block.number_attributes > 0)
     {
       INS_ID(wname, "num_att_in_blk%d", element_block_index);
-      if ((num_att_in_blk = ncFile->add_dim(wname, (long)block.number_attributes)) == NULL)
+      if (nc_def_dim(ncFile, wname, (size_t)block.number_attributes, &num_att_in_blk) != NC_NOERR)
       {
         mWriteIface->report_error("WriteNCDF: failed to define number of attributes in block %d", block.id);
         return (MB_FAILURE);
       }
       
       INS_ID(wname, "attrib%d", element_block_index);
-      if ((blk_attrib = ncFile->add_var(wname, ncDouble, 
-                                        num_el_in_blk, num_att_in_blk)) == NULL)
+      dims[0] = num_el_in_blk;
+      dims[1] = num_att_in_blk;
+      if (NC_NOERR != nc_def_var(ncFile, wname, NC_DOUBLE, 2, dims, &blk_attrib))
       {
         mWriteIface->report_error("WriteNCDF: failed to define attributes for element block %d", block.id);
         return (MB_FAILURE);
@@ -1601,8 +1698,9 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
       /* define element connectivity array for this block */
 
     INS_ID(wname, "connect%d", element_block_index);
-    if ((connect = ncFile->add_var(wname, ncLong, 
-                                   num_el_in_blk, num_nod_per_el)) == NULL)
+    dims[0] = num_el_in_blk;
+    dims[1] = num_nod_per_el;
+    if (NC_NOERR != nc_def_var(ncFile, wname, NC_LONG, 2, dims, &connect))
     {
       mWriteIface->report_error("WriteNCDF: failed to create connectivity array for block %d", i+1);
       return (MB_FAILURE);
@@ -1613,7 +1711,7 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
     char element_type_string[ExoIIInterface::MAX_STR_LENGTH+1];
     strcpy(element_type_string, ExoIIUtil::ElementTypeNames[ block.element_type ]);
 
-    if (!connect->add_att("elem_type", element_type_string))
+    if (NC_NOERR != nc_put_att_text(ncFile, connect, "elem_type", strlen(element_type_string), element_type_string))
     {
       mWriteIface->report_error("WriteNCDF: failed to store element type name %d", (int)block.element_type);
       return (MB_FAILURE);
@@ -1631,11 +1729,11 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
     if (0 != (*ns_it).number_nodes) non_empty_nss++;
   }
 
-  NcDim *num_ns = NULL;
-  NcVar *ns_idstat = NULL, *ns_idarr = NULL;
+  int num_ns = -1;
+  int ns_idstat = -1, ns_idarr = -1;
   if (non_empty_nss > 0)
   {
-    if ((num_ns = ncFile->add_dim("num_node_sets", (long)(non_empty_nss))) == NULL)
+    if (nc_def_dim(ncFile, "num_node_sets", (size_t)(non_empty_nss), &num_ns) != NC_NOERR)
     {
       mWriteIface->report_error("WriteNCDF: failed to define number of node sets");
       return (MB_FAILURE);
@@ -1643,14 +1741,14 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
       /* node set id status array: */
 
-    if ((ns_idstat = ncFile->add_var("ns_status", ncLong, num_ns)) == NULL)
+    if (NC_NOERR != nc_def_var(ncFile, "ns_status", NC_LONG, 1, &num_ns, &ns_idstat))
     {
       mWriteIface->report_error("WriteNCDF: failed to create node sets status array");
       return (MB_FAILURE);
     }
 
       /* node set id array: */
-    if ((ns_idarr = ncFile->add_var("ns_prop1", ncLong, num_ns)) == NULL)
+    if (NC_NOERR != nc_def_var(ncFile, "ns_prop1", NC_LONG, 1, &num_ns, &ns_idarr))
     {
       mWriteIface->report_error("WriteNCDF: failed to create node sets property array");
       return (MB_FAILURE);
@@ -1658,7 +1756,7 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
 
 /*   store property name as attribute of property array variable */
-    if (!ncFile->add_att("name", "ID"))
+    if (NC_NOERR != nc_put_att_text(ncFile, NC_GLOBAL, "name", strlen("ID"), "ID"))
     {
       mWriteIface->report_error("WriteNCDF: failed to store node set property name ID");
       return (MB_FAILURE);
@@ -1675,40 +1773,40 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
       if (node_set.number_nodes == 0) {
         mWriteIface->report_error("WriteNCDF: empty nodeset %d", node_set.id);
-         continue;
-       }
-       index++;
+        continue;
+      }
+      index++;
 
-       NcDim *num_nod_ns;
-       INS_ID(wname, "num_nod_ns%d", index);
-       if ((num_nod_ns = ncFile->add_dim(wname, (long)node_set.number_nodes)) == NULL)
-       {
-         mWriteIface->report_error("WriteNCDF: failed to define number of nodes for set %d", node_set.id);
-         return (MB_FAILURE);
-       }
+      int num_nod_ns = -1;
+      INS_ID(wname, "num_nod_ns%d", index);
+      if (nc_def_dim(ncFile, wname, (size_t)node_set.number_nodes, &num_nod_ns) != NC_NOERR)
+      {
+        mWriteIface->report_error("WriteNCDF: failed to define number of nodes for set %d", node_set.id);
+        return (MB_FAILURE);
+      }
 
 /* create variable array in which to store the node set node list */
-       NcVar *node_ns;
-       INS_ID(wname, "node_ns%d", index);
-       if ((node_ns = ncFile->add_var(wname, ncLong, num_nod_ns)) == NULL)
-       {
-         mWriteIface->report_error("WriteNCDF: failed to create node set %d node list", node_set.id);
-         return (MB_FAILURE);
-       }
+      int node_ns = -1;
+      INS_ID(wname, "node_ns%d", index);
+      if (NC_NOERR != nc_def_var(ncFile, wname, NC_LONG, 1, &num_nod_ns, &node_ns))
+      {
+        mWriteIface->report_error("WriteNCDF: failed to create node set %d node list", node_set.id);
+        return (MB_FAILURE);
+      }
 
-       // create distribution factor array
-       NcVar *fact_ns;
-       INS_ID(wname, "dist_fact_ns%d", index);
-       if ((fact_ns = ncFile->add_var(wname, ncDouble, num_nod_ns)) == NULL)
-       {
-         mWriteIface->report_error("WriteNCDF: failed to create node set %d distribution factor list", 
-                                   node_set.id);
-         return (MB_FAILURE);
-       }
+        // create distribution factor array
+      int fact_ns = -1;
+      INS_ID(wname, "dist_fact_ns%d", index);
+      if (NC_NOERR != nc_def_var(ncFile, wname, NC_DOUBLE, 1, &num_nod_ns, &fact_ns))
+      {
+        mWriteIface->report_error("WriteNCDF: failed to create node set %d distribution factor list", 
+                                  node_set.id);
+        return (MB_FAILURE);
+      }
 
-     }
+    }
 
-   }
+  }
 
 /* side set id array: */
 
@@ -1720,159 +1818,172 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
     if (0 != (*ss_it).number_elements) non_empty_ss++;
   }
 
-   if (non_empty_ss > 0) {
-     NcDim *num_ss;
-     if ((num_ss = ncFile->add_dim("num_side_sets", non_empty_ss)) == NULL)
-     {
-       mWriteIface->report_error("WriteNCDF: failed to define number of side sets");
-       return (MB_FAILURE);
-     }
+  if (non_empty_ss > 0) {
+    int num_ss = -1;
+    if (nc_def_dim(ncFile, "num_side_sets", non_empty_ss, &num_ss) != NC_NOERR)
+    {
+      mWriteIface->report_error("WriteNCDF: failed to define number of side sets");
+      return (MB_FAILURE);
+    }
 
-     /* side set id status array: */
-     NcVar *ss_idstat, *ss_idarr;
-     if ((ss_idstat = ncFile->add_var("ss_status", ncLong, num_ss)) == NULL)
-     {
-       mWriteIface->report_error("WriteNCDF: failed to define side set status");
-       return (MB_FAILURE);
-     }
+      /* side set id status array: */
+    int ss_idstat = -1, ss_idarr = -1;
+    if (NC_NOERR != nc_def_var(ncFile, "ss_status", NC_LONG, 1, &num_ss, &ss_idstat))
+    {
+      mWriteIface->report_error("WriteNCDF: failed to define side set status");
+      return (MB_FAILURE);
+    }
 
-     /* side set id array: */
-     if ((ss_idarr = ncFile->add_var("ss_prop1", ncLong, num_ss)) == NULL)
-     {
-       mWriteIface->report_error( "WriteNCDF: failed to define side set property");
-       return (MB_FAILURE);
-     }
+      /* side set id array: */
+    if (NC_NOERR != nc_def_var(ncFile, "ss_prop1", NC_LONG, 1, &num_ss, &ss_idarr))
+    {
+      mWriteIface->report_error( "WriteNCDF: failed to define side set property");
+      return (MB_FAILURE);
+    }
 
 /*   store property name as attribute of property array variable */
-     if ((!ss_idarr->add_att("name", "ID")))
-     {
-       mWriteIface->report_error("WriteNCDF: failed to store side set property name ID");
-       return (MB_FAILURE);
-     }
+    if (NC_NOERR != nc_put_att_text(ncFile, ss_idarr, "name", strlen("ID"), "ID"))
+    {
+      mWriteIface->report_error("WriteNCDF: failed to store side set property name ID");
+      return (MB_FAILURE);
+    }
 
-     // now, define the arrays needed for each side set
+      // now, define the arrays needed for each side set
 
-     int index = 0;
-     for(unsigned int i = 0; i < sideset_data.size(); i++)
-     {
-       NeumannSetData side_set = sideset_data[i];
+    int index = 0;
+    for(unsigned int i = 0; i < sideset_data.size(); i++)
+    {
+      NeumannSetData side_set = sideset_data[i];
 
-       // dont define an empty set
-       if (side_set.number_elements == 0)
-         continue;
+        // dont define an empty set
+      if (side_set.number_elements == 0)
+        continue;
 
-       index++;
+      index++;
        
-       NcDim *num_side_ss;
-       NcVar *elem_ss, *side_ss;
-       INS_ID(wname, "num_side_ss%d", index);
-       if ((num_side_ss = ncFile->add_dim(wname, (long)side_set.number_elements)) == NULL)
-       {
-         mWriteIface->report_error("WriteNCDF: failed to define number of sides in side set %d",
-           side_set.id);
-         return(MB_FAILURE);
-       }
+      int num_side_ss = -1;
+      int elem_ss = -1, side_ss = -1;
+      INS_ID(wname, "num_side_ss%d", index);
+      if (nc_def_dim(ncFile, wname, (size_t)side_set.number_elements, &num_side_ss) != NC_NOERR)
+      {
+        mWriteIface->report_error("WriteNCDF: failed to define number of sides in side set %d",
+                                  side_set.id);
+        return(MB_FAILURE);
+      }
 
-       INS_ID(wname, "elem_ss%d", index);
-       if ((elem_ss = ncFile->add_var(wname, ncLong, num_side_ss)) == NULL)
-       {
-         mWriteIface->report_error("WriteNCDF: failed to create element list for side set %d",
-                                   side_set.id);
-         return(MB_FAILURE);            /* exit define mode and return */
-       }
-       INS_ID(wname, "side_ss%d", index);
-       if ((side_ss = ncFile->add_var(wname, ncLong, num_side_ss)) == NULL)
-       {
-         mWriteIface->report_error("WriteNCDF: failed to create side list for side set %d",
-                                   side_set.id);
-         return(MB_FAILURE);         /* exit define mode and return */
+      INS_ID(wname, "elem_ss%d", index);
+      if (NC_NOERR != nc_def_var(ncFile, wname, NC_LONG, 1, &num_side_ss, &elem_ss))
+      {
+        mWriteIface->report_error("WriteNCDF: failed to create element list for side set %d",
+                                  side_set.id);
+        return(MB_FAILURE);            /* exit define mode and return */
+      }
+      INS_ID(wname, "side_ss%d", index);
+      if (NC_NOERR != nc_def_var(ncFile, wname, NC_LONG, 1, &num_side_ss, &side_ss))
+      {
+        mWriteIface->report_error("WriteNCDF: failed to create side list for side set %d",
+                                  side_set.id);
+        return(MB_FAILURE);         /* exit define mode and return */
 
-       }
+      }
            
-       //  sideset distribution factors
-       NcDim *num_df_ss;
-       INS_ID(wname, "num_df_ss%d", index);
-       if ((num_df_ss = ncFile->add_dim(wname, (long)side_set.ss_dist_factors.size())) == NULL)
-       {
-         mWriteIface->report_error("WriteNCDF: failed to define number of dist factors in side set %d",
-             side_set.id);
-         return(MB_FAILURE);          /* exit define mode and return */
-       }
+        //  sideset distribution factors
+      int num_df_ss = -1;
+      INS_ID(wname, "num_df_ss%d", index);
+      if (nc_def_dim(ncFile, wname, (size_t)side_set.ss_dist_factors.size(), &num_df_ss) != NC_NOERR)
+      {
+        mWriteIface->report_error("WriteNCDF: failed to define number of dist factors in side set %d",
+                                  side_set.id);
+        return(MB_FAILURE);          /* exit define mode and return */
+      }
 
 /* create variable array in which to store the side set distribution factors */
 
-       NcVar *fact_ss;
-       INS_ID(wname, "dist_fact_ss%d", index);
-       if ((fact_ss = ncFile->add_var(wname, ncDouble, num_df_ss)) == NULL)
-       {
-         mWriteIface->report_error("WriteNCDF: failed to create dist factors list for side set %d",
-                                   side_set.id);
-         return(MB_FAILURE);            /* exit define mode and return */
-       }
-     }
-   }
+      int fact_ss = -1;
+      INS_ID(wname, "dist_fact_ss%d", index);
+      if (NC_NOERR != nc_def_var(ncFile, wname, NC_LONG, 1, &num_df_ss, &fact_ss))
+      {
+        mWriteIface->report_error("WriteNCDF: failed to create dist factors list for side set %d",
+                                  side_set.id);
+        return(MB_FAILURE);            /* exit define mode and return */
+      }
+    }
+  }
 
 /* node coordinate arrays: */
 
-   NcVar *coord, *name_coord;
-   if ((coord = ncFile->add_var("coord", ncDouble, num_dim, num_nodes)) == NULL)
-   {
-     mWriteIface->report_error("WriteNCDF: failed to define node coordinate array");
-     return (MB_FAILURE);
-   }
+  int coord, name_coord, dims[2];
+  dims[0] = num_dim;
+  dims[1] = num_nodes;
+  if (NC_NOERR != nc_def_var(ncFile, "coord", NC_DOUBLE, 2, dims, &coord))
+  {
+    mWriteIface->report_error("WriteNCDF: failed to define node coordinate array");
+    return (MB_FAILURE);
+  }
 /* coordinate names array */
 
-   if ((name_coord = ncFile->add_var("coor_names", ncChar, num_dim, dim_str)) == NULL)
-   {
-     mWriteIface->report_error("WriteNCDF: failed to define coordinate name array");
-     return (MB_FAILURE);
-   }
+  dims[0] = num_dim;
+  dims[1] = dim_str;
+  if (NC_NOERR != nc_def_var(ncFile, "coor_names", NC_CHAR, 2, dims, &name_coord))
+  {
+    mWriteIface->report_error("WriteNCDF: failed to define coordinate name array");
+    return (MB_FAILURE);
+  }
 
-   // define genesis maps if required
+    // define genesis maps if required
 
-   if (write_maps)
-   {
-     // element map
-     NcVar *elem_map, *elem_map2, *node_map;
-     if ((elem_map = ncFile->add_var("elem_map", ncLong, num_elem)) == NULL)
-     {
-       mWriteIface->report_error("WriteNCDF: failed to create element map array");
-       return (MB_FAILURE);         /* exit define mode and return */
-     }
+  if (write_maps)
+  {
+      // element map
+    int elem_map = -1, elem_map2 = -1, node_map = -1;
+    if (NC_NOERR != nc_def_var(ncFile, "elem_map", NC_LONG, 1, &num_elem, &elem_map))
+    {
+      mWriteIface->report_error("WriteNCDF: failed to create element map array");
+      return (MB_FAILURE);         /* exit define mode and return */
+    }
 
-     // create the element number map
-     if ((elem_map2 = ncFile->add_var("elem_num_map", ncLong, num_elem)) == NULL)
-     {
-       mWriteIface->report_error("WriteNCDF: failed to create element numbering map");
-     }
-       // create node number map
-     if ((node_map = ncFile->add_var("node_num_map", ncLong, num_nodes)) == NULL)
-     {
-       mWriteIface->report_error("WriteNCDF: failed to create node numbering map array");
-       return(MB_FAILURE);         /* exit define mode and return */
-     }
-   }
+      // create the element number map
+    if (NC_NOERR != nc_def_var(ncFile, "elem_num_map", NC_LONG, 1, &num_elem, &elem_map2))
+    {
+      mWriteIface->report_error("WriteNCDF: failed to create element numbering map");
+    }
+      // create node number map
+    if (NC_NOERR != nc_def_var(ncFile, "node_num_map", NC_LONG, 1, &num_nodes, &node_map))
+    {
+      mWriteIface->report_error("WriteNCDF: failed to create node numbering map array");
+      return(MB_FAILURE);         /* exit define mode and return */
+    }
+  }
 
-   // define qa records to be used
+    // define qa records to be used
 
-   int num_qa_rec = mesh_info.qaRecords.size()/4;
-   NcDim *num_qa;
+  int num_qa_rec = mesh_info.qaRecords.size()/4;
+  int num_qa = -1;
 
-   if ((num_qa = ncFile->add_dim("num_qa_rec",(long)num_qa_rec)) == NULL)
-   {
-     mWriteIface->report_error("WriteNCDF: failed to define qa record array size");
-     return (MB_FAILURE);
-   }
+  if (nc_def_dim(ncFile, "num_qa_rec",(long)num_qa_rec, &num_qa) != NC_NOERR)
+  {
+    mWriteIface->report_error("WriteNCDF: failed to define qa record array size");
+    return (MB_FAILURE);
+  }
 
-   // define qa array
-   NcVar *qa_title;
-   if ((qa_title = ncFile->add_var("qa_records", ncChar, num_qa, dim_four, dim_str)) == NULL)
-   {
-     mWriteIface->report_error("WriteNCDF: failed to define qa record array");
-     return (MB_FAILURE);
-   }
+    // define qa array
+  int qa_title;
+  dims[0] = num_qa;
+  dims[1] = dim_four;
+  dims[2] = dim_str;
+  if (NC_NOERR != nc_def_var(ncFile, "qa_records", NC_CHAR, 3, dims, &qa_title))
+  {
+    mWriteIface->report_error("WriteNCDF: failed to define qa record array");
+    return (MB_FAILURE);
+  }
 
-   return MB_SUCCESS;
+    // take it out of define mode
+  if (NC_NOERR != nc_enddef(ncFile)) {
+    mWriteIface->report_error("WriteNCDF: Trouble leaving define mode.");
+    return (MB_FAILURE);
+  }
+  
+  return MB_SUCCESS;
 }
 
 
@@ -1885,10 +1996,10 @@ ErrorCode WriteNCDF::open_file(const char* filename)
       return MB_FAILURE;
    }
 
-   ncFile = new NcFile(filename, NcFile::Replace);
+   int fail = nc_create(filename, NC_CLOBBER, &ncFile);
 
    // file couldn't be opened
-   if(ncFile == NULL)
+   if (NC_NOERR != fail)
    {
      mWriteIface->report_error("Cannot open %s", filename);
      return MB_FAILURE;
