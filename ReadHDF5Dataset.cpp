@@ -32,6 +32,8 @@ size_t ReadHDF5Dataset::hyperslabSelectionLimit = DEFAULT_HYPERSLAB_SELECTION_LI
 void ReadHDF5Dataset::default_hyperslab_selection_limit()
   { hyperslabSelectionLimit = DEFAULT_HYPERSLAB_SELECTION_LIMIT; }
 
+H5S_seloper_t ReadHDF5Dataset::hyperslabSelectOp = H5S_SELECT_OR;
+
 #ifdef USE_MPE
 static std::pair<int,int> allocate_mpe_state( const char* name, const char* color )
 {
@@ -245,7 +247,7 @@ void ReadHDF5Dataset::read( void* buffer,
       err = H5Sselect_hyperslab( dataSpace, sop, dataSetOffset, NULL, dataSetCount, 0 );
       if (err < 0)
         throw Exception(__LINE__);
-      sop = H5S_SELECT_OR; // subsequent calls to select_hyperslab append
+      sop = hyperslabSelectOp; // subsequent calls to select_hyperslab append
 
       currOffset += count;
     }

@@ -12,6 +12,7 @@
 
 #include <stdlib.h> // for size_t
 #include <H5Ipublic.h>
+#include <H5Spublic.h>
 
 #include "moab/Range.hpp"
 #include <vector>
@@ -136,6 +137,10 @@ public:
     { hyperslabSelectionLimit = val; }
   static void default_hyperslab_selection_limit();
 
+    /** Use non-standard 'APPEND' operation for hyperslab selection */
+  static void append_hyperslabs() { hyperslabSelectOp = H5S_SELECT_APPEND; }
+    /** Revert to default select behavior for standard HDF5 library */
+  static void or_hyperslabs() { hyperslabSelectOp = H5S_SELECT_OR; }
 private:
 
   Range::const_iterator next_end( Range::const_iterator iter );
@@ -167,6 +172,7 @@ private:
   std::string mpeDesc;
   
   static size_t hyperslabSelectionLimit;
+  static H5S_seloper_t hyperslabSelectOp;
 }; 
 
 

@@ -264,6 +264,10 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   rval = opts.get_int_option( "HYPERSLAB_SELECT_LIMIT", hslimit );
   if (MB_SUCCESS == rval && hslimit > 0)
     ReadHDF5Dataset::set_hyperslab_selection_limit( hslimit );
+  else
+    ReadHDF5Dataset::default_hyperslab_selection_limit();
+  if (MB_SUCCESS == opts.get_null_option( "HYERERSLAB_APPEND" ))
+    ReadHDF5Dataset::append_hyperslabs();
   
   dataBuffer = (char*)malloc( bufferSize );
   if (!dataBuffer)
