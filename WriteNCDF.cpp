@@ -822,7 +822,7 @@ ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
   if (NC_NOERR != fail) {
     mWriteIface->report_error("Trouble adding x coordinate name; netcdf message:");
     const char *err = nc_strerror(fail);
-    mWriteIface->report_error(err);
+    mWriteIface->report_error("%s", err);
     return MB_FAILURE;
   }
 
@@ -832,7 +832,7 @@ ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
   if (NC_NOERR != fail) {
     mWriteIface->report_error("Trouble adding y coordinate name.");
     const char *err = nc_strerror(fail);
-    mWriteIface->report_error(err);
+    mWriteIface->report_error("%s", err);
     return MB_FAILURE;
   }
   
@@ -842,7 +842,7 @@ ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
   if (NC_NOERR != fail) {
     mWriteIface->report_error("Trouble adding z coordinate name.");
     const char *err = nc_strerror(fail);
-    mWriteIface->report_error(err);
+    mWriteIface->report_error("%s", err);
     return MB_FAILURE;
   }
   

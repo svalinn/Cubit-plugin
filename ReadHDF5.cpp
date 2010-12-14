@@ -368,7 +368,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     H5Pclose( file_prop );
     if (!filePtr)
     {
-      readUtil->report_error( mhdf_message( &status ));
+      readUtil->report_error("%s", mhdf_message( &status ));
       free( dataBuffer );
       H5Pclose( indepIO ); 
       if (collIO != indepIO)

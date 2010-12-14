@@ -46,6 +46,7 @@ static std::pair<int,int> allocate_mpe_state( const char* name, const char* colo
 #else
 static std::pair<int,int> allocate_mpe_state( const char* , const char* )
 {
+  return std::pair<int,int> ();
 }
 #endif
 

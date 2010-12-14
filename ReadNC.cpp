@@ -50,12 +50,6 @@ ReadNC::ReadNC(Interface* impl)
   impl->query_interface( "ReadUtilIface", &ptr );
   readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
 
-  //! get and cache predefined tag handles
-  int dum_val = 0;
-  ErrorCode result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, mGlobalIdTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
 }
 
 void ReadNC::reset()
@@ -100,6 +94,17 @@ ErrorCode ReadNC::load_file(const char *file_name,
   std::vector<std::string> var_names;
   std::vector<int> tstep_nums;
   std::vector<double> tstep_vals;
+
+  if (file_id_tag)
+    mGlobalIdTag = *file_id_tag;
+  else {
+      //! get and cache predefined tag handles
+    int dum_val = 0;
+    rval = mbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, mGlobalIdTag);
+    if (MB_TAG_NOT_FOUND == rval)
+      rval = mbImpl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_DENSE, 
+                                MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
+  }
   
   int tmpval;
   if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
@@ -143,7 +148,8 @@ ErrorCode ReadNC::load_file(const char *file_name,
   ERRORR(rval, "Trouble initializing ijk values.");
 
     // Create structured mesh vertex/hex sequences
-  rval = create_verts_hexes(tmp_set);
+  Range hexes;
+  rval = create_verts_hexes(tmp_set, hexes);
   ERRORR(rval, "Trouble creating vertices.");
 
     // Read variables onto grid
@@ -151,9 +157,18 @@ ErrorCode ReadNC::load_file(const char *file_name,
   if (MB_FAILURE == rval) return rval;
 
     // close the file
-
   success = NCFUNC(close)(fileId);
   ERRORS(success, "Trouble closing file.");
+
+    // create partition set, and populate with elements
+#ifdef USE_MPI  
+  EntityHandle partn_set;
+  rval = mbImpl->create_meshset(MESHSET_SET, partn_set);
+  ERRORR(rval, "Trouble creating partition set.");
+  myPcomm->partition_sets().insert(partn_set);
+  rval = mbImpl->add_entities(partn_set, hexes);
+  ERRORR(rval, "Couldn't add new hexes to partition set.");
+#endif  
 
   return MB_SUCCESS;
 }
@@ -211,11 +226,14 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   return MB_SUCCESS;
 }
     
-ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set) 
+ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes) 
 {
   Core *tmpImpl = dynamic_cast<Core*>(mbImpl);
   VertexSequence *vert_seq;
   EntitySequence *dum_seq;
+  int num_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) * (-1 == klMin ? 1 : klMax-klMin+1);
+  int num_hexes = (ilMax-ilMin)*(jlMax-jlMin)*(-1 == klMin ? 1 : klMax-klMin);
+  
 
     // get the seq manager from gMB
   SequenceManager *seq_mgr = tmpImpl->sequence_manager();
@@ -227,22 +245,29 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set)
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
     // add the new vertices to the file set
-  tmp_range.insert(startVertex, startVertex+(ilMax-ilMin+1)*(jlMax-jlMin+1)*
-                   (-1 == klMin ? 1 : klMax-klMin+1));
+  tmp_range.insert(startVertex, startVertex + num_verts - 1);
   rval = mbImpl->add_entities(tmp_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices to file set.");
   
   vert_seq = dynamic_cast<VertexSequence*>(dum_seq);
-  
+
+    // get a ptr to global id memory
+  Range::iterator viter = tmp_range.begin();
+  void *data;
+  rval = mbImpl->tag_iterate(mGlobalIdTag, viter, tmp_range.end(), data);
+  ERRORR(rval, "Failed to get tag iterator.");
+  int *gid_data = (int*)data;
+
     // set the vertex coordinates
   double *xc, *yc, *zc;
   rval = vert_seq->get_coordinate_arrays(xc, yc, zc);
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
   int i, j, k, il, jl, kl;
-  int di = ilMax - ilMin + 1;
-  int dj = jlMax - jlMin + 1;
-
+  int dil = ilMax - ilMin + 1;
+  int djl = jlMax - jlMin + 1;
+  int di = iMax - iMin + 1;
+  int dj = jMax - jMin + 1;
   assert(di == (int)ilVals.size() && dj == (int)jlVals.size() && 
          (-1 == klMin || klMax-klMin+1 == (int)klVals.size()));
   for (kl = klMin; kl <= klMax; kl++) {
@@ -251,13 +276,24 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set)
       j = jl - jlMin;
       for (il = ilMin; il <= ilMax; il++) {
         i = il - ilMin;
-        unsigned int pos = i + j*di + k*di*dj;
+        unsigned int pos = i + j*dil + k*dil*djl;
         xc[pos] = ilVals[i];
         yc[pos] = jlVals[j];
         zc[pos] = (-1 == klMin ? 0.0 : klVals[k]);
+        *gid_data = kl*di*dj + jl*di + il + 1;
+        gid_data++;
       }
     }
   }
+
+#ifndef NDEBUG
+  std::vector<int> gids(num_verts);
+  rval = mbImpl->tag_get_data(mGlobalIdTag, tmp_range, &gids[0]);
+  ERRORR(rval, "Trouble getting gid values.");
+  int vmin = *(std::min_element(gids.begin(), gids.end())),
+      vmax = *(std::max_element(gids.begin(), gids.end()));
+  dbgOut.tprintf(1, "Vertex gids %d-%d\n", vmin, vmax);
+#endif  
     
     // create element sequence
   rval = seq_mgr->create_scd_sequence(ilMin, jlMin, (-1 != klMin ? klMin : 0),
@@ -283,10 +319,9 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set)
   ERRORR(rval, "Error constructing structured element sequence.");
 
     // add the new hexes to the file set
-  tmp_range.insert(startElem, startElem+(ilMax-ilMin)*(jlMax-jlMin)*
-                   (-1 == klMin ? 1 : klMax-klMin));
-  rval = mbImpl->add_entities(tmp_set, tmp_range);
-  ERRORR(rval, "Couldn't add new vertices to file set.");
+  hexes.insert(startElem, startElem + num_hexes - 1);
+  rval = mbImpl->add_entities(tmp_set, hexes);
+  ERRORR(rval, "Couldn't add new elements to file set.");
   
   if (2 <= dbgOut.get_verbosity()) {
     assert(elem_seq->boundary_complete());
@@ -569,12 +604,13 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   
     // parse options to get subset
   if (isParallel) {
-      // partition the parametric space; 1d partition for now, in the k parameter (or j if there
-      // isn't one)
-    int dk = (kMax - kMin + 1) / myPcomm->proc_config().proc_size();
-    if ( (kMax - kMin + 1) % myPcomm->proc_config().proc_size()) dk++;
-    klMin = myPcomm->proc_config().proc_rank() * dk;
-    klMax = klMin + dk - 1;
+      // partition *the elements* over the parametric space; 1d partition for now, in the k parameter 
+      // (or j if there isn't one)
+    int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
+    unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
+    klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
+        std::min(myPcomm->proc_config().proc_rank(), extra);
+    klMax = klMin + dk + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
 
     ilMin = iMin; ilMax = iMax;
     jlMin = jMin; jlMax = jMax;
@@ -639,6 +675,10 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
       ERRORR(MB_FAILURE, "Couldn't find time coordinate.");
     }
   }
+
+  dbgOut.tprintf(1, "I=%d-%d, J=%d-%d, K=%d-%d\n", ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+  dbgOut.tprintf(1, "%d elements, %d vertices\n", (ilMax-ilMin)*(jlMax-jlMin)*(klMax-klMin),
+                 (ilMax-ilMin+1)*(jlMax-jlMin+1)*(klMax-klMin+1));
   
   return MB_SUCCESS;
 }

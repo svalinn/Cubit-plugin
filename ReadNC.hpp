@@ -141,7 +141,7 @@ private:
   unsigned int number_dimensions();
 
     //! create vertices for the file
-  ErrorCode create_verts_hexes(EntityHandle file_set);
+  ErrorCode create_verts_hexes(EntityHandle file_set, Range &hexes);
 
   ErrorCode parse_options(const FileOptions &opts,
                           std::vector<std::string> &var_names, 
