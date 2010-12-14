@@ -268,7 +268,7 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   int djl = jlMax - jlMin + 1;
   int di = iMax - iMin + 1;
   int dj = jMax - jMin + 1;
-  assert(di == (int)ilVals.size() && dj == (int)jlVals.size() && 
+  assert(dil == (int)ilVals.size() && djl == (int)jlVals.size() && 
          (-1 == klMin || klMax-klMin+1 == (int)klVals.size()));
   for (kl = klMin; kl <= klMax; kl++) {
     k = kl - klMin;
@@ -280,7 +280,7 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
         xc[pos] = ilVals[i];
         yc[pos] = jlVals[j];
         zc[pos] = (-1 == klMin ? 0.0 : klVals[k]);
-        *gid_data = kl*di*dj + jl*di + il + 1;
+        *gid_data = (-1 != kl ? kl*di*dj : 0) + jl*di + il + 1;
         gid_data++;
       }
     }
@@ -460,27 +460,32 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
     case NC_BYTE:
     case NC_CHAR:
         success = NCFUNCA(get_vara_text)(fileId, var_data.varId, &dims[0], &counts[0], (char*)data);
+        ERRORS(success, "Failed to read char data.");
         break;
     case NC_DOUBLE:
         success = NCFUNCA(get_vara_double)(fileId, var_data.varId, &dims[0], &counts[0], (double*)data);
+        ERRORS(success, "Failed to read double data.");
         break;
     case NC_FLOAT:
         success = NCFUNCA(get_vara_float)(fileId, var_data.varId, &dims[0], &counts[0], (float*)data);
+        ERRORS(success, "Failed to read float data.");
         ddata = (double*)data;
         fdata = (float*)data;
           // convert in-place
-        for (unsigned int i = verts.size(); i > 0; i--) 
+        for (int i = verts.size()-1; i >= 0; i--) 
           ddata[i] = fdata[i];
         break;
     case NC_INT:
         success = NCFUNCA(get_vara_int)(fileId, var_data.varId, &dims[0], &counts[0], (int*)data);
+        ERRORS(success, "Failed to read int data.");
         break;
     case NC_SHORT:
         success = NCFUNCA(get_vara_short)(fileId, var_data.varId, &dims[0], &counts[0], (short*)data);
+        ERRORS(success, "Failed to read short data.");
         idata = (int*)data;
         sdata = (short*)data;
           // convert in-place
-        for (unsigned int i = verts.size(); i > 0; i--) 
+        for (int i = verts.size()-1; i >= 0; i--) 
           idata[i] = sdata[i];
         break;
     default:
@@ -606,14 +611,25 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   if (isParallel) {
       // partition *the elements* over the parametric space; 1d partition for now, in the k parameter 
       // (or j if there isn't one)
-    int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
-    unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
-    klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
-        std::min(myPcomm->proc_config().proc_rank(), extra);
-    klMax = klMin + dk + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+    if (-1 != klMin) {
+      int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
+      unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
+      klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
+          std::min(myPcomm->proc_config().proc_rank(), extra);
+      klMax = klMin + dk + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
 
-    ilMin = iMin; ilMax = iMax;
-    jlMin = jMin; jlMax = jMax;
+      ilMin = iMin; ilMax = iMax;
+      jlMin = jMin; jlMax = jMax;
+    }
+    else {
+      int dj = (jMax - jMin) / myPcomm->proc_config().proc_size();
+      unsigned int extra = (jMax - jMin) % myPcomm->proc_config().proc_size();
+      jlMin = jMin + myPcomm->proc_config().proc_rank()*dj + 
+          std::min(myPcomm->proc_config().proc_rank(), extra);
+      jlMax = jlMin + dj + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+
+      ilMin = iMin; ilMax = iMax;
+    }
   }
     
   opts.get_int_option("IMIN", ilMin);
