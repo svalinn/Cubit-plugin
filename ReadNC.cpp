@@ -1,5 +1,4 @@
 #include "ReadNC.hpp"
-#include "netcdf.h"
 
 #include <algorithm>
 #include <assert.h>
@@ -25,8 +24,6 @@
 #define ERRORS(err, str) \
     if (err) {readMeshIface->report_error(str); return MB_FAILURE;}
     
-
-
 namespace moab {
 
 static inline bool strempty( const char* s ) { return !*s; }
@@ -40,7 +37,11 @@ ReadNC::ReadNC(Interface* impl)
           ilMin(-1), ilMax(-1), jlMin(-1), jlMax(-1), klMin(-1), klMax(-1), 
           iDim(-1), jDim(-1), kDim(-1), tDim(-1), numUnLim(-1), mCurrentMeshHandle(0),
           startVertex(0), startElem(0), mGlobalIdTag(0), 
-          max_line_length(-1), max_str_length(-1), vertexOffset(0), dbgOut(stderr)
+          max_line_length(-1), max_str_length(-1), vertexOffset(0), dbgOut(stderr),
+          isParallel(false)
+#ifdef USE_MPI
+        , myPcomm(NULL)
+#endif
 {
   assert(impl != NULL);
   reset();
@@ -75,6 +76,9 @@ void ReadNC::reset()
   dbgOut = stderr;
   mCurrentMeshHandle = 0;
   vertexOffset = 0; 
+#ifdef USE_MPI
+  myPcomm = NULL;
+#endif
 }
 
 
@@ -109,7 +113,17 @@ ErrorCode ReadNC::load_file(const char *file_name,
 
   // Open the file
   dbgOut.tprintf(1, "Opening file %s\n", file_name);
-  int success = nc_open(file_name, 0, &fileId);
+  int success;
+  
+#ifdef PNETCDF_FILE
+  if (isParallel)
+    success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), file_name, 0, MPI_INFO_NULL, &fileId);
+  else
+    success = NCFUNC(open)(MPI_COMM_SELF, file_name, 0, MPI_INFO_NULL, &fileId);
+#else
+  success = NCFUNC(open)(file_name, 0, &fileId);
+#endif
+
   ERRORS(success, "Trouble opening file.");
   
     // Read the header (num dimensions, dimensions, num variables, global attribs)
@@ -135,6 +149,11 @@ ErrorCode ReadNC::load_file(const char *file_name,
     // Read variables onto grid
   rval = read_variables(tmp_set, var_names, tstep_nums, nomesh);
   if (MB_FAILURE == rval) return rval;
+
+    // close the file
+
+  success = NCFUNC(close)(fileId);
+  ERRORS(success, "Trouble closing file.");
 
   return MB_SUCCESS;
 }
@@ -169,6 +188,26 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
     }
   }
   
+#ifdef USE_MPI
+  rval = opts.match_option("PARALLEL", "READ_PART");
+  isParallel = (rval != MB_ENTITY_NOT_FOUND);
+
+  if (!isParallel) return rval;
+  
+  int pcomm_no = 0;
+  rval = opts.get_int_option("PARALLEL_COMM", pcomm_no);
+  if (rval == MB_TYPE_OUT_OF_RANGE) {
+    readMeshIface->report_error("Invalid value for PARALLEL_COMM option");
+    return rval;
+  }
+  myPcomm = ParallelComm::get_pcomm(mbImpl, pcomm_no);
+  if (0 == myPcomm) {
+    myPcomm = new ParallelComm(mbImpl);
+  }
+  const int rank = myPcomm->proc_config().proc_rank();
+  dbgOut.set_rank(rank);
+#endif
+
   return MB_SUCCESS;
 }
     
@@ -277,7 +316,9 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
       VarData vd = (*mit).second;
       std::vector<int> tmp_v;
       tmp_v.push_back(tDim);
-      if (-1 != klMin) tmp_v.push_back(kDim);
+      if (-1 != klMin && 
+          std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end()) 
+        tmp_v.push_back(kDim);
       tmp_v.push_back(jDim);
       tmp_v.push_back(iDim);
       if (tmp_v == vd.varDims)
@@ -294,12 +335,20 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(1, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+      dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
       ErrorCode tmp_rval = read_variable(file_set, vdatas[i], tstep_nums[t]);
       if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
     }
   }
 
+    // debug output, if requested
+  if (1 == dbgOut.get_verbosity()) {
+    dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
+    for (unsigned int i = 1; i < vdatas.size(); i++)
+      dbgOut.printf(1, ", %s ", vdatas[i].varName.c_str());
+    dbgOut.tprintf(1, "\n");
+  }
+  
   return rval;
 }
 
@@ -324,18 +373,31 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
   }
   
     // set up the dimensions and counts
-  std::vector<size_t> dims, counts;
+  std::vector<NCDF_SIZE> dims, counts;
     // first time
   if (-1 != tstep_num) {
     dims.push_back(tstep_num);
     counts.push_back(1);
   }
     // then z/y/x
-  if (-1 != klMin) {
-    dims.push_back(klMin); counts.push_back(klMax-klMin+1);
+  bool have_k = false;
+  if (std::find(var_data.varDims.begin(), var_data.varDims.end(), kDim) != var_data.varDims.end()) {
+    dims.push_back(klMin); 
+    counts.push_back(klMax - klMin + 1);
+    have_k = true;
   }
-  dims.push_back(jlMin); counts.push_back(jlMax-jlMin+1);
-  dims.push_back(ilMin); counts.push_back(ilMax-ilMin+1);
+    
+  bool have_ij = true;
+#ifdef PNETCDF_FILE
+    // whether we actually read anything depends on parallel and whether there's a k
+  if (!have_k && 0 != myPcomm->proc_config().proc_rank())
+    have_ij = false;
+#endif    
+
+  dims.push_back(jlMin);
+  dims.push_back(ilMin);
+  counts.push_back(have_ij ? jlMax-jlMin+1 : 0);
+  counts.push_back(have_ij ? ilMax-ilMin+1 : 0);
 
   assert(dims.size() == var_data.varDims.size());
   
@@ -362,13 +424,13 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
   switch (var_data.varDataType) {
     case NC_BYTE:
     case NC_CHAR:
-        success = nc_get_vara_text(fileId, var_data.varId, &dims[0], &counts[0], (char*)data);
+        success = NCFUNCA(get_vara_text)(fileId, var_data.varId, &dims[0], &counts[0], (char*)data);
         break;
     case NC_DOUBLE:
-        success = nc_get_vara_double(fileId, var_data.varId, &dims[0], &counts[0], (double*)data);
+        success = NCFUNCA(get_vara_double)(fileId, var_data.varId, &dims[0], &counts[0], (double*)data);
         break;
     case NC_FLOAT:
-        success = nc_get_vara_float(fileId, var_data.varId, &dims[0], &counts[0], (float*)data);
+        success = NCFUNCA(get_vara_float)(fileId, var_data.varId, &dims[0], &counts[0], (float*)data);
         ddata = (double*)data;
         fdata = (float*)data;
           // convert in-place
@@ -376,10 +438,10 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
           ddata[i] = fdata[i];
         break;
     case NC_INT:
-        success = nc_get_vara_int(fileId, var_data.varId, &dims[0], &counts[0], (int*)data);
+        success = NCFUNCA(get_vara_int)(fileId, var_data.varId, &dims[0], &counts[0], (int*)data);
         break;
     case NC_SHORT:
-        success = nc_get_vara_short(fileId, var_data.varId, &dims[0], &counts[0], (short*)data);
+        success = NCFUNCA(get_vara_short)(fileId, var_data.varId, &dims[0], &counts[0], (short*)data);
         idata = (int*)data;
         sdata = (short*)data;
           // convert in-place
@@ -455,7 +517,7 @@ ErrorCode ReadNC::get_tag(VarData &var_data, int tstep_num, Tag &tagh)
         rval = MB_FAILURE;
   }
   
-  if (MB_SUCCESS == rval) dbgOut.tprintf(1, "Tag created for variable %s\n", tag_name.str().c_str());
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.str().c_str());
 
   return rval;
 }
@@ -499,12 +561,34 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   tDim = idx;
   tMax = dimVals[idx]-1;
   tMin = 0;
+
+    // initialize parameter bounds
+  ilMin = iMin; ilMax = iMax;
+  jlMin = jMin; jlMax = jMax;
+  klMin = kMin; klMax = kMax;
   
     // parse options to get subset
-    // FOR NOW: just take whole thing
-  ilMin = iMin, ilMax = iMax;
-  jlMin = jMin, jlMax = jMax;
-  klMin = kMin, klMax = kMax;
+  if (isParallel) {
+      // partition the parametric space; 1d partition for now, in the k parameter (or j if there
+      // isn't one)
+    int dk = (kMax - kMin + 1) / myPcomm->proc_config().proc_size();
+    if ( (kMax - kMin + 1) % myPcomm->proc_config().proc_size()) dk++;
+    klMin = myPcomm->proc_config().proc_rank() * dk;
+    klMax = klMin + dk - 1;
+
+    ilMin = iMin; ilMax = iMax;
+    jlMin = jMin; jlMax = jMax;
+  }
+    
+  opts.get_int_option("IMIN", ilMin);
+  opts.get_int_option("IMAX", ilMax);
+  opts.get_int_option("JMIN", jlMin);
+  opts.get_int_option("JMAX", jlMax);
+
+  if (-1 != kMin) {
+    opts.get_int_option("KMIN", klMin);
+    opts.get_int_option("KMAX", klMax);
+  }
   
     // now get actual coordinate values for these dimensions
     // first allocate space...
@@ -514,8 +598,8 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   if (-1 != tMin) tVals.resize(tMax - tMin + 1);
 
     // ... then read actual values
-  ErrorCode rval;
   std::map<std::string,VarData>::iterator vmit;
+  ErrorCode rval;
   if (ilMin != -1) {
     if ((vmit = varInfo.find(iName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       rval = read_coordinate(iName.c_str(), ilMin, ilMax, ilVals);
@@ -566,18 +650,20 @@ ErrorCode ReadNC::read_coordinate(const char *var_name, int lmin, int lmax,
   if (varInfo.end() == vmit) return MB_FAILURE;
   
     // check to make sure it's a float or double
-  int success;
-  size_t tmin = lmin, tcount = lmax - lmin + 1;
-  ptrdiff_t dum_stride = 1;
+  int fail;
+  NCDF_SIZE tmin = lmin, tcount = lmax - lmin + 1;
+  NCDF_SIZE dum_stride = 1;
   if (NC_DOUBLE == (*vmit).second.varDataType) {
     cvals.resize(tcount);
-    success = nc_get_vars_double(fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &cvals[0]);
-    ERRORS(success, "Failed to get coordinate values.");
+    fail = NCFUNCA(get_vars_double)(fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &cvals[0]);
+    if (fail)
+      ERRORS(MB_FAILURE, "Failed to get coordinate values.");
   }
   else if (NC_FLOAT == (*vmit).second.varDataType) {
     std::vector<float> tcvals(tcount);
-    success = nc_get_vars_float(fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &tcvals[0]);
-    ERRORS(success, "Failed to get coordinate values.");
+    fail = NCFUNCA(get_vars_float)(fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &tcvals[0]);
+    if (fail)
+      ERRORS(MB_FAILURE, "Failed to get coordinate values.");
     std::copy(tcvals.begin(), tcvals.end(), cvals.begin());
   }
   else
@@ -595,7 +681,8 @@ ErrorCode ReadNC::read_header()
 
     // get the global attributes
   int numgatts;
-  int success = nc_inq_natts (fileId, &numgatts);
+  int success;
+  success = NCFUNC(inq_natts )(fileId, &numgatts);
   ERRORS(success, "Couldn't get number of global attributes.");
 
     // read attributes into globalAtts
@@ -624,12 +711,12 @@ ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string,
 
   for (int i = 0; i < num_atts; i++) {
       // get the name
-    int success = nc_inq_attname(fileId, var_id, i, dum_name);
+    int success = NCFUNC(inq_attname)(fileId, var_id, i, dum_name);
     ERRORS(success, "Trouble getting attribute name.");
     
     AttData &data = atts[std::string(dum_name)];
     data.attName = std::string(dum_name);
-    success = nc_inq_att(fileId, var_id, dum_name, &data.attDataType, &data.attLen);
+    success = NCFUNC(inq_att)(fileId, var_id, dum_name, &data.attDataType, &data.attLen);
     ERRORS(success, "Trouble getting attribute info.");
     data.attVarId = var_id;
 
@@ -645,7 +732,7 @@ ErrorCode ReadNC::get_dimensions()
 {
     // get the number of dimensions
   int num_dims;
-  int success = nc_inq_ndims(fileId, &num_dims);
+  int success = NCFUNC(inq_ndims)(fileId, &num_dims);
   ERRORS(success, "Trouble getting number of dimensions.");
 
   if (num_dims > NC_MAX_DIMS) {
@@ -655,12 +742,12 @@ ErrorCode ReadNC::get_dimensions()
   }
 
   char dim_name[NC_MAX_NAME+1];
-  size_t dum_len;
+  NCDF_SIZE dum_len;
   dimNames.resize(num_dims);
   dimVals.resize(num_dims);
   
   for (int i = 0; i < num_dims; i++) {
-    success = nc_inq_dim(fileId, i, dim_name, &dum_len);
+    success = NCFUNC(inq_dim)(fileId, i, dim_name, &dum_len);
     ERRORS(success, "Trouble getting dimension info.");
     
     dimVals[i] = dum_len;
@@ -683,7 +770,7 @@ ErrorCode ReadNC::get_variables()
   
     // get the number of variables
   int num_vars;
-  int success = nc_inq_nvars(fileId, &num_vars);
+  int success = NCFUNC(inq_nvars)(fileId, &num_vars);
   ERRORS(success, "Trouble getting number of variables.");
 
   if (num_vars > NC_MAX_VARS) {
@@ -697,7 +784,7 @@ ErrorCode ReadNC::get_variables()
   
   for (int i = 0; i < num_vars; i++) {
       // get the name first, so we can allocate a map iterate for this var
-    success = nc_inq_varname (fileId, i, var_name);
+    success = NCFUNC(inq_varname )(fileId, i, var_name);
     ERRORS(success, "Trouble getting var name.");
     VarData &data = varInfo[std::string(var_name)];
     data.varName = std::string(var_name);
@@ -705,19 +792,19 @@ ErrorCode ReadNC::get_variables()
     data.varTags.resize(ntimes, 0);
 
       // get the data type
-    success = nc_inq_vartype(fileId, i, &data.varDataType);
+    success = NCFUNC(inq_vartype)(fileId, i, &data.varDataType);
     ERRORS(success, "Trouble getting variable data type.");
 
       // get the number of dimensions, then the dimensions
-    success = nc_inq_varndims(fileId, i, &var_ndims);
+    success = NCFUNC(inq_varndims)(fileId, i, &var_ndims);
     ERRORS(success, "Trouble getting number of dims of a variable.");
     data.varDims.resize(var_ndims);
 
-    success = nc_inq_vardimid(fileId, i, &data.varDims[0]);
+    success = NCFUNC(inq_vardimid)(fileId, i, &data.varDims[0]);
     ERRORS(success, "Trouble getting variable dimensions.");
 
       // finally, get the number of attributes, then the attributes
-    success = nc_inq_varnatts(fileId, i, &data.numAtts);
+    success = NCFUNC(inq_varnatts)(fileId, i, &data.numAtts);
     ERRORS(success, "Trouble getting number of dims of a variable.");
 
       // print debug info here so attribute info comes afterwards

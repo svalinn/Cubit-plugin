@@ -16,12 +16,27 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <netcdf.h>
 
 #include "moab/Forward.hpp"
 #include "moab/ReaderIface.hpp"
 #include "moab/Range.hpp"
 #include "DebugOutput.hpp"
+
+#ifdef USE_MPI
+#  include "moab_mpi.h"
+#  include "moab/ParallelComm.hpp"
+#endif 
+
+#ifdef PNETCDF_FILE
+#  include "pnetcdf.h"
+#  define NCFUNC(func) ncmpi_ ## func
+#  define NCFUNCA(func) ncmpi_ ## func ## _all
+#  define NCDF_SIZE MPI_Offset
+#else
+#  include "netcdf.h"
+#  define NCFUNC(func) nc_ ## func
+#  define NCDF_SIZE size_t
+#endif
 
 namespace moab {
 
@@ -77,7 +92,7 @@ private:
     public:
     AttData() : attId(-1), attLen(0), attVarId(-2) {}
     int attId;
-    size_t attLen;
+    NCDF_SIZE attLen;
     int attVarId;
     nc_type attDataType;
     std::string attName;
@@ -202,6 +217,14 @@ private:
 
     //! debug stuff
   DebugOutput dbgOut;
+
+    //! are we reading in parallel?
+  bool isParallel;
+  
+#ifdef USE_MPI
+  ParallelComm *myPcomm;
+#endif
+  
 };
 
 // inline functions

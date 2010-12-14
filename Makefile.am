@@ -7,7 +7,7 @@ endif
 
 # Things to build
 noinst_LTLIBRARIES = libmoabio.la 
-libmoabio_la_LIBADD = $(NETCDF_LIBS) $(HDF5_LIBS) 
+libmoabio_la_LIBADD = $(NETCDF_LIBS) $(PNETCDF_LIBS) $(HDF5_LIBS) 
 
 AM_CPPFLAGS += -DIS_BUILDING_MB \
                -I..  -I$(srcdir)/.. -I$(srcdir)/../parallel
@@ -15,10 +15,13 @@ AM_CPPFLAGS += -DIS_BUILDING_MB \
 if NETCDF_FILE
   MOAB_NETCDF_SRCS = ReadNCDF.cpp  ReadNCDF.hpp \
                      WriteNCDF.cpp WriteNCDF.hpp \
-                     WriteSLAC.cpp WriteSLAC.hpp \
-                     ReadNC.cpp ReadNC.hpp
+                     WriteSLAC.cpp WriteSLAC.hpp
 else
   MOAB_NETCDF_SRCS =
+endif
+
+if PNETCDF_FILE
+     MOAB_NETCDF_SRCS += ReadNC.cpp ReadNC.hpp
 endif
 
 if HDF5_FILE
