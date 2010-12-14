@@ -448,7 +448,7 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
   void *data;
   rval = mbImpl->tag_iterate(var_data.varTags[tstep_num], viter, verts.end(), data);
   ERRORR(rval, "Failed to get tag iterator.");
-    //assert(viter == verts.end());
+  assert(viter == verts.end());
   
     // finally, read into that space
   int success, *idata;
