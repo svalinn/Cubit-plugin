@@ -425,7 +425,7 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
   bool have_ij = true;
 #ifdef PNETCDF_FILE
     // whether we actually read anything depends on parallel and whether there's a k
-  if (!have_k && 0 != myPcomm->proc_config().proc_rank())
+  if (!have_k && -1 != kDim && 0 != myPcomm->proc_config().proc_rank())
     have_ij = false;
 #endif    
 

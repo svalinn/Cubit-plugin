@@ -15,13 +15,16 @@ AM_CPPFLAGS += -DIS_BUILDING_MB \
 if NETCDF_FILE
   MOAB_NETCDF_SRCS = ReadNCDF.cpp  ReadNCDF.hpp \
                      WriteNCDF.cpp WriteNCDF.hpp \
-                     WriteSLAC.cpp WriteSLAC.hpp
+                     WriteSLAC.cpp WriteSLAC.hpp \
+		     ReadNC.cpp ReadNC.hpp
 else
   MOAB_NETCDF_SRCS =
 endif
 
 if PNETCDF_FILE
+if !NETCDF_FILE
      MOAB_NETCDF_SRCS += ReadNC.cpp ReadNC.hpp
+endif
 endif
 
 if HDF5_FILE
