@@ -35,6 +35,7 @@
 #else
 #  include "netcdf.h"
 #  define NCFUNC(func) nc_ ## func
+#  define NCFUNCA(func) nc_ ## func
 #  define NCDF_SIZE size_t
 #endif
 
