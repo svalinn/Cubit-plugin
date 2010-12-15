@@ -608,6 +608,7 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   klMin = kMin; klMax = kMax;
   
     // parse options to get subset
+#ifdef USE_MPI
   if (isParallel) {
       // partition *the elements* over the parametric space; 1d partition for now, in the k parameter 
       // (or j if there isn't one)
@@ -631,6 +632,7 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
       ilMin = iMin; ilMax = iMax;
     }
   }
+#endif
     
   opts.get_int_option("IMIN", ilMin);
   opts.get_int_option("IMAX", ilMax);
@@ -708,7 +710,7 @@ ErrorCode ReadNC::read_coordinate(const char *var_name, int lmin, int lmax,
     // check to make sure it's a float or double
   int fail;
   NCDF_SIZE tmin = lmin, tcount = lmax - lmin + 1;
-  NCDF_SIZE dum_stride = 1;
+  NCDF_DIFF dum_stride = 1;
   if (NC_DOUBLE == (*vmit).second.varDataType) {
     cvals.resize(tcount);
     fail = NCFUNCA(get_vars_double)(fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &cvals[0]);

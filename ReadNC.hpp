@@ -32,11 +32,13 @@
 #  define NCFUNC(func) ncmpi_ ## func
 #  define NCFUNCA(func) ncmpi_ ## func ## _all
 #  define NCDF_SIZE MPI_Offset
+#  define NCDF_DIFF MPI_Offset
 #else
 #  include "netcdf.h"
 #  define NCFUNC(func) nc_ ## func
 #  define NCFUNCA(func) nc_ ## func
 #  define NCDF_SIZE size_t
+#  define NCDF_DIFF ptrdiff_t
 #endif
 
 namespace moab {
