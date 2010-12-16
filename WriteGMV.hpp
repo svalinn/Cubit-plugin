@@ -37,7 +37,7 @@ namespace moab {
 class WriteUtilIface;
 
 //! Output Exodus File for VERDE
-class MB_DLL_EXPORT WriteGMV : public WriterIface
+class WriteGMV : public WriterIface
 {
  
 public:

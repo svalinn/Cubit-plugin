@@ -26,7 +26,6 @@ namespace moab {
 
 class WriteUtilIface;
 
-//class MB_DLL_EXPORT WriteSmf : public WriterIface
 class WriteSmf : public WriterIface
 {
  

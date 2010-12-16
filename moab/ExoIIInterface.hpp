@@ -18,6 +18,7 @@
 #define MOAB_EXOII_INTERFACE_HPP
 
 #include "moab/Types.hpp"
+#include "moab/Compiler.hpp"
 
 namespace moab {
 

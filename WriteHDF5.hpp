@@ -41,7 +41,7 @@ class IODebugTrack;
  * \author Jason Kraftcheck
  * \date   01 April 2004
  */
-class MB_DLL_EXPORT WriteHDF5 : public WriterIface
+class WriteHDF5 : public WriterIface
 {
 
 public:

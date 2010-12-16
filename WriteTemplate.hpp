@@ -46,7 +46,7 @@ namespace moab {
 
 class WriteUtilIface;
 
-class MB_DLL_EXPORT WriteTEMPLATE : public WriterIface
+class WriteTEMPLATE : public WriterIface
 {
  
 public:

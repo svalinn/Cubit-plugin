@@ -83,7 +83,7 @@ struct NeumannSetData
 
 
 //! Output Exodus File for VERDE
-class MB_DLL_EXPORT WriteNCDF : public WriterIface
+class WriteNCDF : public WriterIface
 {
  
 public:
