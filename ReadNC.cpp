@@ -13,10 +13,8 @@
 #include "moab/ReaderIface.hpp"
 #include "moab/ReadUtilIface.hpp"
 #include "MBTagConventions.hpp"
-#include "SequenceManager.hpp"
-#include "StructuredElementSeq.hpp"
-#include "VertexSequence.hpp"
 #include "FileOptions.hpp"
+#include "moab/ScdInterface.hpp"
 
 #define ERRORR(rval, str) \
     if (MB_SUCCESS != rval) {readMeshIface->report_error(str); return rval;}
@@ -228,29 +226,24 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
     
 ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes) 
 {
-  Core *tmpImpl = dynamic_cast<Core*>(mbImpl);
-  VertexSequence *vert_seq;
-  EntitySequence *dum_seq;
+    // get the scd interface
+  ScdInterface *scdi = NULL;
+  ErrorCode rval = mbImpl->query_interface("ScdInterface", (void**)&scdi);
+  if (!scdi) return MB_FAILURE;
   int num_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) * (-1 == klMin ? 1 : klMax-klMin+1);
-  int num_hexes = (ilMax-ilMin)*(jlMax-jlMin)*(-1 == klMin ? 1 : klMax-klMin);
-  
-
-    // get the seq manager from gMB
-  SequenceManager *seq_mgr = tmpImpl->sequence_manager();
 
   Range tmp_range;
-  ErrorCode rval = seq_mgr->create_scd_sequence(ilMin, jlMin, (-1 != klMin ? klMin : 0),
-                                                ilMax, jlMax, (-1 != klMax ? klMax : 0),
-                                                MBVERTEX, (moab::EntityID)0, startVertex, dum_seq);
+  ScdBox *scd_box;
+  rval = scdi->create_scd_sequence(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
+                                   HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
+                                   MBVERTEX, 0, scd_box);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
     // add the new vertices to the file set
-  tmp_range.insert(startVertex, startVertex + num_verts - 1);
+  tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex()+scd_box->num_vertices()-1);
   rval = mbImpl->add_entities(tmp_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices to file set.");
   
-  vert_seq = dynamic_cast<VertexSequence*>(dum_seq);
-
     // get a ptr to global id memory
   Range::iterator viter = tmp_range.begin();
   void *data;
@@ -260,7 +253,7 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
 
     // set the vertex coordinates
   double *xc, *yc, *zc;
-  rval = vert_seq->get_coordinate_arrays(xc, yc, zc);
+  rval = scd_box->get_coordinate_arrays(xc, yc, zc);
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
   int i, j, k, il, jl, kl;
@@ -296,40 +289,38 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
 #endif  
     
     // create element sequence
-  rval = seq_mgr->create_scd_sequence(ilMin, jlMin, (-1 != klMin ? klMin : 0),
-                                      ilMax, jlMax, (-1 != klMax ? klMax : 0),
-                                      (-1 != klMin ? MBHEX : MBQUAD), (moab::EntityID)0, startElem, dum_seq);
+  ScdBox *elem_box;
+  rval = scdi->create_scd_sequence(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
+                                   HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
+                                   (-1 != klMin ? MBHEX : MBQUAD), 0, elem_box);
   ERRORR(rval, "Trouble creating scd element sequence.");
   
-  StructuredElementSeq *elem_seq = dynamic_cast<StructuredElementSeq*>(dum_seq);
-  assert (MB_FAILURE != rval && dum_seq != NULL && elem_seq != NULL);
-  
     // add vertex seq to element seq, forward orientation, unity transform
-  ScdVertexData *dum_data = dynamic_cast<ScdVertexData*>(vert_seq->data());
-  rval = elem_seq->sdata()->add_vsequence(dum_data,
-                                            // p1: imin,jmin
-                                          HomCoord(ilMin, jlMin, (-1 == klMin ? 0 : klMin)),
-                                          HomCoord(ilMin, jlMin, (-1 == klMin ? 0 : klMin)),
-                                            // p2: imax,jmin
-                                          HomCoord(ilMax, jlMin, (-1 == klMin ? 0 : klMin)),
-                                          HomCoord(ilMax, jlMin, (-1 == klMin ? 0 : klMin)),
-                                            // p3: imin,jmax
-                                          HomCoord(ilMin, jlMax, (-1 == klMin ? 0 : klMin)),
-                                          HomCoord(ilMin, jlMax, (-1 == klMin ? 0 : klMin)));
+  rval = elem_box->add_vbox(scd_box,
+                              // p1: imin,jmin
+                            HomCoord(ilMin, jlMin, (-1 == klMin ? 0 : klMin)),
+                            HomCoord(ilMin, jlMin, (-1 == klMin ? 0 : klMin)),
+                              // p2: imax,jmin
+                            HomCoord(ilMax, jlMin, (-1 == klMin ? 0 : klMin)),
+                            HomCoord(ilMax, jlMin, (-1 == klMin ? 0 : klMin)),
+                              // p3: imin,jmax
+                            HomCoord(ilMin, jlMax, (-1 == klMin ? 0 : klMin)),
+                            HomCoord(ilMin, jlMax, (-1 == klMin ? 0 : klMin)));
   ERRORR(rval, "Error constructing structured element sequence.");
 
     // add the new hexes to the file set
-  hexes.insert(startElem, startElem + num_hexes - 1);
-  rval = mbImpl->add_entities(tmp_set, hexes);
-  ERRORR(rval, "Couldn't add new elements to file set.");
+  tmp_range.insert(elem_box->start_element(), elem_box->start_element() + elem_box->num_elements()-1);
+  rval = mbImpl->add_entities(tmp_set, tmp_range);
+  ERRORR(rval, "Couldn't add new vertices to file set.");
   
   if (2 <= dbgOut.get_verbosity()) {
-    assert(elem_seq->boundary_complete());
-    rval = mbImpl->list_entities(&startElem, 1);
+    assert(elem_box->boundary_complete());
+    EntityHandle dum_ent = elem_box->start_element();
+    rval = mbImpl->list_entities(&dum_ent, 1);
     ERRORR(rval, "Trouble listing first hex.");
   
     std::vector<EntityHandle> connect;
-    rval = mbImpl->get_connectivity(&startElem, 1, connect);
+    rval = mbImpl->get_connectivity(&dum_ent, 1, connect);
     ERRORR(rval, "Trouble getting connectivity.");
   
     rval = mbImpl->list_entities(&connect[0], connect.size());
