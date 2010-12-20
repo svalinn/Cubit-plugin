@@ -2942,8 +2942,13 @@ ErrorCode ReadHDF5::create_tag( const mhdf_TagDesc& info,
   }
     
   if (info.global_value) {
-    int type_size = hdf_type ? H5Tget_size(hdf_type) : 1;
-    int tag_size = info.global_value_size * type_size;
+    int tag_size;
+    if (!hdf_type) // opaque
+      tag_size = info.global_value_size; 
+    else if (info.size > 0)  // fixed-length tag
+      tag_size = H5Tget_size(hdf_type);
+    else // variable-length
+      tag_size = info.global_value_size * H5Tget_size(hdf_type); 
     rval = iFace->tag_set_data( handle, 0, 0, &info.global_value, &tag_size );
     if (MB_SUCCESS != rval) {
       if (hdf_type) H5Tclose( hdf_type );
