@@ -2772,7 +2772,15 @@ ErrorCode WriteHDF5::create_tag( const SparseTag& tag_data,
   }
     
     // get mesh value
-  rval = iFace->tag_get_data( tag_data.tag_id, 0, 0, &mesh_value, &mesh_val_len );
+  unsigned char byte;
+  if (mb_storage == MB_TAG_BIT) {
+    rval = iFace->tag_get_data( tag_data.tag_id, 0, 0, &byte );
+    mesh_value = &byte;
+    mesh_val_len = 1;
+  }
+  else {
+    rval = iFace->tag_get_data( tag_data.tag_id, 0, 0, &mesh_value, &mesh_val_len );
+  }
   if (MB_TAG_NOT_FOUND == rval) {
     mesh_value = 0;
     mesh_val_len = 0;
