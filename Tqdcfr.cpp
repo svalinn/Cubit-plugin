@@ -2280,7 +2280,7 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
 {
   unsigned int num_read;
   std::vector<std::string> attrib_vec;
-  char temp_name[80];
+  char temp_name[1024];
   char name_tag_val[NAME_TAG_SIZE];
   std::string name_tag;
   int id = -1;
