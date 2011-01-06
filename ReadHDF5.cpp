@@ -56,7 +56,18 @@
 
 namespace moab {
 
+/* If defined, coordinates are read in blocked format (all X values before
+ * Y values before Z values.)  If undefined, then all coordinates for a 
+ * given vertex are read at the same time.
+ */
 #undef BLOCKED_COORD_IO
+
+/* If defined, file is opened first by root node only to read summary,
+ * file is the closed and the summary is broadcast to all nodes, after 
+ * which all nodes open file in parallel to read data.  If undefined,
+ * file is opened once in parallel and all nodes read summary data.
+ */
+#undef BCAST_SUMMARY
 
 #define READ_HDF5_BUFFER_SIZE (128*1024*1024)
 
@@ -274,6 +285,15 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     return error(MB_MEMORY_ALLOCATION_FAILED);
   
   if (use_mpio || nativeParallel) {
+  
+      // lockless file IO on IBM BlueGene
+    std::string pfilename(filename);
+#ifdef BLUEGENE
+    if (0 != pfilename.find("bglockless:"))
+      pfilename = std::string("bglockless:") + pfilename;
+    dbgOut.printf( 1, "Enabling lockless IO for BlueGene (filename: \"%s\")\n", pfilename.c_str() );
+#endif
+    
 #ifndef HDF5_PARALLEL
     readUtil->report_error("MOAB not configured with parallel HDF5 support");
     free(dataBuffer);
@@ -297,13 +317,19 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       // Open the file in serial on root to read summary
     dbgOut.tprint( 1, "Getting file summary\n" );
     fileInfo = 0;
+
+
+    hid_t file_prop;
+#ifdef BCAST_SUMMARY
     unsigned long size = 0;
-
-
-    /*
     if (rank == 0) {
-
-      filePtr = mhdf_openFile( filename, 0, NULL, &status );
+  
+      file_prop = H5Pcreate(H5P_FILE_ACCESS);
+      err = H5Pset_fapl_mpio(file_prop, MPI_COMM_SELF, MPI_INFO_NULL);
+      assert(file_prop > 0);
+      assert(err > 0);
+      filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, file_prop, &status );
+      H5Pclose( file_prop );
      
       if (filePtr) {  
         fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );
@@ -319,10 +345,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       }
     }
 
-    */
-
-
-    /* dbgOut.tprint( 1, "Communicating file summary\n" );
+    dbgOut.tprint( 1, "Communicating file summary\n" );
     int mpi_err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
     if (mpi_err || !size)
       return MB_FAILURE;
@@ -335,35 +358,22 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       
     if (rank != 0)
       mhdf_fixFileDesc( fileInfo, reinterpret_cast<mhdf_FileDesc*>(fileInfo->offset) );
-    */
+#endif // BCAST_SUMMARY
   
-    hid_t file_prop = H5Pcreate(H5P_FILE_ACCESS);
-    H5Pset_fapl_mpio(file_prop, myPcomm->proc_config().proc_comm(), MPI_INFO_NULL);
+    file_prop = H5Pcreate(H5P_FILE_ACCESS);
+    err = H5Pset_fapl_mpio(file_prop, myPcomm->proc_config().proc_comm(), MPI_INFO_NULL);
+    assert(file_prop > 0);
+    assert(err > 0);
 
     collIO = H5Pcreate(H5P_DATASET_XFER);
-    H5Pset_dxpl_mpio(collIO, H5FD_MPIO_COLLECTIVE);
+    assert(collIO > 0);
+    err = H5Pset_dxpl_mpio(collIO, H5FD_MPIO_COLLECTIVE);
+    assert(err > 0);
     indepIO = nativeParallel ? H5P_DEFAULT : collIO;
 
       // re-open file in parallel
-    dbgOut.tprintf( 1, "Re-opening \"%s\" for parallel IO\n", filename );
-    filePtr = mhdf_openFileWithOpt( filename, 0, NULL, file_prop, &status );
-    
-    if (filePtr) {                                                                                                                                                                                                                                                           
-      fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );                                                                                                                                                                                                        
-      if (!is_error(status)) {                                                                                                                                                                                                                                               
-	size = fileInfo->total_size;                                                                                                                                                                                                                                         
-	fileInfo->offset = (unsigned char*)fileInfo;                                                                                                                                                                                                                         
-      }
-    }
-    
-
-      
-
-
-      
-      
-
-      
+    dbgOut.tprintf( 1, "Opening \"%s\" for parallel IO\n", pfilename.c_str() );
+    filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, file_prop, &status );
 
     H5Pclose( file_prop );
     if (!filePtr)
@@ -376,7 +386,18 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       collIO = indepIO = H5P_DEFAULT;
       return error(MB_FAILURE);
     }
-#endif
+    
+#ifndef BCAST_SUMMARY
+    fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );
+    if (is_error(status)) {
+      readUtil->report_error( "%s", mhdf_message( &status ) );
+      free( dataBuffer );
+      mhdf_closeFile( filePtr, &status );
+      return error(MB_FAILURE);
+    }
+#endif // !BCAST_SUMMARY
+
+#endif // HDF5_PARALLEL
   }
   else {
   

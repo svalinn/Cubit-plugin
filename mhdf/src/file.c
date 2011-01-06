@@ -289,10 +289,13 @@ mhdf_openFileWithOpt( const char* filename,
   API_BEGIN;
   
     /* Check if file is HDF5 */
+  /* Don't do this because it can't handle MPI-IO driver code that
+     passes options via prefixes on the file name.
   if (H5Fis_hdf5( filename ) <= 0) {
     mhdf_setFail( status, "%s: File is not HDF5", filename );
     return NULL;
   }
+  */
   
     /* Create struct to hold working data */
   file_ptr = mhdf_alloc_FileHandle( 0, status );
