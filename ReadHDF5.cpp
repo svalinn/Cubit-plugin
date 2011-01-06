@@ -67,7 +67,7 @@ namespace moab {
  * which all nodes open file in parallel to read data.  If undefined,
  * file is opened once in parallel and all nodes read summary data.
  */
-#undef BCAST_SUMMARY
+#define BCAST_SUMMARY
 
 #define READ_HDF5_BUFFER_SIZE (128*1024*1024)
 
