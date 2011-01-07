@@ -50,6 +50,12 @@
 #include <limits>
 #include <functional>
 
+#ifdef BLUEGENE
+# include <sys/vfs.h>
+  // Magic number for GPFS file system (ASCII for 'G' 'P' 'F' 'S')
+# define BG_LOCKLESS_GPFS 0x47504653
+#endif
+
 #include "IODebugTrack.hpp"
 #include "ReadHDF5Dataset.hpp"
 #include "ReadHDF5VarLen.hpp"
@@ -289,9 +295,15 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       // lockless file IO on IBM BlueGene
     std::string pfilename(filename);
 #ifdef BLUEGENE
-    if (0 != pfilename.find("bglockless:"))
-      pfilename = std::string("bglockless:") + pfilename;
-    dbgOut.printf( 1, "Enabling lockless IO for BlueGene (filename: \"%s\")\n", pfilename.c_str() );
+    if (0 != pfilename.find("bglockless:")) {
+        // check for GPFS file system
+      struct statfs fsdata;
+      statfs( filename, &fsdata );
+      if (fsdata.f_type == BG_LOCKLESS_GPFS) {
+        pfilename = std::string("bglockless:") + pfilename;
+        dbgOut.printf( 1, "Enabling lockless IO for BlueGene (filename: \"%s\")\n", pfilename.c_str() );
+      }
+    }
 #endif
     
 #ifndef HDF5_PARALLEL
