@@ -338,8 +338,8 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   
       file_prop = H5Pcreate(H5P_FILE_ACCESS);
       err = H5Pset_fapl_mpio(file_prop, MPI_COMM_SELF, MPI_INFO_NULL);
-      assert(file_prop > 0);
-      assert(err > 0);
+      assert(file_prop >= 0);
+      assert(err >= 0);
       filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, file_prop, &status );
       H5Pclose( file_prop );
      
@@ -374,13 +374,13 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   
     file_prop = H5Pcreate(H5P_FILE_ACCESS);
     err = H5Pset_fapl_mpio(file_prop, myPcomm->proc_config().proc_comm(), MPI_INFO_NULL);
-    assert(file_prop > 0);
-    assert(err > 0);
+    assert(file_prop >= 0);
+    assert(err >= 0);
 
     collIO = H5Pcreate(H5P_DATASET_XFER);
     assert(collIO > 0);
     err = H5Pset_dxpl_mpio(collIO, H5FD_MPIO_COLLECTIVE);
-    assert(err > 0);
+    assert(err >= 0);
     indepIO = nativeParallel ? H5P_DEFAULT : collIO;
 
       // re-open file in parallel
