@@ -134,11 +134,13 @@ static void intersect( const mhdf_EntDesc& group, const Range& range, Range& res
 void ReadHDF5::debug_barrier_line(int lineno)
 {
 #ifdef USE_MPI
-  const unsigned threshold = 2;
-  static unsigned long count = 0;
-  if (dbgOut.get_verbosity() >= threshold) {
-    dbgOut.printf( threshold, "*********** Debug Barrier %lu (@%d)***********\n", ++count, lineno);
-    MPI_Barrier( myPcomm->proc_config().proc_comm() );
+  if (mpiComm) {
+    const unsigned threshold = 2;
+    static unsigned long count = 0;
+    if (dbgOut.get_verbosity() >= threshold) {
+      dbgOut.printf( threshold, "*********** Debug Barrier %lu (@%d)***********\n", ++count, lineno);
+      MPI_Barrier( *mpiComm );
+    }
   }
 #endif
 }
