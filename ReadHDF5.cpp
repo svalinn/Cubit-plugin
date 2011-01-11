@@ -3409,6 +3409,7 @@ void ReadHDF5::convert_range_to_handle( const EntityHandle* ranges,
                                         Range& merge )
 {
   RangeMap<long,EntityHandle>::iterator it = id_map.begin();
+  Range::iterator hint = merge.begin();
   for (size_t i = 0; i < num_ranges; ++i) {
     long id = ranges[2*i];
     const long end = id + ranges[2*i+1];
@@ -3423,7 +3424,7 @@ void ReadHDF5::convert_range_to_handle( const EntityHandle* ranges,
     while (id < end) {
       const long off = id - it->begin;
       long count = std::min( it->count - off,  end - id );
-      merge.insert( it->value + off, it->value + off + count - 1 );
+      hint = merge.insert( hint, it->value + off, it->value + off + count - 1 );
       id += count;
       if (id < end)
         if (++it == id_map.end())
