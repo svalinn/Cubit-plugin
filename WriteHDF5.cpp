@@ -1422,7 +1422,7 @@ ErrorCode WriteHDF5::range_to_blocked_list( const Range& input_range,
         range_to_id_list( input_range, &output_id_list[0] );
         output_id_list.erase( std::remove( output_id_list.begin(), 
                                            output_id_list.end(), 
-                                           0 ), 
+                                           0u ), 
                               output_id_list.end() );
         return MB_SUCCESS;
       }

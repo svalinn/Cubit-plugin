@@ -127,7 +127,7 @@ ErrorCode ReadNASTRAN::load_file(const char                      *filename,
   std::vector<Range> materials;
 
   // Now that the number of vertices is known, create the vertices.
-  EntityHandle start_vert = NULL;
+  EntityHandle start_vert = 0;
   std::vector<double*> coord_arrays(3);
   result = readMeshIface->get_node_coords( 3, entity_count[0], MB_START_ID,
 					   start_vert, coord_arrays );

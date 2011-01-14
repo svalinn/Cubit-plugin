@@ -439,7 +439,7 @@ ErrorCode ReadTetGen::read_elem_file( EntityType type,
     
       // get connectivity
     for (int j = 0; j < node_per_elem; ++j)
-      conn_array[node_per_elem*i+j] = nodes[data[j+1]];
+      conn_array[node_per_elem*i+j] = nodes[(int)data[j+1]];
   
       // grouping
     if (have_group_id && 0.0 != data[node_per_elem+1]) {

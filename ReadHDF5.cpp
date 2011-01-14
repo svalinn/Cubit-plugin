@@ -1105,7 +1105,7 @@ ErrorCode ReadHDF5::search_tag_values( int tag_index,
   
   if (sets_only) {
     iter = std::lower_bound( indices.begin(), indices.end(), 
-                             fileInfo->sets.start_id + fileInfo->sets.count );
+              (EntityHandle)(fileInfo->sets.start_id + fileInfo->sets.count) );
     indices.erase( iter, indices.end() );
     iter = std::lower_bound( indices.begin(), indices.end(), 
                              fileInfo->sets.start_id );
@@ -1208,7 +1208,7 @@ ErrorCode ReadHDF5::search_tag_values( hid_t tag_table,
     
       // search tag values
     for (size_t i = 0; i < count; ++i)
-      if (std::binary_search( sorted_values.begin(), sorted_values.end(), buffer[i] ))
+      if (std::binary_search( sorted_values.begin(), sorted_values.end(), (int)buffer[i] ))
         value_indices.push_back( i + offset );
     
     offset += count;

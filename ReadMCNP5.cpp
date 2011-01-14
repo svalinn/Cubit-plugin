@@ -319,7 +319,7 @@ ErrorCode ReadMCNP5::load_one_file(const char           *fname,
 
       // The only info needed to build elements is the mesh plane boundaries.
       // Build vertices...
-      EntityHandle start_vert = NULL;
+      EntityHandle start_vert = 0;
       result = create_vertices( planes, 
                                 debug,
                                 start_vert, 
