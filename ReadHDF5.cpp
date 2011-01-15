@@ -285,8 +285,11 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     ReadHDF5Dataset::set_hyperslab_selection_limit( hslimit );
   else
     ReadHDF5Dataset::default_hyperslab_selection_limit();
-  if (MB_SUCCESS == opts.get_null_option( "HYPERSLAB_APPEND" ))
+  if (MB_SUCCESS == opts.get_null_option( "HYPERSLAB_APPEND" )) {
     ReadHDF5Dataset::append_hyperslabs();
+    if (MB_SUCCESS != opts.get_int_option( "HYPERSLAB_SELECT_LIMIT", hslimit ))
+      ReadHDF5Dataset::set_hyperslab_selection_limit( std::numeric_limits<int>::max() );
+  }
   
   dataBuffer = (char*)malloc( bufferSize );
   if (!dataBuffer)
