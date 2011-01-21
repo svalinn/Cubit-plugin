@@ -41,6 +41,10 @@
 
 #include "moab/GeomTopoTool.hpp"
 
+#ifdef CUBIT_12
+# include "CubitCompat.hpp"
+#endif
+
 #include <stdio.h>
 #include <algorithm>
 #include <assert.h>
@@ -186,7 +190,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (!file_type || !strcmp(file_type ,"CUBIT")) 
     return MB_FAILURE;
 
+#ifndef CUBIT_12
   s = GeometryQueryTool::instance()->import_solid_model( cgm_file_name, file_type );
+#else
+  s = CubitCompat_import_solid_model( cgm_file_name, file_type );
+#endif
   if (CUBIT_SUCCESS != s) {
     readUtilIface->report_error( "%s: Failed to read file of type \"%s\"", cgm_file_name, file_type );
     return MB_FAILURE;
