@@ -492,6 +492,10 @@ mhdf_openFileWithOpt( const char* filename,
                       hid_t options,
                       mhdf_Status* status );
 
+/**\brief Get number of open HDF5 objects from file */
+int
+mhdf_countOpenHandles( mhdf_FileHandle h );
+
 /** Data common to sets, nodes, and each element type */
 struct mhdf_EntDesc {
   long start_id;           /**< First file ID for table of data */

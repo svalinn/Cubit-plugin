@@ -156,6 +156,11 @@ mhdf_openFile( const char* filename,
 }
 
 
+int mhdf_countOpenHandles( mhdf_FileHandle file_handle )
+{
+  return H5Fget_obj_count(((FileHandle*)file_handle)->hdf_handle,H5F_OBJ_ALL);
+}
+
 static herr_t get_max_id( hid_t group_id, 
                           const char* subgroup, 
                           const char* datatable,

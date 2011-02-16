@@ -241,6 +241,38 @@ void WriteHDF5::debug_barrier_line(int )
 {
 }
 
+
+class CheckOpenWriteHDF5Handles
+{
+  int fileline;
+  mhdf_FileHandle handle;
+  int enter_count;
+public:
+  CheckOpenWriteHDF5Handles(mhdf_FileHandle file, int line)
+    : fileline(line), handle(file),
+      enter_count(mhdf_countOpenHandles(file))
+  {}
+  ~CheckOpenWriteHDF5Handles()
+  {
+    int new_count = mhdf_countOpenHandles(handle);
+    if (new_count != enter_count) {
+      std::cout << "Leaked HDF5 object handle in function at " 
+                << __FILE__ << ":" << fileline << std::endl
+                << "Open at entrance: " << enter_count << std::endl
+                << "Open at exit:     " << new_count << std::endl;
+    }
+  }
+};
+
+
+#ifdef NDEBUG
+#define CHECK_OPEN_HANDLES
+#else
+#define CHECK_OPEN_HANDLES \
+  CheckOpenWriteHDF5Handles check_open_handles_(filePtr,__LINE__)
+#endif
+
+
 bool WriteHDF5::convert_handle_tag( const EntityHandle* source,
                                     EntityHandle* dest, size_t count ) const
 {
@@ -476,7 +508,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   std::list<ExportSet>::iterator ex_itor;
   EntityHandle elem_count, max_id;
   double init_time, gather_time, create_time, node_time, element_time, set_time, tag_time, total_time;
-  
+
   if (MB_SUCCESS != init())
     return error(MB_FAILURE);
 
@@ -818,6 +850,8 @@ ErrorCode WriteHDF5::write_nodes( )
   ErrorCode rval;
   hid_t node_table;
   long first_id, num_nodes;
+
+  CHECK_OPEN_HANDLES;
   
   rval = iFace->get_dimension( mesh_dim );
   CHK_MB_ERR_0(rval);
@@ -922,6 +956,8 @@ ErrorCode WriteHDF5::write_elems( ExportSet& elems )
   int nodes_per_elem;
   long table_size;
 
+  CHECK_OPEN_HANDLES;
+
   debug_barrier();
   dbgOut.printf(2,"Writing %lu elements of type %s%d\n",
     (unsigned long)elems.range.size(),
@@ -967,9 +1003,13 @@ ErrorCode WriteHDF5::write_elems( ExportSet& elems )
     CHK_MB_ERR_1(rval, elem_table, status);
     iter = next;
     
-    for (long i = 0; i < count*nodes_per_elem; ++i)
-      if (0 == (buffer[i] = idMap.find( buffer[i] )))
-        return error(MB_FAILURE);
+    for (long i = 0; i < count*nodes_per_elem; ++i) {
+      buffer[i] = idMap.find( buffer[i] );
+      if (0 == buffer[i]) {
+        writeUtil->report_error("Invalid %s element connectivity. Write Aborted\n", elems.name() );
+        CHK_MB_ERR_1(MB_FAILURE,elem_table,status);
+      }
+    }
     
     dbgOut.printf(3,"  writing node connectivity %ld of %ld, %ld values at %ld\n",
            num_writes - remaining_writes + 1, num_writes, count, offset );
@@ -1009,6 +1049,8 @@ ErrorCode WriteHDF5::get_set_info( EntityHandle set,
   ErrorCode rval;
   int i;
   unsigned int u;
+
+  CHECK_OPEN_HANDLES;
   
   rval = iFace->get_number_entities_by_handle( set, i, false );
   CHK_MB_ERR_0(rval);
@@ -1039,6 +1081,8 @@ ErrorCode WriteHDF5::write_parents_children( bool children )
   const Range::const_iterator end = setSet.range.end();
   std::vector<id_t> id_list;
   std::vector<EntityHandle> handle_list;
+
+  CHECK_OPEN_HANDLES;
   
   assert(writeSets);
   
@@ -1124,6 +1168,8 @@ ErrorCode WriteHDF5::write_sets( )
   ErrorCode rval;
   long first_id, meta_size, table_size, content_size, parent_size, child_size;
   hid_t set_table = 0, content_table = 0;
+
+  CHECK_OPEN_HANDLES;
   
   /* If no sets, just return success */
   if (!writeSets)
@@ -1390,6 +1436,8 @@ ErrorCode WriteHDF5::range_to_blocked_list( const Range& input_range,
                                               std::vector<id_t>& output_id_list, 
                                               bool& ranged_list )
 {
+  CHECK_OPEN_HANDLES;
+
   output_id_list.clear();
   ranged_list = false;
   if (input_range.empty()) {
@@ -1547,6 +1595,8 @@ ErrorCode WriteHDF5::write_adjacencies( const ExportSet& elements )
   const Range::const_iterator end = elements.range.end();
   std::vector<id_t> adj_list;
   
+  CHECK_OPEN_HANDLES;
+
   debug_barrier();
   
   /* Count Adjacencies */
@@ -1644,6 +1694,8 @@ ErrorCode WriteHDF5::write_tag( const SparseTag& tag_data )
   if (MB_SUCCESS != rval)
     return error(rval);
 
+  CHECK_OPEN_HANDLES;
+
   debug_barrier();
   dbgOut.tprintf( 1, "Writing tag: \"%s\"\n", name.c_str() );
  
@@ -1689,6 +1741,8 @@ ErrorCode WriteHDF5::write_sparse_ids( const SparseTag& tag_data,
 {
   ErrorCode rval;
   mhdf_Status status;
+
+  CHECK_OPEN_HANDLES;
 
   std::string tname(name ? name : "<UNKNOWN TAG?>");
   tname += " - Ids";
@@ -1761,6 +1815,8 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data,
   hid_t tables[3];
   long table_size, data_size;
   
+  CHECK_OPEN_HANDLES;
+
     // get entities for which to write tag values
   Range range;
   rval = get_sparse_tagged_entities( tag_data, range );
@@ -1815,6 +1871,8 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data,
   long table_size;
   long data_table_size;
   
+  CHECK_OPEN_HANDLES;
+
     // get entities for which to write tag values
   Range range;
   rval = get_sparse_tagged_entities( tag_data, range );
@@ -1983,6 +2041,8 @@ ErrorCode WriteHDF5::write_dense_tag( const SparseTag& tag_data,
                                       hid_t value_type,
                                       int value_type_size )
 {
+  CHECK_OPEN_HANDLES;
+
     //open tables to write info
   mhdf_Status status;
   long table_size;
@@ -2023,6 +2083,8 @@ ErrorCode WriteHDF5::write_tag_values( Tag tag_id,
                                        IODebugTrack& track )
 {
   mhdf_Status status;
+
+  CHECK_OPEN_HANDLES;
  
     // Set up data buffer for writing tag values
   size_t chunk_size = bufferSize / value_type_size;
@@ -2096,6 +2158,8 @@ ErrorCode WriteHDF5::write_qa( const std::vector<std::string>& list )
   char date_str[64];
   char time_str[64];
   
+  CHECK_OPEN_HANDLES;
+
   std::vector<const char*> strs(list.size() ? list.size() : 4);
   if (list.size() == 0)
   {
@@ -2432,6 +2496,8 @@ ErrorCode WriteHDF5::create_elem_tables( const ExportSet& block,
   char name[64];
   mhdf_Status status;
   hid_t handle;
+
+  CHECK_OPEN_HANDLES;
   
   sprintf( name, "%s%d", CN::EntityTypeName(block.type), block.num_nodes );
   mhdf_addElement( filePtr, name, block.type, &status );
@@ -2505,6 +2571,8 @@ ErrorCode WriteHDF5::create_set_meta( long& first_id_out )
   hid_t handle;
   mhdf_Status status;
   
+  CHECK_OPEN_HANDLES;
+
   handle = mhdf_createSetMeta( filePtr, setSet.total_num_ents, &first_id_out, &status );
   CHK_MHDF_ERR_0(status);
   mhdf_closeData( filePtr, handle, &status );
@@ -2520,6 +2588,8 @@ ErrorCode WriteHDF5::create_set_tables( long num_set_contents,
   hid_t handle;
   mhdf_Status status;
   
+  CHECK_OPEN_HANDLES;
+
   if (num_set_contents > 0)
   {
     handle = mhdf_createSetData( filePtr, num_set_contents, &status );
@@ -2556,6 +2626,8 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
   Tag type_handle;
   std::string tag_name, tag_type_name;
    
+  CHECK_OPEN_HANDLES;
+
     // We return NULL for hdf_type if it can be determined from
     // the file_type.  The only case where it is non-zero is
     // if the user specified a specific type via a mesh tag.
@@ -2680,6 +2752,8 @@ ErrorCode WriteHDF5::get_tag_data_length( const SparseTag& tag_info,
   ErrorCode rval;
   result = 0;
   
+  CHECK_OPEN_HANDLES;
+
     // split buffer into two pieces, one for pointers and one for sizes
   size_t step, remaining;
   step = bufferSize / (sizeof(int) + sizeof(void*));
@@ -2744,6 +2818,8 @@ ErrorCode WriteHDF5::create_tag( const SparseTag& tag_data,
   ErrorCode rval;
   mhdf_Status status;
   
+  CHECK_OPEN_HANDLES;
+
 
     // get tag properties
   rval = iFace->tag_get_type( tag_data.tag_id, mb_storage  ); CHK_MB_ERR_0(rval);
