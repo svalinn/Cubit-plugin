@@ -177,7 +177,7 @@ private:
     //! dimensions
   std::vector<std::string> dimNames;
   std::vector<int> dimVals;
-  std::string iName, jName, kName;
+  std::string iName, jName, kName, tName;
 
     //! global attribs
   std::map<std::string,AttData> globalAtts;

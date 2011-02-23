@@ -563,6 +563,8 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
     idx = vit-dimNames.begin();
   else if ((vit = std::find(dimNames.begin(), dimNames.end(), "x1")) != dimNames.end()) 
     idx = vit-dimNames.begin();
+  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "x")) != dimNames.end()) 
+    idx = vit-dimNames.begin();
   else ERRORR(MB_FAILURE, "Couldn't find i variable.");
   iDim = idx;
   iMax = dimVals[idx]-1;
@@ -572,6 +574,8 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lat")) != dimNames.end()) 
     idx = vit-dimNames.begin();
   else if ((vit = std::find(dimNames.begin(), dimNames.end(), "y1")) != dimNames.end()) 
+    idx = vit-dimNames.begin();
+  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "y")) != dimNames.end()) 
     idx = vit-dimNames.begin();
   else ERRORR(MB_FAILURE, "Couldn't find j variable.");
   jDim = idx;
@@ -585,13 +589,21 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
     kMax = dimVals[idx]-1, kMin = 0, kName = std::string("lev");
     kDim = idx;
   }
+  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "z")) != dimNames.end()) {
+    idx = vit-dimNames.begin();
+    kMax = dimVals[idx]-1, kMin = 0, kName = std::string("z");
+    kDim = idx;
+  }
 
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end()) 
+    idx = vit-dimNames.begin();
+  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end()) 
     idx = vit-dimNames.begin();
   else ERRORR(MB_FAILURE, "Couldn't find time variable.");
   tDim = idx;
   tMax = dimVals[idx]-1;
   tMin = 0;
+  tName = dimNames[idx];
 
     // initialize parameter bounds
   ilMin = iMin; ilMax = iMax;
@@ -676,8 +688,8 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   }
   
   if (tMin != -1) {
-    if ((vmit = varInfo.find("time")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("time", tMin, tMax, tVals);
+    if ((vmit = varInfo.find(tName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate(tName.c_str(), tMin, tMax, tVals);
       ERRORR(rval, "Trouble reading time variable.");
     }
     else {
@@ -813,8 +825,11 @@ ErrorCode ReadNC::get_variables()
 {
     // first cache the number of time steps
   std::vector<std::string>::iterator vit = std::find(dimNames.begin(), dimNames.end(), "time");
-  assert("Should always be a time variable" && vit != dimNames.end());
-  int ntimes = dimVals[vit-dimNames.begin()];
+  if (vit == dimNames.end())
+    vit = std::find(dimNames.begin(), dimNames.end(), "t");
+
+  int ntimes = 0;
+  if (vit != dimNames.end()) dimVals[vit-dimNames.begin()];
   if (!ntimes) ntimes = 1;
   
     // get the number of variables
