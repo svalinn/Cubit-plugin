@@ -56,14 +56,12 @@ WriteSmf::WriteSmf(Interface *impl)
 {
   assert(impl != NULL);
 
-  void* ptr = 0;
-  impl->query_interface( "WriteUtilIface", &ptr );
-  writeTool = reinterpret_cast<WriteUtilIface*>(ptr);
+  impl->query_interface( writeTool );
 }
 
 WriteSmf::~WriteSmf() 
 {
-  mbImpl->release_interface("WriteUtilIface", writeTool);
+  mbImpl->release_interface(writeTool);
 }
 
 ErrorCode WriteSmf::write_file(const char *file_name, 

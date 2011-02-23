@@ -22,14 +22,12 @@ WriterIface *WriteGmsh::factory( Interface* iface )
 WriteGmsh::WriteGmsh(Interface *impl) 
     : mbImpl(impl)
 {
-  void* ptr = 0;
-  impl->query_interface("WriteUtilIface", &ptr);
-  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
+  impl->query_interface(mWriteIface);
 }
 
 WriteGmsh::~WriteGmsh() 
 {
-  mbImpl->release_interface("WriteUtilIface", mWriteIface);
+  mbImpl->release_interface(mWriteIface);
 }
 
 

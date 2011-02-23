@@ -142,15 +142,13 @@ ReaderIface* ReadVtk::factory( Interface* iface )
 ReadVtk::ReadVtk(Interface* impl)
     : mdbImpl(impl), mPartitionTagName(MATERIAL_SET_TAG_NAME)
 {
-  void* ptr = 0;
-  mdbImpl->query_interface("ReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
+  mdbImpl->query_interface(readMeshIface);
 }
 
 ReadVtk::~ReadVtk()
 {
   if (readMeshIface) {
-    mdbImpl->release_interface("ReadUtilIface", readMeshIface);
+    mdbImpl->release_interface(readMeshIface);
     readMeshIface = 0;
   }
 }

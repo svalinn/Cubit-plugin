@@ -90,9 +90,7 @@ WriteNCDF::WriteNCDF(Interface *impl)
 {
   assert(impl != NULL);
 
-  void* ptr = 0;
-  impl->query_interface( "WriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
+  impl->query_interface( mWriteIface );
 
   // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
@@ -145,8 +143,7 @@ WriteNCDF::WriteNCDF(Interface *impl)
 
 WriteNCDF::~WriteNCDF() 
 {
-  std::string iface_name = "WriteUtilIface";
-  mdbImpl->release_interface(iface_name, mWriteIface);
+  mdbImpl->release_interface(mWriteIface);
 
   mdbImpl->tag_delete(mEntityMark);
 

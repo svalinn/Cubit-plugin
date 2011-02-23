@@ -173,10 +173,8 @@ Tqdcfr::Tqdcfr(Interface *impl)
 {
   assert(NULL != impl);
   mdbImpl = impl;
-  void* ptr = 0;
-  impl->query_interface( "ReadUtilIface", &ptr );
-  assert(NULL != ptr);
-  readUtilIface = reinterpret_cast<ReadUtilIface*>(ptr);
+  impl->query_interface( readUtilIface );
+  assert(NULL != readUtilIface);
 
   currVHandleOffset = -1;
   for (EntityType this_type = MBVERTEX; this_type < MBMAXTYPE; this_type++)
@@ -201,8 +199,7 @@ Tqdcfr::Tqdcfr(Interface *impl)
 
 Tqdcfr::~Tqdcfr() 
 {
-  std::string iface_name = "ReadUtilIface";
-  mdbImpl->release_interface(iface_name, readUtilIface);
+  mdbImpl->release_interface(readUtilIface);
 
   if (NULL != cubMOABVertexMap) delete cubMOABVertexMap;
   

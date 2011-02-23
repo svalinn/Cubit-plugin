@@ -136,7 +136,7 @@ private:
 
     //! interface instance
   Interface *mbImpl;
-  WriteUtilIface* mWriteIface;
+  //WriteUtilIface* mWriteIface;
   
     //! file name
   std::string fileName;

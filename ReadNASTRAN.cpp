@@ -42,16 +42,14 @@ ReaderIface* ReadNASTRAN::factory( Interface* iface ) {
 ReadNASTRAN::ReadNASTRAN(Interface* impl)
   : MBI(impl) {
     assert(NULL != impl);
-    void *ptr = 0;
-    MBI->query_interface("ReadUtilIface", &ptr);
-    assert(NULL != ptr);
-    readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
+    MBI->query_interface(readMeshIface);
+    assert(NULL != readMeshIface);
 }
 
 // destructor
 ReadNASTRAN::~ReadNASTRAN() {
   if (readMeshIface) {
-    MBI->release_interface("ReadUtilIface", readMeshIface);
+    MBI->release_interface(readMeshIface);
     readMeshIface = 0;
   }
 }

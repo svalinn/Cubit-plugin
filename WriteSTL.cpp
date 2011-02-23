@@ -57,14 +57,12 @@ WriterIface *WriteSTL::factory( Interface* iface )
 WriteSTL::WriteSTL(Interface *impl) 
     : mbImpl(impl)
 {
-  void* ptr = 0;
-  impl->query_interface( "WriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
+  impl->query_interface( mWriteIface );
 }
 
 WriteSTL::~WriteSTL() 
 {
-  mbImpl->release_interface("WriteUtilIface", mWriteIface);
+  mbImpl->release_interface(mWriteIface);
 }
 
 

@@ -214,14 +214,12 @@ ErrorCode ReadHDF5::init()
     return error(MB_FAILURE);
   }
   
-  void* ptr = 0;
-  rval = iFace->query_interface( "ReadUtilIface", &ptr );
+  rval = iFace->query_interface( readUtil );
   if (MB_SUCCESS != rval)
   {
     H5Tclose( handleType );
     return error(rval);
   }
-  readUtil = reinterpret_cast<ReadUtilIface*>(ptr);
   
   idMap.clear();
   fileInfo = 0;
@@ -237,7 +235,7 @@ ReadHDF5::~ReadHDF5()
   if (!readUtil) // init() failed.
     return;
 
-  iFace->release_interface( "ReadUtilIface", readUtil );
+  iFace->release_interface( readUtil );
   H5Tclose( handleType );
 }
 

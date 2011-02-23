@@ -40,15 +40,13 @@ namespace moab {
 ReadSTL::ReadSTL(Interface* impl)
     : mdbImpl(impl)
 {
-  void* ptr = 0;
-  mdbImpl->query_interface("ReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
+  mdbImpl->query_interface(readMeshIface);
 }
 
 ReadSTL::~ReadSTL()
 {
   if (readMeshIface) {
-    mdbImpl->release_interface("ReadUtilIface", readMeshIface);
+    mdbImpl->release_interface(readMeshIface);
     readMeshIface = 0;
   }
 }

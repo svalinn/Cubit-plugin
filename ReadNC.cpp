@@ -44,10 +44,7 @@ ReadNC::ReadNC(Interface* impl)
   assert(impl != NULL);
   reset();
   
-  void* ptr = 0;
-  impl->query_interface( "ReadUtilIface", &ptr );
-  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
-
+  impl->query_interface(readMeshIface);
 }
 
 void ReadNC::reset()
@@ -76,8 +73,7 @@ void ReadNC::reset()
 
 ReadNC::~ReadNC() 
 {
-  std::string iface_name = "ReadUtilIface";
-  mbImpl->release_interface(iface_name, readMeshIface);
+  mbImpl->release_interface(readMeshIface);
 }
   
 ErrorCode ReadNC::load_file(const char *file_name,
@@ -228,7 +224,7 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
 {
     // get the scd interface
   ScdInterface *scdi = NULL;
-  ErrorCode rval = mbImpl->query_interface("ScdInterface", (void**)&scdi);
+  ErrorCode rval = mbImpl->query_interface(scdi);
   if (!scdi) return MB_FAILURE;
   int num_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) * (-1 == klMin ? 1 : klMax-klMin+1);
 
@@ -237,23 +233,27 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   rval = scdi->create_scd_sequence(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
                                    HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
                                    MBVERTEX, 0, scd_box);
+  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
     // add the new vertices to the file set
   tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex()+scd_box->num_vertices()-1);
   rval = mbImpl->add_entities(tmp_set, tmp_range);
+  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Couldn't add new vertices to file set.");
   
     // get a ptr to global id memory
   Range::iterator viter = tmp_range.begin();
   void *data;
   rval = mbImpl->tag_iterate(mGlobalIdTag, viter, tmp_range.end(), data);
+  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Failed to get tag iterator.");
   int *gid_data = (int*)data;
 
     // set the vertex coordinates
   double *xc, *yc, *zc;
   rval = scd_box->get_coordinate_arrays(xc, yc, zc);
+  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
   int i, j, k, il, jl, kl;
@@ -282,6 +282,7 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
 #ifndef NDEBUG
   std::vector<int> gids(num_verts);
   rval = mbImpl->tag_get_data(mGlobalIdTag, tmp_range, &gids[0]);
+  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Trouble getting gid values.");
   int vmin = *(std::min_element(gids.begin(), gids.end())),
       vmax = *(std::max_element(gids.begin(), gids.end()));
@@ -293,6 +294,7 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   rval = scdi->create_scd_sequence(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
                                    HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
                                    (-1 != klMin ? MBHEX : MBQUAD), 0, elem_box);
+  mbImpl->release_interface(scdi);
   ERRORR(rval, "Trouble creating scd element sequence.");
   
     // add vertex seq to element seq, forward orientation, unity transform

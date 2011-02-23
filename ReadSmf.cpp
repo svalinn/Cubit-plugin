@@ -79,9 +79,7 @@ ReaderIface* ReadSmf::factory( Interface* iface )
 ReadSmf::ReadSmf(Interface* impl)
     : mdbImpl(impl)
 {
-  void* ptr = 0;
-  mdbImpl->query_interface("ReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
+  mdbImpl->query_interface(readMeshIface);
   _numNodes= _numFaces = 0;
   _numNodesInFile = _numElementsInFile = 0;
 }
@@ -89,7 +87,7 @@ ReadSmf::ReadSmf(Interface* impl)
 ReadSmf::~ReadSmf()
 {
   if (readMeshIface) {
-    mdbImpl->release_interface("ReadUtilIface", readMeshIface);
+    mdbImpl->release_interface(readMeshIface);
     readMeshIface = 0;
   }
 }

@@ -71,10 +71,8 @@ ReadCGM::ReadCGM(Interface *impl)
   assert(NULL != impl);
   mdbImpl = impl;
   myGeomTool = new GeomTopoTool(impl);
-  void* ptr = 0;
-  impl->query_interface( "ReadUtilIface", &ptr );
-  assert(NULL != ptr);
-  readUtilIface = reinterpret_cast<ReadUtilIface*>(ptr);
+  impl->query_interface( readUtilIface );
+  assert(NULL != readUtilIface);
 
   ErrorCode rval;
 
@@ -102,8 +100,7 @@ ReadCGM::ReadCGM(Interface *impl)
 
 ReadCGM::~ReadCGM()
 {
-  std::string iface_name = "ReadUtilIface";
-  mdbImpl->release_interface(iface_name, readUtilIface);
+  mdbImpl->release_interface(readUtilIface);
   delete myGeomTool;
 }
 

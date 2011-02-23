@@ -58,9 +58,7 @@ WriteGMV::WriteGMV(Interface *impl)
 {
   assert(impl != NULL);
 
-  void* ptr = 0;
-  impl->query_interface( "WriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
+  impl->query_interface( mWriteIface );
 
   // initialize in case tag_get_handle fails below
   mMaterialSetTag  = 0;
@@ -104,8 +102,7 @@ WriteGMV::WriteGMV(Interface *impl)
 
 WriteGMV::~WriteGMV() 
 {
-  std::string iface_name = "WriteUtilIface";
-  mbImpl->release_interface(iface_name, mWriteIface);
+  mbImpl->release_interface(mWriteIface);
 }
 
 ErrorCode WriteGMV::write_file(const char *file_name,

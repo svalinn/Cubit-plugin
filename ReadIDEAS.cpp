@@ -22,9 +22,7 @@ ReaderIface* ReadIDEAS::factory( Interface* iface )
 ReadIDEAS::ReadIDEAS(Interface* impl)
     : MBI(impl)
 {
-  void* ptr = 0;
-  impl->query_interface("ReadUtilIface", &ptr);
-  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
+  impl->query_interface(readMeshIface);
 }
 
 

@@ -55,9 +55,7 @@ WriteAns::WriteAns(Interface *impl)
 {
   assert(impl != NULL);
 
-  void* ptr = 0;
-  impl->query_interface( "WriteUtilIface", &ptr );
-  mWriteIface = reinterpret_cast<WriteUtilIface*>(ptr);
+  //impl->query_interface( mWriteIface );
 
     // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
@@ -81,8 +79,7 @@ WriteAns::WriteAns(Interface *impl)
 
 WriteAns::~WriteAns() 
 {
-  std::string iface_name = "WriteUtilIface";
-  mbImpl->release_interface(iface_name, mWriteIface);
+  //mbImpl->release_interface(mWriteIface);
 
 }
 

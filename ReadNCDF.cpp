@@ -110,9 +110,7 @@ ReadNCDF::ReadNCDF(Interface* impl)
   assert(impl != NULL);
   reset();
   
-  void* ptr = 0;
-  impl->query_interface( "ReadUtilIface", &ptr );
-  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
+  impl->query_interface( readMeshIface );
 
   // initialize in case tag_get_handle fails below
   mMaterialSetTag  = 0;
@@ -210,8 +208,7 @@ void ReadNCDF::reset()
 
 ReadNCDF::~ReadNCDF() 
 {
-  std::string iface_name = "ReadUtilIface";
-  mdbImpl->release_interface(iface_name, readMeshIface);
+  mdbImpl->release_interface(readMeshIface);
 }
   
 

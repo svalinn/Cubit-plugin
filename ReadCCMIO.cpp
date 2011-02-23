@@ -83,9 +83,7 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
 {
   assert(impl != NULL);
   
-  void* ptr = 0;
-  impl->query_interface( "ReadUtilIface", &ptr );
-  readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
+  impl->query_interface( readMeshIface );
 
   // initialize in case tag_get_handle fails below
   mMaterialSetTag  = 0;
@@ -147,7 +145,9 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
 }
 
 ReadCCMIO::~ReadCCMIO() 
-{}
+{ 
+  mbImpl->release_interface( readMeshIface );
+}
 
 ErrorCode ReadCCMIO::load_file(const char *file_name,
                                  const EntityHandle* file_set,

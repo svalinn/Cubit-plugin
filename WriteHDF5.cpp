@@ -371,19 +371,10 @@ ErrorCode WriteHDF5::init()
   //register_known_tag_types( iFace ); 
  
     // Get the util interface
-  void* ptr = 0;
-  rval = iFace->query_interface( "WriteUtilIface", &ptr );
+  rval = iFace->query_interface( writeUtil );
   CHK_MB_ERR_0(rval);
 
   idMap.clear();
-  
-  if (MB_SUCCESS != rval)
-  {
-    writeUtil = 0;
-    return error(rval);
-  }
-
-  writeUtil = reinterpret_cast<WriteUtilIface*>(ptr);
   return MB_SUCCESS;
 }
   
@@ -403,7 +394,7 @@ WriteHDF5::~WriteHDF5()
   if (!writeUtil) // init() failed.
     return;
 
-  iFace->release_interface( "WriteUtilIface", writeUtil );
+  iFace->release_interface( writeUtil );
 }
 
 

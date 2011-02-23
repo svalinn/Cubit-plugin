@@ -43,16 +43,14 @@ ReaderIface* ReadMCNP5::factory( Interface* iface ) {
 ReadMCNP5::ReadMCNP5(Interface* impl)
   : MBI(impl), fileIDTag(0) {
     assert( NULL!=impl);
-    void *ptr = 0;
-    MBI->query_interface("ReadUtilIface", &ptr);
-    assert( NULL!=ptr );
-    readMeshIface = reinterpret_cast<ReadUtilIface*>(ptr);
+    MBI->query_interface(readMeshIface);
+    assert( NULL!=readMeshIface );
 }
 
 // destructor
 ReadMCNP5::~ReadMCNP5() {
   if (readMeshIface) {
-    MBI->release_interface("ReadUtilIface", readMeshIface);
+    MBI->release_interface(readMeshIface);
     readMeshIface = 0;
   }
 }

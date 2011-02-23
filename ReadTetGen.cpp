@@ -18,16 +18,13 @@ ReaderIface* ReadTetGen::factory( Interface* moab )
 ReadTetGen::ReadTetGen( Interface* moab )
   : mbIface(moab), readTool(0)
 {
-  void* tool_ptr = 0;
-  ErrorCode rval = moab->query_interface( "ReadUtilIface", &tool_ptr );
-  if (MB_SUCCESS == rval)
-    readTool = reinterpret_cast<ReadUtilIface*>(tool_ptr);
+  moab->query_interface(readTool);
 }
 
 ReadTetGen::~ReadTetGen()
 {
   if (mbIface && readTool)
-    mbIface->release_interface( "ReadUtilIface", readTool );
+    mbIface->release_interface( readTool );
 }
 
 ErrorCode ReadTetGen::open_file( const std::string& filename,
