@@ -22,6 +22,10 @@
 #include <H5Spublic.h>
 #include <H5Tpublic.h>
 #include <H5Apublic.h>
+#ifdef HDF5_PARALLEL
+#  include <H5FDmpi.h>
+#  include <H5FDmpio.h>
+#endif
 #include "mhdf.h"
 #include "status.h"
 #include "names-and-paths.h"
@@ -291,17 +295,34 @@ mhdf_openFileWithOpt( const char* filename,
   FileHandle* file_ptr;
   unsigned int flags;
   hid_t group_id;
+  herr_t err;
+  int check_is_hdf5 = 1;
+#ifdef HDF5_PARALLEL
+  MPI_Comm comm;
+  MPI_Info info;
+#endif
   API_BEGIN;
   
     /* Check if file is HDF5 */
   /* Don't do this because it can't handle MPI-IO driver code that
      passes options via prefixes on the file name. */
-#ifndef HDF5_PARALLEL
-  if (H5Fis_hdf5( filename ) <= 0) {
+#ifdef HDF5_PARALLEL
+  if (access_prop != H5P_DEFAULT) {
+    err = H5Pget_fapl_mpio( access_prop, &comm, &info );
+    if (err >= 0) {
+      check_is_hdf5 = 0;
+      /* MPI Documentation is inconsistent with regards to whether
+         or not the above call dup's these, but my testing with 1.8.3
+         indicates that at least for that version they are not.
+      MPI_Comm_free(&comm);
+      MPI_Info_free(&info); */
+    }
+  }
+#endif
+  if (check_is_hdf5 && H5Fis_hdf5( filename ) <= 0) {
     mhdf_setFail( status, "%s: File is not HDF5", filename );
     return NULL;
   }
-#endif
   
     /* Create struct to hold working data */
   file_ptr = mhdf_alloc_FileHandle( 0, status );

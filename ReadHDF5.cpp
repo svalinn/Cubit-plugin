@@ -96,7 +96,9 @@ static inline ErrorCode error( ErrorCode rval )
 static herr_t handle_hdf5_error( hid_t stack, void* data )
 {
   ReadHDF5::HDF5ErrorHandler* h = reinterpret_cast<ReadHDF5::HDF5ErrorHandler*>(data);
-  herr_t result = (*h->func)(stack,h->data);
+  herr_t result = 0;
+  if (h->func)
+    result = (*h->func)(stack,h->data);
   error(MB_FAILURE);
   return result;
 }
@@ -104,7 +106,9 @@ static herr_t handle_hdf5_error( hid_t stack, void* data )
 static herr_t handle_hdf5_error( void* data )
 {
   ReadHDF5::HDF5ErrorHandler* h = reinterpret_cast<ReadHDF5::HDF5ErrorHandler*>(data);
-  herr_t result = (*h->func)(h->data);
+  herr_t result = 0;
+  if (h->func)
+    result = (*h->func)(h->data);
   error(MB_FAILURE);
   return result;
 }
