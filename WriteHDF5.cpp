@@ -1040,8 +1040,6 @@ ErrorCode WriteHDF5::get_set_info( EntityHandle set,
   ErrorCode rval;
   int i;
   unsigned int u;
-
-  CHECK_OPEN_HANDLES;
   
   rval = iFace->get_number_entities_by_handle( set, i, false );
   CHK_MB_ERR_0(rval);
@@ -1427,8 +1425,6 @@ ErrorCode WriteHDF5::range_to_blocked_list( const Range& input_range,
                                               std::vector<id_t>& output_id_list, 
                                               bool& ranged_list )
 {
-  CHECK_OPEN_HANDLES;
-
   output_id_list.clear();
   ranged_list = false;
   if (input_range.empty()) {
@@ -2742,8 +2738,6 @@ ErrorCode WriteHDF5::get_tag_data_length( const SparseTag& tag_info,
 {
   ErrorCode rval;
   result = 0;
-  
-  CHECK_OPEN_HANDLES;
 
     // split buffer into two pieces, one for pointers and one for sizes
   size_t step, remaining;
