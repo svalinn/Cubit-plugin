@@ -109,9 +109,9 @@ ErrorCode WriteSmf::write_file(const char *file_name,
   }
   else
   {
-    // not implemented yet, get out
-    // support export only of all triangles from the mesh
-    return  MB_NOT_IMPLEMENTED;
+    // get all triangles from output sets
+    for (int i=0; i<num_sets; i++)
+      rval = mbImpl->get_entities_by_type( output_list[i], MBTRI, triangles, false);
   }
   // use an array with all the connectivities in the triangles; it will be converted later to ints
   int numTriangles = triangles.size();
