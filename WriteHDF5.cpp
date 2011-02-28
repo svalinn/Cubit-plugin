@@ -52,7 +52,6 @@
 #include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
 #include "WriteHDF5.hpp"
-#include "moab/WriteUtilIface.hpp"
 #include "FileOptions.hpp"
 #include "moab/Version.h"
 #include "IODebugTrack.hpp"
@@ -340,9 +339,9 @@ WriteHDF5::WriteHDF5( Interface* iface )
     setContentsOffset( 0 ),
     setChildrenOffset( 0 ),
     setParentsOffset( 0 ),
-    maxNumSetContent( 0 ),
+    maxNumSetContents( 0 ),
     maxNumSetChildren( 0 ),
-    maxMumSetParents( 0 ),
+    maxNumSetParents( 0 ),
     writeSets(false),
     writeSetContents(false),
     writeSetChildren(false),
@@ -674,7 +673,7 @@ ErrorCode WriteHDF5::initialize_mesh( const Range ranges[5] )
   setSet.type = MBENTITYSET;
   setSet.num_nodes = 0;
   setSet.max_num_ents = setSet.max_num_adjs = 0;
-  maxNumSetContent = maxNumSetChildren = maxMumSetParents = 0;
+  maxNumSetContents = maxNumSetChildren = maxNumSetParents = 0;
 
   exportList.clear();
   std::vector<Range> bins(1024); // sort entities by connectivity length
@@ -1060,452 +1059,378 @@ ErrorCode WriteHDF5::get_set_info( EntityHandle set,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::write_parents_children( bool children )
+ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_data,
+                                     const hid_t handle,
+                                     IODebugTrack& track,
+                                     Range* ranged,
+                                     Range* null_stripped,
+                                     std::vector<long>* set_sizes )
 {
+  // ranged must be non-null for CONTENTS and null for anything else
+  assert((which_data == WriteUtilIface::CONTENTS) == (0 != ranged));
+  ErrorCode rval;
   mhdf_Status status;
-  ErrorCode rval = MB_SUCCESS;
-  long table_size;
-  hid_t table;
-  Range::const_iterator iter = setSet.range.begin();
-  const Range::const_iterator end = setSet.range.end();
-  std::vector<id_t> id_list;
-  std::vector<EntityHandle> handle_list;
 
-  CHECK_OPEN_HANDLES;
-  
-  assert(writeSets);
-  
   debug_barrier();
 
-  if (children)
-    table = mhdf_openSetChildren( filePtr, &table_size, &status );
-  else
-    table = mhdf_openSetParents( filePtr, &table_size, &status );
-  CHK_MHDF_ERR_0(status);
-  IODebugTrack track( debugTrack, children ? "SetChildren" : "SetParents", table_size );
-    
+  // Function  pointer type used to write set data
+  void (*write_func)( hid_t, long, long, hid_t, const void*, hid_t, mhdf_Status* );
+  long max_vals; // max over all procs of number of values to write to data set 
+  long offset;   // offset in HDF5 dataset at which to write next block of data
+  switch (which_data) {
+    case WriteUtilIface::CONTENTS:
+      assert(ranged != 0 && null_stripped != 0 && set_sizes != 0);
+      write_func = &mhdf_writeSetDataWithOpt;
+      max_vals = maxNumSetContents;
+      offset = setContentsOffset;
+      dbgOut.print(2, "Writing set contents\n" );
+      break;
+    case WriteUtilIface::CHILDREN:
+      assert(!ranged && !null_stripped && !set_sizes);
+      write_func = &mhdf_writeSetParentsChildrenWithOpt;
+      max_vals = maxNumSetChildren;
+      offset = setChildrenOffset;
+      dbgOut.print(2, "Writing set child lists\n" );
+      break;
+    case WriteUtilIface::PARENTS:
+      assert(!ranged && !null_stripped && !set_sizes);
+      write_func = &mhdf_writeSetParentsChildrenWithOpt;
+      max_vals = maxNumSetParents;
+      offset = setParentsOffset;
+      dbgOut.print(2, "Writing set parent lists\n" );
+      break;
+  }
+  assert(max_vals > 0); // should have skipped this function otherwise
+  
+  // buffer to use for IO
   id_t* buffer = reinterpret_cast<id_t*>(dataBuffer);
-  const unsigned long buffer_size = bufferSize / sizeof(id_t);
-  unsigned long offset = children ? setChildrenOffset : setParentsOffset;
-  unsigned long count = 0;
-  VALGRIND_MAKE_MEM_UNDEFINED( dataBuffer, bufferSize );
-  for (iter = setSet.range.begin(); iter != end; ++iter)
-  {
-    handle_list.clear();
-    if (children)
-      rval = iFace->get_child_meshsets( *iter, handle_list, 1 );
-    else
-      rval = iFace->get_parent_meshsets( *iter, handle_list, 1 );
-    CHK_MB_ERR_1(rval, table, status);
-
-    if (handle_list.size() == 0)
+  // number of handles that will fit in the buffer
+  const size_t buffer_size = bufferSize / sizeof(EntityHandle);
+  // the total number of write calls that must be made, including no-ops for collective io
+  const size_t num_total_writes = (max_vals + buffer_size-1)/buffer_size;
+  
+  std::vector<id_t> remaining; // data left over from prev iteration because it didn't fit in buffer
+  size_t remaining_offset; // avoid erasing from front of 'remaining'
+  const EntityHandle* remaining_ptr = 0; // remaining for non-ranged data
+  size_t remaining_count = 0;
+  Range::const_iterator i = setSet.range.begin(), j, rhint, nshint;
+  if (ranged) rhint = ranged->begin();
+  if (null_stripped) nshint = null_stripped->begin();
+  for (size_t w = 0; w < num_total_writes; ++w) {
+    if (i == setSet.range.end() && !remaining.empty() && !remaining_ptr) { 
+        // If here, then we've written everything but we need to
+        // make more write calls because we're doing collective IO
+        // in parallel
+      (*write_func)( handle, 0, 0, id_type, 0, writeProp, &status );
+      CHK_MHDF_ERR_0( status );
       continue;
-
-    id_list.clear();
-    rval = vector_to_id_list( handle_list, id_list );
-    CHK_MB_ERR_1(rval, table, status);
-
-    if (id_list.size() + count > buffer_size) {
-        // buffer is full, flush it
-      dbgOut.print(3,"  writing parent/child link chunk\n");
-      track.record_io( offset, count );
-      mhdf_writeSetParentsChildren( table, offset, count, id_type, buffer, &status );
-      CHK_MHDF_ERR_1(status, table);
-      offset += count;
-      count = 0;
-      VALGRIND_MAKE_MEM_UNDEFINED( dataBuffer, bufferSize );
-
-        // If id_list still doesn't it in empty buffer, write it
-        // directly rather than trying to buffer it
-      if (id_list.size() > buffer_size) {
-        dbgOut.print(3,"  writing parent/child link chunk\n");
-        track.record_io( offset, id_list.size() );
-        mhdf_writeSetParentsChildren( table, offset, id_list.size(), id_type, &id_list[0], &status );
-        CHK_MHDF_ERR_1(status, table);
-        offset += id_list.size();
-        id_list.clear();
+    }
+    
+      // If we had some left-over data from a range-compacted set
+      // from the last iteration, add it to the buffer now
+    size_t count = 0;
+    if (!remaining.empty()) {
+      count = remaining.size() - remaining_offset;
+      if (count > buffer_size) {
+        count = buffer_size;
+        remaining_offset += count;
+      }
+      else {
+        remaining_offset = 0;
+        remaining.clear();
+      }
+      memcpy( buffer, &remaining[remaining_offset], count*sizeof(id_t) );
+    }
+      // If we had some left-over data from a non-range-compacted set
+      // from the last iteration, add it to the buffer now
+    else if (remaining_ptr) {
+      if (remaining_count > buffer_size) {
+        rval = vector_to_id_list( remaining_ptr, buffer, buffer_size );
+        CHK_MB_ERR_0(rval);
+        count = buffer_size;
+        remaining_ptr += count;
+        remaining_count -= count;
+      }
+      else {
+        rval = vector_to_id_list( remaining_ptr, buffer, remaining_count );
+        CHK_MB_ERR_0(rval);
+        count = remaining_count;
+        remaining_ptr = 0;
+        remaining_count = 0;
       }
     }
-
-    std::copy( id_list.begin(), id_list.end(), buffer + count );
-    count += id_list.size();
-  }
     
-  if (count) {
-    dbgOut.print(3,"  writing final parent/child link chunk\n");
+      // While there is both space remaining in the buffer and 
+      // more sets to write, append more set data to buffer.
+    
+    while (count < buffer_size && i != setSet.range.end()) {
+      j = i; ++i;
+      const EntityHandle* ptr;
+      int len;
+      unsigned char flags;
+      rval = writeUtil->get_entity_list_pointers( j, i, &ptr, which_data, &len, &flags );
+      if (MB_SUCCESS != rval) return rval;
+      if (which_data == WriteUtilIface::CONTENTS && flags&MESHSET_SET) {
+        bool compacted;
+        remaining.clear();
+        rval = range_to_blocked_list( ptr, len/2, remaining, compacted );
+        if (MB_SUCCESS != rval) return rval;
+        if (compacted) {
+          rhint = ranged->insert( rhint, *j );
+          set_sizes->push_back( remaining.size() );
+        }
+        else if (remaining.size() != (unsigned)len) {
+          nshint = null_stripped->insert( nshint, *j );
+          set_sizes->push_back( remaining.size() );
+        }
+          
+        
+        if (count + remaining.size() <= buffer_size) {
+          memcpy( buffer + count, &remaining[0], sizeof(id_t)*remaining.size() );
+          count += remaining.size();
+          remaining.clear();
+          remaining_offset = 0;
+        }
+        else {
+          remaining_offset = buffer_size - count;
+          memcpy( buffer + count, &remaining[0], sizeof(id_t)*remaining_offset );
+          count += remaining_offset;
+        }
+      }
+      else {
+        if (count + len > buffer_size) {
+          size_t append = buffer_size - count;
+          remaining_ptr = ptr + append;
+          remaining_count = len - append;
+          len = append;
+        }
+        
+        rval = vector_to_id_list( ptr, buffer+count, len );
+        count += len;
+      }
+    }
+    
+      // Write the buffer.
+    (*write_func)( handle, offset, count, id_type, buffer, writeProp, &status );
+    CHK_MHDF_ERR_0( status );
     track.record_io( offset, count );
-    mhdf_writeSetParentsChildren( table, offset, count, id_type, buffer, &status );
-    CHK_MHDF_ERR_1(status, table);
+    offset += count;
   }
-
-  if (parallelWrite && children)
-    rval = write_shared_set_children( table, &track );
-  if (parallelWrite && !children)
-    rval = write_shared_set_parents( table, &track );
-  mhdf_closeData( filePtr, table, &status );
-  CHK_MB_ERR_0(rval);
-
-  track.all_reduce();
-  return rval;
+  
+  return MB_SUCCESS;
 }
-
 
 ErrorCode WriteHDF5::write_sets( )
 {
   mhdf_Status status;
-  Range& sets = setSet.range;
   ErrorCode rval;
-  long first_id, meta_size, table_size, content_size, parent_size, child_size;
-  hid_t set_table = 0, content_table = 0;
+  long first_id, size;
+  hid_t table;
 
   CHECK_OPEN_HANDLES;
-  
   /* If no sets, just return success */
   if (!writeSets)
     return MB_SUCCESS;
+
+  debug_barrier();
+  dbgOut.printf(2,"Writing %lu non-shared sets\n", (unsigned long)setSet.range.size() );
+  dbgOut.print(3,"Non-shared sets", setSet.range );
   
-  /* Write set description table and set contents table */
+    /* Write set parents */
+  if (writeSetParents)
+  {
+    table = mhdf_openSetParents( filePtr, &size, &status );
+    CHK_MHDF_ERR_0(status);
+    IODebugTrack track( debugTrack, "SetParents", size );
+    
+    rval = write_set_data( WriteUtilIface::PARENTS, table, track );
+    CHK_MB_ERR_1(rval,table,status);
+    
+    if (parallelWrite) {
+      rval = write_shared_set_parents( table, &track );
+      CHK_MB_ERR_1(rval,table,status);
+    }  
+    
+    mhdf_closeData( filePtr, table, &status );
+    CHK_MHDF_ERR_0(status);
+   
+    track.all_reduce();
+  }
+  
+    /* Write set children */
+  if (writeSetChildren)
+  {
+    table = mhdf_openSetChildren( filePtr, &size, &status );
+    CHK_MHDF_ERR_0(status);
+    IODebugTrack track( debugTrack, "SetChildren", size );
+    
+    rval = write_set_data( WriteUtilIface::CHILDREN, table, track );
+    CHK_MB_ERR_1(rval,table,status);
+    
+    if (parallelWrite) {
+      rval = write_shared_set_children( table, &track );
+      CHK_MB_ERR_1(rval,table,status);
+    }  
+    
+    mhdf_closeData( filePtr, table, &status );
+    CHK_MHDF_ERR_0(status);
+   
+    track.all_reduce();
+  }
+  
+    /* Write set contents */
+  Range ranged_sets, null_stripped_sets;
+  std::vector<long> set_sizes;
+  if (writeSetContents) 
+  {
+    table = mhdf_openSetData( filePtr, &size, &status );
+    CHK_MHDF_ERR_0(status);
+    IODebugTrack track( debugTrack, "SetContents", size );
+    
+    rval = write_set_data( WriteUtilIface::CONTENTS, table, track, 
+                           &ranged_sets, &null_stripped_sets, &set_sizes );
+    CHK_MB_ERR_1(rval,table,status);
+    
+    if (parallelWrite) {
+      rval = write_shared_set_contents( table, &track );
+      CHK_MB_ERR_1(rval,table,status);
+    }  
+    
+    mhdf_closeData( filePtr, table, &status );
+    CHK_MHDF_ERR_0(status);
+   
+    track.all_reduce();
+  }
+  assert( ranged_sets.size() + null_stripped_sets.size() == set_sizes.size() );
+    
+    /* Write set description table */
   
   debug_barrier();
   dbgOut.printf(2,"Writing %lu non-shared sets\n", (unsigned long)setSet.range.size() );
   dbgOut.print(3,"Non-shared sets", setSet.range );
   
-  /* Create the table */
-  set_table = mhdf_openSetMeta( filePtr, &meta_size, &first_id, &status );
+    /* Open the table */
+  table = mhdf_openSetMeta( filePtr, &size, &first_id, &status );
   CHK_MHDF_ERR_0(status);
-  IODebugTrack track_meta( debugTrack, "SetMeta", meta_size );
+  IODebugTrack track_meta( debugTrack, "SetMeta", size );
+
+    /* Some debug stuff */
+  debug_barrier();
+  dbgOut.printf(2,"Writing %lu non-shared sets\n", (unsigned long)setSet.range.size() );
+  dbgOut.print(3,"Non-shared sets", setSet.range );
+   
+    /* counts and buffers and such */
+  long* const buffer = reinterpret_cast<long*>(dataBuffer);
+  const size_t buffer_size = bufferSize / (4*sizeof(long));
+  const size_t num_local_writes = (setSet.range.size() + buffer_size - 1) / buffer_size;
+  const size_t num_global_writes = (setSet.max_num_ents + buffer_size-1) / buffer_size;
+  assert(num_local_writes <= num_global_writes);
+  assert(num_global_writes > 0);
+
+    /* data about sets for which number of handles written is
+     * not the same as the number of handles in the set
+     * (range-compacted or null handles stripped out)
+     */
+  Range::const_iterator i = setSet.range.begin();
+  Range::const_iterator r = ranged_sets.begin();
+  Range::const_iterator s = null_stripped_sets.begin();
+  std::vector<long>::const_iterator n = set_sizes.begin();
+
+    /* we write the end index for each list, rather than the count */
+  long prev_contents_end = setContentsOffset - 1;
+  long prev_children_end = setChildrenOffset - 1;
+  long prev_parents_end = setParentsOffset - 1;
   
-  long* buffer = reinterpret_cast<long*>(dataBuffer);
-  int chunk_size = bufferSize / (4*sizeof(long));
-  long remaining = sets.size();
-
-  id_t* content_buffer = 0;
-  unsigned long content_chunk_size = 0;
-  unsigned long data_count = 0;
-  long content_buffer_offset = setContentsOffset;
-  if (writeSetContents)
-  {
-    content_table = mhdf_openSetData( filePtr, &table_size, &status );
-    CHK_MHDF_ERR_1(status, set_table);
-
-    long avg_set_size = (table_size + meta_size - 1) / meta_size;
-    if (!avg_set_size)
-      avg_set_size = 1;
-    chunk_size = bufferSize / (4*sizeof(long) + avg_set_size*sizeof(id_t));
-    if (!chunk_size)
-      ++chunk_size;
-    content_chunk_size = (bufferSize - 4*sizeof(long)*chunk_size)/sizeof(id_t);
-    assert(content_chunk_size>0);
-    content_buffer = reinterpret_cast<id_t*>(buffer+4*chunk_size);
-    VALGRIND_MAKE_MEM_UNDEFINED( content_buffer, content_chunk_size*sizeof(content_buffer[0]) );
-  }
-  IODebugTrack track_contents( debugTrack, "SetContents", writeSetContents ? table_size : 0  );
-    
-  Range set_contents;
-  Range::const_iterator iter = sets.begin();
-  long set_offset = setSet.offset;
-  long content_offset = setContentsOffset;
-  long child_offset = setChildrenOffset;
-  long parent_offset = setParentsOffset;
-  unsigned long flags;
-  std::vector<id_t> id_list;
-  std::vector<EntityHandle> handle_list;
-  while (remaining) {
-    long* set_data = buffer;
-    long count = remaining < chunk_size ? remaining : chunk_size;
-    remaining -= count;
-      // tell valgrind that buffer portion used for set descriptions
-      // is uninitialized (as it is garbage data from the last iteration)
-    VALGRIND_MAKE_MEM_UNDEFINED( buffer, 4*sizeof(buffer[0])*chunk_size );
-
-    for (long i = 0; i < count; ++i, ++iter, set_data += 4) {
-    
-      rval = get_set_info( *iter, content_size, child_size, parent_size, flags );
-      CHK_MB_ERR_2C(rval, set_table, writeSetContents, content_table, status);
-
-      id_list.clear();
-      if (flags & MESHSET_SET) {
-        set_contents.clear();
-
-        rval = iFace->get_entities_by_handle( *iter, set_contents, false );
-        CHK_MB_ERR_2C(rval, set_table, writeSetContents, content_table, status);
-
-        bool blocked_list;
-        rval = range_to_blocked_list( set_contents, id_list, blocked_list );
-        CHK_MB_ERR_2C(rval, set_table, writeSetContents, content_table, status);
-
-        assert (id_list.size() <= (unsigned long)content_size);
-        if (blocked_list) {
-          assert (id_list.size() % 2 == 0);
-          flags |= mhdf_SET_RANGE_BIT;
-        }
+    /* while there is more data to write */
+  size_t offset = setSet.offset;
+  for (size_t w = 0; w < num_local_writes; ++w) {
+      // get a buffer full of data
+    size_t count = 0;
+    while (count < buffer_size && i != setSet.range.end()) {
+        // get set properties
+      long num_ent, num_child, num_parent;
+      unsigned long flags;
+      rval = get_set_info( *i, num_ent, num_child, num_parent, flags );
+      CHK_MB_ERR_1(rval, table,status);
+      
+        // check if size is something other than num handles in set
+      if (r != ranged_sets.end() && *i == *r) {
+        num_ent = *n;
+        ++r;
+        ++n;
+        flags |= mhdf_SET_RANGE_BIT;
       }
-      else
-      {
-        handle_list.clear();
-
-        rval = iFace->get_entities_by_handle( *iter, handle_list, false );
-        CHK_MB_ERR_2C(rval, set_table, writeSetContents, content_table, status);
-
-        rval = vector_to_id_list( handle_list, id_list );
-        CHK_MB_ERR_2C(rval, set_table, writeSetContents, content_table, status);
+      else if (s != null_stripped_sets.end() && *i == *s) {
+        num_ent = *n;
+        ++s;
+        ++n;
       }
 
-      child_offset += child_size;
-      parent_offset += parent_size;
-      set_data[0] = content_offset + id_list.size() - 1;
-      set_data[1] = child_offset - 1;
-      set_data[2] = parent_offset - 1;
-      set_data[3] = flags;
-    
-      if (id_list.size())
-      {
-        if (data_count + id_list.size() > content_chunk_size) {
-          dbgOut.print(3,"  writing set content chunk\n");
-            // If there isn't enough space remaining in the buffer,
-            // flush the buffer.
-          track_contents.record_io( content_buffer_offset, data_count );
-          mhdf_writeSetData( content_table, 
-                             content_buffer_offset,
-                             data_count,
-                             id_type,
-                             content_buffer,
-                             &status );
-          CHK_MHDF_ERR_2C(status, set_table, writeSetContents, content_table );
-          content_buffer_offset += data_count;
-          data_count = 0;
-          VALGRIND_MAKE_MEM_UNDEFINED( content_buffer, content_chunk_size*sizeof(content_buffer[0]) );
-        
-            // If there still isn't enough space in the buffer because
-            // the size of id_list is bigger than the entire buffer,
-            // write id_list directly.
-          if (id_list.size() > content_chunk_size) {
-            dbgOut.print(3,"  writing set content chunk\n");
-            track_contents.record_io( content_buffer_offset, id_list.size() );
-            mhdf_writeSetData( content_table, 
-                               content_buffer_offset,
-                               id_list.size(),
-                               id_type,
-                               &id_list[0],
-                               &status );
-            CHK_MHDF_ERR_2C(status, set_table, writeSetContents, content_table );
-            content_buffer_offset += id_list.size();
-            content_offset += id_list.size();
-            id_list.clear();
-          }
-        }
-        
-        std::copy( id_list.begin(), id_list.end(), content_buffer+data_count );
-        data_count += id_list.size();
-        content_offset += id_list.size();
-      }
+        // put data in buffer
+      long* local = buffer + 4*count;
+      prev_contents_end += num_ent;
+      prev_children_end += num_child;
+      prev_parents_end += num_parent;
+      local[0] = prev_contents_end;
+      local[1] = prev_children_end;
+      local[2] = prev_parents_end;
+      local[3] = flags;
+      
+        // iterate
+      ++count;
+      ++i;
     }
-
-    dbgOut.print(3,"  writing set description chunk.\n");
-    track_meta.record_io( set_offset, count );
-    mhdf_writeSetMeta( set_table, set_offset, count, H5T_NATIVE_LONG, 
-                       buffer, &status );
-    CHK_MHDF_ERR_2C(status, set_table, writeSetContents, content_table );
-    set_offset += count;
+    
+      // write the data
+    mhdf_writeSetMetaWithOpt( table, offset, count, H5T_NATIVE_LONG, buffer, writeProp, &status );
+    CHK_MHDF_ERR_1(status, table);
+    track_meta.record_io( offset, count );
+    offset += count;
   }
-  
-  if (data_count) {
-    dbgOut.print(3,"  writing final set content chunk\n");
-    track_contents.record_io( content_buffer_offset, data_count );
-    mhdf_writeSetData( content_table, 
-                       content_buffer_offset,
-                       data_count,
-                       id_type,
-                       content_buffer,
-                       &status );
-    CHK_MHDF_ERR_2C(status, set_table, writeSetContents, content_table );
-  }    
+  assert( r == ranged_sets.end() );
+  assert( s == null_stripped_sets.end() );
+  assert( n == set_sizes.end() );
+
+    /* if doing parallel write with collective IO, do null write
+     * calls because other procs aren't done yet and write calls
+     * are collective */
+  for (size_t w = num_local_writes; w != num_global_writes; ++w) {
+    mhdf_writeSetMetaWithOpt( table, 0, 0, H5T_NATIVE_LONG, 0, writeProp, &status );
+    CHK_MHDF_ERR_1(status, table);    
+  }
   
   if (parallelWrite) {
-    rval = write_shared_set_descriptions( set_table, &track_meta );
-    CHK_MB_ERR_2C(rval, set_table, writeSetContents, content_table, status);
-  }
-  mhdf_closeData( filePtr, set_table, &status );
+    rval = write_shared_set_descriptions( table, &track_meta );
+    CHK_MB_ERR_1(rval,table,status);
+  }  
   
-  rval = MB_SUCCESS;
-  if (writeSetContents && parallelWrite) 
-    rval = write_shared_set_contents( content_table, &track_contents );
-  if (writeSetContents)
-    mhdf_closeData( filePtr, content_table, &status );
-  CHK_MB_ERR_0( rval );
-  
+  mhdf_closeData( filePtr, table, &status );
+  CHK_MHDF_ERR_0(status);
+
   track_meta.all_reduce();
-  track_contents.all_reduce();
-  
-    /* Write set children */
-  if (writeSetChildren)
-  {
-    rval = write_parents_children( true );
-    CHK_MB_ERR_0(rval);
-  }
-  
-    /* Write set parents */
-  if (writeSetParents)
-  {
-    rval = write_parents_children( false );
-    CHK_MB_ERR_0(rval);
-  }
 
   return MB_SUCCESS;
 }
 
-/*
-ErrorCode WriteHDF5::range_to_blocked_list( const Range& input_range,
-                                              std::vector<id_t>& output_id_list )
+template <class HandleRangeIter> inline
+size_t count_num_handles( HandleRangeIter iter, HandleRangeIter end )
 {
-  Range::const_iterator r_iter;
-  Range::const_iterator const r_end = input_range.end();
-  std::vector<id_t>::iterator i_iter, w_iter;
-  ErrorCode rval;
-  
-    // Get file IDs from handles
-  output_id_list.resize( input_range.size() );
-  w_iter = output_id_list.begin();
-  for (r_iter = input_range.begin(); r_iter != r_end; ++r_iter, ++w_iter) 
-    *w_iter = idMap.find( *r_iter );
-  std::sort( output_id_list.begin(), output_id_list.end() );
-  
-    // Count the number of ranges in the id list
-  unsigned long count = 0;
-  bool need_to_copy = false;
-  std::vector<id_t>::iterator const i_end = output_id_list.end();
-  i_iter = output_id_list.begin();
-  while (i_iter != i_end)
-  {
-    ++count;
-    id_t prev = *i_iter;
-    for (++i_iter; (i_iter != i_end) && (++prev == *i_iter); ++i_iter);
-    if (i_iter - output_id_list.begin() < (long)(2*count))
-      need_to_copy = true;
-  }
-  
-    // If the range format is larger than half the size of the
-    // the simple list format, just keep the list format
-  if (4*count >= output_id_list.size())
-    return MB_SUCCESS;
-  
-    // Convert to ranged format
-  std::vector<id_t>* range_list = &output_id_list;
-  if (need_to_copy)
-    range_list = new std::vector<id_t>( 2*count );
-
-  w_iter = range_list->begin();
-  i_iter = output_id_list.begin();
-  while (i_iter != i_end)
-  {
-    unsigned long range_size = 1;
-    id_t prev = *w_iter = *i_iter;
-    w_iter++;
-    for (++i_iter; (i_iter != i_end) && (++prev == *i_iter); ++i_iter)
-      ++range_size;
-    *w_iter = range_size;
-    ++w_iter;
-  }
-
-  if (need_to_copy)
-  {
-    std::swap( *range_list, output_id_list );
-    delete range_list;
-  }
-  else
-  {
-    assert( w_iter - output_id_list.begin() == (long)(2*count) );
-    output_id_list.resize( 2*count );
-  }
-  
-  return MB_SUCCESS;
+  size_t result = 0;
+  for (; iter != end; ++iter)
+    result += iter->second - iter->first + 1;
+  return result;
 }
-*/
-ErrorCode WriteHDF5::range_to_blocked_list( const Range& input_range,
-                                              std::vector<id_t>& output_id_list, 
-                                              bool& ranged_list )
+
+template <class HandleRangeIter> inline
+ErrorCode range_to_id_list_templ( HandleRangeIter begin,
+                            HandleRangeIter end,
+                            const RangeMap<EntityHandle,WriteHDF5::id_t>& idMap,
+                            WriteHDF5::id_t* array )
 {
-  output_id_list.clear();
-  ranged_list = false;
-  if (input_range.empty()) {
-    return MB_SUCCESS;
-  }
-
-    // first try ranged format, but give up if we reach the 
-    // non-range format size.
-  RangeMap<EntityHandle,id_t>::iterator ri = idMap.begin();
-  Range::const_pair_iterator pi;
-    // if we end up with more than this many range blocks, then
-    // we're better off just writing the set as a simple list
-  size_t pairs_remaining = input_range.size() / 2; 
-  for (pi = input_range.const_pair_begin(); pi != input_range.const_pair_end(); ++pi) {
-    EntityHandle h = pi->first;
-    while (h <= pi->second) {
-      ri = idMap.lower_bound( ri, idMap.end(), h );
-      if (ri == idMap.end() || ri->begin > h) {
-        ++h;
-        continue;
-      }
-
-      id_t n = pi->second - pi->first + 1;
-      if (n > ri->count)
-        n = ri->count;
-  
-        // if we ran out of space, (or set is empty) just do list format
-      if (!pairs_remaining) {
-        output_id_list.resize( input_range.size() );
-        range_to_id_list( input_range, &output_id_list[0] );
-        output_id_list.erase( std::remove( output_id_list.begin(), 
-                                           output_id_list.end(), 
-                                           0u ), 
-                              output_id_list.end() );
-        return MB_SUCCESS;
-      }
-
-      --pairs_remaining;
-      id_t id = ri->value + (h - ri->begin);
-      output_id_list.push_back(id);
-      output_id_list.push_back(n);
-      h += n;
-    }
-  }
-  
-    // if we aren't writing anything (no entities in Range are
-    // being written to to file), clean up and return
-  if (output_id_list.empty())
-    return MB_SUCCESS;
-  
-    // otherwise check if we can compact the list further
-  ranged_list = true;
-  size_t r, w = 2;
-  const size_t e = output_id_list.size() - 1;
-  for (r = 2; r < e; r += 2) {
-    if (output_id_list[w-2] + output_id_list[w-1] == output_id_list[r])
-      output_id_list[w-1] += output_id_list[r+1];
-    else {
-      if (w != r) {
-        output_id_list[w] = output_id_list[r];
-        output_id_list[w+1] = output_id_list[r+1];
-      }
-      w += 2;
-    }
-  }
-  output_id_list.resize( w );
-  assert(output_id_list.size() % 2 == 0);
-  
-  return MB_SUCCESS;
-}
-  
-
-ErrorCode WriteHDF5::range_to_id_list( const Range& range,
-                                         id_t* array )
-{
-  VALGRIND_MAKE_MEM_UNDEFINED( array, sizeof(id_t)*range.size() );
   ErrorCode rval = MB_SUCCESS;
-  RangeMap<EntityHandle,id_t>::iterator ri = idMap.begin();
-  Range::const_pair_iterator pi;
-  id_t* i = array;
-  for (pi = range.const_pair_begin(); pi != range.const_pair_end(); ++pi) {
+  RangeMap<EntityHandle,WriteHDF5::id_t>::iterator ri = idMap.begin();
+  WriteHDF5::id_t* i = array;
+  for (HandleRangeIter pi = begin; pi != end; ++pi) {
     EntityHandle h = pi->first;
     while (h <= pi->second) {
       ri = idMap.lower_bound( ri, idMap.end(), h );
@@ -1527,20 +1452,119 @@ ErrorCode WriteHDF5::range_to_id_list( const Range& range,
       h += n;
     }
   }
-  assert( i == array + range.size() );
+  assert( i == array + count_num_handles(begin,end) );
   return rval;
 }
- 
-ErrorCode WriteHDF5::vector_to_id_list( 
-                                 const std::vector<EntityHandle>& input,
-                                 std::vector<id_t>& output,
-                                 bool remove_zeros )
+
+template <class HandleRangeIter> inline
+ErrorCode range_to_blocked_list_templ( HandleRangeIter begin,
+                                 HandleRangeIter end,
+                                 const RangeMap<EntityHandle,WriteHDF5::id_t>& idMap,
+                                 std::vector<WriteHDF5::id_t>& output_id_list,
+                                 bool& ranged_list )
 {
-  std::vector<EntityHandle>::const_iterator i_iter = input.begin();
-  const std::vector<EntityHandle>::const_iterator i_end = input.end();
-  output.resize(input.size());
-  VALGRIND_MAKE_VEC_UNDEFINED( output );
-  std::vector<id_t>::iterator o_iter = output.begin();
+  output_id_list.clear();
+  if (begin == end) {
+    ranged_list = false;
+    return MB_SUCCESS;
+  }
+
+    // first try ranged format, but give up if we reach the 
+    // non-range format size.
+  RangeMap<EntityHandle,WriteHDF5::id_t>::iterator ri = idMap.begin();
+  
+  const size_t num_handles = count_num_handles( begin, end );
+    // if we end up with more than this many range blocks, then
+    // we're better off just writing the set as a simple list
+  size_t pairs_remaining = num_handles / 2;
+  for (HandleRangeIter pi = begin; pi != end; ++pi) {
+    EntityHandle h = pi->first;
+    while (h <= pi->second) {
+      ri = idMap.lower_bound( ri, idMap.end(), h );
+      if (ri == idMap.end() || ri->begin > h) {
+        ++h;
+        continue;
+      }
+
+      id_t n = pi->second - pi->first + 1;
+      if (n > ri->count)
+        n = ri->count;
+  
+        // see if we can append it to the previous range
+      id_t id = ri->value + (h - ri->begin);
+      if (!output_id_list.empty() &&
+          output_id_list[output_id_list.size()-2] + output_id_list.back() == id) {
+        output_id_list.back() += n;
+      }
+  
+  
+        // if we ran out of space, (or set is empty) just do list format
+      else if (!pairs_remaining) {
+        ranged_list = false;
+        output_id_list.resize( num_handles );
+        range_to_id_list_templ( begin, end, idMap, &output_id_list[0] );
+        output_id_list.erase( std::remove( output_id_list.begin(), 
+                                           output_id_list.end(), 
+                                           0u ), 
+                              output_id_list.end() );
+        return MB_SUCCESS;
+      }
+
+        // 
+      else {
+        --pairs_remaining;
+        output_id_list.push_back(id);
+        output_id_list.push_back(n);
+      }
+      h += n;
+    }
+  }
+  
+  ranged_list = true;
+  return MB_SUCCESS;
+}
+
+
+ErrorCode WriteHDF5::range_to_blocked_list( const Range& input_range,
+                                            std::vector<id_t>& output_id_list, 
+                                            bool& ranged_list )
+{
+  return range_to_blocked_list_templ( input_range.const_pair_begin(),
+                                      input_range.const_pair_end(),
+                                      idMap, output_id_list, ranged_list );
+}
+
+ErrorCode WriteHDF5::range_to_blocked_list( const EntityHandle* array,
+                                            size_t num_input_ranges,
+                                            std::vector<id_t>& output_id_list, 
+                                            bool& ranged_list )
+{
+  // we assume this in the cast on the following line
+  typedef std::pair<EntityHandle,EntityHandle> mtype;
+  assert(sizeof(mtype) == 2*sizeof(EntityHandle));
+  const mtype* arr = reinterpret_cast<const mtype*>(array);
+  return range_to_blocked_list_templ( arr, arr+num_input_ranges,
+                                      idMap, output_id_list, ranged_list );
+}
+  
+
+ErrorCode WriteHDF5::range_to_id_list( const Range& range,
+                                         id_t* array )
+{
+  return range_to_id_list_templ( range.const_pair_begin(),
+                                 range.const_pair_end(),
+                                 idMap, array );
+}
+
+ErrorCode WriteHDF5::vector_to_id_list( const EntityHandle* input,
+                                        size_t input_len,
+                                        id_t* output,
+                                        size_t& output_len,
+                                        bool remove_zeros )
+{
+  const EntityHandle* i_iter = input;
+  const EntityHandle* i_end = input + input_len;
+  id_t* o_iter = output;
   for (; i_iter != i_end; ++i_iter) {
     id_t id = idMap.find( *i_iter );
     if (!remove_zeros || id != 0) {
@@ -1548,11 +1572,31 @@ ErrorCode WriteHDF5::vector_to_id_list(
       ++o_iter;
     }
   }
-  output.erase( o_iter, output.end() );
-    
+  output_len = o_iter - output;
   return MB_SUCCESS;
 }
 
+ErrorCode WriteHDF5::vector_to_id_list( 
+                                 const std::vector<EntityHandle>& input,
+                                 std::vector<id_t>& output,
+                                 bool remove_zeros )
+{
+  output.resize( input.size() );
+  size_t output_size = 0;
+  ErrorCode rval = vector_to_id_list( &input[0], input.size(),
+                                      &output[0], output_size,
+                                      remove_zeros );
+  output.resize( output_size );
+  return rval;
+}
+
+ErrorCode WriteHDF5::vector_to_id_list( const EntityHandle* input,
+                                        id_t* output,
+                                        size_t count )
+{
+  size_t output_len;
+  return vector_to_id_list( input, count, output, output_len, false );
+}
 
 
 inline ErrorCode WriteHDF5::get_adjacencies( EntityHandle entity,
@@ -2376,6 +2420,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     writeSets = true;
     
     setSet.total_num_ents = setSet.range.size();
+    setSet.max_num_ents = setSet.total_num_ents;
     rval = create_set_meta( first_id );
     CHK_MB_ERR_0(rval);
 
@@ -2396,6 +2441,10 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     writeSetContents = !!contents_len;
     writeSetChildren = !!children_len;
     writeSetParents = !!parents_len;
+    
+    maxNumSetContents = contents_len;
+    maxNumSetChildren = children_len;
+    maxNumSetParents = parents_len;
   } // if(!setSet.range.empty())
   
   

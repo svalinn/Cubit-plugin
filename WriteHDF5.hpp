@@ -26,11 +26,11 @@
 #include "moab/Range.hpp"
 #include "moab/WriterIface.hpp"
 #include "moab/RangeMap.hpp"
+#include "moab/WriteUtilIface.hpp"
 #include "DebugOutput.hpp"
 
 namespace moab {
 
-class WriteUtilIface;
 class IODebugTrack;
 
 /* If this define is not set, node->entity adjacencies will not be written */
@@ -281,9 +281,9 @@ protected:
   unsigned long setContentsOffset;
   //! Offset into set children table (zero except for parallel)
   unsigned long setChildrenOffset, setParentsOffset;
-  //! If doing parallel IO, largest number of values to write
-  //! for any processor (needed to do collective IO).  Zero if unused.
-  long maxNumSetContent, maxNumSetChildren, maxMumSetParents;
+  //! The largest number of values to write
+  //! for any processor (needed to do collective IO). 
+  long maxNumSetContents, maxNumSetChildren, maxNumSetParents;
   //! Flags idicating if set data should be written.
   //! For the normal (non-parallel) case, these values
   //! will depend only on whether or not there is any
@@ -373,16 +373,45 @@ protected:
    * Otherwise it will be 'false'.
    */
   ErrorCode range_to_blocked_list( const Range& input_range,
-                                     std::vector<id_t>& output_id_list , 
-                                     bool& ranged_list );
+                                   std::vector<id_t>& output_id_list , 
+                                   bool& ranged_list );
+  
+  /** Get possibly compacted list of IDs for passed entities
+   *
+   * For the passed range of entities, determine if IDs
+   * can be compacted and write IDs to passed list.
+   *
+   * If the IDs are not compacted, the output list will contain
+   * a simple ordered list of IDs.
+   *
+   * If IDs are compacted, the output list will contain 
+   * {start,count} pairs.
+   *
+   * If the ID list is compacted, ranged_list will be 'true'.
+   * Otherwise it will be 'false'.
+   */
+  ErrorCode range_to_blocked_list( const EntityHandle* input_ranges,
+                                   size_t num_input_ranges,
+                                   std::vector<id_t>& output_id_list , 
+                                   bool& ranged_list );
   
 
   ErrorCode range_to_id_list( const Range& input_range,
                                 id_t* array );
   //! Get IDs for entities 
   ErrorCode vector_to_id_list( const std::vector<EntityHandle>& input,
-                                 std::vector<id_t>& output, 
-                                 bool remove_non_written = false );
+                               std::vector<id_t>& output, 
+                               bool remove_non_written = false );
+  //! Get IDs for entities 
+  ErrorCode vector_to_id_list( const EntityHandle* input,
+                               id_t* output,
+                               size_t num_entities );
+  //! Get IDs for entities 
+  ErrorCode vector_to_id_list( const EntityHandle* input,
+                               size_t input_len,
+                               id_t* output,
+                               size_t& output_len,
+                               bool remove_non_written );
 
   /** When writing tags containing EntityHandles to file, need to convert tag
    *  data from EntityHandles to file IDs.  This function does that. 
@@ -457,7 +486,30 @@ private:
    */
   ErrorCode write_sets( );
 
-  ErrorCode write_parents_children( bool children );
+  /** Write set contents/parents/children lists
+   *
+   *\param which_data Which set data to write (contents, parents, or children)
+   *\param handle     HDF5 handle for data set in which to write data
+   *\param track      Debugging tool
+   *\param ranged     Will be populated with handles of sets for which
+   *                  contents were written in a range-compacted format.
+   *                  (mhdf_SET_RANGE_BIT).  Should be null for parents/children.
+   *\param null_stripped Will be populated with handles of sets for which
+   *                  invalid or null handles were stripped from the contents
+   *                  list.  This is only done for unordered sets.  This argument
+   *                  should be null if writing parents/children because those
+   *                  lists are always ordered.
+   *\param set_sizes  Will be populated with the length of the data written
+   *                  for those sets for which the handles were added to
+   *                  either \c ranged or \c null_stripped.  Values are
+   *                  in handle order.
+   */
+  ErrorCode write_set_data( const WriteUtilIface::EntityListType which_data,
+                            const hid_t handle,
+                            IODebugTrack& track,
+                            Range* ranged = 0,
+                            Range* null_stripped = 0,
+                            std::vector<long>* set_sizes = 0);
   
   /** Write adjacency info for passed set of elements
    *
