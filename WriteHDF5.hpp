@@ -117,9 +117,14 @@ public:
     id_t varDataOffset;
     //! Write sparse tag data (for serial, is always equal to !range.empty())
     bool write;
-    //! If doing parallel IO, largest number of tag values to write
-    //! for any processor (needed to do collective IO).  Zero if unused.
+    //! If doing parallel IO, largest number, over all processes, of entities
+    //! for which to write tag data.  Zero if unused.
     unsigned long max_num_ents;
+    //! For variable-length tags during parallel IO: the largest number
+    //! of tag values to be written on by any process, used to calculate
+    //! the total number of collective writes that all processes must do.
+    //! Zero for fixed-length tags or if not doing parallel IO.
+    unsigned long max_num_vals;
     
     //! List of entity groups for which to write tag data in 
     //! dense format
@@ -570,6 +575,24 @@ private:
                               DataType tag_data_type,
                               hid_t hdf5_data_type,
                               int hdf5_type_size );
+
+  //! Write end index data_set for a variable-length tag
+  ErrorCode write_var_len_indices( const SparseTag& tag_data,
+                                   const Range& range,
+                                   hid_t idx_table,
+                                   size_t table_size,
+                                   int type_size,
+                                   const char* name = 0 );
+  
+  //! Write tag value data_set for a variable-length tag
+  ErrorCode write_var_len_data( const SparseTag& tag_data,
+                                const Range& range,
+                                hid_t table,
+                                size_t table_size,
+                                bool handle_tag,
+                                hid_t hdf_type,
+                                int type_size,
+                                const char* name = 0 );
   
   //! Write varialbe-length tag data
   ErrorCode write_var_len_tag( const SparseTag& tag_info,
