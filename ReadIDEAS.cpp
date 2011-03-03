@@ -57,11 +57,18 @@ ErrorCode ReadIDEAS::load_file(const char* fname,
 
   char line[10000];
   file.getline(line, 10000);
-  std::string s = line;
-  if (s.find("-1") > s.length()) return MB_FAILURE;
+  char* liter = line;
+  while (*liter && isspace(*liter))
+    ++liter;
+  if (*liter != '-') return MB_FAILURE;
+  ++liter;
+  if (*liter != '1') return MB_FAILURE;
+  while (*++liter)
+    if (!isspace(*liter))
+      return MB_FAILURE;
 
   EntityHandle first_vertex = 0;
-
+  std::string s;
   while (! file.eof() ) {
     file.getline(line, 10000);
     s = line;
