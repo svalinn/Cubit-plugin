@@ -1132,14 +1132,15 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
     if (!remaining.empty()) {
       count = remaining.size() - remaining_offset;
       if (count > buffer_size) {
+        memcpy( buffer, &remaining[remaining_offset], buffer_size*sizeof(id_t) );
         count = buffer_size;
-        remaining_offset += count;
+        remaining_offset += buffer_size;
       }
       else {
+        memcpy( buffer, &remaining[remaining_offset], count*sizeof(id_t) );
         remaining_offset = 0;
         remaining.clear();
       }
-      memcpy( buffer, &remaining[remaining_offset], count*sizeof(id_t) );
     }
       // If we had some left-over data from a non-range-compacted set
       // from the last iteration, add it to the buffer now
