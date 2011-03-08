@@ -1100,7 +1100,7 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
       dbgOut.print(2, "Writing set parent lists\n" );
       break;
   }
-  assert(max_vals > 0); // should have skipped this function otherwise
+  //assert(max_vals > 0); // should have skipped this function otherwise
   
   // buffer to use for IO
   id_t* buffer = reinterpret_cast<id_t*>(dataBuffer);
