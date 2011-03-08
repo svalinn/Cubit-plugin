@@ -1170,7 +1170,7 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
       unsigned char flags;
       rval = writeUtil->get_entity_list_pointers( j, i, &ptr, which_data, &len, &flags );
       if (MB_SUCCESS != rval) return rval;
-      if (which_data == WriteUtilIface::CONTENTS && flags&MESHSET_SET) {
+      if (which_data == WriteUtilIface::CONTENTS && !(flags&MESHSET_ORDERED)) {
         bool compacted;
         remaining.clear();
         rval = range_to_blocked_list( ptr, len/2, remaining, compacted );
@@ -2630,7 +2630,7 @@ ErrorCode WriteHDF5::count_set_size( const Range& sets,
     CHK_MB_ERR_0(rval);
     
       // check if can and should compress as ranges
-    if ((flags&MESHSET_SET) && !(flags&MESHSET_ORDERED) && contents_length_set > 2)
+    if (!(flags&MESHSET_ORDERED) && contents_length_set > 2)
     {
       set_contents.clear();
       rval = iFace->get_entities_by_handle( *iter, set_contents, false );
