@@ -505,10 +505,9 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     // see if we need to report times
   bool cputime = false;
   result = opts.get_null_option("CPUTIME");
-  if (MB_SUCCESS == result) {
+  if (MB_SUCCESS == result)
     cputime = true;
-    init_time = RUNTIME;
-  }
+  init_time = RUNTIME;
 
   dbgOut.tprint(1,"Gathering Mesh\n");
   
@@ -527,7 +526,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
       return error(result);
   }
   
-  if (cputime) gather_time = RUNTIME;
+  gather_time = RUNTIME;
   
   //if (nodeSet.range.size() == 0)
   //  return error(MB_ENTITY_NOT_FOUND);
@@ -578,7 +577,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   if (MB_SUCCESS != result)
     return error(result);
 
-  if (cputime) create_time = RUNTIME;
+  create_time = RUNTIME;
 
   dbgOut.tprint(1,"Writing Nodes.\n");
   
@@ -589,7 +588,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
       return error(result);
   }
 
-  if (cputime) node_time = RUNTIME;
+  node_time = RUNTIME;
 
   dbgOut.tprint(1,"Writing connectivity.\n");
   
@@ -600,7 +599,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
       return error(result);
   }
 
-  if (cputime) element_time = RUNTIME;
+  element_time = RUNTIME;
 
   dbgOut.tprint(1,"Writing sets.\n");
   
@@ -610,7 +609,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     return error(result);
 
   debug_barrier();
-  if (cputime) set_time = RUNTIME;
+  set_time = RUNTIME;
   dbgOut.tprint(1,"Writing adjacencies.\n");
   
     // Write adjacencies
@@ -1099,6 +1098,9 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
       offset = setParentsOffset;
       dbgOut.print(2, "Writing set parent lists\n" );
       break;
+    default:
+      assert(false);
+      return MB_FAILURE;
   }
   //assert(max_vals > 0); // should have skipped this function otherwise
   
@@ -1110,7 +1112,7 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
   const size_t num_total_writes = (max_vals + buffer_size-1)/buffer_size;
   
   std::vector<id_t> remaining; // data left over from prev iteration because it didn't fit in buffer
-  size_t remaining_offset; // avoid erasing from front of 'remaining'
+  size_t remaining_offset = 0; // avoid erasing from front of 'remaining'
   const EntityHandle* remaining_ptr = 0; // remaining for non-ranged data
   size_t remaining_count = 0;
   Range::const_iterator i = setSet.range.begin(), j, rhint, nshint;
@@ -2350,6 +2352,7 @@ ErrorCode WriteHDF5::gather_tags( const Tag* user_tag_list, int num_tags )
     tag_data.offset = 0;
     tag_data.varDataOffset = 0;
     tag_data.max_num_ents = 0;
+    tag_data.max_num_vals = 0;
     tagList.push_back( tag_data );
   }
 
