@@ -343,7 +343,9 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
     for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
       VarData vd = (*mit).second;
       std::vector<int> tmp_v;
-      tmp_v.push_back(tDim);
+      if (-1 != tMin && 
+          std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) 
+        tmp_v.push_back(tDim);
       if (-1 != klMin && 
           std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end()) 
         tmp_v.push_back(kDim);
@@ -360,6 +362,11 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
       else ERRORR(MB_FAILURE, "Couldn't find variable.");
     }
   }
+  
+  if (tstep_nums.empty() && -1 != tMin)
+      // no timesteps input, get them all
+    for (int i = tMin; i <= tMax; i++) tstep_nums.push_back(i);
+    
   
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
