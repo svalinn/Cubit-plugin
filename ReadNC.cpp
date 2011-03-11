@@ -226,7 +226,6 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   ScdInterface *scdi = NULL;
   ErrorCode rval = mbImpl->query_interface(scdi);
   if (!scdi) return MB_FAILURE;
-  int num_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) * (-1 == klMin ? 1 : klMax-klMin+1);
 
   Range tmp_range;
   ScdBox *scd_box;
@@ -280,6 +279,8 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   }
 
 #ifndef NDEBUG
+  int num_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) *
+    (-1 == klMin ? 1 : klMax-klMin+1);
   std::vector<int> gids(num_verts);
   rval = mbImpl->tag_get_data(mGlobalIdTag, tmp_range, &gids[0]);
   if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
@@ -499,24 +500,22 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
       case NC_DOUBLE:
       case NC_FLOAT:
           ddata = (double*)data;
-          for (unsigned int i = 0; i < verts.size(); i++) {
-            if (!i) dmin = ddata[i], dmax = ddata[i];
-            else {
-              if (ddata[i] < dmin) dmin = ddata[i];
-              if (ddata[i] > dmax) dmax = ddata[i];
-            }
+          if (!verts.empty())
+            dmin = ddata[0], dmax = ddata[0];
+          for (unsigned int i = 1; i < verts.size(); i++) {
+            if (ddata[i] < dmin) dmin = ddata[i];
+            if (ddata[i] > dmax) dmax = ddata[i];
           }
           dbgOut.tprintf(2, "Variable %s (double): min = %f, max = %f\n", var_data.varName.c_str(), dmin, dmax);
           break;
       case NC_INT:
       case NC_SHORT:
           idata = (int*)data;
-          for (unsigned int i = 0; i < verts.size(); i++) {
-            if (!i) imin = idata[i], imax = idata[i];
-            else {
-              if (idata[i] < imin) imin = idata[i];
-              if (idata[i] > imax) imax = idata[i];
-            }
+          if (!verts.empty())
+            imin = idata[0], imax = idata[0];
+          for (unsigned int i = 1; i < verts.size(); i++) {
+            if (idata[i] < imin) imin = idata[i];
+            if (idata[i] > imax) imax = idata[i];
           }
           dbgOut.tprintf(2, "Variable %s (int): min = %d, max = %d\n", var_data.varName.c_str(), imin, imax);
           break;
