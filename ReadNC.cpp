@@ -500,8 +500,9 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
       case NC_DOUBLE:
       case NC_FLOAT:
           ddata = (double*)data;
-          if (!verts.empty())
-            dmin = ddata[0], dmax = ddata[0];
+          if (verts.empty()) break;
+
+          dmin = dmax = ddata[0];
           for (unsigned int i = 1; i < verts.size(); i++) {
             if (ddata[i] < dmin) dmin = ddata[i];
             if (ddata[i] > dmax) dmax = ddata[i];
@@ -511,8 +512,9 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
       case NC_INT:
       case NC_SHORT:
           idata = (int*)data;
-          if (!verts.empty())
-            imin = idata[0], imax = idata[0];
+          if (verts.empty()) break;
+
+          imin = imax = idata[0];
           for (unsigned int i = 1; i < verts.size(); i++) {
             if (idata[i] < imin) imin = idata[i];
             if (idata[i] > imax) imax = idata[i];
