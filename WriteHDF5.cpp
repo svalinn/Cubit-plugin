@@ -2529,20 +2529,35 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
       // data for. We never write dense data for variable-length
       // tag data.
     if (!var_len && writeTagDense) {
-      if (!nodeSet.range.empty() && range.contains(nodeSet.range)) {
+      // Check if we want to write this tag in dense format even if not
+      // all of the entities have a tag value.  The criterion of this
+      // is that the tag be dense, have a default value, and have at
+      // least 2/3 of the entities tagged.
+      bool prefer_dense = false;
+      TagType type;
+      rval = iFace->tag_get_type( tag_iter->tag_id, type );
+      CHK_MB_ERR_0(rval);
+      if (MB_TAG_DENSE == type) {
+        const void* defval = 0;
+        rval = iFace->tag_get_default_value( tag_iter->tag_id, defval, s );
+        if (MB_SUCCESS == rval)
+          prefer_dense = true;
+      } 
+    
+      if (check_dense_format_tag( nodeSet, range, prefer_dense )) {
         range -= nodeSet.range;
         tag_iter->denseList.push_back( nodeSet );
       }
 
       std::list<ExportSet>::const_iterator ex = exportList.begin();
       for ( ; ex != exportList.end(); ++ex) {
-        if (!ex->range.empty() && range.contains( ex->range )) {
+        if (check_dense_format_tag( *ex, range, prefer_dense )) {
           range -= ex->range;
           tag_iter->denseList.push_back( *ex );
         }
       }
 
-      if (!setSet.range.empty() && range.contains(setSet.range)) {
+      if (check_dense_format_tag( setSet, range, prefer_dense )) {
         range -= setSet.range;
         tag_iter->denseList.push_back( setSet );
       }
@@ -2563,6 +2578,31 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   return MB_SUCCESS;
 }
 
+
+bool WriteHDF5::check_dense_format_tag( const ExportSet& ents, 
+                                        const Range& all_tagged, 
+                                        bool prefer_dense )
+{
+    // if there are no tagged entities, then don't write anything
+  if (ents.range.empty())
+    return false;
+  
+    // if all of the entities are tagged, then write in dense format
+  if (all_tagged.contains(ents.range))
+    return true;
+  
+    // unless asked for more lenient choice of dense format, return false
+  if (!prefer_dense)
+    return false;
+  
+    // if we're being lenient about choosing dense format, then
+    // return true if at least 2/3 of the entities are tagged.
+  Range xsect = intersect( setSet.range, all_tagged );
+  if (3*xsect.size() >= 2*setSet.range.size())
+    return true;
+  
+  return false;
+}
 
 ErrorCode WriteHDF5::count_adjacencies( const Range& set, id_t& result )
 {

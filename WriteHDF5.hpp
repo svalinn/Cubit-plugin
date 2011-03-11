@@ -198,6 +198,24 @@ protected:
   //! Gather tags
   ErrorCode gather_tags( const Tag* user_tag_list, int user_tag_list_length );
 
+  /** Check if tag values for a given ExportSet should be written in dense format
+   *
+   *\param ents        ExportSet to consider
+   *\param all_tagged  Range containing all the entities in ents.range for 
+   *                   which an explicit tag value is stored.  Range may
+   *                   also contain entities not in ents.range, but may
+   *                   not contain entities in ents.range for which no tag
+   *                   value is stored.
+   *\param prefer_dense If true, will return true if at least 2/3 of the
+   *                   entities are tagged.  This should not be passed as
+   *                   true if the tag does not have a default value, as
+   *                   tag values must be stored for all entities in the
+   *                   ExportSet for dense-formatted data.  
+   */
+  bool check_dense_format_tag( const ExportSet& ents, 
+                               const Range& all_tagged,
+                               bool prefer_dense );
+
   /** Helper function for create-file
    *
    * Calculate the sum of the number of non-set adjacencies
