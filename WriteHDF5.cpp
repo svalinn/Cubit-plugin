@@ -1239,7 +1239,7 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
       unsigned char flags;
       rval = writeUtil->get_entity_list_pointers( j, i, &ptr, which_data, &len, &flags );
       if (MB_SUCCESS != rval) return rval;
-      if (which_data == WriteUtilIface::CONTENTS && !(flags&MESHSET_ORDERED)) {
+      if (which_data == WriteUtilIface::CONTENTS && !(flags&MESHSET_ORDERED) && len > 2) {
         bool compacted;
         remaining.clear();
         rval = range_to_blocked_list( ptr, len/2, remaining, compacted );
