@@ -150,7 +150,8 @@ private:
                           std::vector<std::string> &var_names, 
                           std::vector<int> &tstep_nums,
                           std::vector<double> &tstep_vals,
-                          bool &nomesh);
+                          bool &nomesh,
+                          std::string &partition_tag_name);
   
   ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
                            std::vector<int> &tstep_nums, bool nomesh);

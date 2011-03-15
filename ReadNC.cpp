@@ -107,7 +107,8 @@ ErrorCode ReadNC::load_file(const char *file_name,
   }
   
   bool nomesh = false;
-  rval = parse_options(opts, var_names, tstep_nums, tstep_vals, nomesh);
+  std::string partition_tag_name;
+  rval = parse_options(opts, var_names, tstep_nums, tstep_vals, nomesh, partition_tag_name);
   ERRORR(rval, "Trouble parsing option string.");
 
   // Open the file
@@ -155,15 +156,26 @@ ErrorCode ReadNC::load_file(const char *file_name,
   ERRORS(success, "Trouble closing file.");
 
     // create partition set, and populate with elements
-#ifdef USE_MPI  
-  EntityHandle partn_set;
-  rval = mbImpl->create_meshset(MESHSET_SET, partn_set);
-  ERRORR(rval, "Trouble creating partition set.");
-  myPcomm->partition_sets().insert(partn_set);
-  rval = mbImpl->add_entities(partn_set, hexes);
-  ERRORR(rval, "Couldn't add new hexes to partition set.");
-#endif  
+  if (isParallel) {
+    EntityHandle partn_set;
+    rval = mbImpl->create_meshset(MESHSET_SET, partn_set);
+    ERRORR(rval, "Trouble creating partition set.");
+    myPcomm->partition_sets().insert(partn_set);
+    rval = mbImpl->add_entities(partn_set, hexes);
+    ERRORR(rval, "Couldn't add new hexes to partition set.");
 
+    Tag part_tag;
+    rval = mbImpl->tag_get_handle( partition_tag_name.c_str(), part_tag );
+    if (MB_SUCCESS != rval) {
+        // fall back to the partition tag
+      part_tag = myPcomm->partition_tag();
+    }
+
+    int dum_rank = myPcomm->proc_config().proc_rank();
+    rval = mbImpl->tag_set_data(part_tag, &partn_set, 1, &dum_rank);
+    if (MB_SUCCESS != rval) return rval;
+  }
+  
   return MB_SUCCESS;
 }
 
@@ -171,7 +183,8 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
                                 std::vector<std::string> &var_names, 
                                 std::vector<int> &tstep_nums,
                                 std::vector<double> &tstep_vals,
-                                bool &nomesh) 
+                                bool &nomesh,
+                                std::string &partition_tag_name) 
 {
   opts.get_strs_option("VARIABLE", var_names ); 
   opts.get_ints_option("TIMESTEP", tstep_nums); 
@@ -198,8 +211,11 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   }
   
 #ifdef USE_MPI
+  rval = opts.get_option("PARTITION", partition_tag_name);
+  isParallel = (rval != MB_ENTITY_NOT_FOUND);
   rval = opts.match_option("PARALLEL", "READ_PART");
   isParallel = (rval != MB_ENTITY_NOT_FOUND);
+  
 
   if (!isParallel) return rval;
   
@@ -315,6 +331,9 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   tmp_range.insert(elem_box->start_element(), elem_box->start_element() + elem_box->num_elements()-1);
   rval = mbImpl->add_entities(tmp_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices to file set.");
+
+    // also add to the range passed in
+  hexes.insert(elem_box->start_element(), elem_box->start_element() + elem_box->num_elements()-1);
   
   if (2 <= dbgOut.get_verbosity()) {
     assert(elem_box->boundary_complete());
