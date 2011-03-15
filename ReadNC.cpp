@@ -155,6 +155,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
   success = NCFUNC(close)(fileId);
   ERRORS(success, "Trouble closing file.");
 
+#ifdef USE_MPI
     // create partition set, and populate with elements
   if (isParallel) {
     EntityHandle partn_set;
@@ -175,6 +176,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
     rval = mbImpl->tag_set_data(part_tag, &partn_set, 1, &dum_rank);
     if (MB_SUCCESS != rval) return rval;
   }
+#endif
   
   return MB_SUCCESS;
 }
