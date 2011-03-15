@@ -31,6 +31,14 @@
 
 namespace moab {
 
+extern "C" {
+#if defined(H5E_auto_t_vers) && H5E_auto_t_vers > 1
+    typedef herr_t (*WHDF5_Error_Func_Type)( hid_t, void* );
+#else
+    typedef herr_t (*WHDF5_Error_Func_Type)( void* );
+#endif
+}
+
 class IODebugTrack;
 
 /* If this define is not set, node->entity adjacencies will not be written */
@@ -161,8 +169,17 @@ public:
    *  type of a bunch of the default tags.
    */
   //static ErrorCode register_known_tag_types( Interface* );
+  
+  //! Store old HDF5 error handling function
+  struct HDF5ErrorHandler {
+    WHDF5_Error_Func_Type func;
+    void* data;
+  };
 
 protected:
+  
+  //! Store old HDF5 error handling function
+  HDF5ErrorHandler errorHandler;
   
   ErrorCode serial_create_file( const char* filename,
                                   bool overwrite,

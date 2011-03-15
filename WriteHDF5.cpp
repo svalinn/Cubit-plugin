@@ -47,6 +47,7 @@
 #endif 
 #include <H5Tpublic.h>
 #include <H5Ppublic.h>
+#include <H5Epublic.h>
 #include "moab/Interface.hpp"
 #include "Internals.hpp"
 #include "MBTagConventions.hpp"
@@ -140,6 +141,33 @@ const hid_t WriteHDF5::id_type = get_id_type();
 static inline ErrorCode error( ErrorCode rval )
   { return rval; }
 
+
+// Call \c error function during HDF5 library errors to make
+// it easier to trap such errors in the debugger.  This function
+// gets registered with the HDF5 library as a callback.  It
+// works the same as the default (H5Eprint), except that it 
+// also calls the \c error fuction as a no-op.
+#if defined(H5E_auto_t_vers) && H5E_auto_t_vers > 1
+static herr_t handle_hdf5_error( hid_t stack, void* data )
+{
+  WriteHDF5::HDF5ErrorHandler* h = reinterpret_cast<WriteHDF5::HDF5ErrorHandler*>(data);
+  herr_t result = 0;
+  if (h->func)
+    result = (*h->func)(stack,h->data);
+  error(MB_FAILURE);
+  return result;
+}
+#else
+static herr_t handle_hdf5_error( void* data )
+{
+  WriteHDF5::HDF5ErrorHandler* h = reinterpret_cast<WriteHDF5::HDF5ErrorHandler*>(data);
+  herr_t result = 0;
+  if (h->func)
+    result = (*h->func)(h->data);
+  error(MB_FAILURE);
+  return result;
+}
+#endif
 
   // Some macros to handle error checking.  The
   // CHK_MHDF__ERR* macros check the value of an mhdf_Status 
@@ -374,6 +402,28 @@ ErrorCode WriteHDF5::init()
   CHK_MB_ERR_0(rval);
 
   idMap.clear();
+  
+#if defined(H5Eget_auto_vers) && H5Eget_auto_vers > 1
+  herr_t err = H5Eget_auto( H5E_DEFAULT, &errorHandler.func, &errorHandler.data );
+#else
+  herr_t err = H5Eget_auto( &errorHandler.func, &errorHandler.data );
+#endif
+  if (err < 0) {
+    errorHandler.func = 0;
+    errorHandler.data = 0;
+  }
+  else {
+#if defined(H5Eset_auto_vers) && H5Eset_auto_vers > 1
+    err = H5Eset_auto( H5E_DEFAULT, &handle_hdf5_error, &errorHandler );
+#else
+    err = H5Eset_auto( &handle_hdf5_error, &errorHandler );
+#endif
+    if (err < 0) {
+      errorHandler.func = 0;
+      errorHandler.data = 0;
+    }
+  }
+
   return MB_SUCCESS;
 }
   
@@ -385,6 +435,22 @@ ErrorCode WriteHDF5::write_finished()
   setSet.range.clear();
   tagList.clear();
   idMap.clear();
+  
+  HDF5ErrorHandler handler;
+#if defined(H5Eget_auto_vers) && H5Eget_auto_vers > 1
+  herr_t err = H5Eget_auto( H5E_DEFAULT, &handler.func, &handler.data );
+#else
+  herr_t err = H5Eget_auto( &handler.func, &handler.data );
+#endif
+  if (err >= 0 && handler.func == &handle_hdf5_error) {
+    assert(handler.data = &errorHandler);
+#if defined(H5Eget_auto_vers) && H5Eget_auto_vers > 1
+    H5Eset_auto( H5E_DEFAULT, errorHandler.func, errorHandler.data );
+#else
+    H5Eset_auto( errorHandler.func, errorHandler.data );
+#endif
+  }
+
   return MB_SUCCESS;
 }
 
