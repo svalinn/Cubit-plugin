@@ -500,7 +500,7 @@ mhdf_countOpenHandles( mhdf_FileHandle h );
 struct mhdf_EntDesc {
   long start_id;           /**< First file ID for table of data */
   long count;              /**< Number of entities in table */
-  int vals_per_ent;        /**< Connectivity length for elems, dimension for verts, unused for sets */
+  int vals_per_ent;        /**< Connectivity length for elems, dimension for verts, unused for sets, -1 for variable length poly* data */
   int* dense_tag_indices;  /**< Indices into mhdf_FileDesc::tags for each tag for which dense data is present for these entities */
   int num_dense_tags;      /**< Length of dense_tag_indices */
 };
