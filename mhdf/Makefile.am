@@ -1,7 +1,6 @@
 
 noinst_LTLIBRARIES = libmhdf.la
 libmhdf_la_LIBADD = $(HDF5_LIBS)
-bin_PROGRAMS = h5minfo
 
 libmhdf_la_SOURCES = include/mhdf.h \
                      src/adjacency.c \
@@ -19,8 +18,19 @@ libmhdf_la_SOURCES = include/mhdf.h \
                      src/util.c \
                      src/util.h
 
+if ENABLE_h5mtools
+  h5mtools = h5minfo h5mvalidate
+else
+  h5mtools = 
+endif
+
+bin_PROGRAMS = $(h5mtools)
+
 h5minfo_SOURCES = include/mhdf.h example/info.c
 h5minfo_LDADD = libmhdf.la $(HDF5_LIBS)
+
+h5mvalidate_SOURCES = example/validate.c
+h5mvalidate_LDADD = libmhdf.la $(HDF5_LIBS)
 
 DEFS = -I$(srcdir)/include 
 
