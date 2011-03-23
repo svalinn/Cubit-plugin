@@ -646,25 +646,39 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   if (isParallel) {
       // partition *the elements* over the parametric space; 1d partition for now, in the k parameter 
       // (or j if there isn't one)
-    if (-1 != klMin) {
-      int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
-      unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
-      klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
-          std::min(myPcomm->proc_config().proc_rank(), extra);
-      klMax = klMin + dk + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
 
-      ilMin = iMin; ilMax = iMax;
+    if (-1 != ilMin && (iMax - iMin) > myPcomm->proc_config().proc_size()) {
+      int di = (iMax - iMin) / myPcomm->proc_config().proc_size();
+      unsigned int extra = (iMax - iMin) % myPcomm->proc_config().proc_size();
+      ilMin = iMin + myPcomm->proc_config().proc_rank()*di + 
+          std::min(myPcomm->proc_config().proc_rank(), extra);
+      ilMax = ilMin + di + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+
+      klMin = kMin; klMax = kMax;
       jlMin = jMin; jlMax = jMax;
     }
-    else {
+    else if (-1 != jlMin && (jMax - jMin) > myPcomm->proc_config().proc_size()) {
       int dj = (jMax - jMin) / myPcomm->proc_config().proc_size();
       unsigned int extra = (jMax - jMin) % myPcomm->proc_config().proc_size();
       jlMin = jMin + myPcomm->proc_config().proc_rank()*dj + 
           std::min(myPcomm->proc_config().proc_rank(), extra);
       jlMax = jlMin + dj + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
 
+      klMin = kMin; klMax = kMax;
       ilMin = iMin; ilMax = iMax;
     }
+    else if (-1 != klMin && (kMax - kMin) > myPcomm->proc_config().proc_size()) {
+      int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
+      unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
+      klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
+          std::min(myPcomm->proc_config().proc_rank(), extra);
+      klMax = klMin + dk + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+
+      jlMin = jMin; jlMax = jMax;
+      ilMin = iMin; ilMax = iMax;
+    }
+    else
+      ERRORR(MB_FAILURE, "Couldn't find a suitable partition.");
   }
 #endif
     
