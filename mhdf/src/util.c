@@ -307,6 +307,9 @@ mhdf_readwrite( hid_t data_id, int read,
   hsize_t offsets[2], counts[2] = {1,1};
   herr_t rval;
   int dims;
+#if (1000 * H5_VERS_MAJOR + H5_VERS_MINOR) < 1008
+  const hsize_t one = 1;
+#endif
   
   if (offset < 0 || count < 0)
   {
@@ -370,7 +373,7 @@ mhdf_readwrite( hid_t data_id, int read,
 #if H5_VERS_MAJOR > 1 || H5_VERS_MINOR >= 8
     mem_id = H5Screate(H5S_NULL); 
 #else
-    mem_id = H5Screate( H5S_SIMPLE );
+    mem_id = H5Screate_simple( 1, &one, NULL );
     if (mem_id && 0 > H5Sselect_none( mem_id )) {
       H5Sclose( mem_id );
       mem_id = -1;
@@ -417,6 +420,9 @@ mhdf_readwrite_column( hid_t data_id, int read,
   hsize_t offsets[2], counts[2];
   herr_t rval;
   int dims;
+#if (1000 * H5_VERS_MAJOR + H5_VERS_MINOR) < 1008
+  const hsize_t one = 1;
+#endif
   
   if (column < 0 || offset < 0 || count < 0)
   {
@@ -483,7 +489,7 @@ mhdf_readwrite_column( hid_t data_id, int read,
 #if H5_VERS_MAJOR > 1 || H5_VERS_MINOR >= 8
     mem_id = H5Screate(H5S_NULL); 
 #else
-    mem_id = H5Screate( H5S_SIMPLE );
+    mem_id = H5Screate_simple( 1, &one, NULL );
     if (mem_id && 0 > H5Sselect_none( mem_id )) {
       H5Sclose( mem_id );
       mem_id = -1;
