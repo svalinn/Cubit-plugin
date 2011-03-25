@@ -364,6 +364,10 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     dbgOut.set_rank(rank);
     mpiComm = new MPI_Comm(myPcomm->proc_config().proc_comm());
 
+#ifndef H5_MPI_COMPLEX_DERIVED_DATATYPE_WORKS 
+    dbgOut.print(1,"H5_MPI_COMPLEX_DERIVED_DATATYPE_WORKS is not defined\n");
+#endif
+
       // Open the file in serial on root to read summary
     dbgOut.tprint( 1, "Getting file summary\n" );
     fileInfo = 0;
