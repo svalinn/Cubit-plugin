@@ -260,11 +260,12 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   ERRORR(rval, "Couldn't add new vertices to file set.");
   
     // get a ptr to global id memory
-  Range::iterator viter = tmp_range.begin();
   void *data;
-  rval = mbImpl->tag_iterate(mGlobalIdTag, viter, tmp_range.end(), data);
+  int count;
+  rval = mbImpl->tag_iterate(mGlobalIdTag, tmp_range.begin(), tmp_range.end(), count, data);
   if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Failed to get tag iterator.");
+  assert((unsigned)count == tmp_range.size());
   int *gid_data = (int*)data;
 
     // set the vertex coordinates
@@ -466,11 +467,11 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
          verts.psize() == 1);
   
     // get ptr to tag space
-  Range::iterator viter = verts.begin();
   void *data;
-  rval = mbImpl->tag_iterate(var_data.varTags[tstep_num], viter, verts.end(), data);
+  int count;
+  rval = mbImpl->tag_iterate(var_data.varTags[tstep_num], verts.begin(), verts.end(), count, data);
   ERRORR(rval, "Failed to get tag iterator.");
-  assert(viter == verts.end());
+  assert((unsigned)count == verts.size());
   
     // finally, read into that space
   int success, *idata;
