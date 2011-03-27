@@ -295,10 +295,9 @@ mhdf_openFileWithOpt( const char* filename,
   FileHandle* file_ptr;
   unsigned int flags;
   hid_t group_id;
-/* initialize err to eliminate compiler warning */
-  herr_t err = 1;
   int check_is_hdf5 = 1;
 #ifdef HDF5_PARALLEL
+  herr_t err;
   MPI_Comm comm;
   MPI_Info info;
 #endif
