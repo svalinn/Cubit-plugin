@@ -807,6 +807,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   Range sets;
   intersect( fileInfo->sets, file_ids, sets );
   if (content_mode == 2 || child_mode == 2) {
+    dbgOut.tprint( 1, "  doing read_set_ids_recursive\n" );
     rval = read_set_ids_recursive( sets, content_mode == 2, child_mode == 2 );
     if (MB_SUCCESS != rval)
       return error(rval);
@@ -815,6 +816,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   debug_barrier();
   
     // get elements and vertices contained in sets
+  dbgOut.tprint( 1, "  doing get_set_contents\n" );
   rval = get_set_contents( sets, file_ids );
   if (MB_SUCCESS != rval)
     return error(rval);
@@ -1017,10 +1019,13 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     // them now. If we were also reading their contents we would
     // have found them already.
   if (content_mode == 1 || child_mode == 1) {
+    dbgOut.tprint( 1, "  doing read_set_ids_recursive\n" );
     rval = read_set_ids_recursive( sets, content_mode != 0, child_mode != 0 );
     if (MB_SUCCESS != rval)
       return error(rval);
   }
+  
+  dbgOut.tprint( 1, "  doing find_sets_containing\n" );
     // Append file IDs of sets containing any of the nodes or elements
     // we've read up to this point.
   rval = find_sets_containing( sets );
@@ -1031,6 +1036,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   EntityHandle first_set = fileInfo->sets.start_id;
   sets.merge( file_ids.lower_bound( first_set ),
               file_ids.lower_bound( first_set + fileInfo->sets.count ) );
+  dbgOut.tprint( 1, "  doing read_sets\n" );
   rval = read_sets( sets );
   if (MB_SUCCESS != rval)
     return error(rval);
@@ -1936,7 +1942,10 @@ ErrorCode ReadHDF5::read_set_ids_recursive( Range& sets_in_out,
   
   ErrorCode rval = MB_SUCCESS;
   Range children, new_children(sets_in_out);
+  int iteration_count = 0;
   do {
+    ++iteration_count;
+    dbgOut.tprintf(2,"Iteration %d of read_set_ids_recursive\n",iteration_count);
     children.clear();
     if (child_sets) {
       rval = read_child_ids( new_children, meta_handle, child_handle, children );
