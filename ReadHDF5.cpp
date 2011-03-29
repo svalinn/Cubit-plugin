@@ -783,11 +783,12 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   
   dbgOut.tprint( 1, "GATHERING ADDITIONAL ENTITIES\n" );
   
+  enum RecusiveSetMode { RSM_NONE, RSM_SETS, RSM_CONTENTS };
   const char* const set_opts[] = { "NONE", "SETS", "CONTENTS" };
   int child_mode;
   rval = opts.match_option( "CHILDREN", set_opts, child_mode );
   if (MB_ENTITY_NOT_FOUND == rval)
-    child_mode = 2;
+    child_mode = RSM_CONTENTS;
   else if (MB_SUCCESS != rval) {
     readUtil->report_error( "Invalid value for 'CHILDREN' option" );
     return error(rval);
@@ -795,7 +796,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   int content_mode;
   rval = opts.match_option( "SETS", set_opts, content_mode );
   if (MB_ENTITY_NOT_FOUND == rval)
-    content_mode = 2;
+    content_mode = RSM_CONTENTS;
   else if (MB_SUCCESS != rval) {
     readUtil->report_error( "Invalid value for 'SETS' option" );
     return error(rval);
@@ -806,9 +807,9 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     // of the sets.)
   Range sets;
   intersect( fileInfo->sets, file_ids, sets );
-  if (content_mode == 2 || child_mode == 2) {
+  if (content_mode == RSM_CONTENTS || child_mode == RSM_CONTENTS) {
     dbgOut.tprint( 1, "  doing read_set_ids_recursive\n" );
-    rval = read_set_ids_recursive( sets, content_mode == 2, child_mode == 2 );
+    rval = read_set_ids_recursive( sets, content_mode == RSM_CONTENTS, child_mode == RSM_CONTENTS );
     if (MB_SUCCESS != rval)
       return error(rval);
   }
@@ -914,6 +915,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   dbgOut.tprint( 1, "READING ELEMENTS\n" );
  
     // decide if we need to read additional elements
+  enum SideMode { SM_EXPLICIT, SM_NODES, SM_SIDES };
   int side_mode;
   const char* const options[] = { "EXPLICIT", "NODES", "SIDES", 0 };
   rval = opts.match_option( "ELEMENTS", options, side_mode );
@@ -921,16 +923,16 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
       // If only nodes were specified, then default to "NODES", otherwise
       // default to "SIDES".
     if (0 == max_dim)
-      side_mode = 1;
+      side_mode = SM_NODES;
     else
-      side_mode = 2;
+      side_mode = SM_SIDES;
   }
   else if (MB_SUCCESS != rval) {
     readUtil->report_error( "Invalid value for 'ELEMENTS' option" );
     return error(rval);
   }
   
-  if (side_mode == 2 /*ELEMENTS=SIDES*/ && max_dim == 0 /*node-based*/) {
+  if (side_mode == SM_SIDES /*ELEMENTS=SIDES*/ && max_dim == 0 /*node-based*/) {
       // Read elements until we find something.  Once we find someting,
       // read only elements of the same dimension.  NOTE: loop termination
       // criterion changes on both sides (max_dim can be changed in loop
@@ -953,7 +955,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   }
 
   Range side_entities;
-  if (side_mode != 0 /*ELEMENTS=NODES || ELEMENTS=SIDES*/) {
+  if (side_mode != SM_EXPLICIT /*ELEMENTS=NODES || ELEMENTS=SIDES*/) {
     if (0 == max_dim)
       max_dim = 4;
       // now read any additional elements for which we've already read all
@@ -972,7 +974,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     }
   }
 
-    // We need to do this here for polyhedra to be handled coorectly.
+    // We need to do this here for polyhedra to be handled correctly.
     // We have to wait until the faces are read in the above code block,
     // but need to create the connectivity before doing update_connectivity, 
     // which might otherwise delete polyhedra faces.
@@ -1004,7 +1006,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     // that connects two disjoint portions of the part).  Both
     // update_connectivity and reading of any explicit adjacencies must
     // happen before this.
-  if (side_mode == 2) {
+  if (side_mode == SM_SIDES) {
     debug_barrier();
     dbgOut.tprint( 1, "CHECKING FOR AND DELETING NON-SIDE ELEMENTS\n" );
     rval = delete_non_side_elements( side_entities );
@@ -1018,9 +1020,9 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     // If reading contained/child sets but not their contents then find
     // them now. If we were also reading their contents we would
     // have found them already.
-  if (content_mode == 1 || child_mode == 1) {
+  if (content_mode == RSM_SETS || child_mode == RSM_SETS) {
     dbgOut.tprint( 1, "  doing read_set_ids_recursive\n" );
-    rval = read_set_ids_recursive( sets, content_mode != 0, child_mode != 0 );
+    rval = read_set_ids_recursive( sets, content_mode == RSM_SETS, child_mode == RSM_SETS );
     if (MB_SUCCESS != rval)
       return error(rval);
   }
@@ -2001,7 +2003,13 @@ ErrorCode ReadHDF5::find_sets_containing( Range& sets_out )
     return error(MB_FAILURE);
   }
 
-  rval = find_sets_containing( meta_handle, content_handle, content_len, sets_out );
+  hid_t meta_type = H5Dget_type( meta_handle );
+  hid_t data_type = H5Dget_type( content_handle );
+
+  rval = find_sets_containing( meta_handle, content_handle, meta_type, data_type, content_len, sets_out );
+  
+  H5Tclose( data_type );
+  H5Tclose( meta_type );
 
   mhdf_closeData( filePtr, content_handle, &status );
   if(MB_SUCCESS == rval && is_error(status))
@@ -2013,12 +2021,12 @@ ErrorCode ReadHDF5::find_sets_containing( Range& sets_out )
   return rval;
 }
 
-static bool set_map_intersect( unsigned short flags,
+static bool set_map_intersect( bool ranged,
                                const long* contents,
                                int content_len,
                                const RangeMap<long,EntityHandle>& id_map  )
 {
-  if (flags & mhdf_SET_RANGE_BIT) {
+  if (ranged) {
     if (!content_len || id_map.empty())
       return false;
       
@@ -2043,107 +2051,106 @@ static bool set_map_intersect( unsigned short flags,
 
 ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
                                           hid_t contents_handle, 
+                                          hid_t meta_type,
+                                          hid_t content_type,
                                           long contents_len,
                                           Range& file_ids )
 {
 
   CHECK_OPEN_HANDLES;
-
-  const long avg_set_len = contents_len / fileInfo->sets.count;
-  long sets_per_buffer = bufferSize / (sizeof(short) + sizeof(long) * (2+avg_set_len));
-    // round to down multiple of 8 to avoid alignment issues
-  sets_per_buffer = 8 * (sets_per_buffer / 8);
-  if (sets_per_buffer < 10) // just in case there's one huge set
-    sets_per_buffer = 10;  
-  unsigned short* flag_buffer = (unsigned short*)dataBuffer;
-  long* offset_buffer = (long*)(flag_buffer + sets_per_buffer);
-  long* content_buffer = offset_buffer + sets_per_buffer;
-  assert(bufferSize % sizeof(long) == 0);
-  long content_len = (long*)(dataBuffer + bufferSize) - content_buffer;
-  assert(dataBuffer + bufferSize >= (char*)(content_buffer + content_len));
-    // scan set table  
-  mhdf_Status status;
-  Range::iterator hint = file_ids.begin();
-  long remaining = fileInfo->sets.count;
-  long offset = 0;
-  long prev_idx = -1;
-  int nn = 0;
-  dbgOut.printf( 3, "Searching set content\n" ); 
-  while (remaining) {
-    dbgOut.printf( 3, "Reading chunk %d of set description table\n", ++nn );
   
-    long count = std::min( remaining, sets_per_buffer );
-    assert_range( flag_buffer, count );
-    mhdf_readSetFlagsWithOpt( meta_handle, offset, count, H5T_NATIVE_USHORT, flag_buffer, collIO, &status );
-    if (is_error(status)) 
-      return error(MB_FAILURE);
-    assert_range( offset_buffer, count );
-    mhdf_readSetContentEndIndicesWithOpt( meta_handle, offset, count, H5T_NATIVE_LONG, offset_buffer, collIO, &status );
-    if (is_error(status))
-      return error(MB_FAILURE);
+  // Scan all set contents data
+  
+  // First collectively read all meta data
+  
+  // use offset buffer as temporary storage to read set flags
+  mhdf_Status status;
+  const long num_sets = fileInfo->sets.count;
+  const size_t meta_size = H5Tget_size( meta_type );
+  const size_t content_size = H5Tget_size( content_type );
+  std::vector<unsigned char> offset_mem( num_sets * std::max( meta_size, sizeof(long) ));
+  long* const offset_buffer = reinterpret_cast<long*>(&offset_mem[0]);
+  mhdf_readSetFlagsWithOpt( meta_handle, 0, num_sets, meta_type, offset_buffer, collIO, &status );
+  if (is_error(status)) 
+    return error(MB_FAILURE);
+  H5Tconvert( meta_type, H5T_NATIVE_LONG, num_sets, offset_buffer, 0, H5P_DEFAULT );
+  
+  // make bitmap containing mhdf_SET_RANGE_BIT flag for each set
+  std::vector<bool> ranged( num_sets );
+  for (long i = 0; i < num_sets; ++i)
+    ranged[i] = (0 != (mhdf_SET_RANGE_BIT & offset_buffer[i]));
     
-    long sets_remaining = count;
-    long sets_offset = 0;
-    while (sets_remaining) {
-      int mm = 0;
-        // figure how many of the remaining sets are required to 
-        // fill the set contents buffer.
-      long sets_count = std::lower_bound( offset_buffer + sets_offset, 
-                          offset_buffer + count, content_len + prev_idx )
-                          - offset_buffer - sets_offset;
-      if (!sets_count) { // contents of single set don't fit in buffer
-        long content_remaining = offset_buffer[sets_offset] - prev_idx;
-        long content_offset = prev_idx+1;
-        while (content_remaining) {
-          dbgOut.printf( 3, "Reading chunk %d of set contents table\n", ++mm);
-          long content_count = content_len < content_remaining ?
-                               2*(content_len/2) : content_remaining;
-          assert_range( content_buffer, content_count );
-          mhdf_readSetDataWithOpt( contents_handle, content_offset,
-                                   content_count, H5T_NATIVE_LONG, 
-                                   content_buffer, collIO, &status );
-          if (is_error(status))
-            return error(MB_FAILURE);
-          if (set_map_intersect( flag_buffer[sets_offset],
-                                 content_buffer, content_count, idMap )) {
-            long id = fileInfo->sets.start_id + offset + sets_offset;
-            hint = file_ids.insert( hint, id, id );
-            break;
-          }
-          content_remaining -= content_count;
-          content_offset += content_count;
-        }
-        prev_idx = offset_buffer[sets_offset];
-        sets_count = 1;
-      }
-      else if (long read_num = offset_buffer[sets_offset + sets_count - 1] - prev_idx) {
-        assert(sets_count > 0);
-        assert_range( content_buffer, read_num );
+  // now read the actual offsets into the offset buffer
+  mhdf_readSetContentEndIndicesWithOpt( meta_handle, 0, fileInfo->sets.count, meta_type, offset_buffer, collIO, &status );
+  if (is_error(status))
+    return error(MB_FAILURE);
+  H5Tconvert( meta_type, H5T_NATIVE_LONG, num_sets, offset_buffer, 0, H5P_DEFAULT );
+
+  // set up buffer for reading set contents 
+  long* const content_buffer = (long*)dataBuffer;
+  const long content_len = bufferSize / std::max( content_size, sizeof(long) );
+
+    // scan set table  
+  Range::iterator hint = file_ids.begin();
+  long prev_idx = -1;
+  int mm = 0;
+  dbgOut.printf( 3, "Searching set content\n" ); 
+  long sets_offset = 0;
+  while (sets_offset < num_sets) {
+    long sets_count = std::lower_bound( offset_buffer + sets_offset, 
+                                        offset_buffer + num_sets,
+                                        content_len + prev_idx 
+                                       ) - offset_buffer - sets_offset;
+    if (!sets_count) { // contents of single set don't fit in buffer
+      long content_remaining = offset_buffer[sets_offset] - prev_idx;
+      long content_offset = prev_idx+1;
+      while (content_remaining) {
         dbgOut.printf( 3, "Reading chunk %d of set contents table\n", ++mm);
-        mhdf_readSetDataWithOpt( contents_handle, prev_idx+1, read_num, 
-                                 H5T_NATIVE_LONG, content_buffer, collIO, &status );
+        long content_count = content_len < content_remaining ?
+                             2*(content_len/2) : content_remaining;
+        assert_range( content_buffer, content_count );
+        mhdf_readSetDataWithOpt( contents_handle, content_offset,
+                                 content_count, content_type, 
+                                 content_buffer, collIO, &status );
         if (is_error(status))
           return error(MB_FAILURE);
-        
-        long* buff_iter = content_buffer;
-        for (long i = 0; i < sets_count; ++i) {
-          long set_size = offset_buffer[i+sets_offset] - prev_idx;
-          prev_idx += set_size;
-          if (set_map_intersect( flag_buffer[sets_offset+i],
-                                 buff_iter, set_size, idMap )) {
-            long id = fileInfo->sets.start_id + offset + sets_offset + i;
-            hint = file_ids.insert( hint, id, id );
-          }
-          buff_iter += set_size;
+        H5Tconvert( content_type, H5T_NATIVE_LONG, content_count, content_buffer, 0, H5P_DEFAULT );
+        if (set_map_intersect( ranged[sets_offset],
+                               content_buffer, content_count, idMap )) {
+          long id = fileInfo->sets.start_id + sets_offset;
+          hint = file_ids.insert( hint, id, id );
+          break;
         }
+        content_remaining -= content_count;
+        content_offset += content_count;
       }
-    
-      sets_offset += sets_count;
-      sets_remaining -= sets_count;
+      prev_idx = offset_buffer[sets_offset];
+      sets_count = 1;
     }
-    
-    offset += count;
-    remaining -= count;
+    else if (long read_num = offset_buffer[sets_offset + sets_count - 1] - prev_idx) {
+      assert(sets_count > 0);
+      assert_range( content_buffer, read_num );
+      dbgOut.printf( 3, "Reading chunk %d of set contents table\n", ++mm);
+      mhdf_readSetDataWithOpt( contents_handle, prev_idx+1, read_num, 
+                               content_type, content_buffer, collIO, &status );
+      if (is_error(status))
+        return error(MB_FAILURE);
+      H5Tconvert( content_type, H5T_NATIVE_LONG, read_num, content_buffer, 0, H5P_DEFAULT );
+
+      long* buff_iter = content_buffer;
+      for (long i = 0; i < sets_count; ++i) {
+        long set_size = offset_buffer[i+sets_offset] - prev_idx;
+        prev_idx += set_size;
+        if (set_map_intersect( ranged[sets_offset+i],
+                               buff_iter, set_size, idMap )) {
+          long id = fileInfo->sets.start_id + sets_offset + i;
+          hint = file_ids.insert( hint, id, id );
+        }
+        buff_iter += set_size;
+      }
+    }
+
+    sets_offset += sets_count;
   }
   
   return MB_SUCCESS;

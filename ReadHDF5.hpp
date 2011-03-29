@@ -439,6 +439,8 @@ private:
   /** Find file IDs of sets containing any entities in the passed id_map */
   ErrorCode find_sets_containing( hid_t meta_handle,
                                   hid_t content_handle, 
+                                  hid_t meta_type,
+                                  hid_t content_type,
                                   long content_len,
                                   Range& file_ids );  
  
