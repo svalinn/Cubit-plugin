@@ -288,7 +288,7 @@ void ReadHDF5Dataset::null_read()
   if (err < 0)
     throw Exception(__LINE__);
   
-#if HDF5_16API
+//#if HDF5_16API
   hsize_t one = 1;
   hid_t mem_id = H5Screate_simple( 1, &one, NULL );
   if (mem_id < 0)
@@ -298,11 +298,11 @@ void ReadHDF5Dataset::null_read()
     H5Sclose(mem_id);
     throw Exception(__LINE__);
   }
-#else
-  hid_t mem_id = H5Screate(H5S_NULL);
-  if (mem_id < 0)
-    throw Exception(__LINE__);
-#endif
+//#else
+//  hid_t mem_id = H5Screate(H5S_NULL);
+//  if (mem_id < 0)
+//    throw Exception(__LINE__);
+//#endif
 
   err = H5Dread( dataSet, fileType, mem_id, dataSpace, ioProp, 0 );
   H5Sclose( mem_id );
