@@ -2064,10 +2064,12 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
   // First collectively read all meta data
   
   // use offset buffer as temporary storage to read set flags
-  mhdf_Status status;
-  const long num_sets = fileInfo->sets.count;
   const size_t meta_size = H5Tget_size( meta_type );
   const size_t content_size = H5Tget_size( content_type );
+  const long num_sets = fileInfo->sets.count;
+  dbgOut.printf( 2, "Searching contents of %ld sets (using buffer of size %ld)\n", 
+                    num_sets, num_sets * std::max( meta_size, sizeof(long) ) ); 
+  mhdf_Status status;
   std::vector<unsigned char> offset_mem( num_sets * std::max( meta_size, sizeof(long) ));
   long* const offset_buffer = reinterpret_cast<long*>(&offset_mem[0]);
   mhdf_readSetFlagsWithOpt( meta_handle, 0, num_sets, meta_type, offset_buffer, collIO, &status );
@@ -2094,21 +2096,21 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
   Range::iterator hint = file_ids.begin();
   long prev_idx = -1;
   int mm = 0;
-  dbgOut.printf( 3, "Searching set content\n" ); 
   long sets_offset = 0;
   while (sets_offset < num_sets) {
     long sets_count = std::lower_bound( offset_buffer + sets_offset, 
                                         offset_buffer + num_sets,
                                         content_len + prev_idx 
                                        ) - offset_buffer - sets_offset;
+    assert(sets_count >= 0 && sets_offset + sets_count <= num_sets);
     if (!sets_count) { // contents of single set don't fit in buffer
       long content_remaining = offset_buffer[sets_offset] - prev_idx;
       long content_offset = prev_idx+1;
       while (content_remaining) {
-        dbgOut.printf( 3, "Reading chunk %d of set contents table\n", ++mm);
         long content_count = content_len < content_remaining ?
                              2*(content_len/2) : content_remaining;
         assert_range( content_buffer, content_count );
+        dbgOut.printf( 3, "Reading chunk %d (%ld values) from set contents table\n", ++mm, content_count);
         mhdf_readSetDataWithOpt( contents_handle, content_offset,
                                  content_count, content_type, 
                                  content_buffer, collIO, &status );
@@ -2119,7 +2121,8 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
                                content_buffer, content_count, idMap )) {
           long id = fileInfo->sets.start_id + sets_offset;
           hint = file_ids.insert( hint, id, id );
-          break;
+          if (!nativeParallel) // don't stop if doing READ_PART because we need to read collectively
+            break;
         }
         content_remaining -= content_count;
         content_offset += content_count;
@@ -2130,7 +2133,7 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
     else if (long read_num = offset_buffer[sets_offset + sets_count - 1] - prev_idx) {
       assert(sets_count > 0);
       assert_range( content_buffer, read_num );
-      dbgOut.printf( 3, "Reading chunk %d of set contents table\n", ++mm);
+      dbgOut.printf( 3, "Reading chunk %d (%ld values) from set contents table\n", ++mm, read_num);
       mhdf_readSetDataWithOpt( contents_handle, prev_idx+1, read_num, 
                                content_type, content_buffer, collIO, &status );
       if (is_error(status))
