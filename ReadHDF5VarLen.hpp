@@ -28,8 +28,9 @@ class ReadHDF5Dataset;
  * must be implemented to create a concrete instance.
  */
 class ReadHDF5VarLen {
-  private:
+  protected:
     DebugOutput& dbgOut;
+  private:
     void* const dataBuffer;
     const size_t bufferSize;
     

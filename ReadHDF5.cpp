@@ -81,11 +81,23 @@ namespace moab {
 #define assert_range( PTR, CNT ) \
   assert( (PTR) >= (void*)dataBuffer ); assert( ((PTR)+(CNT)) <= (void*)(dataBuffer + bufferSize) );
 
+#define error(A) process_error(A,&dbgOut,__FILE__,__LINE__)
 
 // This function doesn't do anything useful.  It's just a nice
 // place to set a break point to determine why the reader fails.
-static inline ErrorCode error( ErrorCode rval )
-  { return rval; }
+//static inline ErrorCode process_error( ErrorCode rval )
+//  { return rval; }
+static inline ErrorCode process_error(ErrorCode code, DebugOutput* dbgOut, const char* file, int line)
+{
+  if (MB_SUCCESS != code) {
+    if (dbgOut)
+      dbgOut->printf(1,"Failure with error code %d at %s:%d\n", (int)code, file, line);
+#if defined(WITH_MPI) && !defined(NDEBUG)
+    MPI_Abort( MPI_COMM_WORLD ):
+#endif
+  }
+  return code;
+}
 
 // Call \c error function during HDF5 library errors to make
 // it easier to trap such errors in the debugger.  This function
@@ -99,7 +111,7 @@ static herr_t handle_hdf5_error( hid_t stack, void* data )
   herr_t result = 0;
   if (h->func)
     result = (*h->func)(stack,h->data);
-  error(MB_FAILURE);
+  process_error(MB_FAILURE,0,__FILE__,__LINE__);
   return result;
 }
 #else
@@ -547,7 +559,10 @@ ErrorCode ReadHDF5::load_file( const char* filename,
   if (rval == MB_SUCCESS && rval2 != MB_SUCCESS)
     rval = rval2;
   
-  dbgOut.tprint(1, "Read finished.\n");
+  if (MB_SUCCESS == rval)
+    dbgOut.tprint(1, "Read finished.\n");
+  else 
+    dbgOut.tprintf(1,"READ FAILED (ERROR CODE %d)\n", (int)rval);
   
   if (H5P_DEFAULT != collIO)
     H5Pclose( collIO );
@@ -3225,6 +3240,7 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
     }
   }
   catch (ReadHDF5Dataset::Exception) {
+    dbgOut.printf(1,"Internal error reading dense data for tag \"%s\"\n",tn.c_str());
     return error(MB_FAILURE);
   }
     
