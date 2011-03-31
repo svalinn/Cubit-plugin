@@ -91,7 +91,7 @@ static inline ErrorCode process_error(ErrorCode code, DebugOutput* dbgOut, const
 {
   if (MB_SUCCESS != code) {
     if (dbgOut)
-      dbgOut->printf(1,"Failure with error code %d at %s:%d\n", (int)code, file, line);
+      dbgOut->printf(1,"Failure with error code %s at %s:%d\n", ErrorCodeStr[code], file, line);
 #if defined(WITH_MPI) && !defined(NDEBUG)
     MPI_Abort( MPI_COMM_WORLD ):
 #endif
