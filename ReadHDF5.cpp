@@ -561,8 +561,11 @@ ErrorCode ReadHDF5::load_file( const char* filename,
   
   if (MB_SUCCESS == rval)
     dbgOut.tprint(1, "Read finished.\n");
-  else 
-    dbgOut.tprintf(1,"READ FAILED (ERROR CODE %d)\n", (int)rval);
+  else {
+    std::string msg;
+    iFace->get_last_error(msg);
+    dbgOut.tprintf(1,"READ FAILED (ERROR CODE %s): %s\n", ErrorCodeStr[rval], msg.c_str());
+  }
   
   if (H5P_DEFAULT != collIO)
     H5Pclose( collIO );
@@ -3236,10 +3239,8 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
 
       rval = iFace->tag_set_data( tag_handle, ents, dataBuffer );
       if (MB_SUCCESS != rval) {
-        std::string err;
-        iFace->get_last_error(err);
-        dbgOut.printf(1,"Internal error setting data for tag \"%s\": %s\n", tn.c_str(), err.c_str());
-        return error(MB_FAILURE);
+        dbgOut.printf(1,"Internal error setting data for tag \"%s\"\n", tn.c_str());
+        return error(rval);
       }
     }
   }
