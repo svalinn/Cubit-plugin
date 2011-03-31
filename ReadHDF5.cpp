@@ -3235,8 +3235,12 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
       h_ins = end;
 
       rval = iFace->tag_set_data( tag_handle, ents, dataBuffer );
-      if (MB_SUCCESS != rval)
+      if (MB_SUCCESS != rval) {
+        std::string err;
+        iFace->get_last_error(err);
+        dbgOut.printf(1,"Internal error setting data for tag \"%s\": %s\n", tn.c_str(), err.c_str());
         return error(MB_FAILURE);
+      }
     }
   }
   catch (ReadHDF5Dataset::Exception) {
