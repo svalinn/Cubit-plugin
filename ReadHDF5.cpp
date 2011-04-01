@@ -121,7 +121,7 @@ static herr_t handle_hdf5_error( void* data )
   herr_t result = 0;
   if (h->func)
     result = (*h->func)(h->data);
-  error(MB_FAILURE);
+  process_error(MB_FAILURE,0,__FILE__,__LINE__);
   return result;
 }
 #endif
@@ -920,7 +920,8 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   }
     
   debug_barrier();
-  dbgOut.tprintf( 1, "READING NODE COORDINATES (%lu nodes in %lu selects)\n", nodes.size(), nodes.psize() );
+  dbgOut.tprintf( 1, "READING NODE COORDINATES (%lu nodes in %lu selects)\n", 
+                     (unsigned long)nodes.size(), (unsigned long)nodes.psize() );
   
     // Read node coordinates and create vertices in MOAB
     // NOTE:  This populates the RangeMap with node file ids,
@@ -1422,7 +1423,8 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
   CHECK_OPEN_HANDLES;
 
   debug_barrier();
-  dbgOut.tprintf( 1, "READING %s CONNECTIVITY (%lu elems in %lu selects)\n", elems.handle, file_ids.size(), file_ids.psize() );
+  dbgOut.tprintf( 1, "READING %s CONNECTIVITY (%lu elems in %lu selects)\n", 
+                     elems.handle, (unsigned long)file_ids.size(), (unsigned long)file_ids.psize() );
 
   ErrorCode rval = MB_SUCCESS;
   mhdf_Status status;
@@ -1645,7 +1647,8 @@ ErrorCode ReadHDF5::read_elems( int i, const Range& elems_in, Range& nodes )
   CHECK_OPEN_HANDLES;
 
   debug_barrier();
-  dbgOut.tprintf( 1, "READING %s CONNECTIVITY (%lu elems in %lu selects)\n", fileInfo->elems[i].handle, elems_in.size(), elems_in.psize() );
+  dbgOut.tprintf( 1, "READING %s CONNECTIVITY (%lu elems in %lu selects)\n", fileInfo->elems[i].handle, 
+                     (unsigned long)elems_in.size(), (unsigned long)elems_in.psize() );
 
   EntityHandle* const buffer = reinterpret_cast<EntityHandle*>(dataBuffer);
   const int node_per_elem = fileInfo->elems[i].desc.vals_per_ent;
