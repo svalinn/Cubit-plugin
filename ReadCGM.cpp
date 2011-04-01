@@ -273,12 +273,12 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     }
     
     if (forward) {
-      rval = myGeomTool->set_sense( ci->second, entmap[3][forward], 1 );
+      rval = myGeomTool->set_sense( ci->second, entmap[3][forward], SENSE_FORWARD );
       if (MB_SUCCESS != rval)
         return rval;
     }
     if (reverse) {
-      rval = myGeomTool->set_sense( ci->second, entmap[3][reverse], -1 );
+      rval = myGeomTool->set_sense( ci->second, entmap[3][reverse], SENSE_REVERSE );
       if (MB_SUCCESS != rval)
         return rval;
     }
@@ -298,12 +298,12 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       if (ce->get_sense() == CUBIT_UNKNOWN || 
           ce->get_sense() != edge->get_curve_ptr()->bridge_sense()) {
         ents.push_back(face);
-        senses.push_back(-1);
+        senses.push_back(SENSE_REVERSE);
       }
       if (ce->get_sense() == CUBIT_UNKNOWN || 
           ce->get_sense() == edge->get_curve_ptr()->bridge_sense()) {
         ents.push_back(face);
-        senses.push_back(1);
+        senses.push_back(SENSE_FORWARD);
       }
     }
     
