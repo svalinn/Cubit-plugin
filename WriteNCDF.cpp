@@ -1909,7 +1909,7 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
 /* node coordinate arrays: */
 
-  int coord, name_coord, dims[2];
+  int coord, name_coord, dims[3];
   dims[0] = num_dim;
   dims[1] = num_nodes;
   if (NC_NOERR != nc_def_var(ncFile, "coord", NC_DOUBLE, 2, dims, &coord))
