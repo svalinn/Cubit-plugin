@@ -386,11 +386,13 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
     }
   }
   
-  if (tstep_nums.empty() && -1 != tMin)
-      // no timesteps input, get them all
+  if (tstep_nums.empty() && -1 != tMin) {
+    // no timesteps input, get them all
     for (int i = tMin; i <= tMax; i++) tstep_nums.push_back(i);
-    
-  
+    for (unsigned int i = 0; i < vdatas.size(); i++)
+      vdatas[i].varTags.resize(tstep_nums.size(), 0);      
+  }
+
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
