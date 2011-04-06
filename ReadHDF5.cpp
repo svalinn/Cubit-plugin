@@ -1704,6 +1704,7 @@ ErrorCode ReadHDF5::read_poly( const mhdf_ElemDesc& elems, const Range& file_ids
                : ReadHDF5VarLen( dbg, buffer, buffer_size ),
                  type(elem_type), readHDF5(owner) 
                {}
+    virtual ~PolyReader() {}
     ErrorCode store_data( EntityHandle file_id, void* data, long len, bool )
     {
       size_t valid;
@@ -2520,6 +2521,7 @@ ErrorCode ReadHDF5::read_children( const Range& set_file_ids,
                       readHDF5(moab),
                       startHandle(start_handle)
                     {}
+    virtual ~ReadSetChildren() {}
     ErrorCode store_data( EntityHandle file_id, void* data, long len, bool ) 
     {
       EntityHandle h = startHandle++;
@@ -2574,6 +2576,7 @@ ErrorCode ReadHDF5::read_parents( const Range& set_file_ids,
                       readHDF5(moab),
                       startHandle(start_handle)
                     {}
+    virtual ~ReadSetParents() {}
     ErrorCode store_data( EntityHandle file_id, void* data, long len, bool ) 
     {
       EntityHandle h = startHandle++;
@@ -2639,7 +2642,7 @@ ErrorCode ReadHDF5::get_set_contents( const Range& sets, Range& file_ids )
                     : ReadHDF5VarLen(dbg_out, buffer, buffer_size),
                       resultList(result_set) 
                     {}
-
+    virtual ~GetContentList() {}
     ErrorCode store_data( EntityHandle, void* data, long len, bool ranged ) 
     {
       EntityHandle* array = reinterpret_cast<EntityHandle*>(data);

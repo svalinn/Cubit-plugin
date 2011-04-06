@@ -74,6 +74,8 @@ class ReadHDF5VarLen {
         bufferSize( buffer_size )
     {}
     
+    virtual ~ReadHDF5VarLen() {}
+    
       /**\brief Do actual read of data set
        *\param data_set         The data set to read.  
        *\param file_ids         The file ids of the entities to read.
