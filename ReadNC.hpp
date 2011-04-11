@@ -31,12 +31,24 @@
 #  include "pnetcdf.h"
 #  define NCFUNC(func) ncmpi_ ## func
 #  define NCFUNCA(func) ncmpi_ ## func ## _all
+//#  define NCASYNCH
+#  ifdef NCASYNCH
+#    define NCREQ , req
+#    define NCFUNCAG(func) ncmpi_iget ## func 
+#    define NCWAIT
+#  else
+#    define NCREQ 
+#    define NCFUNCAG(func) ncmpi_get ## func ## _all
+#  endif
 #  define NCDF_SIZE MPI_Offset
 #  define NCDF_DIFF MPI_Offset
 #else
 #  include "netcdf.h"
+#define NCREQ
+#define NCGET get
 #  define NCFUNC(func) nc_ ## func
 #  define NCFUNCA(func) nc_ ## func
+#  define NCFUNCAG(func) nc_get ## func
 #  define NCDF_SIZE size_t
 #  define NCDF_DIFF ptrdiff_t
 #endif
@@ -113,6 +125,7 @@ private:
     std::string varName;
     bool read;
     std::vector<Tag> varTags;
+    std::vector<void*> varDatas;
   };
 
   ReadUtilIface* readMeshIface;
@@ -157,8 +170,10 @@ private:
                            std::vector<int> &tstep_nums, bool nomesh);
   
   ErrorCode read_variable(EntityHandle file_set,
-                          VarData &var_data, int tstep_num);
+                          VarData &var_data, int tstep_num, int *req);
   
+  ErrorCode convert_variable(EntityHandle file_set, VarData &var_data, int tstep_num);
+    
   ErrorCode get_tag(VarData &var_data, int tstep_num, Tag &tagh);
   
 //------------member variables ------------//

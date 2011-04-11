@@ -314,9 +314,6 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   rval = scdi->create_scd_sequence(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
                                    HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
                                    (-1 != klMin ? MBHEX : MBQUAD), 0, elem_box);
-  mbImpl->release_interface(scdi);
-  ERRORR(rval, "Trouble creating scd element sequence.");
-  
     // add vertex seq to element seq, forward orientation, unity transform
   rval = elem_box->add_vbox(scd_box,
                               // p1: imin,jmin
@@ -351,6 +348,9 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
     rval = mbImpl->list_entities(&connect[0], connect.size());
     ERRORR(rval, "Trouble listing element connectivity.");
   }
+  
+  mbImpl->release_interface(scdi);
+  ERRORR(rval, "Trouble creating scd element sequence.");
   
   return MB_SUCCESS;
 }
@@ -389,18 +389,35 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   if (tstep_nums.empty() && -1 != tMin) {
     // no timesteps input, get them all
     for (int i = tMin; i <= tMax; i++) tstep_nums.push_back(i);
-    for (unsigned int i = 0; i < vdatas.size(); i++)
+    for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);      
+      vdatas[i].varDatas.resize(tstep_nums.size());
+    }
   }
 
+  std::vector<int> requests(vdatas.size()*tstep_nums.size()), statuss(vdatas.size()*tstep_nums.size());
+  int j = 0;
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = read_variable(file_set, vdatas[i], tstep_nums[t]);
+      ErrorCode tmp_rval = read_variable(file_set, vdatas[i], tstep_nums[t], &requests[j]);
+      j++;
       if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
     }
   }
 
+#ifdef NCWAIT
+  int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
+  ERRORS(success, "Failed on wait_all.");
+#endif
+
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+      ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], tstep_nums[t]);
+      if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+    }
+  }
     // debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
@@ -413,7 +430,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
 }
 
 ErrorCode ReadNC::read_variable(EntityHandle file_set,
-                                VarData &var_data, int tstep_num) 
+                                VarData &var_data, int tstep_num, int *req) 
 {
     // get the tag to read into
   ErrorCode rval;
@@ -474,41 +491,73 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
   rval = mbImpl->tag_iterate(var_data.varTags[tstep_num], verts.begin(), verts.end(), count, data);
   ERRORR(rval, "Failed to get tag iterator.");
   assert((unsigned)count == verts.size());
+  var_data.varDatas[tstep_num] = data;
   
     // finally, read into that space
-  int success, *idata;
-  double *ddata;
-  float *fdata;
-  short *sdata;
-  
+  int success;
+
   switch (var_data.varDataType) {
     case NC_BYTE:
     case NC_CHAR:
-        success = NCFUNCA(get_vara_text)(fileId, var_data.varId, &dims[0], &counts[0], (char*)data);
+        success = NCFUNCAG(_vara_text)(fileId, var_data.varId, &dims[0], &counts[0], (char*)data NCREQ);
         ERRORS(success, "Failed to read char data.");
         break;
     case NC_DOUBLE:
-        success = NCFUNCA(get_vara_double)(fileId, var_data.varId, &dims[0], &counts[0], (double*)data);
+        success = NCFUNCAG(_vara_double)(fileId, var_data.varId, &dims[0], &counts[0], (double*)data NCREQ);
         ERRORS(success, "Failed to read double data.");
         break;
     case NC_FLOAT:
-        success = NCFUNCA(get_vara_float)(fileId, var_data.varId, &dims[0], &counts[0], (float*)data);
+        success = NCFUNCAG(_vara_float)(fileId, var_data.varId, &dims[0], &counts[0], (float*)data NCREQ);
         ERRORS(success, "Failed to read float data.");
-        ddata = (double*)data;
-        fdata = (float*)data;
+        break;
+    case NC_INT:
+        success = NCFUNCAG(_vara_int)(fileId, var_data.varId, &dims[0], &counts[0], (int*)data NCREQ);
+        ERRORS(success, "Failed to read int data.");
+        break;
+    case NC_SHORT:
+        success = NCFUNCAG(_vara_short)(fileId, var_data.varId, &dims[0], &counts[0], (short*)data NCREQ);
+        ERRORS(success, "Failed to read short data.");
+        break;
+    default:
+        success = 1;
+  }
+
+  if (success) ERRORR(MB_FAILURE, "Trouble reading variable.");
+
+  return rval;
+}
+    
+ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int tstep_num) 
+{
+  ErrorCode rval;
+
+    // get vertices in set
+  Range verts;
+  rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
+  ERRORR(rval, "Trouble getting vertices in set.");
+  assert("Should only have a single vertex subrange, since they were read in one shot" &&
+         verts.psize() == 1);
+  
+    // get ptr to tag space
+  void *data = var_data.varDatas[tstep_num];
+  
+    // finally, read into that space
+  int success = 0, *idata;
+  double *ddata;
+  float *fdata;
+  short *sdata;
+
+  switch (var_data.varDataType) {
+    case NC_FLOAT:
+        ddata = (double*)var_data.varDatas[tstep_num];
+        fdata = (float*)var_data.varDatas[tstep_num];
           // convert in-place
         for (int i = verts.size()-1; i >= 0; i--) 
           ddata[i] = fdata[i];
         break;
-    case NC_INT:
-        success = NCFUNCA(get_vara_int)(fileId, var_data.varId, &dims[0], &counts[0], (int*)data);
-        ERRORS(success, "Failed to read int data.");
-        break;
     case NC_SHORT:
-        success = NCFUNCA(get_vara_short)(fileId, var_data.varId, &dims[0], &counts[0], (short*)data);
-        ERRORS(success, "Failed to read short data.");
-        idata = (int*)data;
-        sdata = (short*)data;
+        idata = (int*)var_data.varDatas[tstep_num];
+        sdata = (short*)var_data.varDatas[tstep_num];
           // convert in-place
         for (int i = verts.size()-1; i >= 0; i--) 
           idata[i] = sdata[i];
@@ -516,7 +565,7 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
     default:
         success = 1;
   }
-  
+
   if (2 <= dbgOut.get_verbosity() && !success) {
     double dmin, dmax;
     int imin, imax;
@@ -551,8 +600,6 @@ ErrorCode ReadNC::read_variable(EntityHandle file_set,
           break;
     }
   }
-
-  if (success) ERRORR(MB_FAILURE, "Trouble reading variable.");
 
   return rval;
 }
@@ -650,7 +697,7 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
       // partition *the elements* over the parametric space; 1d partition for now, in the k parameter 
       // (or j if there isn't one)
 
-    if (-1 != ilMin && (iMax - iMin) > myPcomm->proc_config().proc_size()) {
+    if (-1 != ilMin && (iMax - iMin) > (int)myPcomm->proc_config().proc_size()) {
       int di = (iMax - iMin) / myPcomm->proc_config().proc_size();
       unsigned int extra = (iMax - iMin) % myPcomm->proc_config().proc_size();
       ilMin = iMin + myPcomm->proc_config().proc_rank()*di + 
@@ -660,7 +707,7 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
       klMin = kMin; klMax = kMax;
       jlMin = jMin; jlMax = jMax;
     }
-    else if (-1 != jlMin && (jMax - jMin) > myPcomm->proc_config().proc_size()) {
+    else if (-1 != jlMin && (jMax - jMin) > (int)myPcomm->proc_config().proc_size()) {
       int dj = (jMax - jMin) / myPcomm->proc_config().proc_size();
       unsigned int extra = (jMax - jMin) % myPcomm->proc_config().proc_size();
       jlMin = jMin + myPcomm->proc_config().proc_rank()*dj + 
@@ -670,7 +717,7 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
       klMin = kMin; klMax = kMax;
       ilMin = iMin; ilMax = iMax;
     }
-    else if (-1 != klMin && (kMax - kMin) > myPcomm->proc_config().proc_size()) {
+    else if (-1 != klMin && (kMax - kMin) > (int)myPcomm->proc_config().proc_size()) {
       int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
       unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
       klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
