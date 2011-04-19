@@ -33,7 +33,7 @@
 #  define NCFUNCA(func) ncmpi_ ## func ## _all
 //#  define NCASYNCH
 #  ifdef NCASYNCH
-#    define NCREQ , req
+#    define NCREQ , &requests[j]
 #    define NCFUNCAG(func) ncmpi_iget ## func 
 #    define NCWAIT
 #  else
@@ -126,6 +126,7 @@ private:
     bool read;
     std::vector<Tag> varTags;
     std::vector<void*> varDatas;
+    std::vector<std::vector<NCDF_SIZE> > readDims, readCounts;
   };
 
   ReadUtilIface* readMeshIface;
@@ -150,6 +151,12 @@ private:
     //! parse min/max i/j/k in options, if any
   ErrorCode init_ijkt_vals(const FileOptions &opts);
 
+  ErrorCode compute_partition_1(int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                int &klMin, int &klMax);
+  
+  ErrorCode compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                int &klMin, int &klMax);
+  
   ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
                             std::vector<double> &cvals);
   
@@ -169,8 +176,13 @@ private:
   ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
                            std::vector<int> &tstep_nums, bool nomesh);
   
-  ErrorCode read_variable(EntityHandle file_set,
-                          VarData &var_data, int tstep_num, int *req);
+  ErrorCode read_variable_allocate(std::vector<VarData> &vdatas,
+                                   std::vector<int> &tstep_nums, 
+                                   Range &verts);
+  
+  ErrorCode read_variable_setup(std::vector<std::string> &var_names,
+                                std::vector<int> &tstep_nums, 
+                                std::vector<VarData> &vdatas);
   
   ErrorCode convert_variable(EntityHandle file_set, VarData &var_data, int tstep_num);
     

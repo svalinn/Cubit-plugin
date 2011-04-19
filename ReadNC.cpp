@@ -355,13 +355,12 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
-                                 std::vector<int> &tstep_nums, bool nomesh) 
+ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names,
+                                      std::vector<int> &tstep_nums, 
+                                      std::vector<VarData> &vdatas) 
 {
-  std::vector<VarData> vdatas;
+      
   std::map<std::string,VarData>::iterator mit;
-  ErrorCode rval = MB_SUCCESS;
-  
   if (var_names.empty()) {
     for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
       VarData vd = (*mit).second;
@@ -392,17 +391,140 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
     for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);      
       vdatas[i].varDatas.resize(tstep_nums.size());
+      vdatas[i].readDims.resize(tstep_nums.size());
+      vdatas[i].readCounts.resize(tstep_nums.size());
     }
   }
 
-  std::vector<int> requests(vdatas.size()*tstep_nums.size()), statuss(vdatas.size()*tstep_nums.size());
-  int j = 0;
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
+                                         std::vector<int> &tstep_nums, 
+                                         Range &verts) 
+{
+  ErrorCode rval = MB_SUCCESS;
+  
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = read_variable(file_set, vdatas[i], tstep_nums[t], &requests[j]);
-      j++;
-      if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+
+        // get the tag to read into
+      if (!vdatas[i].varTags[t]) {
+        rval = get_tag(vdatas[i], t, vdatas[i].varTags[t]);
+        ERRORR(rval, "Trouble getting tag.");
+      }
+  
+        // assume point-based values for now?
+      if (-1 == tDim || dimVals[tDim] <= (int)t || t < 0) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
+      }
+      else if (vdatas[i].varDims[0] != tDim) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Non-default timestep number given for time-independent variable.");
+      }
+  
+        // set up the dimensions and counts
+        // first time
+      vdatas[i].readDims[t].push_back(t);
+      vdatas[i].readCounts[t].push_back(1);
+
+        // then z/y/x
+      bool have_k = false;
+      if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), kDim) != vdatas[i].varDims.end()) {
+        vdatas[i].readDims[t].push_back(klMin); 
+        vdatas[i].readCounts[t].push_back(klMax - klMin + 1);
+        have_k = true;
+      }
+    
+      bool have_ij = true;
+#ifdef PNETCDF_FILE
+        // whether we actually read anything depends on parallel and whether there's a k
+      if (!have_k && -1 != kDim && 0 != myPcomm->proc_config().proc_rank())
+        have_ij = false;
+#endif    
+
+      vdatas[i].readDims[t].push_back(jlMin);
+      vdatas[i].readDims[t].push_back(ilMin);
+      vdatas[i].readCounts[t].push_back(have_ij ? jlMax-jlMin+1 : 0);
+      vdatas[i].readCounts[t].push_back(have_ij ? ilMax-ilMin+1 : 0);
+
+      assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+  
+        // get ptr to tag space
+      void *data;
+      int count;
+      rval = mbImpl->tag_iterate(vdatas[i].varTags[t], verts.begin(), verts.end(), count, data);
+      ERRORR(rval, "Failed to get tag iterator.");
+      assert((unsigned)count == verts.size());
+      vdatas[i].varDatas[t] = data;
+    }
+  }
+
+  return rval;
+}
+
+ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
+                                 std::vector<int> &tstep_nums, bool nomesh) 
+{
+  std::vector<VarData> vdatas;
+  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas);
+  ERRORR(rval, "Trouble setting up read variable.");
+  
+    // get vertices in set
+  Range verts;
+  rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
+  ERRORR(rval, "Trouble getting vertices in set.");
+  assert("Should only have a single vertex subrange, since they were read in one shot" &&
+         verts.psize() == 1);
+
+  rval = read_variable_allocate(vdatas, tstep_nums, verts);
+  ERRORR(rval, "Trouble allocating read variables.");
+  
+  
+    // finally, read into that space
+  int success;
+  std::vector<int> requests(vdatas.size()*tstep_nums.size()), statuss(vdatas.size()*tstep_nums.size());
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      void *data = vdatas[i].varDatas[t];
+      
+      switch (vdatas[i].varDataType) {
+        case NC_BYTE:
+        case NC_CHAR:
+            success = NCFUNCAG(_vara_text)(fileId, vdatas[i].varId, 
+                                           &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
+                                           (char*)data NCREQ);
+            ERRORS(success, "Failed to read char data.");
+            break;
+        case NC_DOUBLE:
+            success = NCFUNCAG(_vara_double)(fileId, vdatas[i].varId, 
+                                             &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
+                                             (double*)data NCREQ);
+            ERRORS(success, "Failed to read double data.");
+            break;
+        case NC_FLOAT:
+            success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId, 
+                                            &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
+                                            (float*)data NCREQ);
+            ERRORS(success, "Failed to read float data.");
+            break;
+        case NC_INT:
+            success = NCFUNCAG(_vara_int)(fileId, vdatas[i].varId, 
+                                          &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
+                                          (int*)data NCREQ);
+            ERRORS(success, "Failed to read int data.");
+            break;
+        case NC_SHORT:
+            success = NCFUNCAG(_vara_short)(fileId, vdatas[i].varId, 
+                                            &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
+                                            (short*)data NCREQ);
+            ERRORS(success, "Failed to read short data.");
+            break;
+        default:
+            success = 1;
+      }
+
+      if (success) ERRORR(MB_FAILURE, "Trouble reading variable.");
     }
   }
 
@@ -429,104 +551,6 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   return rval;
 }
 
-ErrorCode ReadNC::read_variable(EntityHandle file_set,
-                                VarData &var_data, int tstep_num, int *req) 
-{
-    // get the tag to read into
-  ErrorCode rval;
-  if (!var_data.varTags[tstep_num]) {
-    rval = get_tag(var_data, tstep_num, var_data.varTags[tstep_num]);
-    ERRORR(rval, "Trouble getting tag.");
-  }
-  
-    // assume point-based values for now?
-  if (-1 != tstep_num) {
-    if (-1 == tDim || dimVals[tDim] <= tstep_num || tstep_num < 0) {
-      ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
-    }
-    else if (var_data.varDims[0] != tDim) {
-      ERRORR(MB_INDEX_OUT_OF_RANGE, "Non-default timestep number given for time-independent variable.");
-    }
-  }
-  
-    // set up the dimensions and counts
-  std::vector<NCDF_SIZE> dims, counts;
-    // first time
-  if (-1 != tstep_num) {
-    dims.push_back(tstep_num);
-    counts.push_back(1);
-  }
-    // then z/y/x
-  bool have_k = false;
-  if (std::find(var_data.varDims.begin(), var_data.varDims.end(), kDim) != var_data.varDims.end()) {
-    dims.push_back(klMin); 
-    counts.push_back(klMax - klMin + 1);
-    have_k = true;
-  }
-    
-  bool have_ij = true;
-#ifdef PNETCDF_FILE
-    // whether we actually read anything depends on parallel and whether there's a k
-  if (!have_k && -1 != kDim && 0 != myPcomm->proc_config().proc_rank())
-    have_ij = false;
-#endif    
-
-  dims.push_back(jlMin);
-  dims.push_back(ilMin);
-  counts.push_back(have_ij ? jlMax-jlMin+1 : 0);
-  counts.push_back(have_ij ? ilMax-ilMin+1 : 0);
-
-  assert(dims.size() == var_data.varDims.size());
-  
-    // get vertices in set
-  Range verts;
-  rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
-  ERRORR(rval, "Trouble getting vertices in set.");
-  assert("Should only have a single vertex subrange, since they were read in one shot" &&
-         verts.psize() == 1);
-  
-    // get ptr to tag space
-  void *data;
-  int count;
-  rval = mbImpl->tag_iterate(var_data.varTags[tstep_num], verts.begin(), verts.end(), count, data);
-  ERRORR(rval, "Failed to get tag iterator.");
-  assert((unsigned)count == verts.size());
-  var_data.varDatas[tstep_num] = data;
-  
-    // finally, read into that space
-  int success;
-
-  switch (var_data.varDataType) {
-    case NC_BYTE:
-    case NC_CHAR:
-        success = NCFUNCAG(_vara_text)(fileId, var_data.varId, &dims[0], &counts[0], (char*)data NCREQ);
-        ERRORS(success, "Failed to read char data.");
-        break;
-    case NC_DOUBLE:
-        success = NCFUNCAG(_vara_double)(fileId, var_data.varId, &dims[0], &counts[0], (double*)data NCREQ);
-        ERRORS(success, "Failed to read double data.");
-        break;
-    case NC_FLOAT:
-        success = NCFUNCAG(_vara_float)(fileId, var_data.varId, &dims[0], &counts[0], (float*)data NCREQ);
-        ERRORS(success, "Failed to read float data.");
-        break;
-    case NC_INT:
-        success = NCFUNCAG(_vara_int)(fileId, var_data.varId, &dims[0], &counts[0], (int*)data NCREQ);
-        ERRORS(success, "Failed to read int data.");
-        break;
-    case NC_SHORT:
-        success = NCFUNCAG(_vara_short)(fileId, var_data.varId, &dims[0], &counts[0], (short*)data NCREQ);
-        ERRORS(success, "Failed to read short data.");
-        break;
-    default:
-        success = 1;
-  }
-
-  if (success) ERRORR(MB_FAILURE, "Trouble reading variable.");
-
-  return rval;
-}
-    
 ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int tstep_num) 
 {
   ErrorCode rval;
@@ -692,43 +716,14 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   klMin = kMin; klMax = kMax;
   
     // parse options to get subset
+  ErrorCode rval;
 #ifdef USE_MPI
   if (isParallel) {
-      // partition *the elements* over the parametric space; 1d partition for now, in the k parameter 
-      // (or j if there isn't one)
-
-    if (-1 != ilMin && (iMax - iMin) > (int)myPcomm->proc_config().proc_size()) {
-      int di = (iMax - iMin) / myPcomm->proc_config().proc_size();
-      unsigned int extra = (iMax - iMin) % myPcomm->proc_config().proc_size();
-      ilMin = iMin + myPcomm->proc_config().proc_rank()*di + 
-          std::min(myPcomm->proc_config().proc_rank(), extra);
-      ilMax = ilMin + di + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
-
-      klMin = kMin; klMax = kMax;
-      jlMin = jMin; jlMax = jMax;
-    }
-    else if (-1 != jlMin && (jMax - jMin) > (int)myPcomm->proc_config().proc_size()) {
-      int dj = (jMax - jMin) / myPcomm->proc_config().proc_size();
-      unsigned int extra = (jMax - jMin) % myPcomm->proc_config().proc_size();
-      jlMin = jMin + myPcomm->proc_config().proc_rank()*dj + 
-          std::min(myPcomm->proc_config().proc_rank(), extra);
-      jlMax = jlMin + dj + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
-
-      klMin = kMin; klMax = kMax;
-      ilMin = iMin; ilMax = iMax;
-    }
-    else if (-1 != klMin && (kMax - kMin) > (int)myPcomm->proc_config().proc_size()) {
-      int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
-      unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
-      klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
-          std::min(myPcomm->proc_config().proc_rank(), extra);
-      klMax = klMin + dk + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
-
-      jlMin = jMin; jlMax = jMax;
-      ilMin = iMin; ilMax = iMax;
-    }
-    else
-      ERRORR(MB_FAILURE, "Couldn't find a suitable partition.");
+    rval = compute_partition_1(ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+    ERRORR(rval, "Failed to compute partition.");
+    
+//    rval = compute_partition_2(ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+//    ERRORR(rval, "Failed to compute partition.");
   }
 #endif
     
@@ -751,7 +746,6 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
 
     // ... then read actual values
   std::map<std::string,VarData>::iterator vmit;
-  ErrorCode rval;
   if (ilMin != -1) {
     if ((vmit = varInfo.find(iName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       rval = read_coordinate(iName.c_str(), ilMin, ilMax, ilVals);
@@ -798,7 +792,107 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   
   return MB_SUCCESS;
 }
-    
+
+ErrorCode ReadNC::compute_partition_1(int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                      int &klMin, int &klMax) 
+{
+    // partition *the elements* over the parametric space; 1d partition for now, in the j, k, or i
+    // parameters
+#ifdef USE_MPI
+  if (-1 != jlMin && (jMax - jMin) > (int)myPcomm->proc_config().proc_size()) {
+    int dj = (jMax - jMin) / myPcomm->proc_config().proc_size();
+    unsigned int extra = (jMax - jMin) % myPcomm->proc_config().proc_size();
+    jlMin = jMin + myPcomm->proc_config().proc_rank()*dj + 
+        std::min(myPcomm->proc_config().proc_rank(), extra);
+    jlMax = jlMin + dj + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+
+    klMin = kMin; klMax = kMax;
+    ilMin = iMin; ilMax = iMax;
+  }
+  else if (-1 != klMin && (kMax - kMin) > (int)myPcomm->proc_config().proc_size()) {
+    int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
+    unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
+    klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
+        std::min(myPcomm->proc_config().proc_rank(), extra);
+    klMax = klMin + dk + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+
+    jlMin = jMin; jlMax = jMax;
+    ilMin = iMin; ilMax = iMax;
+  }
+  else if (-1 != ilMin && (iMax - iMin) > (int)myPcomm->proc_config().proc_size()) {
+    int di = (iMax - iMin) / myPcomm->proc_config().proc_size();
+    unsigned int extra = (iMax - iMin) % myPcomm->proc_config().proc_size();
+    ilMin = iMin + myPcomm->proc_config().proc_rank()*di + 
+        std::min(myPcomm->proc_config().proc_rank(), extra);
+    ilMax = ilMin + di + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+
+    klMin = kMin; klMax = kMax;
+    jlMin = jMin; jlMax = jMax;
+  }
+  else
+    ERRORR(MB_FAILURE, "Couldn't find a suitable partition.");
+#else
+  ilMin = iMin;
+  ilMax = iMax;
+  jlMin = jMin;
+  jlMax = jMax;
+  klMin = kMin;
+  klMax = kMax;
+#endif
+  
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                      int &klMin, int &klMax) 
+{
+    // improved, possibly 2-d partition
+#ifdef USE_MPI
+  int np = myPcomm->proc_config().proc_size();
+  int nr = myPcomm->proc_config().proc_rank();
+#else
+  int np = 1;
+  int nr = 0;
+#endif  
+
+  std::vector<double> kfactors;
+  kfactors.push_back(1);
+  int K = kMax - kMin;
+  for (int i = 2; i < 25; i++) 
+    if (!(K%i) && !(np%i)) kfactors.push_back(i);
+  kfactors.push_back(K);
+  
+    // compute the ideal nj and nk
+  int J = jMax - jMin;
+  double njideal = sqrt(((double)(np*J))/((double)K));
+  double nkideal = (njideal*K)/J;
+  
+  int nk, nj;
+  if (nkideal < 1.0) {
+    nk = 1;
+    nj = np;
+  }
+  else {
+    std::vector<double>::iterator vit = std::lower_bound(kfactors.begin(), kfactors.end(), nkideal);
+    if (vit == kfactors.begin()) nk = 1;
+    else nk = *(--vit);
+    nj = np / nk;
+  }
+
+  int dk = K / nk;
+  int dj = J / nj;
+  
+  klMin = (nr % nk) * dk;
+  klMax = klMin + dk;
+  
+  int extra = (np / nk) % nj;
+  
+  jlMin = (nr / nk) * dj + std::min(nr / nk, extra);
+  jlMax = jlMin + dj + (nr / nk < extra ? 1 : 0);
+  
+  return MB_SUCCESS;
+}
+
 ErrorCode ReadNC::read_coordinate(const char *var_name, int lmin, int lmax,
                                   std::vector<double> &cvals) 
 {
