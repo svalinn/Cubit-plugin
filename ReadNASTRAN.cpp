@@ -66,7 +66,7 @@ ErrorCode ReadNASTRAN::read_tag_values( const char*        /*file_name*/,
 // load the file as called by the Interface function
 ErrorCode ReadNASTRAN::load_file(const char                      *filename, 
                                    const EntityHandle            *, 
-                                   const FileOptions             &options,
+                                   const FileOptions             &,
                                    const ReaderIface::SubsetList *subset_list,
                                    const Tag*                     file_id_tag) {
   // at this time there is no support for reading a subset of the file

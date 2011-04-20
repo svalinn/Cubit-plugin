@@ -56,11 +56,11 @@ const int TIME_STR_LEN = 11;
 
 #define GET_DIM(ncdim, name, val)\
     {                            \
-    int fail = nc_inq_dimid(ncFile, name, &ncdim);          \
-    if (NC_NOERR == fail) {                                             \
+    int gdfail = nc_inq_dimid(ncFile, name, &ncdim);          \
+    if (NC_NOERR == gdfail) {                                             \
       size_t tmp_val;                                                   \
-      fail = nc_inq_dimlen(ncFile, ncdim, &tmp_val);                        \
-      if (NC_NOERR != fail) {                                           \
+      gdfail = nc_inq_dimlen(ncFile, ncdim, &tmp_val);                        \
+      if (NC_NOERR != gdfail) {                                           \
         readMeshIface->report_error("ReadNCDF:: couldn't get dimension length."); \
         return MB_FAILURE;                                              \
       }                                                                 \
@@ -74,13 +74,13 @@ const int TIME_STR_LEN = 11;
 #define GET_VAR(name, id, dims) \
     {                           \
     id = -1;\
-    int fail = nc_inq_varid(ncFile, name, &id);   \
-    if (NC_NOERR == fail) {       \
+    int gvfail = nc_inq_varid(ncFile, name, &id);   \
+    if (NC_NOERR == gvfail) {       \
     int ndims;\
-    fail = nc_inq_varndims(ncFile, id, &ndims);\
-    if (NC_NOERR == fail) {\
+    gvfail = nc_inq_varndims(ncFile, id, &ndims);\
+    if (NC_NOERR == gvfail) {\
     dims.resize(ndims);    \
-    fail = nc_inq_vardimid(ncFile, id, &dims[0]);}}}
+    gvfail = nc_inq_vardimid(ncFile, id, &dims[0]);}}}
     
 WriterIface* WriteNCDF::factory( Interface* iface )
   { return new WriteNCDF( iface ); }
@@ -1041,7 +1041,7 @@ ErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_dat
     exodus_id += num_elem;
 
     char wname[80];
-    INS_ID(wname, "connect%d", i+1);
+    INS_ID(wname, "connect%u", i+1);
     std::vector<int> dims;
     int nc_var = -1;
     GET_VAR(wname, nc_var, dims);

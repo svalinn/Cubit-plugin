@@ -340,7 +340,7 @@ ErrorCode ReadIDEAS::create_elements(EntityHandle vstart,
     }
   }
   
-  return MB_FAILURE;
+    //return MB_FAILURE;
 }
 
 } // namespace moab

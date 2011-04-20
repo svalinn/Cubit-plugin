@@ -167,7 +167,7 @@ static const char* string_tag_value( const void* value,
         offset += sprintf( offset, "(more than 8 bits)" );
       else {
         for (i = size - 1; i >= 0; --i)
-          *(offset++) = *data & (1<<i) ? '1' : '0';
+          *(offset++) = (char)(*data & (1<<i) ? '1' : '0');
         *offset = '\0';
       }
       break;

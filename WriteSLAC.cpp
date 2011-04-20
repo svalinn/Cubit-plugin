@@ -55,13 +55,13 @@ namespace moab {
 #define GET_VAR(name, id, dims) \
     {                           \
     id = -1;\
-    int fail = nc_inq_varid(ncFile, name, &id);   \
-    if (NC_NOERR == fail) {       \
+    int gvfail = nc_inq_varid(ncFile, name, &id);   \
+    if (NC_NOERR == gvfail) {       \
     int ndims;\
-    fail = nc_inq_varndims(ncFile, id, &ndims);\
-    if (NC_NOERR == fail) {\
+    gvfail = nc_inq_varndims(ncFile, id, &ndims);\
+    if (NC_NOERR == gvfail) {\
     dims.resize(ndims);    \
-    fail = nc_inq_vardimid(ncFile, id, &dims[0]);}}}
+    gvfail = nc_inq_vardimid(ncFile, id, &dims[0]);}}}
     
 WriterIface* WriteSLAC::factory( Interface* iface )
   { return new WriteSLAC( iface ); }
@@ -791,7 +791,7 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
     if (-1 == hex_conn) return MB_FAILURE;
 
     connect.reserve(15);
-    int elem_num = 0;
+    elem_num = 0;
 
       // write the elements
     for (rit = mesh_info.bdy_hexes.begin(); rit != mesh_info.bdy_hexes.end(); rit++) {
@@ -842,7 +842,7 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
     if (-1 == tet_conn) return MB_FAILURE;
 
     connect.reserve(9);
-    int elem_num = 0;
+    elem_num = 0;
 
       // write the elements
     for (rit = mesh_info.bdy_tets.begin(); rit != mesh_info.bdy_tets.end(); rit++) {

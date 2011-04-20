@@ -229,15 +229,15 @@ ErrorCode WriteSTL::get_triangle_data( const double coords[9],
                                          float n[3] )
 {
   float e1[3], e2[3];
-  v1[0] = coords[0];
-  v1[1] = coords[1];
-  v1[2] = coords[2];
-  v2[0] = coords[3];
-  v2[1] = coords[4];
-  v2[2] = coords[5];
-  v3[0] = coords[6];
-  v3[1] = coords[7];
-  v3[2] = coords[8];
+  v1[0] = (float)coords[0];
+  v1[1] = (float)coords[1];
+  v1[2] = (float)coords[2];
+  v2[0] = (float)coords[3];
+  v2[1] = (float)coords[4];
+  v2[2] = (float)coords[5];
+  v3[0] = (float)coords[6];
+  v3[1] = (float)coords[7];
+  v3[2] = (float)coords[8];
   e1[0] = v2[0] - v1[0];
   e1[1] = v2[1] - v1[1];
   e1[2] = v2[2] - v1[2];
@@ -247,7 +247,7 @@ ErrorCode WriteSTL::get_triangle_data( const double coords[9],
   n[0] = e1[1]*e2[2] - e1[2]*e2[1];
   n[1] = e1[2]*e2[0] - e1[0]*e2[2];
   n[2] = e1[0]*e2[1] - e1[1]*e2[0];
-  float inv_len = 1.0f / sqrt( n[0]*n[0] + n[1]*n[1] + n[2]*n[2] );
+  float inv_len = 1.0f / (float)sqrt( n[0]*n[0] + n[1]*n[1] + n[2]*n[2] );
   n[0] *= inv_len;
   n[1] *= inv_len;
   n[2] *= inv_len;

@@ -644,9 +644,11 @@ ErrorCode WriteTEMPLATE::initialize_file(MeshInfo &mesh_info)
   int coord_size, ncoords;
   
   coord_size = mesh_info.num_dim;
+  std::cout << "Coord_size = " << coord_size << std::endl;  
     /* template - write coord size */
 
   ncoords = mesh_info.num_nodes;
+  std::cout << "ncoords = " << ncoords << std::endl;
     /* template - write num nodes*/
   
     /* template - write information on the element types & numbers (depends

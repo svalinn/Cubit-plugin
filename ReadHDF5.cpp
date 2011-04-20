@@ -2075,7 +2075,7 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
                                           hid_t contents_handle, 
                                           hid_t meta_type,
                                           hid_t content_type,
-                                          long contents_len,
+                                          long /*contents_len*/,
                                           Range& file_ids )
 {
 
@@ -2454,7 +2454,11 @@ ErrorCode ReadHDF5::read_contents( const Range& set_file_ids,
                        readHDF5(moab),
                        startHandle(start_handle)
                     {}
-    ErrorCode store_data( EntityHandle file_id, void* data, long len, bool ranged ) 
+    ErrorCode store_data( EntityHandle 
+#ifndef NDEBUG
+                          file_id
+#endif
+                          , void* data, long len, bool ranged ) 
     {
       EntityHandle h = startHandle++;
 #ifndef NDEBUG
@@ -2522,7 +2526,11 @@ ErrorCode ReadHDF5::read_children( const Range& set_file_ids,
                       startHandle(start_handle)
                     {}
     virtual ~ReadSetChildren() {}
-    ErrorCode store_data( EntityHandle file_id, void* data, long len, bool ) 
+    ErrorCode store_data( EntityHandle 
+#ifndef NDEBUG
+                          file_id
+#endif
+                          , void* data, long len, bool ) 
     {
       EntityHandle h = startHandle++;
 #ifndef NDEBUG
@@ -2577,7 +2585,11 @@ ErrorCode ReadHDF5::read_parents( const Range& set_file_ids,
                       startHandle(start_handle)
                     {}
     virtual ~ReadSetParents() {}
-    ErrorCode store_data( EntityHandle file_id, void* data, long len, bool ) 
+    ErrorCode store_data( EntityHandle 
+#ifndef NDEBUG
+                          file_id
+#endif
+                          , void* data, long len, bool ) 
     {
       EntityHandle h = startHandle++;
 #ifndef NDEBUG

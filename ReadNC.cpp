@@ -24,8 +24,6 @@
     
 namespace moab {
 
-static inline bool strempty( const char* s ) { return !*s; }
-
 ReaderIface* ReadNC::factory( Interface* iface )
   { return new ReadNC( iface ); }
 
@@ -79,7 +77,7 @@ ReadNC::~ReadNC()
 ErrorCode ReadNC::load_file(const char *file_name,
                             const EntityHandle* file_set,
                             const FileOptions& opts,
-                            const ReaderIface::SubsetList* subset_list,
+                            const ReaderIface::SubsetList* /*subset_list*/,
                             const Tag* file_id_tag)
 {
   ErrorCode rval = MB_SUCCESS;
@@ -416,7 +414,7 @@ ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
       }
   
         // assume point-based values for now?
-      if (-1 == tDim || dimVals[tDim] <= (int)t || t < 0) {
+      if (-1 == tDim || dimVals[tDim] <= (int)t) {
         ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
       }
       else if (vdatas[i].varDims[0] != tDim) {
@@ -464,7 +462,7 @@ ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
 }
 
 ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
-                                 std::vector<int> &tstep_nums, bool nomesh) 
+                                 std::vector<int> &tstep_nums, bool /*nomesh*/) 
 {
   std::vector<VarData> vdatas;
   ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas);
@@ -875,7 +873,7 @@ ErrorCode ReadNC::compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &j
   else {
     std::vector<double>::iterator vit = std::lower_bound(kfactors.begin(), kfactors.end(), nkideal);
     if (vit == kfactors.begin()) nk = 1;
-    else nk = *(--vit);
+    else nk = (int)*(--vit);
     nj = np / nk;
   }
 
@@ -889,6 +887,9 @@ ErrorCode ReadNC::compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &j
   
   jlMin = (nr / nk) * dj + std::min(nr / nk, extra);
   jlMax = jlMin + dj + (nr / nk < extra ? 1 : 0);
+
+  ilMin = iMin;
+  ilMax = iMax;
   
   return MB_SUCCESS;
 }
@@ -1061,7 +1062,7 @@ ErrorCode ReadNC::get_variables()
     ERRORS(success, "Trouble getting number of dims of a variable.");
 
       // print debug info here so attribute info comes afterwards
-    dbgOut.tprintf(2, "Variable %s: Id=%d, numAtts=%d, datatype=%d, num_dims=%d\n",
+    dbgOut.tprintf(2, "Variable %s: Id=%d, numAtts=%d, datatype=%d, num_dims=%u\n",
                    data.varName.c_str(), data.varId, data.numAtts, data.varDataType, 
                    (unsigned int)data.varDims.size());
 
@@ -1073,11 +1074,11 @@ ErrorCode ReadNC::get_variables()
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::read_tag_values( const char* file_name,
-                                   const char* tag_name,
-                                   const FileOptions& opts,
-                                   std::vector<int>& tag_values_out,
-                                   const SubsetList* subset_list) 
+ErrorCode ReadNC::read_tag_values( const char* ,
+                                   const char* ,
+                                   const FileOptions& ,
+                                   std::vector<int>& ,
+                                   const SubsetList* ) 
 {
   return MB_FAILURE;
 }

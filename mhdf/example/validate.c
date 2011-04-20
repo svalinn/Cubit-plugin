@@ -11,22 +11,22 @@
 /* Top-level validation functions */
 
 /* check that group ID ranges are valid and non-overlapping */
-int check_valid_file_ids( struct mhdf_FileDesc* desc );
+static int check_valid_file_ids( struct mhdf_FileDesc* desc );
 
 /* check that file doesn't contain holes (unwritten regions) */
-int check_file_contains_holes( const char* filename );
+static int check_file_contains_holes( const char* filename );
 
 /* check IDs are valid for all element connectivity data */
-int check_valid_connectivity( mhdf_FileHandle file, struct mhdf_FileDesc* desc );
+static int check_valid_connectivity( mhdf_FileHandle file, struct mhdf_FileDesc* desc );
 
 /* check that any adjacency lists contain valid IDs */
-int check_valid_adjacencies( mhdf_FileHandle file, struct mhdf_FileDesc* desc );
+static int check_valid_adjacencies( mhdf_FileHandle file, struct mhdf_FileDesc* desc );
 
 /* check that set data is consistent and that sets contain valid ids */
-int check_valid_sets( mhdf_FileHandle file, struct mhdf_FileDesc* desc );
+static int check_valid_sets( mhdf_FileHandle file, struct mhdf_FileDesc* desc );
 
 /* check tag consistency and for handle tags verify that values are valid ids */
-int check_valid_tags( mhdf_FileHandle file, struct mhdf_FileDesc* desc );
+static int check_valid_tags( mhdf_FileHandle file, struct mhdf_FileDesc* desc );
 
 
 
@@ -78,10 +78,10 @@ static int check_valid_end_indices( const long* indices, long num_idx, int min_l
                                     const char* typestr, const char* name );
 
 /* Do check_valid_connectivity for an element group with constant connectivity length */
-int check_valid_elem_conn( int idx, mhdf_FileHandle file, struct mhdf_FileDesc* desc, int conn_dim );
+static int check_valid_elem_conn( int idx, mhdf_FileHandle file, struct mhdf_FileDesc* desc, int conn_dim );
 
 /* Do check_valid_connectivity for an element group with old-format variable-length connectivity */
-int check_valid_poly_conn( int idx, mhdf_FileHandle file, struct mhdf_FileDesc* desc, int conn_dim );
+static int check_valid_poly_conn( int idx, mhdf_FileHandle file, struct mhdf_FileDesc* desc, int conn_dim );
 
 /* Do check_valid_tags for a fixed-length tag */
 static int check_valid_tag( int tag_idx, mhdf_FileHandle file, struct mhdf_FileDesc* desc );

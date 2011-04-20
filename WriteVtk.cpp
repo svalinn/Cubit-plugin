@@ -570,7 +570,7 @@ ErrorCode WriteVtk::write_bit_tag( std::ostream& stream,
       unsigned char value;
       rval = mbImpl->tag_get_data( tag, &*i, 1, &value );
       for (int j = 0; j < vals_per_tag; ++j, ++d)
-        *d = value & (1<<j) ? 1 : 0;
+        *d = (unsigned short) (value & (1<<j) ? 1 : 0);
       if (MB_SUCCESS != rval)
         return rval;
     }

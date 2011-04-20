@@ -39,7 +39,7 @@
 
 namespace moab {
 
-const bool debug = false;
+static bool debug = false;
 //const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
 const char Tqdcfr::geom_categories[][CATEGORY_TAG_SIZE] = 
 {"Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
@@ -222,6 +222,11 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
                             const Tag* file_id_tag) 
 {
   ErrorCode result;
+
+  int tmpval;
+  if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
+    if (0 < tmpval) debug = true;
+  }
 
   if (subset_list) {
     readUtilIface->report_error( "Reading subset of files not supported for CUB files." );
@@ -629,7 +634,6 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
       FREADIA(num_ents, &mem_types[0]); num_read += num_ents*sizeof(int);
       FREADI(num_ents); num_read += sizeof(int);
 
-      std::vector<EntityHandle> ss_entities;
       result = get_entities(&mem_types[0], &int_buf[0], num_ents, false,
                             ss_entities);
       if (MB_SUCCESS != result) return result;
@@ -1092,7 +1096,7 @@ ErrorCode Tqdcfr::get_entities(const unsigned int this_type,
 {
   ErrorCode result = MB_FAILURE;
   
-  if (this_type >= GROUP && this_type <= VERTEX)
+  if (this_type <= VERTEX)
     result = get_ref_entities(this_type, id_buf, id_buf_size, entities);
   else if (this_type >= HEX && this_type <= NODE)
     result = get_mesh_entities(this_type, id_buf, id_buf_size, entities, excl_entities);
@@ -1238,15 +1242,15 @@ ErrorCode Tqdcfr::read_nodes(const unsigned int gindex,
 #define MIN(a,b) (a < b ? a : b)
       // sanity check that max vhandle is larger than offset
     long new_max = *vrange.rbegin()-currVHandleOffset;
-    assert(new_max >= 0 && *vrange.begin() - currVHandleOffset >= 0);
+    assert(new_max >= 0 && ((long)*vrange.begin()) - currVHandleOffset >= 0);
     max_cid = MAX(max_cid, ((unsigned int) new_max));
     cubMOABVertexMap = new std::vector<EntityHandle>(max_cid+1);
       // initialize to zero then put previous vertices into the map
     std::fill(cubMOABVertexMap->begin(), cubMOABVertexMap->end(), 0);
     Range::iterator rit;
     for (rit = vrange.begin(); rit != vrange.end(); rit++) {
-      assert(*rit-currVHandleOffset >= 0 &&
-             *rit-currVHandleOffset <= max_cid);
+      assert(((long)*rit)-currVHandleOffset >= 0 &&
+             ((long)*rit)-currVHandleOffset <= max_cid);
       (*cubMOABVertexMap)[*rit - currVHandleOffset] = *rit;
     }
   }
@@ -1269,7 +1273,7 @@ ErrorCode Tqdcfr::read_nodes(const unsigned int gindex,
       for (unsigned int j = 0; j < 3; j++) {
           // permute the coords into new order
         for (unsigned int i = 0; i < entity->nodeCt; i++) {
-          assert(uint_buf[i]-min_cid >= 0 && 
+          assert(uint_buf[i] >= min_cid && 
                  max_cid-uint_buf[i] < entity->nodeCt);
           tmp_coords[uint_buf[i]-min_cid] = arrays[j][i];
         }

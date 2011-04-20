@@ -93,7 +93,7 @@ ErrorCode ReadTetGen::load_file( const char* file_name_c,
   else {
     suffix = filename.substr( dot_idx+1 );
     for (size_t i = 0; i < suffix.length(); ++i)
-      suffix[i] = tolower(suffix[i]);
+      suffix[i] = (char)tolower(suffix[i]);
     if (suffix == "node" || suffix == "ele" || suffix == "face" || suffix == "edge") {
       base = filename.substr( 0, dot_idx );
     }

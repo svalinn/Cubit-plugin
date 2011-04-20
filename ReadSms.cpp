@@ -340,8 +340,7 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
     CHECK("Failed to add edge to geom set.");
     if (MB_SUCCESS != result) return result;
 
-    int dum;
-    dum = fscanf(file_ptr, "%d", &num_pts);
+    fscanf(file_ptr, "%d", &num_pts);
     if(!num_pts) continue;
 
     for(int j = 0; j < num_pts; j++) {
@@ -483,15 +482,15 @@ ErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
 
     // read partition info
   int nparts, part_id, num_ifaces, num_corner_ents;
-  int dum = fscanf(file_ptr, "%d %d %d %d", &nparts, &part_id, &num_ifaces, &num_corner_ents);
+  fscanf(file_ptr, "%d %d %d %d", &nparts, &part_id, &num_ifaces, &num_corner_ents);
   
     // read interfaces
   int iface_id, iface_dim, iface_own, num_iface_corners;
 //  EntityHandle this_iface;
   std::vector<int> *iface_corners;
   for (int i = 0; i < num_ifaces; i++) {
-    dum = fscanf(file_ptr, "%d %d %d %d", &iface_id, &iface_dim, &iface_own,
-                 &num_iface_corners);
+    fscanf(file_ptr, "%d %d %d %d", &iface_id, &iface_dim, &iface_own,
+           &num_iface_corners);
     
 //    result = get_set(sets, iface_dim, iface_id, dim_tag, iface_own, this_iface);
 //    CHECK("Failed to make iface set.");
@@ -499,7 +498,7 @@ ErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
       // read the corner ids and store them on the set for now
     iface_corners = new std::vector<int>(num_iface_corners);
     for (int j = 0; j < num_iface_corners; j++)
-      dum = fscanf(file_ptr, "%d", &(*iface_corners)[j]);
+      fscanf(file_ptr, "%d", &(*iface_corners)[j]);
 
 //    result = tag_set_data(ifaceCornerTag, &this_iface, 1,
 //                          &iface_corners);

@@ -79,27 +79,11 @@ public:
    //! Destructor
   virtual ~ReadNC();
 
-    /**
-     *\brief Read tag values from a file.
-     *
-     * Read the list if all integer tag values from the file for
-     * a tag that is a single integer value per entity.
-     *
-     *\param file_name      The file to read.
-     *\param tag_name       The tag for which to read values
-     *\param tag_values_out Output: The list of tag values.
-     *\param subset_list    An array of tag name and value sets specifying
-     *                      the subset of the file to read.  If multiple
-     *                      tags are specified, the sets that match all
-     *                      tags (intersection) should be read.
-     *\param subset_list_length The length of the 'subset_list' array.
-     */
   virtual ErrorCode read_tag_values( const char* file_name,
                                      const char* tag_name,
                                      const FileOptions& opts,
                                      std::vector<int>& tag_values_out,
                                      const SubsetList* subset_list = 0 );
-
 private:
 
   class AttData 

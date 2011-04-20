@@ -470,7 +470,7 @@ ErrorCode ReadSmf::inc(std::vector<std::string> & /*argv*/)
     //std::cerr << "SMF: INC not yet implemented." << std::endl;
     return MB_SUCCESS;
 }
-ErrorCode ReadSmf::dec(std::vector<std::string> & argv)
+ErrorCode ReadSmf::dec(std::vector<std::string> & )
 {
     //std::cerr << "SMF: DEC not yet implemented." << std::endl;
     return MB_SUCCESS;

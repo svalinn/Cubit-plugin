@@ -1993,10 +1993,10 @@ ErrorCode WriteHDF5::write_var_len_indices( const SparseTag& tag_data,
   size_t remaining = range.size();
   size_t offset = tag_data.offset;
   size_t num_writes = (remaining + chunk_size - 1)/chunk_size;
-  size_t num_global_writes = num_writes;
+    //size_t num_global_writes = num_writes;
   if (tag_data.max_num_ents) {
     assert(tag_data.max_num_ents >= (unsigned long)remaining);
-    num_global_writes = (tag_data.max_num_ents + chunk_size - 1)/chunk_size;
+      //num_global_writes = (tag_data.max_num_ents + chunk_size - 1)/chunk_size;
   }
   Range::const_iterator iter = range.begin();
   while (remaining)
