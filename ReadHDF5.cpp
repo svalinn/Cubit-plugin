@@ -3105,9 +3105,28 @@ ErrorCode ReadHDF5::create_tag( const mhdf_TagDesc& info,
       return error(rval);
     }
     
-    if ((curr_store != MB_TAG_BIT && curr_size != info.bytes) || curr_type != mb_type ||
-        ((curr_store == MB_TAG_BIT || storage == MB_TAG_BIT) && 
-          curr_store != storage))
+    bool match = true;
+    if (curr_type == MB_TYPE_BIT) {
+      if (mb_type != MB_TYPE_BIT)
+        match = false;
+      if (curr_size != info.size)
+        match = false;
+    }
+    else {
+      if (curr_type != MB_TYPE_OPAQUE &&
+          mb_type != MB_TYPE_OPAQUE &&
+          curr_type != mb_type)
+        match = false;
+      
+      if (curr_size == MB_VARIABLE_LENGTH) {
+        if (info.size != -1)
+          match = false;
+      }
+      else if (curr_size != info.bytes)
+        match = false;
+    }  
+    
+    if (!match)
     {
       readUtil->report_error( "Tag type in file does not match type in "
                               "database for \"%s\"\n", info.name );
