@@ -40,11 +40,7 @@
 #include <limits>
 #include <cstdio>
 #include <iostream>
-/* include our MPI header before any HDF5 because otherwise
-   it will get included indirectly by HDF5 */
-#ifdef USE_MPI
-#  include "moab_mpi.h"
-#endif 
+#include "WriteHDF5.hpp"
 #include <H5Tpublic.h>
 #include <H5Ppublic.h>
 #include <H5Epublic.h>
@@ -52,7 +48,6 @@
 #include "Internals.hpp"
 #include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
-#include "WriteHDF5.hpp"
 #include "FileOptions.hpp"
 #include "moab/Version.h"
 #include "IODebugTrack.hpp"
