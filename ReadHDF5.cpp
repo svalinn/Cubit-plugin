@@ -63,18 +63,24 @@
 
 namespace moab {
 
-/* If defined, coordinates are read in blocked format (all X values before
+/* If true, coordinates are read in blocked format (all X values before
  * Y values before Z values.)  If undefined, then all coordinates for a 
  * given vertex are read at the same time.
  */
-#undef BLOCKED_COORD_IO
+const bool DEFAULT_BLOCKED_COORDINATE_IO = false;
 
-/* If defined, file is opened first by root node only to read summary,
+/* If true, file is opened first by root node only to read summary,
  * file is the closed and the summary is broadcast to all nodes, after 
  * which all nodes open file in parallel to read data.  If undefined,
  * file is opened once in parallel and all nodes read summary data.
  */
-#define BCAST_SUMMARY
+const bool DEFAULT_BCAST_SUMMARY = true;
+
+/* If true and all processors are to read the same block of data,
+ * read it on one and broadcast to others rather than using collective
+ * io
+ */
+const bool DEFAULT_BCAST_DUPLICATE_READS = true;
 
 #define READ_HDF5_BUFFER_SIZE (128*1024*1024)
 
@@ -206,7 +212,10 @@ ReadHDF5::ReadHDF5( Interface* iface )
     indepIO( H5P_DEFAULT ),
     collIO( H5P_DEFAULT ),
     debugTrack( false ),
-    dbgOut(stderr)
+    dbgOut(stderr),
+    blockedCoordinateIO(DEFAULT_BLOCKED_COORDINATE_IO),
+    bcastSummary(DEFAULT_BCAST_SUMMARY),
+    bcastDuplicateReads(DEFAULT_BCAST_DUPLICATE_READS)
 {
 }
 
@@ -299,6 +308,11 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   // will print errors if the entire file is not read, so if doing a 
   // partial read that is not a parallel read, this should be disabled.
   debugTrack = (MB_SUCCESS == opts.get_null_option("DEBUG_BINIO"));
+  
+  opts.get_toggle_option("BLOCKED_COORDINATE_IO",DEFAULT_BLOCKED_COORDINATE_IO,blockedCoordinateIO);
+  opts.get_toggle_option("BCAST_SUMMARY",        DEFAULT_BCAST_SUMMARY,        bcastSummary);
+  opts.get_toggle_option("BCAST_DUPLICATE_READS",DEFAULT_BCAST_DUPLICATE_READS,bcastDuplicateReads);
+  const bool bglockless = (MB_SUCCESS == opts.get_null_option("BGLOCKLESS"));
     
     // Handle parallel options
   std::string junk;
@@ -345,16 +359,19 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       // lockless file IO on IBM BlueGene
     std::string pfilename(filename);
 #ifdef BLUEGENE
-    if (0 != pfilename.find("bglockless:")) {
+    if (!bglockless && 0 != pfilename.find("bglockless:")) {
         // check for GPFS file system
       struct statfs fsdata;
       statfs( filename, &fsdata );
       if (fsdata.f_type == BG_LOCKLESS_GPFS) {
-        pfilename = std::string("bglockless:") + pfilename;
-        dbgOut.printf( 1, "Enabling lockless IO for BlueGene (filename: \"%s\")\n", pfilename.c_str() );
+        bglockless = true;
       }
     }
 #endif
+    if (bglockless) {
+      pfilename = std::string("bglockless:") + pfilename;
+      dbgOut.printf( 1, "Enabling lockless IO for BlueGene (filename: \"%s\")\n", pfilename.c_str() );
+    }    
     
 #ifndef HDF5_PARALLEL
     readUtil->report_error("MOAB not configured with parallel HDF5 support");
@@ -386,45 +403,45 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
 
 
     hid_t file_prop;
-#ifdef BCAST_SUMMARY
-    unsigned long size = 0;
-    if (rank == 0) {
-  
-      file_prop = H5Pcreate(H5P_FILE_ACCESS);
-      err = H5Pset_fapl_mpio(file_prop, MPI_COMM_SELF, MPI_INFO_NULL);
-      assert(file_prop >= 0);
-      assert(err >= 0);
-      filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, file_prop, &status );
-      H5Pclose( file_prop );
-     
-      if (filePtr) {  
-        fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );
-        if (!is_error(status)) {
-          size = fileInfo->total_size;
-          fileInfo->offset = (unsigned char*)fileInfo;
+    if (bcastSummary) {
+      unsigned long size = 0;
+      if (rank == 0) {
+
+        file_prop = H5Pcreate(H5P_FILE_ACCESS);
+        err = H5Pset_fapl_mpio(file_prop, MPI_COMM_SELF, MPI_INFO_NULL);
+        assert(file_prop >= 0);
+        assert(err >= 0);
+        filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, file_prop, &status );
+        H5Pclose( file_prop );
+
+        if (filePtr) {  
+          fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );
+          if (!is_error(status)) {
+            size = fileInfo->total_size;
+            fileInfo->offset = (unsigned char*)fileInfo;
+          }
+        }
+        mhdf_closeFile( filePtr, &status );
+        if (fileInfo && mhdf_isError(&status)) {
+          free(fileInfo);
+          fileInfo = 0;
         }
       }
-      mhdf_closeFile( filePtr, &status );
-      if (fileInfo && mhdf_isError(&status)) {
-        free(fileInfo);
-        fileInfo = 0;
-      }
-    }
 
-    dbgOut.tprint( 1, "Communicating file summary\n" );
-    int mpi_err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
-    if (mpi_err || !size)
-      return MB_FAILURE;
-    
-      
-    if (rank != 0) 
-      fileInfo = reinterpret_cast<mhdf_FileDesc*>( malloc( size ) );
-      
-    MPI_Bcast( fileInfo, size, MPI_BYTE, 0, myPcomm->proc_config().proc_comm() );
-      
-    if (rank != 0)
-      mhdf_fixFileDesc( fileInfo, reinterpret_cast<mhdf_FileDesc*>(fileInfo->offset) );
-#endif // BCAST_SUMMARY
+      dbgOut.tprint( 1, "Communicating file summary\n" );
+      int mpi_err = MPI_Bcast( &size, 1, MPI_UNSIGNED_LONG, 0, myPcomm->proc_config().proc_comm() );
+      if (mpi_err || !size)
+        return MB_FAILURE;
+
+
+      if (rank != 0) 
+        fileInfo = reinterpret_cast<mhdf_FileDesc*>( malloc( size ) );
+
+      MPI_Bcast( fileInfo, size, MPI_BYTE, 0, myPcomm->proc_config().proc_comm() );
+
+      if (rank != 0)
+        mhdf_fixFileDesc( fileInfo, reinterpret_cast<mhdf_FileDesc*>(fileInfo->offset) );
+    }
   
     file_prop = H5Pcreate(H5P_FILE_ACCESS);
     err = H5Pset_fapl_mpio(file_prop, myPcomm->proc_config().proc_comm(), MPI_INFO_NULL);
@@ -453,15 +470,15 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       return error(MB_FAILURE);
     }
     
-#ifndef BCAST_SUMMARY
-    fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );
-    if (is_error(status)) {
-      readUtil->report_error( "%s", mhdf_message( &status ) );
-      free( dataBuffer );
-      mhdf_closeFile( filePtr, &status );
-      return error(MB_FAILURE);
+    if (!bcastSummary) {
+      fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );
+      if (is_error(status)) {
+        readUtil->report_error( "%s", mhdf_message( &status ) );
+        free( dataBuffer );
+        mhdf_closeFile( filePtr, &status );
+        return error(MB_FAILURE);
+      }
     }
-#endif // !BCAST_SUMMARY
 
 #endif // HDF5_PARALLEL
   }
@@ -1336,59 +1353,61 @@ ErrorCode ReadHDF5::read_nodes( const Range& node_file_ids )
     return error(rval);
   }
 
-#ifdef BLOCKED_COORD_IO
-  try {
-    for (int d = 0; d < dim; ++d) {
-      ReadHDF5Dataset reader( "blocked coords", data_id, nativeParallel, mpiComm, false );
-      reader.set_column( d );
-      reader.set_file_ids( node_file_ids, fileInfo->nodes.start_id, num_nodes, H5T_NATIVE_DOUBLE );
-      dbgOut.printf( 3, "Reading %lu chunks for coordinate dimension %d\n", reader.get_read_count(), d );
-      // should normally only have one read call, unless sparse nature
-      // of file_ids caused reader to do something strange
-      size_t count, offset = 0;
-      int nn = 0;
+  if (blockedCoordinateIO) {
+    try {
+      for (int d = 0; d < dim; ++d) {
+        ReadHDF5Dataset reader( "blocked coords", data_id, nativeParallel, mpiComm, false );
+        reader.set_column( d );
+        reader.set_file_ids( node_file_ids, fileInfo->nodes.start_id, num_nodes, H5T_NATIVE_DOUBLE );
+        dbgOut.printf( 3, "Reading %lu chunks for coordinate dimension %d\n", reader.get_read_count(), d );
+        // should normally only have one read call, unless sparse nature
+        // of file_ids caused reader to do something strange
+        size_t count, offset = 0;
+        int nn = 0;
+        while (!reader.done()) {
+          dbgOut.printf(3,"Reading chunk %d for dimension %d\n", ++nn, d );
+          reader.read( arrays[d]+offset, count );
+          offset += count;
+        }
+        if (offset != num_nodes) {
+          mhdf_closeData( filePtr, data_id, &status );
+          assert(false);
+          return MB_FAILURE;
+        }
+      }
+    }
+    catch (ReadHDF5Dataset::Exception) {
+      mhdf_closeData( filePtr, data_id, &status );
+      return error(MB_FAILURE);
+    }
+  }
+  else { // !blockedCoordinateIO
+    double* buffer = (double*)dataBuffer;
+    long chunk_size = bufferSize / (3*sizeof(double));
+    long coffset = 0;
+    int nn = 0;
+    try {
+      ReadHDF5Dataset reader( "interleaved coords", data_id, nativeParallel, mpiComm, false );
+      reader.set_file_ids( node_file_ids, fileInfo->nodes.start_id, chunk_size, H5T_NATIVE_DOUBLE );
+      dbgOut.printf( 3, "Reading %lu chunks for coordinate coordinates\n", reader.get_read_count() );
       while (!reader.done()) {
-        dbgOut.printf(3,"Reading chunk %d for dimension %d\n", ++nn, d );
-        reader.read( arrays[d]+offset, count );
-        offset += count;
-      }
-      if (offset != num_nodes) {
-        mhdf_closeData( filePtr, data_id, &status );
-        assert(false);
-        return MB_FAILURE;
+        dbgOut.tprintf(3,"Reading chunk %d of node coords\n", ++nn);
+
+        size_t count;
+        reader.read( buffer, count );
+
+        for (size_t i = 0; i < count; ++i)
+          for (int d = 0; d < dim; ++d) 
+            arrays[d][coffset+i] = buffer[dim*i+d];
+        coffset += count;
       }
     }
-  }
-  catch (ReadHDF5Dataset::Exception) {
-    mhdf_closeData( filePtr, data_id, &status );
-    return error(MB_FAILURE);
-  }
-#else
-  double* buffer = (double*)dataBuffer;
-  long chunk_size = bufferSize / (3*sizeof(double));
-  long coffset = 0;
-  int nn = 0;
-  try {
-    ReadHDF5Dataset reader( "interleaved coords", data_id, nativeParallel, mpiComm, false );
-    reader.set_file_ids( node_file_ids, fileInfo->nodes.start_id, chunk_size, H5T_NATIVE_DOUBLE );
-    dbgOut.printf( 3, "Reading %lu chunks for coordinate coordinates\n", reader.get_read_count() );
-    while (!reader.done()) {
-      dbgOut.tprintf(3,"Reading chunk %d of node coords\n", ++nn);
-      
-      size_t count;
-      reader.read( buffer, count );
-      
-      for (size_t i = 0; i < count; ++i)
-        for (int d = 0; d < dim; ++d) 
-          arrays[d][coffset+i] = buffer[dim*i+d];
-      coffset += count;
+    catch (ReadHDF5Dataset::Exception) {
+      mhdf_closeData( filePtr, data_id, &status );
+      return error(MB_FAILURE);
     }
   }
-  catch (ReadHDF5Dataset::Exception) {
-    mhdf_closeData( filePtr, data_id, &status );
-    return error(MB_FAILURE);
-  }
-#endif
+
   dbgOut.print(3,"Closing node coordinate table\n");
   mhdf_closeData( filePtr, data_id, &status );
   for (int d = dim; d < cdim; ++d)
@@ -2071,6 +2090,16 @@ static bool set_map_intersect( bool ranged,
   return false;
 }
 
+// Cannot use std::vector<bool> because we need access to 
+// the underlying storage to broadcast it.
+const unsigned BITSPERUL = 8*sizeof(unsigned long);
+bool get_bit( const unsigned long* array, size_t index )
+  { return (bool)((array[index/BITSPERUL] >> (index%BITSPERUL)) & 1); }
+void set_bit( unsigned long* array, size_t index )
+  { array[index/BITSPERUL] |= 1ul << (index%BITSPERUL); }
+//void clear_bit( unsigned long* array, size_t index )
+//  { array[index/BITSPERUL] &= ~(1ul << (index%BITSPERUL)); }
+
 ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
                                           hid_t contents_handle, 
                                           hid_t meta_type,
@@ -2094,21 +2123,66 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
   mhdf_Status status;
   std::vector<unsigned char> offset_mem( num_sets * std::max( meta_size, sizeof(long) ));
   long* const offset_buffer = reinterpret_cast<long*>(&offset_mem[0]);
-  mhdf_readSetFlagsWithOpt( meta_handle, 0, num_sets, meta_type, offset_buffer, collIO, &status );
-  if (is_error(status)) 
-    return error(MB_FAILURE);
-  H5Tconvert( meta_type, H5T_NATIVE_LONG, num_sets, offset_buffer, 0, H5P_DEFAULT );
+
+  int rank = 0;
+  bool bcast = false;
+#ifdef USE_MPI
+  MPI_Comm comm;
+  if (nativeParallel) {
+    rank = myPcomm->proc_config().proc_rank();
+    comm = myPcomm->proc_config().proc_comm();
+    bcast = bcastDuplicateReads;
+  }
+#endif
+
+  std::vector<unsigned long> ranged( (num_sets+BITSPERUL-1) / BITSPERUL, 0 );
+  if (!bcast || 0 == rank) {
+    if (!bcast)
+      mhdf_readSetFlagsWithOpt( meta_handle, 0, num_sets, meta_type, offset_buffer, collIO, &status );
+    else
+      mhdf_readSetFlags( meta_handle, 0, num_sets, meta_type, offset_buffer, &status );
+    if (is_error(status)) 
+      return error(MB_FAILURE);
   
-  // make bitmap containing mhdf_SET_RANGE_BIT flag for each set
-  std::vector<bool> ranged( num_sets );
-  for (long i = 0; i < num_sets; ++i)
-    ranged[i] = (0 != (mhdf_SET_RANGE_BIT & offset_buffer[i]));
-    
+     H5Tconvert( meta_type, H5T_NATIVE_LONG, num_sets, offset_buffer, 0, H5P_DEFAULT );
+  
+    // make bitmap containing mhdf_SET_RANGE_BIT flag for each set
+    for (long i = 0; i < num_sets; ++i)
+      if (offset_buffer[i] & mhdf_SET_RANGE_BIT)
+        set_bit( &ranged[0], i );
+  }
+  
+  if (bcast) {
+#ifdef USE_MPI
+    int ierr = MPI_Bcast( &ranged[0], ranged.size(), MPI_UNSIGNED_LONG, 0, comm );
+    if (MPI_SUCCESS != ierr)
+      return error(MB_FAILURE);
+#else
+    assert(rank == 0); // if not MPI, then only one proc
+#endif
+  }
+  
   // now read the actual offsets into the offset buffer
-  mhdf_readSetContentEndIndicesWithOpt( meta_handle, 0, fileInfo->sets.count, meta_type, offset_buffer, collIO, &status );
-  if (is_error(status))
-    return error(MB_FAILURE);
-  H5Tconvert( meta_type, H5T_NATIVE_LONG, num_sets, offset_buffer, 0, H5P_DEFAULT );
+  
+  if (!bcast || 0 == rank) {
+    if (!bcast)
+      mhdf_readSetContentEndIndicesWithOpt( meta_handle, 0, num_sets, meta_type, offset_buffer, collIO, &status );
+    else 
+      mhdf_readSetContentEndIndices( meta_handle, 0, num_sets, meta_type, offset_buffer, &status );
+    if (is_error(status))
+      return error(MB_FAILURE);
+  
+    H5Tconvert( meta_type, H5T_NATIVE_LONG, num_sets, offset_buffer, 0, H5P_DEFAULT );
+  }
+  if (bcast) {
+#ifdef USE_MPI
+    int ierr = MPI_Bcast( offset_buffer, num_sets, MPI_LONG, 0, comm );
+    if (MPI_SUCCESS != ierr)
+      return error(MB_FAILURE);
+#else
+    assert(rank == 0); // if not MPI, then only one proc
+#endif
+  }
 
   // set up buffer for reading set contents 
   long* const content_buffer = (long*)dataBuffer;
@@ -2133,13 +2207,31 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
                              2*(content_len/2) : content_remaining;
         assert_range( content_buffer, content_count );
         dbgOut.printf( 3, "Reading chunk %d (%ld values) from set contents table\n", ++mm, content_count);
-        mhdf_readSetDataWithOpt( contents_handle, content_offset,
-                                 content_count, content_type, 
-                                 content_buffer, collIO, &status );
-        if (is_error(status))
-          return error(MB_FAILURE);
-        H5Tconvert( content_type, H5T_NATIVE_LONG, content_count, content_buffer, 0, H5P_DEFAULT );
-        if (set_map_intersect( ranged[sets_offset],
+        if (!bcast || 0 == rank) {
+          if (!bcast)
+            mhdf_readSetDataWithOpt( contents_handle, content_offset,
+                                     content_count, content_type, 
+                                     content_buffer, collIO, &status );
+          else 
+            mhdf_readSetData( contents_handle, content_offset,
+                              content_count, content_type, 
+                              content_buffer, &status );
+          if (is_error(status))
+            return error(MB_FAILURE);
+
+          H5Tconvert( content_type, H5T_NATIVE_LONG, content_count, content_buffer, 0, H5P_DEFAULT );
+        }
+        if (bcast) {
+          #ifdef USE_MPI
+            int ierr = MPI_Bcast( content_buffer, content_count, MPI_LONG, 0, comm );
+            if (MPI_SUCCESS != ierr)
+              return error(MB_FAILURE);
+          #else
+            assert(rank == 0); // if not MPI, then only one proc
+          #endif
+        }
+        
+        if (set_map_intersect( get_bit( &ranged[0], sets_offset ),
                                content_buffer, content_count, idMap )) {
           long id = fileInfo->sets.start_id + sets_offset;
           hint = file_ids.insert( hint, id, id );
@@ -2156,17 +2248,33 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
       assert(sets_count > 0);
       assert_range( content_buffer, read_num );
       dbgOut.printf( 3, "Reading chunk %d (%ld values) from set contents table\n", ++mm, read_num);
-      mhdf_readSetDataWithOpt( contents_handle, prev_idx+1, read_num, 
-                               content_type, content_buffer, collIO, &status );
-      if (is_error(status))
-        return error(MB_FAILURE);
-      H5Tconvert( content_type, H5T_NATIVE_LONG, read_num, content_buffer, 0, H5P_DEFAULT );
+      if (!bcast || 0 == rank) {
+        if (!bcast)
+          mhdf_readSetDataWithOpt( contents_handle, prev_idx+1, read_num, 
+                                   content_type, content_buffer, collIO, &status );
+        else
+          mhdf_readSetData( contents_handle, prev_idx+1, read_num, 
+                            content_type, content_buffer, &status );
+        if (is_error(status))
+          return error(MB_FAILURE);
+       
+        H5Tconvert( content_type, H5T_NATIVE_LONG, read_num, content_buffer, 0, H5P_DEFAULT );
+      }
+      if (bcast) {
+        #ifdef USE_MPI
+          int ierr = MPI_Bcast( content_buffer, read_num, MPI_LONG, 0, comm );
+          if (MPI_SUCCESS != ierr)
+            return error(MB_FAILURE);
+        #else
+          assert(rank == 0); // if not MPI, then only one proc
+        #endif
+      }
 
       long* buff_iter = content_buffer;
       for (long i = 0; i < sets_count; ++i) {
         long set_size = offset_buffer[i+sets_offset] - prev_idx;
         prev_idx += set_size;
-        if (set_map_intersect( ranged[sets_offset+i],
+        if (set_map_intersect( get_bit( &ranged[0], sets_offset+i ),
                                buff_iter, set_size, idMap )) {
           long id = fileInfo->sets.start_id + sets_offset + i;
           hint = file_ids.insert( hint, id, id );

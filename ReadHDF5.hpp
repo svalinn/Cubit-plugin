@@ -170,6 +170,12 @@ private:
   //! MPI_Comm value (unused if \c !nativeParallel)
   Comm* mpiComm;
   
+  //! Flags for some behavior that can be changed through
+  //! reader options
+  bool blockedCoordinateIO;
+  bool bcastSummary;
+  bool bcastDuplicateReads;
+  
   //! Store old HDF5 error handling function
   HDF5ErrorHandler errorHandler;
   
