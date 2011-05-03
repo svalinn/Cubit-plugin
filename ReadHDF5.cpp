@@ -312,7 +312,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   opts.get_toggle_option("BLOCKED_COORDINATE_IO",DEFAULT_BLOCKED_COORDINATE_IO,blockedCoordinateIO);
   opts.get_toggle_option("BCAST_SUMMARY",        DEFAULT_BCAST_SUMMARY,        bcastSummary);
   opts.get_toggle_option("BCAST_DUPLICATE_READS",DEFAULT_BCAST_DUPLICATE_READS,bcastDuplicateReads);
-  const bool bglockless = (MB_SUCCESS == opts.get_null_option("BGLOCKLESS"));
+  bool bglockless = (MB_SUCCESS == opts.get_null_option("BGLOCKLESS"));
     
     // Handle parallel options
   std::string junk;
