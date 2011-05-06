@@ -1252,19 +1252,25 @@ ErrorCode ReadHDF5::get_tagged_entities( int tag_index, Range& file_ids )
     return error(MB_FAILURE);
   }
   
+  hid_t file_type = H5Dget_type( tables[0] );
+  if (file_type < 0) 
+    return error(MB_FAILURE);
+  
   hint = file_ids.begin();
   EntityHandle* buffer = reinterpret_cast<EntityHandle*>(dataBuffer);
-  const long buffer_size = bufferSize / sizeof(EntityHandle);
+  const long buffer_size = bufferSize / std::max(sizeof(EntityHandle),H5Tget_size(file_type));
   long remaining = size, offset = 0;
   while (remaining) {
     long count = std::min( buffer_size, remaining );
     assert_range( buffer, count );
     mhdf_readSparseTagEntitiesWithOpt( *tables, offset, count, 
-                                handleType, buffer, collIO, &status );
+                                file_type, buffer, collIO, &status );
     if (is_error(status)) {
+      H5Tclose(file_type);
       mhdf_closeData( filePtr, *tables, &status );
       return error(MB_FAILURE);
     }
+    H5Tconvert( file_type, handleType, count, buffer, NULL, H5P_DEFAULT );
     
     std::sort( buffer, buffer + count );
     for (long i = 0; i < count; ++i)
@@ -1274,6 +1280,7 @@ ErrorCode ReadHDF5::get_tagged_entities( int tag_index, Range& file_ids )
     offset += count;
   }
 
+  H5Tclose(file_type);
   mhdf_closeData( filePtr, *tables, &status );
   if (is_error(status))
     return error(MB_FAILURE);
@@ -1292,14 +1299,14 @@ ErrorCode ReadHDF5::search_tag_values( hid_t tag_table,
   CHECK_OPEN_HANDLES;
 
   mhdf_Status status;
-  size_t chunk_size = bufferSize / sizeof(unsigned);
-  unsigned * buffer = reinterpret_cast<unsigned*>(dataBuffer);
+  size_t chunk_size = bufferSize / sizeof(int);
+  int * buffer = reinterpret_cast<int*>(dataBuffer);
   size_t remaining = table_size, offset = 0;
   while (remaining) {
       // Get a block of tag values
     size_t count = std::min( chunk_size, remaining );
     assert_range( buffer, count );
-    mhdf_readTagValuesWithOpt( tag_table, offset, count, H5T_NATIVE_UINT, buffer, collIO, &status );
+    mhdf_readTagValuesWithOpt( tag_table, offset, count, H5T_NATIVE_INT, buffer, collIO, &status );
     if (is_error(status))
       return error(MB_FAILURE);
     
