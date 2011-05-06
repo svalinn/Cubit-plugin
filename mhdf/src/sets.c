@@ -132,7 +132,7 @@ mhdf_createSetMeta( mhdf_FileHandle file,
   dims[1] = (hsize_t)4;
   table_id = mhdf_create_table( file_ptr->hdf_handle,
                                 SET_META_PATH,
-                                H5T_NATIVE_LONG,
+                                MHDF_INDEX_TYPE,
                                 2, dims,
                                 status );
   if (table_id < 0)
@@ -699,7 +699,7 @@ mhdf_createSetData( mhdf_FileHandle file_handle,
   
   table_id = mhdf_create_table( file_ptr->hdf_handle,
                                 SET_DATA_PATH,
-                                H5T_NATIVE_LONG,
+                                file_ptr->id_type,
                                 1, &dim,
                                 status );
   
@@ -813,7 +813,7 @@ mhdf_createSetChildren( mhdf_FileHandle file_handle,
   
   table_id = mhdf_create_table( file_ptr->hdf_handle,
                                 SET_CHILD_PATH,
-                                H5T_NATIVE_LONG,
+                                file_ptr->id_type,
                                 1, &dim,
                                 status );
   
@@ -873,7 +873,7 @@ mhdf_createSetParents( mhdf_FileHandle file_handle,
   
   table_id = mhdf_create_table( file_ptr->hdf_handle,
                                 SET_PARENT_PATH,
-                                H5T_NATIVE_LONG,
+                                file_ptr->id_type,
                                 1, &dim,
                                 status );
   

@@ -55,7 +55,7 @@ mhdf_createConnectivity( mhdf_FileHandle file_handle,
   dims[1] = (hsize_t)nodes_per_elem;
   table_id = mhdf_create_table( elem_id, 
                                 CONNECTIVITY_NAME,
-                                H5T_NATIVE_LONG,
+                                file_ptr->id_type,
                                 2, dims, 
                                 status );
   H5Gclose( elem_id );
@@ -256,7 +256,7 @@ mhdf_createPolyConnectivity( mhdf_FileHandle file_handle,
   dim = (hsize_t)num_poly;
   index_id = mhdf_create_table( elem_id,
                                 POLY_INDEX_NAME,
-                                H5T_NATIVE_LONG,
+                                MHDF_INDEX_TYPE,
                                 1, &dim,
                                 status );
   if (index_id < 0)
@@ -266,7 +266,7 @@ mhdf_createPolyConnectivity( mhdf_FileHandle file_handle,
   dim = (hsize_t)data_list_length;
   conn_id = mhdf_create_table( elem_id, 
                                 CONNECTIVITY_NAME,
-                                H5T_NATIVE_LONG,
+                                file_ptr->id_type,
                                 1, &dim, 
                                 status );
   H5Gclose( elem_id );

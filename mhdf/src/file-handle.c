@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <H5Ipublic.h>
+#include <H5Tpublic.h>
 #include "file-handle.h"
 #include "status.h"
 #include "util.h"
@@ -39,14 +40,26 @@ int mhdf_check_valid_file( FileHandle* handle, mhdf_Status* status )
   return 1;
 }
 
-FileHandle* mhdf_alloc_FileHandle( hid_t hdf_table, mhdf_Status* status )
+FileHandle* mhdf_alloc_FileHandle( hid_t hdf_table, hid_t id_type, mhdf_Status* status )
 {
-  FileHandle* rval = (FileHandle*)mhdf_malloc( sizeof(FileHandle), status );
+  FileHandle* rval;
+
+  /* check that id_type is sane */
+  if (id_type == -1) {
+    id_type = H5T_NATIVE_ULONG;
+  }
+  else if (H5T_INTEGER != H5Tget_class(id_type)) {
+    mhdf_setFail( status, "Invalid ID type: not integer class" );
+    return 0;
+  }
+
+  rval = (FileHandle*)mhdf_malloc( sizeof(FileHandle), status );
   if (!rval) return NULL;
   
   rval->magic = FILE_HANDLE_MAGIC;
   rval->hdf_handle = hdf_table;
   rval->open_handle_count = 0;
+  rval->id_type = id_type;
   rval->max_id = 0L;
   return rval;
 }

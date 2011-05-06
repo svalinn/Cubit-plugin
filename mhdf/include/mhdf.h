@@ -374,6 +374,13 @@ enum mhdf_TagDataType {
   mhdf_ENTITY_ID   /**< Global ID referencing another entity in file */
 };
 
+/**\brief Type used when creating index tables
+ *
+ * The data type used by mhdf_create* functions that create tables
+ * if indices (e.g. mhdf_createSetMeta, mhdf_createVarLenTag, etc.).
+ */
+typedef long mhdf_index_t;
+#define MHDF_INDEX_TYPE H5T_NATIVE_LONG
 
 /**
  *\defgroup mhdf_group Element group handle
@@ -434,6 +441,7 @@ typedef void* mhdf_FileHandle;
  *                   the assigned indices without creating dummy types
  *                   which may confuse readers.
  * \param elem_type_list_len The length of <code>elem_type_list</code>.
+ * \param id_type    Type to use when creating datasets containing file IDs
  * \param status     Passed back status of API call.
  * \return An opaque handle to the file.
  */
@@ -442,6 +450,7 @@ mhdf_createFile( const char* filename,
                  int overwrite,
                  const char** elem_type_list,
                  size_t elem_type_list_len,
+                 hid_t id_type,
                  mhdf_Status* status );
 
 /** \brief Open an existing file. 
@@ -456,12 +465,14 @@ mhdf_createFile( const char* filename,
  *                   file.  Provided as an indication to the caller of the
  *                   size of the mesh.  This parameter is optional.  NULL
  *                   may be passed.
+ * \param id_type    Type to use when creating datasets containing file IDs
  * \return An opaque handle to the file.
  */
 mhdf_FileHandle
 mhdf_openFile( const char* filename,
                int writable,
                unsigned long* max_id,
+               hid_t id_type,
                mhdf_Status* status );
 
 /** \brief Open an existing file with options.
@@ -483,12 +494,14 @@ mhdf_openFile( const char* filename,
  *                   may be passed.
  * \param options    The HDF5 access property list to use when opening
  *                   the file.  See the HDF5 documentation for H5Fopen.
+ * \param id_type    Type to use when creating datasets containing file IDs
  * \return An opaque handle to the file.
  */
 mhdf_FileHandle
 mhdf_openFileWithOpt( const char* filename,
                       int writable,
                       unsigned long* max_id,
+                      hid_t id_type,
                       hid_t options,
                       mhdf_Status* status );
 

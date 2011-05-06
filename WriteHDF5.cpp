@@ -1390,8 +1390,8 @@ ErrorCode WriteHDF5::write_sets( )
   dbgOut.print(3,"Non-shared sets", setSet.range );
    
     /* counts and buffers and such */
-  long* const buffer = reinterpret_cast<long*>(dataBuffer);
-  const size_t buffer_size = bufferSize / (4*sizeof(long));
+  mhdf_index_t* const buffer = reinterpret_cast<mhdf_index_t*>(dataBuffer);
+  const size_t buffer_size = bufferSize / (4*sizeof(mhdf_index_t));
   const size_t num_local_writes = (setSet.range.size() + buffer_size - 1) / buffer_size;
   const size_t num_global_writes = (setSet.max_num_ents + buffer_size-1) / buffer_size;
   assert(num_local_writes <= num_global_writes);
@@ -1404,12 +1404,12 @@ ErrorCode WriteHDF5::write_sets( )
   Range::const_iterator i = setSet.range.begin();
   Range::const_iterator r = ranged_sets.begin();
   Range::const_iterator s = null_stripped_sets.begin();
-  std::vector<long>::const_iterator n = set_sizes.begin();
+  std::vector<mhdf_index_t>::const_iterator n = set_sizes.begin();
 
     /* we write the end index for each list, rather than the count */
-  long prev_contents_end = setContentsOffset - 1;
-  long prev_children_end = setChildrenOffset - 1;
-  long prev_parents_end = setParentsOffset - 1;
+  mhdf_index_t prev_contents_end = setContentsOffset - 1;
+  mhdf_index_t prev_children_end = setChildrenOffset - 1;
+  mhdf_index_t prev_parents_end = setParentsOffset - 1;
   
     /* while there is more data to write */
   size_t offset = setSet.offset;
@@ -1437,7 +1437,7 @@ ErrorCode WriteHDF5::write_sets( )
       }
 
         // put data in buffer
-      long* local = buffer + 4*count;
+      mhdf_index_t* local = buffer + 4*count;
       prev_contents_end += num_ent;
       prev_children_end += num_child;
       prev_parents_end += num_parent;
@@ -1452,7 +1452,7 @@ ErrorCode WriteHDF5::write_sets( )
     }
     
       // write the data
-    mhdf_writeSetMetaWithOpt( table, offset, count, H5T_NATIVE_LONG, buffer, writeProp, &status );
+    mhdf_writeSetMetaWithOpt( table, offset, count, MHDF_INDEX_TYPE, buffer, writeProp, &status );
     CHK_MHDF_ERR_1(status, table);
     track_meta.record_io( offset, count );
     offset += count;
@@ -1465,7 +1465,7 @@ ErrorCode WriteHDF5::write_sets( )
      * calls because other procs aren't done yet and write calls
      * are collective */
   for (size_t w = num_local_writes; w != num_global_writes; ++w) {
-    mhdf_writeSetMetaWithOpt( table, 0, 0, H5T_NATIVE_LONG, 0, writeProp, &status );
+    mhdf_writeSetMetaWithOpt( table, 0, 0, MHDF_INDEX_TYPE, 0, writeProp, &status );
     CHK_MHDF_ERR_1(status, table);    
   }
   
@@ -1979,9 +1979,9 @@ ErrorCode WriteHDF5::write_var_len_indices( const SparseTag& tag_data,
 
     // Set up data buffer for writing indices
   size_t chunk_size = bufferSize / (std::max(sizeof(void*),sizeof(long)) + sizeof(int));
-  long* idx_buffer = (long*)dataBuffer;
+  mhdf_index_t* idx_buffer = (mhdf_index_t*)dataBuffer;
   const void** junk = (const void**)dataBuffer;
-  int* size_buffer = (int*)(dataBuffer + chunk_size*std::max(sizeof(void*),sizeof(long)));
+  int* size_buffer = (int*)(dataBuffer + chunk_size*std::max(sizeof(void*),sizeof(mhdf_index_t)));
   
     // Write IDs of tagged entities.
   long data_offset = tag_data.varDataOffset - 1; // offset at which to write data buffer
@@ -2020,7 +2020,7 @@ ErrorCode WriteHDF5::write_var_len_indices( const SparseTag& tag_data,
     }
     
       // write
-    mhdf_writeSparseTagIndicesWithOpt( idx_table, offset, count, H5T_NATIVE_LONG, 
+    mhdf_writeSparseTagIndicesWithOpt( idx_table, offset, count, MHDF_INDEX_TYPE, 
                                        idx_buffer, writeProp, &status );
     CHK_MHDF_ERR_0( status );
    
@@ -2460,7 +2460,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     type_names[i] = CN::EntityTypeName( i );
  
     // Create the file
-  filePtr = mhdf_createFile( filename, overwrite, type_names, MBMAXTYPE, &status );
+  filePtr = mhdf_createFile( filename, overwrite, type_names, MBMAXTYPE, id_type, &status );
   CHK_MHDF_ERR_0(status);
   assert(!!filePtr);
 

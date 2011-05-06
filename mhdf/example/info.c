@@ -20,7 +20,7 @@ int main( int argc, char* argv[] )
     return 1;
   }
   
-  file = mhdf_openFile( argv[1], 0, &max_id, &status );
+  file = mhdf_openFile( argv[1], 0, &max_id, -1, &status );
   if (mhdf_isError( &status )) {
     fprintf( stderr,"%s: %s\n", argv[1], mhdf_message( &status ) );
     return 1;

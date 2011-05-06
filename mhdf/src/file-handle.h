@@ -30,11 +30,11 @@ typedef struct struct_FileHandle {
   uint32_t magic;
   hid_t hdf_handle;
   int open_handle_count;
-  
+  hid_t id_type;    /* data type to use when creating tables of IDs */
   long max_id;
 } FileHandle;
 
-FileHandle* mhdf_alloc_FileHandle( hid_t hdf_handle, mhdf_Status* status );
+FileHandle* mhdf_alloc_FileHandle( hid_t hdf_handle, hid_t id_type, mhdf_Status* status );
 
 int mhdf_check_valid_file( FileHandle* handle, mhdf_Status* status );
 

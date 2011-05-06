@@ -89,7 +89,7 @@ mhdf_createAdjacency( mhdf_FileHandle file,
   {
     table_id = mhdf_create_table( file_ptr->hdf_handle,
                                   NODE_ADJCY_PATH,
-                                  H5T_NATIVE_LONG,
+                                  file_ptr->id_type,
                                   1, &dim,
                                   status );
   }
@@ -100,7 +100,7 @@ mhdf_createAdjacency( mhdf_FileHandle file,
     
     table_id = mhdf_create_table( elem_id,
                                   ADJACENCY_NAME,
-                                  H5T_NATIVE_LONG,
+                                  file_ptr->id_type,
                                   1, &dim,
                                   status );
     H5Gclose( elem_id );

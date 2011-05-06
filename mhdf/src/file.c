@@ -40,6 +40,7 @@ mhdf_createFile( const char* filename,
                  int overwrite, 
                  const char** elem_type_list,
                  size_t elem_list_len,
+                 hid_t id_type,
                  mhdf_Status* status )
 {
   FileHandle* file_ptr;
@@ -58,7 +59,7 @@ mhdf_createFile( const char* filename,
   mhdf_setOkay( status );
   
     /* Create struct to hold working data */
-  file_ptr = mhdf_alloc_FileHandle( 0, status );
+  file_ptr = mhdf_alloc_FileHandle( 0, id_type, status );
   if (!file_ptr) return NULL;
 
     /* Create the file */
@@ -150,11 +151,13 @@ mhdf_FileHandle
 mhdf_openFile( const char* filename, 
                int writeable, 
                unsigned long* max_id_out,
+               hid_t id_type,
                mhdf_Status* status )
 {
   return mhdf_openFileWithOpt( filename, 
                                writeable, 
                                max_id_out,
+                               id_type,
                                H5P_DEFAULT, 
                                status );
 }
@@ -289,6 +292,7 @@ mhdf_FileHandle
 mhdf_openFileWithOpt( const char* filename, 
                       int writable, 
                       unsigned long* max_id_out,
+                      hid_t id_type,
                       hid_t access_prop,
                       mhdf_Status* status )
 {
@@ -325,7 +329,7 @@ mhdf_openFileWithOpt( const char* filename,
   }
   
     /* Create struct to hold working data */
-  file_ptr = mhdf_alloc_FileHandle( 0, status );
+  file_ptr = mhdf_alloc_FileHandle( 0, id_type, status );
   if (!file_ptr) {
     mhdf_setFail( status, "Memory allocation failed" );
     return NULL;

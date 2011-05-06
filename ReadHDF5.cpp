@@ -411,7 +411,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
         err = H5Pset_fapl_mpio(file_prop, MPI_COMM_SELF, MPI_INFO_NULL);
         assert(file_prop >= 0);
         assert(err >= 0);
-        filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, file_prop, &status );
+        filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, handleType, file_prop, &status );
         H5Pclose( file_prop );
 
         if (filePtr) {  
@@ -456,7 +456,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
 
       // re-open file in parallel
     dbgOut.tprintf( 1, "Opening \"%s\" for parallel IO\n", pfilename.c_str() );
-    filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, file_prop, &status );
+    filePtr = mhdf_openFileWithOpt( pfilename.c_str(), 0, NULL, handleType, file_prop, &status );
 
     H5Pclose( file_prop );
     if (!filePtr)
@@ -485,7 +485,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
   else {
   
       // Open the file
-    filePtr = mhdf_openFile( filename, 0, NULL, &status );
+    filePtr = mhdf_openFile( filename, 0, NULL, handleType, &status );
     if (!filePtr)
     {
       readUtil->report_error( "%s", mhdf_message( &status ));

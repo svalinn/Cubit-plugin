@@ -105,6 +105,7 @@ mhdf_getNativeType( hid_t input_type,
 
 static hid_t get_tag( mhdf_FileHandle file_handle,
                       const char* tag_name,
+                      hid_t* id_type,
                       mhdf_Status* status )
 {
   hid_t group_id, tag_id;
@@ -114,6 +115,9 @@ static hid_t get_tag( mhdf_FileHandle file_handle,
   file_ptr = (FileHandle*)file_handle;
   if (!mhdf_check_valid_file( file_ptr, status ))
     return -1;
+
+  if (NULL != id_type)
+    *id_type = file_ptr->id_type;
 
   path = mhdf_name_to_path_copy( tag_name, status );
   if (NULL == path)
@@ -888,7 +892,7 @@ mhdf_getTagInfo( mhdf_FileHandle file_handle,
   }
   
     /* Get group for tag */
-  tag_id = get_tag( file_handle, tag_name, status );
+  tag_id = get_tag( file_handle, tag_name, NULL, status );
   if (tag_id < 0)
     return;
   
@@ -1212,7 +1216,7 @@ mhdf_getTagValues( mhdf_FileHandle file_handle,
   }
   
     /* Get the tag group */
-  tag_id = get_tag( file_handle, tag_name, status );
+  tag_id = get_tag( file_handle, tag_name, NULL, status );
   if (tag_id < 0)
     return;
    
@@ -1470,11 +1474,11 @@ mhdf_createSparseTagData( mhdf_FileHandle file_handle,
                           hid_t handles_out[2],
                           mhdf_Status* status )
 {
-  hid_t tag_id, index_id, data_id, type_id;
+  hid_t tag_id, index_id, data_id, type_id, id_type;
   hsize_t count = (hsize_t)num_values;
   API_BEGIN;
   
-  tag_id = get_tag( file_handle, tag_name, status );
+  tag_id = get_tag( file_handle, tag_name, &id_type, status );
   if (tag_id < 0) return ;
   
 #if defined(H5Topen_vers) && H5Topen_vers > 1  
@@ -1490,7 +1494,7 @@ mhdf_createSparseTagData( mhdf_FileHandle file_handle,
   }
   
   index_id = mhdf_create_table( tag_id, SPARSE_ENTITY_NAME,
-                                H5T_NATIVE_LONG, 1, &count,
+                                id_type, 1, &count,
                                 status );
   if (index_id < 0) 
   { 
@@ -1523,11 +1527,11 @@ mhdf_createVarLenTagData( mhdf_FileHandle file_handle,
                           hid_t handles_out[3],
                           mhdf_Status* status )
 {
-  hid_t tag_id, index_id, data_id, type_id, offset_id;
+  hid_t tag_id, index_id, data_id, type_id, offset_id, id_type;
   hsize_t count = (hsize_t)num_entities;
   API_BEGIN;
   
-  tag_id = get_tag( file_handle, tag_name, status );
+  tag_id = get_tag( file_handle, tag_name, &id_type, status );
   if (tag_id < 0) return ;
   
 #if defined(H5Topen_vers) && H5Topen_vers > 1  
@@ -1543,7 +1547,7 @@ mhdf_createVarLenTagData( mhdf_FileHandle file_handle,
   }
   
   index_id = mhdf_create_table( tag_id, SPARSE_ENTITY_NAME,
-                                H5T_NATIVE_LONG, 1, &count,
+                                id_type, 1, &count,
                                 status );
   if (index_id < 0) 
   { 
@@ -1553,7 +1557,7 @@ mhdf_createVarLenTagData( mhdf_FileHandle file_handle,
   }
   
   offset_id = mhdf_create_table( tag_id, TAG_VAR_INDICES,
-                                 H5T_NATIVE_LONG, 1, &count,
+                                 MHDF_INDEX_TYPE, 1, &count,
                                  status );
   if (index_id < 0) 
   { 
@@ -1597,7 +1601,7 @@ mhdf_openSparseTagData( mhdf_FileHandle file_handle,
   unsigned idx;
   API_BEGIN;
   
-  tag_id = get_tag( file_handle, tag_name, status );
+  tag_id = get_tag( file_handle, tag_name, NULL, status );
   if (tag_id < 0) return ;
  
   index_id = mhdf_open_table( tag_id, SPARSE_ENTITY_NAME, 1, &num_ent, status );
