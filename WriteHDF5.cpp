@@ -555,7 +555,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
                                         int user_dimension )
 {
   ErrorCode result;
-  std::list<SparseTag>::const_iterator t_itor;
+  std::list<TagDesc>::const_iterator t_itor;
   std::list<ExportSet>::iterator ex_itor;
   EntityHandle elem_count, max_id;
   double init_time, gather_time, create_time, node_time, element_time, set_time, tag_time, total_time;
@@ -1788,7 +1788,7 @@ ErrorCode WriteHDF5::write_adjacencies( const ExportSet& elements )
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::write_tag( const SparseTag& tag_data )
+ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data )
 {
   std::string name;
   ErrorCode rval = iFace->tag_get_name( tag_data.tag_id, name );
@@ -1809,7 +1809,7 @@ ErrorCode WriteHDF5::write_tag( const SparseTag& tag_data )
   if (MB_SUCCESS != rval)
     return error(rval);
 
-  if (array_len == MB_VARIABLE_LENGTH && tag_data.write) {
+  if (array_len == MB_VARIABLE_LENGTH && tag_data.write_sparse) {
     dbgOut.printf( 2, "Writing sparse data for var-len tag: \"%s\"\n", name.c_str() );
     rval = write_var_len_tag( tag_data, name, moab_type, hdf5_type, elem_size );
   }
@@ -1817,12 +1817,12 @@ ErrorCode WriteHDF5::write_tag( const SparseTag& tag_data )
     int data_len = elem_size;
     if (moab_type != MB_TYPE_BIT)
       data_len *= array_len;
-    if (tag_data.write) {
+    if (tag_data.write_sparse) {
       dbgOut.printf( 2, "Writing sparse data for tag: \"%s\"\n", name.c_str() );
       rval = write_sparse_tag( tag_data, name, moab_type, hdf5_type, data_len );
     }
-    for (size_t i = 0; MB_SUCCESS == rval && i < tag_data.denseList.size(); ++i) {
-      const ExportSet* set = find( tag_data.denseList[i] );
+    for (size_t i = 0; MB_SUCCESS == rval && i < tag_data.dense_list.size(); ++i) {
+      const ExportSet* set = find( tag_data.dense_list[i] );
       assert(0 != set);
       debug_barrier();
       dbgOut.printf( 2, "Writing dense data for tag: \"%s\" on group \"%s\"\n", name.c_str(), set->name() );
@@ -1834,7 +1834,7 @@ ErrorCode WriteHDF5::write_tag( const SparseTag& tag_data )
   return MB_SUCCESS == rval ? MB_SUCCESS : error(rval);
 }
 
-ErrorCode WriteHDF5::write_sparse_ids( const SparseTag& tag_data,
+ErrorCode WriteHDF5::write_sparse_ids( const TagDesc& tag_data,
                                        const Range& range,
                                        hid_t id_table,
                                        size_t table_size,
@@ -1855,7 +1855,7 @@ ErrorCode WriteHDF5::write_sparse_ids( const SparseTag& tag_data,
   
     // Write IDs of tagged entities.
   long remaining = range.size();
-  long offset = tag_data.offset;
+  long offset = tag_data.sparse_offset;
   long num_writes = (remaining + chunk_size - 1)/chunk_size;
   if (tag_data.max_num_ents) {
     assert(tag_data.max_num_ents >= (unsigned long)remaining);
@@ -1905,7 +1905,7 @@ ErrorCode WriteHDF5::write_sparse_ids( const SparseTag& tag_data,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data,
+ErrorCode WriteHDF5::write_sparse_tag( const TagDesc& tag_data,
                                        const std::string& name,
                                        DataType mb_data_type,
                                        hid_t value_type,
@@ -1930,7 +1930,7 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data,
                           tables,
                           &status);
   CHK_MHDF_ERR_0(status);
-  assert( range.size() + tag_data.offset <= (unsigned long)table_size );
+  assert( range.size() + tag_data.sparse_offset <= (unsigned long)table_size );
     // fixed-length tag
   assert( table_size == data_size );
 
@@ -1944,7 +1944,7 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data,
   IODebugTrack track( debugTrack, name + " Data", data_size );
   rval = write_tag_values( tag_data.tag_id,
                            tables[1], 
-                           tag_data.offset,
+                           tag_data.sparse_offset,
                            range,
                            mb_data_type,
                            value_type,
@@ -1961,7 +1961,7 @@ ErrorCode WriteHDF5::write_sparse_tag( const SparseTag& tag_data,
 }
 
 
-ErrorCode WriteHDF5::write_var_len_indices( const SparseTag& tag_data,
+ErrorCode WriteHDF5::write_var_len_indices( const TagDesc& tag_data,
                                             const Range& range,
                                             hid_t idx_table,
                                             size_t table_size,
@@ -1984,9 +1984,9 @@ ErrorCode WriteHDF5::write_var_len_indices( const SparseTag& tag_data,
   int* size_buffer = (int*)(dataBuffer + chunk_size*std::max(sizeof(void*),sizeof(mhdf_index_t)));
   
     // Write IDs of tagged entities.
-  long data_offset = tag_data.varDataOffset - 1; // offset at which to write data buffer
+  long data_offset = tag_data.var_data_offset - 1; // offset at which to write data buffer
   size_t remaining = range.size();
-  size_t offset = tag_data.offset;
+  size_t offset = tag_data.sparse_offset;
   size_t num_writes = (remaining + chunk_size - 1)/chunk_size;
     //size_t num_global_writes = num_writes;
   if (tag_data.max_num_ents) {
@@ -2043,7 +2043,7 @@ ErrorCode WriteHDF5::write_var_len_indices( const SparseTag& tag_data,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::write_var_len_data( const SparseTag& tag_data,
+ErrorCode WriteHDF5::write_var_len_data( const TagDesc& tag_data,
                                          const Range& range,
                                          hid_t table,
                                          size_t table_size,
@@ -2074,7 +2074,7 @@ ErrorCode WriteHDF5::write_var_len_data( const SparseTag& tag_data,
   const void* prev_data = 0; // data left over from prev iteration
   size_t prev_len = 0;
   Range::const_iterator iter = range.begin();
-  long offset = tag_data.varDataOffset;    
+  long offset = tag_data.var_data_offset;    
   while (prev_data || iter != range.end()) {
     size_t count = 0;
     if (prev_data) {
@@ -2136,7 +2136,7 @@ ErrorCode WriteHDF5::write_var_len_data( const SparseTag& tag_data,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data,
+ErrorCode WriteHDF5::write_var_len_tag( const TagDesc& tag_data,
                                         const std::string& name,
                                         DataType mb_data_type,
                                         hid_t hdf_type,
@@ -2162,7 +2162,7 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data,
                           tables,
                           &status);
   CHK_MHDF_ERR_0(status);
-  assert( range.size() + tag_data.offset <= (unsigned long)table_size );
+  assert( range.size() + tag_data.sparse_offset <= (unsigned long)table_size );
 
     // Write IDs for tagged entities
   rval = write_sparse_ids( tag_data, range, tables[0], table_size, name.c_str() );
@@ -2188,7 +2188,7 @@ ErrorCode WriteHDF5::write_var_len_tag( const SparseTag& tag_data,
 }
 
 
-ErrorCode WriteHDF5::write_dense_tag( const SparseTag& tag_data,
+ErrorCode WriteHDF5::write_dense_tag( const TagDesc& tag_data,
                                       const ExportSet& elem_data,
                                       const std::string& name,
                                       DataType mb_data_type,
@@ -2414,10 +2414,10 @@ ErrorCode WriteHDF5::gather_tags( const Tag* user_tag_list, int num_tags )
   for (t_itor = tag_list.begin(); t_itor != tag_list.end(); ++t_itor)
   {
       // Add tag to export list
-    SparseTag tag_data; tag_data.write = false;
+    TagDesc tag_data; tag_data.write_sparse = false;
     tag_data.tag_id = *t_itor;
-    tag_data.offset = 0;
-    tag_data.varDataOffset = 0;
+    tag_data.sparse_offset = 0;
+    tag_data.var_data_offset = 0;
     tag_data.max_num_ents = 0;
     tag_data.max_num_vals = 0;
     tagList.push_back( tag_data );
@@ -2578,11 +2578,11 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   CHK_MB_ERR_0(rval);
 
     // Create the tags and tag data tables
-  std::list<SparseTag>::iterator tag_iter = tagList.begin();
+  std::list<TagDesc>::iterator tag_iter = tagList.begin();
   for ( ; tag_iter != tagList.end(); ++tag_iter)
   {
       // As we haven't yet added any ExportSets for which to write
-      // dense tag data to the SparseTag struct pointed to by
+      // dense tag data to the TagDesc struct pointed to by
       // tag_iter, this call will initially return all tagged entities
       // in the set of entities to be written.
     Range range;
@@ -2613,24 +2613,24 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     
       if (check_dense_format_tag( nodeSet, range, prefer_dense )) {
         range -= nodeSet.range;
-        tag_iter->denseList.push_back( nodeSet );
+        tag_iter->dense_list.push_back( nodeSet );
       }
 
       std::list<ExportSet>::const_iterator ex = exportList.begin();
       for ( ; ex != exportList.end(); ++ex) {
         if (check_dense_format_tag( *ex, range, prefer_dense )) {
           range -= ex->range;
-          tag_iter->denseList.push_back( *ex );
+          tag_iter->dense_list.push_back( *ex );
         }
       }
 
       if (check_dense_format_tag( setSet, range, prefer_dense )) {
         range -= setSet.range;
-        tag_iter->denseList.push_back( setSet );
+        tag_iter->dense_list.push_back( setSet );
       }
     }
     
-    tag_iter->write = !range.empty();
+    tag_iter->write_sparse = !range.empty();
   
     unsigned long var_len_total = 0;
     if (var_len) {
@@ -2945,7 +2945,7 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::get_tag_data_length( const SparseTag& tag_info, 
+ErrorCode WriteHDF5::get_tag_data_length( const TagDesc& tag_info, 
                                           const Range& range,
                                           unsigned long& result )
 {
@@ -3002,7 +3002,7 @@ ErrorCode WriteHDF5::get_tag_data_length( const SparseTag& tag_info,
     
                                      
 
-ErrorCode WriteHDF5::create_tag( const SparseTag& tag_data,
+ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
                                  unsigned long num_sparse_entities,
                                  unsigned long data_table_size )
 {
@@ -3120,8 +3120,8 @@ ErrorCode WriteHDF5::create_tag( const SparseTag& tag_data,
       mhdf_closeData( filePtr, handles[1], &status );
     }
     
-    for (size_t i = 0; i < tag_data.denseList.size(); ++i) {
-      const ExportSet* ex = find( tag_data.denseList[i] );
+    for (size_t i = 0; i < tag_data.dense_list.size(); ++i) {
+      const ExportSet* ex = find( tag_data.dense_list[i] );
       assert(0 != ex);
       handles[0] = mhdf_createDenseTagData( filePtr,
                                             tag_name.c_str(),
@@ -3162,7 +3162,7 @@ ErrorCode WriteHDF5::create_tag( const SparseTag& tag_data,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::get_num_sparse_tagged_entities( const SparseTag& tag, 
+ErrorCode WriteHDF5::get_num_sparse_tagged_entities( const TagDesc& tag, 
                                                      size_t& count )
 {
   Range tmp;
@@ -3171,7 +3171,7 @@ ErrorCode WriteHDF5::get_num_sparse_tagged_entities( const SparseTag& tag,
   return rval;
 }
 
-ErrorCode WriteHDF5::get_sparse_tagged_entities( const SparseTag& tag,
+ErrorCode WriteHDF5::get_sparse_tagged_entities( const TagDesc& tag,
                                                     Range& results )
 {
   results.clear();

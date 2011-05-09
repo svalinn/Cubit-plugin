@@ -112,19 +112,19 @@ public:
   };
   
   //! Tag to write to file.
-  struct SparseTag
+  struct TagDesc
   {
     //! The tag handle
     Tag tag_id;
     //! The offset at which to begin writting this processor's data.
     //! Always zero except for parallel IO. 
-    id_t offset;
+    id_t sparse_offset;
     //! For variable-length tags, a second offset for the tag data table,
     //! separate from the offset used for the ID and Index tables.
     //! Always zero except for parallel IO. 
-    id_t varDataOffset;
+    id_t var_data_offset;
     //! Write sparse tag data (for serial, is always equal to !range.empty())
-    bool write;
+    bool write_sparse;
     //! If doing parallel IO, largest number, over all processes, of entities
     //! for which to write tag data.  Zero if unused.
     unsigned long max_num_ents;
@@ -136,12 +136,12 @@ public:
     
     //! List of entity groups for which to write tag data in 
     //! dense format
-    std::vector<ExportType> denseList;
+    std::vector<ExportType> dense_list;
     
     bool have_dense( const ExportType& type ) const
-      { return std::find(denseList.begin(), denseList.end(), type) != denseList.end(); }
+      { return std::find(dense_list.begin(), dense_list.end(), type) != dense_list.end(); }
     
-    bool operator<(const SparseTag&) const;
+    bool operator<(const TagDesc&) const;
   };
 
   static WriterIface* factory( Interface* );
@@ -276,9 +276,9 @@ protected:
 protected:
 
   //!\brief Get tagged entities for which to write tag values
-  ErrorCode get_num_sparse_tagged_entities( const SparseTag& tag, size_t& count );
+  ErrorCode get_num_sparse_tagged_entities( const TagDesc& tag, size_t& count );
   //!\brief Get tagged entities for which to write tag values
-  ErrorCode get_sparse_tagged_entities( const SparseTag& tag, Range& range );
+  ErrorCode get_sparse_tagged_entities( const TagDesc& tag, Range& range );
   //!\brief Get entities that will be written to file
   void get_write_entities( Range& range );
   
@@ -334,7 +334,7 @@ protected:
   bool writeSets, writeSetContents, writeSetChildren, writeSetParents;
   
   //! The list of tags to export
-  std::list<SparseTag> tagList;
+  std::list<TagDesc> tagList;
 
   //! True if doing parallel write
   bool parallelWrite;
@@ -391,7 +391,7 @@ protected:
    *\param var_len_total For variable-length tags, the total number of values
    *                     in the data table.
    */
-  ErrorCode create_tag( const SparseTag& tag_data, 
+  ErrorCode create_tag( const TagDesc& tag_data, 
                         unsigned long num_entities,
                         unsigned long var_len_total );
   
@@ -481,7 +481,7 @@ protected:
                                 
   //! get sum of lengths of tag values (as number of type) for 
   //! variable length tag data.
-  ErrorCode get_tag_data_length( const SparseTag& tag_info,
+  ErrorCode get_tag_data_length( const TagDesc& tag_info,
                                  const Range& range,
                                  unsigned long& result );
   
@@ -565,7 +565,7 @@ private:
    */
 
   //! Write tag for all entities.
-  ErrorCode write_tag( const SparseTag& tag_data );
+  ErrorCode write_tag( const TagDesc& tag_data );
                             
   //! Get element connectivity
   ErrorCode get_connectivity( Range::const_iterator begin,
@@ -598,21 +598,21 @@ private:
                           hid_t& hdf_type );
                             
   //! Write ID table for sparse tag
-  ErrorCode write_sparse_ids( const SparseTag& tag_data, 
+  ErrorCode write_sparse_ids( const TagDesc& tag_data, 
                               const Range& range,
                               hid_t table_handle, 
                               size_t table_size, 
                               const char* name = 0 );
   
   //! Write fixed-length tag data in sparse format
-  ErrorCode write_sparse_tag( const SparseTag& tag_data,
+  ErrorCode write_sparse_tag( const TagDesc& tag_data,
                               const std::string& tag_name,
                               DataType tag_data_type,
                               hid_t hdf5_data_type,
                               int hdf5_type_size );
 
   //! Write end index data_set for a variable-length tag
-  ErrorCode write_var_len_indices( const SparseTag& tag_data,
+  ErrorCode write_var_len_indices( const TagDesc& tag_data,
                                    const Range& range,
                                    hid_t idx_table,
                                    size_t table_size,
@@ -620,7 +620,7 @@ private:
                                    const char* name = 0 );
   
   //! Write tag value data_set for a variable-length tag
-  ErrorCode write_var_len_data( const SparseTag& tag_data,
+  ErrorCode write_var_len_data( const TagDesc& tag_data,
                                 const Range& range,
                                 hid_t table,
                                 size_t table_size,
@@ -630,14 +630,14 @@ private:
                                 const char* name = 0 );
   
   //! Write varialbe-length tag data
-  ErrorCode write_var_len_tag( const SparseTag& tag_info,
+  ErrorCode write_var_len_tag( const TagDesc& tag_info,
                                const std::string& tag_name,
                                DataType tag_data_type,
                                hid_t hdf5_type,
                                int hdf5_type_size );
 
   //! Write dense-formatted tag data
-  ErrorCode write_dense_tag( const SparseTag& tag_data,
+  ErrorCode write_dense_tag( const TagDesc& tag_data,
                              const ExportSet& elem_data,
                              const std::string& tag_name,
                              DataType tag_data_type,
