@@ -54,7 +54,7 @@ public:
   {
     return static_get_element_type(mMB, entity, mid_nodes_tag, geom_dimension_tag,
                                    indiv_entity_type);    
-  };
+  }
 
   virtual void has_mid_nodes(ExoIIElementType elem_type, int* array)
   {

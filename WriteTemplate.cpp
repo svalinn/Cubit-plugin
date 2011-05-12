@@ -614,7 +614,7 @@ ErrorCode WriteTEMPLATE::write_matsets(MeshInfo & /* mesh_info (commented out to
     
     int id = matset.id;
       // bogus line to get rid of warning
-    if (0 == id) ;
+    (void)id;
 
     for (rit = matset.elements->begin(); rit != matset.elements->end(); rit++) {
       
