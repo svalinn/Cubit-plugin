@@ -198,7 +198,7 @@ int check_valid_file_ids( struct mhdf_FileDesc* desc )
   for (i = 0; i < desc->num_elem_desc; ++i) 
     sorted[i] = &desc->elems[i].desc;
   sorted[i++] = &desc->nodes;
-  sorted[i++] = &desc->sets;
+  sorted[i] = &desc->sets;
   qsort( sorted, ngrp, sizeof(struct mhdf_EntDesc*), &dcomp );
   for (i = 0; i < ngrp; ++i) {
     if (sorted[i]->count < 0) {
@@ -1109,15 +1109,15 @@ static int check_valid_tag( int tag_idx, mhdf_FileHandle file, struct mhdf_FileD
   for (i = 0; i < tag->num_dense_indices; ++i) {
     if (tag->dense_elem_indices[i] == -2) {
       name = mhdf_set_type_handle();
-      group = &desc->sets;
+      /*group = &desc->sets;*/
     }
     else if (tag->dense_elem_indices[i] == -1) {
       name = mhdf_node_type_handle();
-      group = &desc->nodes;
+      /*group = &desc->nodes;*/
     }
     else {
       name = desc->elems[ tag->dense_elem_indices[i] ].handle;
-      group = &desc->elems[ tag->dense_elem_indices[i] ].desc;
+      /*group = &desc->elems[ tag->dense_elem_indices[i] ].desc;*/
     }
       
     handles[0] = mhdf_openDenseTagData( file, tag->name, name, &count, &status );

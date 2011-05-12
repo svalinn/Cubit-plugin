@@ -76,17 +76,21 @@ mhdf_fixFileDesc( struct mhdf_FileDesc* copy_ptr, const struct mhdf_FileDesc* or
   FIX_OFFSET( struct mhdf_ElemDesc*, elems );
   FIX_OFFSET( struct mhdf_TagDesc*, tags );
   
-  for (i = 0; i < copy_ptr->num_elem_desc; ++i) {
-    FIX_OFFSET( const char*, elems[i].handle );
-    FIX_OFFSET( const char*, elems[i].type );
-    FIX_OFFSET(        int*, elems[i].desc.dense_tag_indices );
+  if (copy_ptr->elems != NULL) {
+    for (i = 0; i < copy_ptr->num_elem_desc; ++i) {
+      FIX_OFFSET( const char*, elems[i].handle );
+      FIX_OFFSET( const char*, elems[i].type );
+      FIX_OFFSET(        int*, elems[i].desc.dense_tag_indices );
+    }
   }
   
-  for (i = 0; i < copy_ptr->num_tag_desc; ++i) {
-    FIX_OFFSET( const char*, tags[i].name );
-    FIX_OFFSET(       void*, tags[i].default_value );
-    FIX_OFFSET(       void*, tags[i].global_value );
-    FIX_OFFSET(        int*, tags[i].dense_elem_indices );
+  if (copy_ptr->tags != NULL) {
+    for (i = 0; i < copy_ptr->num_tag_desc; ++i) {
+      FIX_OFFSET( const char*, tags[i].name );
+      FIX_OFFSET(       void*, tags[i].default_value );
+      FIX_OFFSET(       void*, tags[i].global_value );
+      FIX_OFFSET(        int*, tags[i].dense_elem_indices );
+    }
   }
   API_END;
 }
