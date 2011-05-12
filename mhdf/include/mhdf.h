@@ -627,6 +627,16 @@ mhdf_closeData( mhdf_FileHandle file,
                 hid_t handle,
                 mhdf_Status* status );
 
+/**\brief Get start ID that will be assigned to next created dataset
+ *
+ * Get the first_id parameter that will be returned from the next
+ * call to any of mhdf_createNodeCoords, mhdf_createConnectivity, 
+ * mhdf_createPolyConnectivity, or mhdf_createSetMeta
+ */
+void
+mhdf_getNextStartId( mhdf_FileHandle file,
+                     mhdf_index_t* start_id_out,
+                     mhdf_Status* status );
 
 /** \brief Write the file history as a list of strings.
  *

@@ -962,3 +962,18 @@ mhdf_readHistory( mhdf_FileHandle file_handle,
   API_END;
   return array;
 }
+
+void
+mhdf_getNextStartId( mhdf_FileHandle file,
+                     mhdf_index_t* start_id_out,
+                     mhdf_Status* status )
+{
+  FileHandle* file_ptr = (FileHandle*)file;
+  API_BEGIN;
+  
+  mhdf_setOkay( status );
+  if (mhdf_check_valid_file( file_ptr, status )) 
+    *start_id_out = file_ptr->max_id+1;
+    
+  API_END;
+}
