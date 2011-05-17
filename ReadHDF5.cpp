@@ -2111,7 +2111,7 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
                                           hid_t contents_handle, 
                                           hid_t meta_type,
                                           hid_t content_type,
-                                          long /*contents_len*/,
+                                          long contents_len,
                                           Range& file_ids )
 {
 
@@ -2189,6 +2189,27 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
 #else
     assert(rank == 0); // if not MPI, then only one proc
 #endif
+  }
+  
+  // check offsets so that we don't read past end of table or
+  // walk off end of array.
+  long prev = -1;
+  for (long  i = 0; i < num_sets; ++i) {
+    if (offset_buffer[i] < prev) {
+      std::cerr << "Invalid data in set contents offsets at position "
+                << i << ": index " << offset_buffer[i] 
+                << " is less than previous index " << prev << std::endl;
+      std::cerr.flush();
+      MPI_Abort(comm,1);
+    }
+    prev = offset_buffer[i];
+  }
+  if (offset_buffer[num_sets-1] >= contents_len) {
+    std::cerr << "Maximum set content index " << offset_buffer[num_sets-1]
+              << " exceeds contents table length of " << contents_len
+              << std::endl;
+    std::cerr.flush();
+    MPI_Abort(comm,1);
   }
 
   // set up buffer for reading set contents 
