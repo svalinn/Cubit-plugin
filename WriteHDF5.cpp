@@ -130,7 +130,6 @@ static hid_t get_id_type()
   // This is the HDF5 type used to store file IDs
 const hid_t WriteHDF5::id_type = get_id_type();
 
-
 // This function doesn't do anything useful.  It's just a nice
 // place to set a break point to determine why the reader fails.
 static inline ErrorCode error( ErrorCode rval )
@@ -286,6 +285,9 @@ public:
   }
 };
 
+MPEState WriteHDF5::topState;
+MPEState WriteHDF5::subState;
+
 
 #ifdef NDEBUG
 #define CHECK_OPEN_HANDLES
@@ -418,6 +420,11 @@ ErrorCode WriteHDF5::init()
       errorHandler.data = 0;
     }
   }
+
+  if (!topState.valid())
+    topState = MPEState( "WriteHDF5", "yellow" );
+  if (!subState.valid())
+    subState = MPEState( "WriteHDF5 subevent", "cyan" );
 
   return MB_SUCCESS;
 }
@@ -571,21 +578,21 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   init_time = RUNTIME;
 
   dbgOut.tprint(1,"Gathering Mesh\n");
+  topState.start("gathering mesh");
   
     // Gather mesh to export
   exportList.clear();
   if (0 == num_sets || (1 == num_sets && set_array[0] == 0))
   {
     result = gather_all_mesh( );
-    CHK_MB_ERR_0(result);
   }
   else
   {
     std::vector<EntityHandle> passed_export_list(set_array, set_array+num_sets);
     result = gather_mesh_info( passed_export_list );
-    if (MB_SUCCESS != result) 
-      return error(result);
   }
+  topState.end(result);
+  CHK_MB_ERR_0(result);
   
   gather_time = RUNTIME;
   
@@ -641,10 +648,11 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   create_time = RUNTIME;
 
   dbgOut.tprint(1,"Writing Nodes.\n");
-  
     // Write node coordinates
   if (!nodeSet.range.empty() || parallelWrite) {
+    topState.start( "writing coords" );
     result = write_nodes();
+    topState.end(result);
     if (MB_SUCCESS != result)
       return error(result);
   }
@@ -655,7 +663,9 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   
     // Write element connectivity
   for (ex_itor = exportList.begin(); ex_itor != exportList.end(); ++ex_itor) {
+    topState.start( "writing connectivity for ", ex_itor->name() );
     result = write_elems( *ex_itor );
+    topState.end(result);
     if (MB_SUCCESS != result)
       return error(result);
   }
@@ -681,7 +691,9 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     return error(result);
 #endif
   for (ex_itor = exportList.begin(); ex_itor != exportList.end(); ++ex_itor) {
+    topState.start( "writing adjacencies for ", ex_itor->name() );
     result = write_adjacencies( *ex_itor );
+    topState.end(result);
     if (MB_SUCCESS != result)
       return error(result);
   }
@@ -691,7 +703,11 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
 
     // Write tags
   for (t_itor = tagList.begin(); t_itor != tagList.end(); ++t_itor) {
+    std::string name;
+    iFace->tag_get_name( t_itor->tag_id, name );
+    topState.start( "writing tag: ", name.c_str() );
     result = write_tag( *t_itor );
+    topState.end(result);
     if (MB_SUCCESS != result)
       return error(result);
   }
@@ -1309,15 +1325,19 @@ ErrorCode WriteHDF5::write_sets( )
     /* Write set parents */
   if (writeSetParents)
   {
+    topState.start( "writing parent lists for local sets" );
     table = mhdf_openSetParents( filePtr, &size, &status );
     CHK_MHDF_ERR_0(status);
     IODebugTrack track( debugTrack, "SetParents", size );
     
     rval = write_set_data( WriteUtilIface::PARENTS, table, track );
+    topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
     
     if (parallelWrite) {
+      topState.start( "writing parent lists for shared sets" );
       rval = write_shared_set_parents( table, &track );
+      topState.end(rval);
       CHK_MB_ERR_1(rval,table,status);
     }  
     
@@ -1330,15 +1350,19 @@ ErrorCode WriteHDF5::write_sets( )
     /* Write set children */
   if (writeSetChildren)
   {
+    topState.start( "writing child lists for local sets" );
     table = mhdf_openSetChildren( filePtr, &size, &status );
     CHK_MHDF_ERR_0(status);
     IODebugTrack track( debugTrack, "SetChildren", size );
     
     rval = write_set_data( WriteUtilIface::CHILDREN, table, track );
+    topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
     
     if (parallelWrite) {
+      topState.start( "writing child lists for shared sets" );
       rval = write_shared_set_children( table, &track );
+      topState.end(rval);
       CHK_MB_ERR_1(rval,table,status);
     }  
     
@@ -1353,16 +1377,20 @@ ErrorCode WriteHDF5::write_sets( )
   std::vector<long> set_sizes;
   if (writeSetContents) 
   {
+    topState.start( "writing content lists for local sets" );
     table = mhdf_openSetData( filePtr, &size, &status );
     CHK_MHDF_ERR_0(status);
     IODebugTrack track( debugTrack, "SetContents", size );
     
     rval = write_set_data( WriteUtilIface::CONTENTS, table, track, 
                            &ranged_sets, &null_stripped_sets, &set_sizes );
+    topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
     
     if (parallelWrite) {
+      topState.start( "writing content lists for shared sets" );
       rval = write_shared_set_contents( table, &track );
+      topState.end(rval);
       CHK_MB_ERR_1(rval,table,status);
     }  
     
@@ -1376,6 +1404,7 @@ ErrorCode WriteHDF5::write_sets( )
     /* Write set description table */
   
   debug_barrier();
+  topState.start( "writing descriptions of local sets" );
   dbgOut.printf(2,"Writing %lu non-shared sets\n", (unsigned long)setSet.range.size() );
   dbgOut.print(3,"Non-shared sets", setSet.range );
   
@@ -1469,8 +1498,11 @@ ErrorCode WriteHDF5::write_sets( )
     CHK_MHDF_ERR_1(status, table);    
   }
   
+  topState.end();
   if (parallelWrite) {
+    topState.start( "writing descriptions of shared sets" );
     rval = write_shared_set_descriptions( table, &track_meta );
+    topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
   }  
   
@@ -1826,7 +1858,9 @@ ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data )
       assert(0 != set);
       debug_barrier();
       dbgOut.printf( 2, "Writing dense data for tag: \"%s\" on group \"%s\"\n", name.c_str(), set->name() );
+      subState.start( "writing dense data for tag: ", (name + ":" + set->name()).c_str() );
       rval = write_dense_tag( tag_data, *set, name, moab_type, hdf5_type, data_len );
+      subState.end(rval);
     }
   }
  
@@ -1935,13 +1969,16 @@ ErrorCode WriteHDF5::write_sparse_tag( const TagDesc& tag_data,
   assert( table_size == data_size );
 
     // Write IDs for tagged entities
+  subState.start( "writing sparse ids for tag: ", name.c_str() );
   rval = write_sparse_ids( tag_data, range, tables[0], table_size, name.c_str() );
+  subState.end(rval);
   CHK_MB_ERR_2( rval, tables, status );
   mhdf_closeData( filePtr, tables[0], &status );
   CHK_MHDF_ERR_1(status, tables[1]);
   
     // Set up data buffer for writing tag values
   IODebugTrack track( debugTrack, name + " Data", data_size );
+  subState.start( "writing sparse values for tag: ", name.c_str() );
   rval = write_tag_values( tag_data.tag_id,
                            tables[1], 
                            tag_data.sparse_offset,
@@ -1951,7 +1988,7 @@ ErrorCode WriteHDF5::write_sparse_tag( const TagDesc& tag_data,
                            value_type_size,
                            tag_data.max_num_ents,
                            track );
-  
+  subState.end(rval);
   mhdf_closeData( filePtr, tables[1], &status );
   CHK_MB_ERR_0(rval);
   CHK_MHDF_ERR_0(status);
@@ -2165,21 +2202,27 @@ ErrorCode WriteHDF5::write_var_len_tag( const TagDesc& tag_data,
   assert( range.size() + tag_data.sparse_offset <= (unsigned long)table_size );
 
     // Write IDs for tagged entities
+  subState.start( "writing ids for var-len tag: ", name.c_str() );
   rval = write_sparse_ids( tag_data, range, tables[0], table_size, name.c_str() );
+  subState.end(rval);
   CHK_MB_ERR_2( rval, tables, status );
   mhdf_closeData( filePtr, tables[0], &status );
   CHK_MHDF_ERR_2(status, tables + 1);
 
     // Write offsets for tagged entities
+  subState.start( "writing indices for var-len tag: ", name.c_str() );
   rval = write_var_len_indices( tag_data, range, tables[2], table_size, type_size, name.c_str() );
+  subState.end(rval);
   mhdf_closeData( filePtr, tables[2], &status );
   CHK_MB_ERR_1( rval, tables[1], status );
   CHK_MHDF_ERR_1(status, tables[1]);
 
     // Write the actual tag data
+  subState.start( "writing values for var-len tag: ", name.c_str() );
   rval = write_var_len_data( tag_data, range, tables[1], data_table_size, 
                              mb_data_type == MB_TYPE_HANDLE,
                              hdf_type, type_size, name.c_str() );
+  subState.end(rval);
   mhdf_closeData( filePtr, tables[1], &status );
   CHK_MB_ERR_0( rval );
   CHK_MHDF_ERR_0(status);
@@ -2454,6 +2497,8 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   std::list<ExportSet>::iterator ex_itor;
   ErrorCode rval;
   
+  topState.start( "creating file" );
+  
   const char* type_names[MBMAXTYPE];
   memset( type_names, 0, MBMAXTYPE * sizeof(char*) );
   for (EntityType i = MBEDGE; i < MBENTITYSET; ++i)
@@ -2642,6 +2687,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     CHK_MB_ERR_0(rval);
   } // for(tags)
   
+  topState.end();
   return MB_SUCCESS;
 }
 

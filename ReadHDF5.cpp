@@ -60,6 +60,7 @@
 #include "IODebugTrack.hpp"
 #include "ReadHDF5Dataset.hpp"
 #include "ReadHDF5VarLen.hpp"
+#include "moab_mpe.h"
 
 namespace moab {
 
@@ -783,6 +784,10 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
 {
   mhdf_Status status;
 
+  static MPEState mpe_event( "ReadHDF5", "yellow" );
+ 
+  mpe_event.start( "gather parts" );
+
   CHECK_OPEN_HANDLES;
   
   for (int i = 0; i < subset_list_length; ++i) {
@@ -815,7 +820,8 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   }
 
   dbgOut.print_ints( 4, "Set file IDs for partial read: ", file_ids );
-  
+  mpe_event.end();
+  mpe_event.start( "gather related sets" );
   dbgOut.tprint( 1, "GATHERING ADDITIONAL ENTITIES\n" );
   
   enum RecusiveSetMode { RSM_NONE, RSM_SETS, RSM_CONTENTS };
@@ -859,7 +865,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
 
   dbgOut.print_ints( 5, "File IDs for partial read: ", file_ids );
   debug_barrier();
-    
+  mpe_event.end();
   dbgOut.tprint( 1, "GATHERING NODE IDS\n" );
   
     // Figure out the maximum dimension of entity to be read
@@ -895,10 +901,12 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     
     debug_barrier();
     dbgOut.print( 2, "    Getting polyhedra faces\n" );
+    mpe_event.start( "reading connectivity for ", fileInfo->elems[i].handle );
     
     Range polyhedra;
     intersect( fileInfo->elems[i].desc, file_ids, polyhedra );
     rval = read_elems( i, polyhedra, &file_ids );
+    mpe_event.end(rval);
     if (MB_SUCCESS != rval)
       return error(rval);
   }
@@ -920,6 +928,8 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     
     Range subset;
     intersect( fileInfo->elems[i].desc, file_ids, subset );
+  
+    mpe_event.start( "reading connectivity for ", fileInfo->elems[i].handle );
     
       // If dimension is max_dim, then we can create the elements now
       // so we don't have to read the table again later (connectivity 
@@ -932,11 +942,13 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
       rval = read_elems( i, subset, &nodes );
     else
       rval = read_elems( i, subset, nodes );
+    mpe_event.end(rval);
     if (MB_SUCCESS != rval)
       return error(rval);
   }
     
   debug_barrier();
+  mpe_event.start( "read coords" );
   dbgOut.tprintf( 1, "READING NODE COORDINATES (%lu nodes in %lu selects)\n", 
                      (unsigned long)nodes.size(), (unsigned long)nodes.psize() );
   
@@ -944,6 +956,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     // NOTE:  This populates the RangeMap with node file ids,
     //        which is expected by read_node_adj_elems.
   rval = read_nodes( nodes );
+  mpe_event.end(rval);
   if (MB_SUCCESS != rval)
     return error(rval);
  
@@ -979,8 +992,10 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
         if (CN::Dimension(type) == dim) {
           debug_barrier();
           dbgOut.tprintf( 2, "    Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle );
+          mpe_event.start( "reading connectivity for ", fileInfo->elems[i].handle );
           Range ents;
           rval = read_node_adj_elems( fileInfo->elems[i] );
+          mpe_event.end(rval);
           if (MB_SUCCESS != rval)
             return error(rval);
           if (!ents.empty())
@@ -1002,7 +1017,9 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
         if (CN::Dimension(type) == dim) {
           debug_barrier();
           dbgOut.tprintf( 2, "    Reading node-adjacent elements for: %s\n", fileInfo->elems[i].handle );
+          mpe_event.start( "reading connectivity for ", fileInfo->elems[i].handle );
           rval = read_node_adj_elems( fileInfo->elems[i], &side_entities );
+          mpe_event.end(rval);
           if (MB_SUCCESS != rval)
             return error(rval);
         }
@@ -1016,7 +1033,9 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     // which might otherwise delete polyhedra faces.
   debug_barrier();
   dbgOut.tprint( 1, "UPDATING CONNECTIVITY ARRAYS FOR READ ELEMENTS\n" );
+  mpe_event.start( "updating connectivity for elements read before vertices");
   rval = update_connectivity();
+  mpe_event.end();
   if (MB_SUCCESS != rval)
     return error(rval);
 
@@ -1025,6 +1044,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
     if (fileInfo->elems[i].have_adj &&
         idMap.intersects( fileInfo->elems[i].desc.start_id, fileInfo->elems[i].desc.count )) {
+      mpe_event.start( "reading adjacencies for ", fileInfo->elems[i].handle );
       long len;
       hid_t th = mhdf_openAdjacency( filePtr, fileInfo->elems[i].handle, &len, &status );
       if (is_error(status))
@@ -1032,6 +1052,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
 
       rval = read_adjacencies( th, len );
       mhdf_closeData( filePtr, th, &status );
+      mpe_event.end(rval);
       if (MB_SUCCESS != rval)
         return error(rval);
     }
@@ -1044,8 +1065,10 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     // happen before this.
   if (side_mode == SM_SIDES) {
     debug_barrier();
+    mpe_event.start( "cleaning up non-side lower-dim elements" );
     dbgOut.tprint( 1, "CHECKING FOR AND DELETING NON-SIDE ELEMENTS\n" );
     rval = delete_non_side_elements( side_entities );
+    mpe_event.end(rval);
     if (MB_SUCCESS != rval)
       return error(rval);
   }
@@ -1058,30 +1081,37 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     // have found them already.
   if (content_mode == RSM_SETS || child_mode == RSM_SETS) {
     dbgOut.tprint( 1, "  doing read_set_ids_recursive\n" );
+    mpe_event.start( "finding recursively contained sets" );
     rval = read_set_ids_recursive( sets, content_mode == RSM_SETS, child_mode == RSM_SETS );
+    mpe_event.end(rval);
     if (MB_SUCCESS != rval)
       return error(rval);
   }
   
   dbgOut.tprint( 1, "  doing find_sets_containing\n" );
+  mpe_event.start( "finding sets containing any read entities" );
     // Append file IDs of sets containing any of the nodes or elements
     // we've read up to this point.
   rval = find_sets_containing( sets );
+  mpe_event.end(rval);
   if (MB_SUCCESS != rval)
     return error(rval);
     // Now actually read all set data and instantiate sets in MOAB.
     // Get any contained sets out of file_ids.
+  mpe_event.start( "reading set contents/parents/children" );
   EntityHandle first_set = fileInfo->sets.start_id;
   sets.merge( file_ids.lower_bound( first_set ),
               file_ids.lower_bound( first_set + fileInfo->sets.count ) );
   dbgOut.tprint( 1, "  doing read_sets\n" );
   rval = read_sets( sets );
+  mpe_event.end(rval);
   if (MB_SUCCESS != rval)
     return error(rval);
   
   dbgOut.tprint( 1, "READING TAGS\n" );
   
   for (int i = 0; i < fileInfo->num_tag_desc; ++i) {
+    mpe_event.start( "reading tag: ", fileInfo->tags[i].name );
     rval = read_tag( i );
     if (MB_SUCCESS != rval)
       return error(rval);

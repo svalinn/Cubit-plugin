@@ -21,6 +21,7 @@
 #ifdef USE_MPI // include this before HDF5 headers to avoid conflicts
 #  include "moab_mpi.h"
 #endif
+#include "moab_mpe.h"
 #include "mhdf.h"
 #include "moab/Forward.hpp"
 #include "moab/Range.hpp"
@@ -350,6 +351,9 @@ protected:
   
   //! Utility to log debug output
   DebugOutput dbgOut;
+  
+  static MPEState topState;
+  static MPEState subState;
   
   //! Look for overlapping and/or missing writes
   bool debugTrack;
