@@ -2200,7 +2200,7 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
                 << i << ": index " << offset_buffer[i] 
                 << " is less than previous index " << prev << std::endl;
       std::cerr.flush();
-      MPI_Abort(comm,1);
+      return error(MB_FAILURE);
     }
     prev = offset_buffer[i];
   }
@@ -2209,7 +2209,7 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t meta_handle,
               << " exceeds contents table length of " << contents_len
               << std::endl;
     std::cerr.flush();
-    MPI_Abort(comm,1);
+    return error(MB_FAILURE);
   }
 
   // set up buffer for reading set contents 
