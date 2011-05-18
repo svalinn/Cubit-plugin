@@ -59,6 +59,15 @@
 #define RUNTIME (clock()/(double)CLOCKS_PER_SEC)
 #endif
 
+class CpuTimer {
+private:
+  double atBirth, atLast;
+public:
+  CpuTimer() : atBirth(RUNTIME), atLast(atBirth) {}
+  double since_birth() { return (atLast = RUNTIME) - atBirth; };
+  double elapsed() { double tmp = atLast; return (atLast = RUNTIME) - tmp; }
+};
+
 /* Access HDF5 file handle for debugging
 #include <H5Fpublic.h>
 struct file { uint32_t magic; hid_t handle; };
@@ -134,7 +143,6 @@ const hid_t WriteHDF5::id_type = get_id_type();
 // place to set a break point to determine why the reader fails.
 static inline ErrorCode error( ErrorCode rval )
   { return rval; }
-
 
 // Call \c error function during HDF5 library errors to make
 // it easier to trap such errors in the debugger.  This function
@@ -295,7 +303,6 @@ MPEState WriteHDF5::subState;
 #define CHECK_OPEN_HANDLES \
   CheckOpenWriteHDF5Handles check_open_handles_(filePtr,__LINE__)
 #endif
-
 
 bool WriteHDF5::convert_handle_tag( const EntityHandle* source,
                                     EntityHandle* dest, size_t count ) const
@@ -482,9 +489,8 @@ ErrorCode WriteHDF5::write_file( const char* filename,
 
   // Enable debug output
   int tmpval = 0;
-  if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
+  if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval))
     dbgOut.set_verbosity(tmpval);
-  }
 
   //writeTagDense = (MB_SUCCESS == opts.get_null_option("DENSE_TAGS"));
   writeTagDense = true; 
@@ -565,7 +571,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   std::list<TagDesc>::const_iterator t_itor;
   std::list<ExportSet>::iterator ex_itor;
   EntityHandle elem_count, max_id;
-  double init_time, gather_time, create_time, node_time, element_time, set_time, tag_time, total_time;
+  double times[NUM_TIMES] = {0};
 
   if (MB_SUCCESS != init())
     return error(MB_FAILURE);
@@ -575,7 +581,8 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   result = opts.get_null_option("CPUTIME");
   if (MB_SUCCESS == result)
     cputime = true;
-  init_time = RUNTIME;
+
+  CpuTimer timer;
 
   dbgOut.tprint(1,"Gathering Mesh\n");
   topState.start("gathering mesh");
@@ -594,7 +601,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   topState.end(result);
   CHK_MB_ERR_0(result);
   
-  gather_time = RUNTIME;
+  times[GATHER_TIME] = timer.elapsed();
   
   //if (nodeSet.range.size() == 0)
   //  return error(MB_ENTITY_NOT_FOUND);
@@ -637,7 +644,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     //dbgOut.printf(2,"'COLLECTIVE' option = %s\n", collectiveIO ? "YES" : "NO" );
       // Do this all the time, as it appears to be much faster than indep in some cases
     collectiveIO = true;
-    result = parallel_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension, pcomm_no );
+    result = parallel_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension, pcomm_no, times );
   }
   else {
     result = serial_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension );
@@ -645,7 +652,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   if (MB_SUCCESS != result)
     return error(result);
 
-  create_time = RUNTIME;
+  times[CREATE_TIME] = timer.elapsed();
 
   dbgOut.tprint(1,"Writing Nodes.\n");
     // Write node coordinates
@@ -657,7 +664,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
       return error(result);
   }
 
-  node_time = RUNTIME;
+  times[COORD_TIME] = timer.elapsed();
 
   dbgOut.tprint(1,"Writing connectivity.\n");
   
@@ -670,17 +677,17 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
       return error(result);
   }
 
-  element_time = RUNTIME;
+  times[CONN_TIME] = timer.elapsed();
 
   dbgOut.tprint(1,"Writing sets.\n");
   
     // Write meshsets
-  result = write_sets();
+  result = write_sets(times);
   if (MB_SUCCESS != result)
     return error(result);
 
   debug_barrier();
-  set_time = RUNTIME;
+  times[SET_TIME] = timer.elapsed();
   dbgOut.tprint(1,"Writing adjacencies.\n");
   
     // Write adjacencies
@@ -697,6 +704,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     if (MB_SUCCESS != result)
       return error(result);
   }
+  times[ADJ_TIME] = timer.elapsed();
 
   dbgOut.tprint(1,"Writing tags.\n");
   
@@ -706,27 +714,17 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     std::string name;
     iFace->tag_get_name( t_itor->tag_id, name );
     topState.start( "writing tag: ", name.c_str() );
-    result = write_tag( *t_itor );
+    result = write_tag( *t_itor, times );
     topState.end(result);
     if (MB_SUCCESS != result)
       return error(result);
   }
+  times[TAG_TIME] = timer.elapsed();
+  
+  times[TOTAL_TIME] = timer.since_birth();
 
   if (cputime) {
-    tag_time = RUNTIME;
-    total_time = RUNTIME;
-
-    std::cout << "Write times: "
-              << total_time -init_time << " " 
-              << init_time << " " 
-              << gather_time - init_time << " " 
-              << create_time - gather_time << " "
-              << node_time - create_time << " " 
-              << element_time - node_time << " " 
-              << set_time - node_time << " " 
-              << tag_time - set_time
-              << " (TOTAL/INIT/GATHER/CREATE/NODES/ELEMS/SETS/TAGS)"
-              << std::endl;
+    print_times( times );
   }
 
   return MB_SUCCESS;
@@ -1306,12 +1304,13 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::write_sets( )
+ErrorCode WriteHDF5::write_sets( double* times )
 {
   mhdf_Status status;
   ErrorCode rval;
   long first_id, size;
   hid_t table;
+  CpuTimer timer;
 
   CHECK_OPEN_HANDLES;
   /* If no sets, just return success */
@@ -1333,12 +1332,14 @@ ErrorCode WriteHDF5::write_sets( )
     rval = write_set_data( WriteUtilIface::PARENTS, table, track );
     topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
+    times[LOCAL_SET_PARENT] = timer.elapsed();
     
     if (parallelWrite) {
       topState.start( "writing parent lists for shared sets" );
       rval = write_shared_set_parents( table, &track );
       topState.end(rval);
       CHK_MB_ERR_1(rval,table,status);
+      times[SHARED_SET_PARENT] = timer.elapsed();
     }  
     
     mhdf_closeData( filePtr, table, &status );
@@ -1358,12 +1359,14 @@ ErrorCode WriteHDF5::write_sets( )
     rval = write_set_data( WriteUtilIface::CHILDREN, table, track );
     topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
+    times[LOCAL_SET_CHILD] = timer.elapsed();
     
     if (parallelWrite) {
       topState.start( "writing child lists for shared sets" );
       rval = write_shared_set_children( table, &track );
       topState.end(rval);
       CHK_MB_ERR_1(rval,table,status);
+      times[SHARED_SET_CHILD] = timer.elapsed();
     }  
     
     mhdf_closeData( filePtr, table, &status );
@@ -1386,12 +1389,14 @@ ErrorCode WriteHDF5::write_sets( )
                            &ranged_sets, &null_stripped_sets, &set_sizes );
     topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
+    times[LOCAL_SET_CONTENT] = timer.elapsed();
     
     if (parallelWrite) {
       topState.start( "writing content lists for shared sets" );
       rval = write_shared_set_contents( table, &track );
       topState.end(rval);
       CHK_MB_ERR_1(rval,table,status);
+      times[SHARED_SET_CONTENT] = timer.elapsed();
     }  
     
     mhdf_closeData( filePtr, table, &status );
@@ -1498,6 +1503,8 @@ ErrorCode WriteHDF5::write_sets( )
     CHK_MHDF_ERR_1(status, table);    
   }
   
+  times[LOCAL_SET_META] = timer.elapsed();
+  
   topState.end();
   if (parallelWrite) {
     topState.start( "writing descriptions of shared sets" );
@@ -1505,6 +1512,8 @@ ErrorCode WriteHDF5::write_sets( )
     topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
   }  
+  
+  times[SHARED_SET_META] = timer.elapsed();
   
   mhdf_closeData( filePtr, table, &status );
   CHK_MHDF_ERR_0(status);
@@ -1820,7 +1829,8 @@ ErrorCode WriteHDF5::write_adjacencies( const ExportSet& elements )
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data )
+ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data,
+                                double* times )
 {
   std::string name;
   ErrorCode rval = iFace->tag_get_name( tag_data.tag_id, name );
@@ -1841,9 +1851,11 @@ ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data )
   if (MB_SUCCESS != rval)
     return error(rval);
 
+  CpuTimer timer;
   if (array_len == MB_VARIABLE_LENGTH && tag_data.write_sparse) {
     dbgOut.printf( 2, "Writing sparse data for var-len tag: \"%s\"\n", name.c_str() );
     rval = write_var_len_tag( tag_data, name, moab_type, hdf5_type, elem_size );
+    times[VARLEN_TAG_TIME] += timer.elapsed();
   }
   else {
     int data_len = elem_size;
@@ -1852,6 +1864,7 @@ ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data )
     if (tag_data.write_sparse) {
       dbgOut.printf( 2, "Writing sparse data for tag: \"%s\"\n", name.c_str() );
       rval = write_sparse_tag( tag_data, name, moab_type, hdf5_type, data_len );
+      times[SPARSE_TAG_TIME] += timer.elapsed();
     }
     for (size_t i = 0; MB_SUCCESS == rval && i < tag_data.dense_list.size(); ++i) {
       const ExportSet* set = find( tag_data.dense_list[i] );
@@ -1862,6 +1875,7 @@ ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data )
       rval = write_dense_tag( tag_data, *set, name, moab_type, hdf5_type, data_len );
       subState.end(rval);
     }
+    times[DENSE_TAG_TIME] += timer.elapsed();
   }
  
   H5Tclose( hdf5_type );
@@ -2479,7 +2493,8 @@ ErrorCode WriteHDF5::parallel_create_file( const char* ,
                                     const Tag*,
                                     int ,
                                     int,
-                                    int  )
+                                    int,
+                                    double*  )
 {
   return error(MB_NOT_IMPLEMENTED);
 }
@@ -3274,6 +3289,39 @@ void WriteHDF5::print_id_map( std::ostream& s, const char* pfx ) const
       }
     }
   }
+}
+
+void WriteHDF5::print_times( const double* t ) const
+{
+  std::cout << "WriteHDF5:           " << t[TOTAL_TIME] << std::endl
+            << "  gather mesh:       " << t[GATHER_TIME] << std::endl
+            << "  create file:       " << t[CREATE_TIME] << std::endl
+            << "    create nodes:    " << t[CREATE_NODE_TIME] << std::endl
+            << "    negotiate types: " << t[NEGOTIATE_TYPES_TIME] << std::endl
+            << "    craete elem:     " << t[CREATE_ELEM_TIME] << std::endl
+            << "    file id exch:    " << t[FILEID_EXCHANGE_TIME] << std::endl
+            << "    create adj:      " << t[CREATE_ADJ_TIME] << std::endl
+            << "    create set:      " << t[CREATE_SET_TIME] << std::endl
+            << "      resolve sets:  " << t[RESOLVE_SHARED_SET_TIME] << std::endl
+            << "      local sets:    " << t[LOCAL_SET_OFFSET_TIME] << std::endl
+            << "      shared sets:   " << t[SHARED_SET_OFFSET_TIME] << std::endl
+            << "    create tags:     " << t[CREATE_TAG_TIME] << std::endl
+            << "  coordinates:       " << t[COORD_TIME] << std::endl
+            << "  connectivity:      " << t[CONN_TIME] << std::endl
+            << "  sets:              " << t[SET_TIME] << std::endl
+            << "    local descrip:   " << t[LOCAL_SET_META] << std::endl
+            << "    local content:   " << t[LOCAL_SET_CONTENT] << std::endl
+            << "    local parent:    " << t[LOCAL_SET_PARENT] << std::endl
+            << "    local child:     " << t[LOCAL_SET_CHILD] << std::endl
+            << "    shared descrip:  " << t[SHARED_SET_META] << std::endl
+            << "    shared content:  " << t[SHARED_SET_CONTENT] << std::endl
+            << "    shared parent:   " << t[SHARED_SET_PARENT] << std::endl
+            << "    shared child:    " << t[SHARED_SET_CHILD] << std::endl
+            << "  adjacencies:       " << t[ADJ_TIME] << std::endl
+            << "  tags:              " << t[TAG_TIME] << std::endl
+            << "    dense data:      " << t[DENSE_TAG_TIME] << std::endl
+            << "    sparse data:     " << t[SPARSE_TAG_TIME] << std::endl
+            << "    var-len data:    " << t[VARLEN_TAG_TIME] << std::endl;
 }
 
 } // namespace moab

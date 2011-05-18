@@ -177,6 +177,8 @@ public:
     void* data;
   };
 
+  struct Times;
+
 protected:
   
   //! Store old HDF5 error handling function
@@ -198,7 +200,8 @@ protected:
                                             const Tag* tag_list,
                                             int num_tags,
                                             int dimension = 3,
-                                            int pcomm_no = 0 );
+                                            int pcomm_no = 0,
+                                            double* times = 0 );
 
 
   /** Functions that the parallel version overrides*/
@@ -528,7 +531,7 @@ private:
    * Note: Must have written nodes and element connectivity
    *       so entities have assigned IDs.
    */
-  ErrorCode write_sets( );
+  ErrorCode write_sets( double* times );
 
   /** Write set contents/parents/children lists
    *
@@ -569,7 +572,8 @@ private:
    */
 
   //! Write tag for all entities.
-  ErrorCode write_tag( const TagDesc& tag_data );
+  ErrorCode write_tag( const TagDesc& tag_data,
+                       double* times );
                             
   //! Get element connectivity
   ErrorCode get_connectivity( Range::const_iterator begin,
@@ -658,6 +662,43 @@ private:
                               int hdf5_type_size,
                               unsigned long max_num_ents,
                               IODebugTrack& debug_track );
+
+protected:
+
+  enum TimeingValues { 
+       TOTAL_TIME = 0,
+         GATHER_TIME,
+         CREATE_TIME,
+           CREATE_NODE_TIME,
+           NEGOTIATE_TYPES_TIME,
+           CREATE_ELEM_TIME,
+           FILEID_EXCHANGE_TIME,
+           CREATE_ADJ_TIME,
+           CREATE_SET_TIME,
+             RESOLVE_SHARED_SET_TIME,
+             LOCAL_SET_OFFSET_TIME,
+             SHARED_SET_OFFSET_TIME,
+           CREATE_TAG_TIME,
+         COORD_TIME,
+         CONN_TIME,
+         SET_TIME,
+           LOCAL_SET_META,
+           LOCAL_SET_CONTENT,
+           LOCAL_SET_PARENT,
+           LOCAL_SET_CHILD,
+           SHARED_SET_META,
+           SHARED_SET_CONTENT,
+           SHARED_SET_PARENT,
+           SHARED_SET_CHILD,
+         ADJ_TIME,
+         TAG_TIME,
+           DENSE_TAG_TIME,
+           SPARSE_TAG_TIME,
+           VARLEN_TAG_TIME,
+         NUM_TIMES };
+
+  
+  virtual void print_times( const double times[NUM_TIMES] ) const;
 };
 
 } // namespace moab
