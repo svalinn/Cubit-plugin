@@ -29,7 +29,9 @@ endif
 
 if HDF5_FILE
   libmoabio_la_LIBADD += mhdf/libmhdf.la
-  MOAB_HDF5_SRCS = ReadHDF5.cpp \
+  MOAB_HDF5_SRCS = HDF5Common.cpp \
+                   HDF5Common.hpp \
+                   ReadHDF5.cpp \
                    ReadHDF5.hpp \
                    ReadHDF5Dataset.hpp \
                    ReadHDF5Dataset.cpp \

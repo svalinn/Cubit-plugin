@@ -30,19 +30,12 @@
 #include "moab/ReaderIface.hpp"
 #include "moab/RangeMap.hpp"
 #include "DebugOutput.hpp"
+#include "HDF5Common.hpp"
 
 namespace moab {
 
 class ParallelComm;
 class ReadHDF5Dataset;
-
-extern "C" {
-#if defined(H5E_auto_t_vers) && H5E_auto_t_vers > 1
-    typedef herr_t (*HDF5_Error_Func_Type)( hid_t, void* );
-#else
-    typedef herr_t (*HDF5_Error_Func_Type)( void* );
-#endif
-}
 
 /**
  * \brief  Read mesh from MOAB HDF5 (.h5m) file.
