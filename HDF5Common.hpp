@@ -1,5 +1,7 @@
+#ifdef USE_MPI
+#  include "moab_mpi.h"
+#endif
 #include <H5Epublic.h>
-#include <H5Spublic.h>
 
 namespace moab { 
 
