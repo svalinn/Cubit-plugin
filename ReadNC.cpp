@@ -245,14 +245,16 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
 
   Range tmp_range;
   ScdBox *scd_box;
-  rval = scdi->create_scd_sequence(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
-                                   HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
-                                   MBVERTEX, 0, scd_box);
+  rval = scdi->construct_box(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
+                             HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
+                             NULL, 0, scd_box);
   if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
-    // add the new vertices to the file set
+    // add box set and new vertices, elements to the file set
   tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex()+scd_box->num_vertices()-1);
+  tmp_range.insert(scd_box->start_element(), scd_box->start_element()+scd_box->num_elements()-1);
+  tmp_range.insert(scd_box->box_set());
   rval = mbImpl->add_entities(tmp_set, tmp_range);
   if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Couldn't add new vertices to file set.");
@@ -260,10 +262,13 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
     // get a ptr to global id memory
   void *data;
   int count;
-  rval = mbImpl->tag_iterate(mGlobalIdTag, tmp_range.begin(), tmp_range.end(), count, data);
+  const Range::iterator topv = tmp_range.upper_bound(tmp_range.begin(), tmp_range.end(),
+                                                     scd_box->start_vertex() + scd_box->num_vertices());
+  rval = mbImpl->tag_iterate(mGlobalIdTag, tmp_range.begin(), topv, 
+                             count, data);
   if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Failed to get tag iterator.");
-  assert((unsigned)count == tmp_range.size());
+  assert(count == scd_box->num_vertices());
   int *gid_data = (int*)data;
 
     // set the vertex coordinates
@@ -299,7 +304,8 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   int num_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) *
     (-1 == klMin ? 1 : klMax-klMin+1);
   std::vector<int> gids(num_verts);
-  rval = mbImpl->tag_get_data(mGlobalIdTag, tmp_range, &gids[0]);
+  Range verts(scd_box->start_vertex(), scd_box->start_vertex()+scd_box->num_vertices()-1);
+  rval = mbImpl->tag_get_data(mGlobalIdTag, verts, &gids[0]);
   if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Trouble getting gid values.");
   int vmin = *(std::min_element(gids.begin(), gids.end())),
@@ -307,35 +313,12 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   dbgOut.tprintf(1, "Vertex gids %d-%d\n", vmin, vmax);
 #endif  
     
-    // create element sequence
-  ScdBox *elem_box;
-  rval = scdi->create_scd_sequence(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
-                                   HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
-                                   (-1 != klMin ? MBHEX : MBQUAD), 0, elem_box);
-    // add vertex seq to element seq, forward orientation, unity transform
-  rval = elem_box->add_vbox(scd_box,
-                              // p1: imin,jmin
-                            HomCoord(ilMin, jlMin, (-1 == klMin ? 0 : klMin)),
-                            HomCoord(ilMin, jlMin, (-1 == klMin ? 0 : klMin)),
-                              // p2: imax,jmin
-                            HomCoord(ilMax, jlMin, (-1 == klMin ? 0 : klMin)),
-                            HomCoord(ilMax, jlMin, (-1 == klMin ? 0 : klMin)),
-                              // p3: imin,jmax
-                            HomCoord(ilMin, jlMax, (-1 == klMin ? 0 : klMin)),
-                            HomCoord(ilMin, jlMax, (-1 == klMin ? 0 : klMin)));
-  ERRORR(rval, "Error constructing structured element sequence.");
-
-    // add the new hexes to the file set
-  tmp_range.insert(elem_box->start_element(), elem_box->start_element() + elem_box->num_elements()-1);
-  rval = mbImpl->add_entities(tmp_set, tmp_range);
-  ERRORR(rval, "Couldn't add new vertices to file set.");
-
-    // also add to the range passed in
-  hexes.insert(elem_box->start_element(), elem_box->start_element() + elem_box->num_elements()-1);
+    // add elements to the range passed in
+  hexes.insert(scd_box->start_element(), scd_box->start_element() + scd_box->num_elements()-1);
   
   if (2 <= dbgOut.get_verbosity()) {
-    assert(elem_box->boundary_complete());
-    EntityHandle dum_ent = elem_box->start_element();
+    assert(scd_box->boundary_complete());
+    EntityHandle dum_ent = scd_box->start_element();
     rval = mbImpl->list_entities(&dum_ent, 1);
     ERRORR(rval, "Trouble listing first hex.");
   
