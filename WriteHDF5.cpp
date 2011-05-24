@@ -59,15 +59,6 @@
 #define RUNTIME (clock()/(double)CLOCKS_PER_SEC)
 #endif
 
-class CpuTimer {
-private:
-  double atBirth, atLast;
-public:
-  CpuTimer() : atBirth(RUNTIME), atLast(atBirth) {}
-  double since_birth() { return (atLast = RUNTIME) - atBirth; };
-  double elapsed() { double tmp = atLast; return (atLast = RUNTIME) - tmp; }
-};
-
 /* Access HDF5 file handle for debugging
 #include <H5Fpublic.h>
 struct file { uint32_t magic; hid_t handle; };
@@ -108,6 +99,15 @@ struct file { uint32_t magic; hid_t handle; };
 #endif
 
 namespace moab {
+
+class CpuTimer {
+private:
+  double atBirth, atLast;
+public:
+  CpuTimer() : atBirth(RUNTIME), atLast(atBirth) {}
+  double since_birth() { return (atLast = RUNTIME) - atBirth; };
+  double elapsed() { double tmp = atLast; return (atLast = RUNTIME) - tmp; }
+};
 
 template <typename T> inline 
 void VALGRIND_MAKE_VEC_UNDEFINED( std::vector<T>& v ) {
