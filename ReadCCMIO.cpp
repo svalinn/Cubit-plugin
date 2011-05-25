@@ -241,7 +241,8 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
                                   MB_TYPE_OPAQUE, simname, NULL);
         CHKERR(rval, "Simulation name tag not found or created.");
       }
-      rval = mbImpl->tag_set_data(simname, file_set, (file_set ? 1 : 0), name);
+      EntityHandle set = file_set ? *fileset : 0;
+      rval = mbImpl->tag_set_data(simname, &set, 1, name);
       CHKERR(rval, "Problem setting simulation name tag.");
 
     }
@@ -399,7 +400,7 @@ ErrorCode ReadCCMIO::get_str_option(const char *opt_str, EntityHandle seth, Tag 
   if (opt_string.size() > NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
   else (opt_string.resize(NAME_TAG_SIZE, '\0'));
 
-  rval = mbImpl->tag_set_data(tag, &seth, (seth ? 1 : 0), &opt_string[0]);
+  rval = mbImpl->tag_set_data(tag, &seth, 1, &opt_string[0]);
   CHKERR(rval, NULL);
 
   return MB_SUCCESS;

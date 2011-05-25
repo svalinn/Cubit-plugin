@@ -2443,7 +2443,8 @@ ErrorCode WriteHDF5::register_known_tag_types( Interface* iface )
         { ++error; continue; }
       
       hid_t copy_id = H5Tcopy( list[i].type );
-      rval = iface->tag_set_data( handle, 0, 0, &copy_id );
+      const EntityHandle mesh = 0;
+      rval = iface->tag_set_data( handle, &mesh, 1, &copy_id );
       if (MB_SUCCESS != rval)
         { ++error; continue; }
     }
@@ -2964,7 +2965,8 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
       if (hsize != sizeof(hid_t))
         return error(MB_FAILURE);
       
-      rval = iFace->tag_get_data( type_handle, 0, 0, &hdf_type );
+      const EntityHandle root = 0;
+      rval = iFace->tag_get_data( type_handle, &root, 1, &hdf_type );
       if (rval != MB_SUCCESS)
         return error(rval);
         
@@ -3108,13 +3110,14 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
     
     // get mesh value
   unsigned char byte;
+  const EntityHandle root = 0;
   if (mb_storage == MB_TAG_BIT) {
-    rval = iFace->tag_get_data( tag_data.tag_id, 0, 0, &byte );
+    rval = iFace->tag_get_data( tag_data.tag_id, &root, 1, &byte );
     mesh_value = &byte;
     mesh_val_len = 1;
   }
   else {
-    rval = iFace->tag_get_data( tag_data.tag_id, 0, 0, &mesh_value, &mesh_val_len );
+    rval = iFace->tag_get_data( tag_data.tag_id, &root, 1, &mesh_value, &mesh_val_len );
   }
   if (MB_TAG_NOT_FOUND == rval) {
     mesh_value = 0;

@@ -426,13 +426,14 @@ ErrorCode Tqdcfr::convert_nodesets_sidesets()
 
     // look first for the nodeset and sideset offset flags; if they're not
     // set, we don't need to convert
+  const EntityHandle mesh = 0;
   unsigned int nodeset_offset, sideset_offset;
   Tag tmp_tag;
   ErrorCode result = mdbImpl->tag_get_handle(BLOCK_NODESET_OFFSET_TAG_NAME,
                                                tmp_tag);
   if (MB_SUCCESS != result) nodeset_offset = 0;
   else {
-    result = mdbImpl->tag_get_data(tmp_tag, 0, 0, &nodeset_offset);
+    result = mdbImpl->tag_get_data(tmp_tag, &mesh, 1, &nodeset_offset);
     if (MB_SUCCESS != result) return result;
   }
 
@@ -440,7 +441,7 @@ ErrorCode Tqdcfr::convert_nodesets_sidesets()
                                    tmp_tag);
   if (MB_SUCCESS != result) sideset_offset = 0;
   else {
-    result = mdbImpl->tag_get_data(tmp_tag, 0, 0, &sideset_offset);
+    result = mdbImpl->tag_get_data(tmp_tag, &mesh, 1, &sideset_offset);
     if (MB_SUCCESS != result) return result;
   }
 

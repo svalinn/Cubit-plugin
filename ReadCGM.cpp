@@ -156,10 +156,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
 
   // always tag with the faceting_tol and geometry absolute resolution
   // if file_set is defined, use that, otherwise (file_set == NULL) tag the interface
-  rval = mdbImpl->tag_set_data( faceting_tol_tag, file_set, (file_set ? 1 : 0), &faceting_tol );
+  EntityHandle set = file_set ? *file_set : 0;
+  rval = mdbImpl->tag_set_data( faceting_tol_tag, &set, 1, &faceting_tol );
   if(MB_SUCCESS != rval) return rval;
 
-  rval = mdbImpl->tag_set_data( geometry_resabs_tag, file_set, (file_set ? 1 : 0), &GEOMETRY_RESABS );
+  rval = mdbImpl->tag_set_data( geometry_resabs_tag, &set, 1, &GEOMETRY_RESABS );
   if(MB_SUCCESS != rval) return rval;
 
   // CGM data

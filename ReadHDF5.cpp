@@ -3155,7 +3155,8 @@ ErrorCode ReadHDF5::create_tag( const mhdf_TagDesc& info,
     tag_type_name += info.name;
     rval = iFace->tag_get_handle( tag_type_name.c_str(), type_handle );
     if (MB_SUCCESS == rval) {
-      rval = iFace->tag_get_data( type_handle, 0, 0, &hdf_type );
+      EntityHandle root = 0;
+      rval = iFace->tag_get_data( type_handle, &root, 1, &hdf_type );
       if (MB_SUCCESS != rval)
         return error(rval);
       hdf_type = H5Tcopy( hdf_type );
@@ -3326,14 +3327,15 @@ ErrorCode ReadHDF5::create_tag( const mhdf_TagDesc& info,
   }
     
   if (info.global_value) {
+    EntityHandle root = 0;
     if (info.size > 0) { // fixed-length tag
-      rval = iFace->tag_set_data( handle, 0, 0, info.global_value );
+      rval = iFace->tag_set_data( handle, &root, 1, info.global_value );
     }
     else {
       int tag_size = info.global_value_size;
       if (hdf_type) // not opaque
         tag_size *= H5Tget_size(hdf_type); 
-      rval = iFace->tag_set_data( handle, 0, 0, &info.global_value, &tag_size );
+      rval = iFace->tag_set_data( handle, &root, 1, &info.global_value, &tag_size );
     }
     if (MB_SUCCESS != rval) {
       if (hdf_type) H5Tclose( hdf_type );

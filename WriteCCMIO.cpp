@@ -397,6 +397,7 @@ namespace moab {
     CCMIOID id;
     CCMIOError error = kCCMIONoErr;
     ErrorCode rval;
+    const EntityHandle mesh = 0;
 
     bool root_tagged = false, other_set_tagged = false;
     Tag simname;
@@ -415,7 +416,7 @@ namespace moab {
 	}
 	else if (MB_SUCCESS == rval) {
           // check to see if interface was tagged
-	  rval = mbImpl->tag_get_data(simname, 0, 0, &title_tag[0]);
+	  rval = mbImpl->tag_get_data(simname, &mesh, 1, &title_tag[0]);
 	  if (MB_SUCCESS == rval) root_tagged = true;
 	  else rval = MB_SUCCESS;
 	}
@@ -444,7 +445,7 @@ namespace moab {
 	}
 	else if (MB_SUCCESS == rval) {
           // check to see if interface was tagged
-	  rval = mbImpl->tag_get_data(mCreatingProgramTag, 0, 0, &cp_tag[0]);
+	  rval = mbImpl->tag_get_data(mCreatingProgramTag, &mesh, 1, &cp_tag[0]);
 	  if (MB_SUCCESS == rval) root_tagged = true;
 	  else rval = MB_SUCCESS;
 	}
@@ -623,10 +624,7 @@ namespace moab {
     if (MB_SUCCESS != rval) return MB_SUCCESS;
     std::vector<char> opt_val(tag_size+1);
 
-    if (!seth)
-      rval = mbImpl->tag_get_data(tag, NULL, 0, &opt_val[0]);
-    else
-      rval = mbImpl->tag_get_data(tag, &seth, 1, &opt_val[0]);
+    rval = mbImpl->tag_get_data(tag, &seth, 1, &opt_val[0]);
     if (MB_SUCCESS != rval) return MB_SUCCESS;
 
     // null-terminate if necessary
@@ -840,7 +838,8 @@ namespace moab {
     ErrorCode result = mbImpl->tag_get_handle( MESH_TRANSFORM_TAG_NAME, trans_tag);
     if( result == MB_TAG_NOT_FOUND ) return MB_SUCCESS;
     double trans_matrix[16]; 
-    result = mbImpl->tag_get_data( trans_tag, NULL, 0, trans_matrix ); 
+    const EntityHandle mesh = 0;
+    result = mbImpl->tag_get_data( trans_tag, &mesh, 1, trans_matrix ); 
     if (MB_SUCCESS != result) {
       mWriteIface->report_error("Couldn't get transform data.");
       return result;

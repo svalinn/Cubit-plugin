@@ -576,7 +576,8 @@ ErrorCode WriteSLAC::write_nodes(const int num_nodes, const Range& nodes, const 
   if( transform_needed )
   {
     double trans_matrix[16]; 
-    result = mbImpl->tag_get_data( trans_tag, NULL, 0, trans_matrix ); 
+    const EntityHandle mesh = 0;
+    result = mbImpl->tag_get_data( trans_tag, &mesh, 1, trans_matrix ); 
     if (MB_SUCCESS != result) {
       mWriteIface->report_error("Couldn't get transform data.");
       return result;

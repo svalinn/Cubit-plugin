@@ -873,7 +873,8 @@ ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
   if( transform_needed )
   {
     double trans_matrix[16]; 
-    result = mdbImpl->tag_get_data( trans_tag, NULL, 0, trans_matrix ); 
+    const EntityHandle mesh = 0;
+    result = mdbImpl->tag_get_data( trans_tag, &mesh, 0, trans_matrix ); 
     if (MB_SUCCESS != result) {
       mWriteIface->report_error("Couldn't get transform data.");
       return result;
