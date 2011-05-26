@@ -241,7 +241,7 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
                                   MB_TYPE_OPAQUE, simname, NULL);
         CHKERR(rval, "Simulation name tag not found or created.");
       }
-      EntityHandle set = file_set ? *fileset : 0;
+      EntityHandle set = file_set ? *file_set : 0;
       rval = mbImpl->tag_set_data(simname, &set, 1, name);
       CHKERR(rval, "Problem setting simulation name tag.");
 
