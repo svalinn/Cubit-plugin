@@ -712,6 +712,9 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
     dbgOut.tprintf(1, "Partition: %dx%dx%d (out of %dx%dx%d)\n", 
                    ilMax-ilMin+1, jlMax-jlMin+1, klMax-klMin+1,
                    iMax-iMin+1, jMax-jMin+1, kMax-kMin+1);
+    if (myComm->proc_config().proc_rank() == 0) 
+      dbgOut.tprintf(1, "Contiguous chunks of size %d bytes.\n", 8*(ilMax-ilMin+1)*(jlMax-jlMin+1));
+    
     ERRORR(rval, "Failed to compute partition.");
   }
 #endif
