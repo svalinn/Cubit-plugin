@@ -235,6 +235,9 @@ private:
 
     //! are we reading in parallel?
   bool isParallel;
+
+    //! use a 2d partition or not
+  bool use2DPartition;
   
 #ifdef USE_MPI
   ParallelComm *myPcomm;

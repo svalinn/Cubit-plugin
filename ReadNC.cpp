@@ -34,7 +34,7 @@ ReadNC::ReadNC(Interface* impl)
           iDim(-1), jDim(-1), kDim(-1), tDim(-1), numUnLim(-1), mCurrentMeshHandle(0),
           startVertex(0), startElem(0), mGlobalIdTag(0), 
           max_line_length(-1), max_str_length(-1), vertexOffset(0), dbgOut(stderr),
-          isParallel(false)
+          isParallel(false), use2DPartition(false)
 #ifdef USE_MPI
         , myPcomm(NULL)
 #endif
@@ -96,12 +96,6 @@ ErrorCode ReadNC::load_file(const char *file_name,
     if (MB_TAG_NOT_FOUND == rval)
       rval = mbImpl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_DENSE, 
                                 MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
-  }
-  
-  int tmpval;
-  if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
-    dbgOut.set_verbosity(tmpval);
-    dbgOut.set_prefix("NC ");
   }
   
   bool nomesh = false;
@@ -186,6 +180,12 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
                                 bool &nomesh,
                                 std::string &partition_tag_name) 
 {
+  int tmpval;
+  if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
+    dbgOut.set_verbosity(tmpval);
+    dbgOut.set_prefix("NC ");
+  }
+  
   opts.get_strs_option("VARIABLE", var_names ); 
   opts.get_ints_option("TIMESTEP", tstep_nums); 
   opts.get_reals_option("TIMEVAL", tstep_vals);
@@ -231,6 +231,10 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   }
   const int rank = myPcomm->proc_config().proc_rank();
   dbgOut.set_rank(rank);
+
+  if (MB_SUCCESS == opts.get_null_option("2D_PARTITION"))
+    use2DPartition = true;
+  
 #endif
 
   return MB_SUCCESS;
@@ -700,11 +704,15 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   ErrorCode rval;
 #ifdef USE_MPI
   if (isParallel) {
-    rval = compute_partition_1(ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+    if (use2DPartition)
+      rval = compute_partition_2(ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+    else
+      rval = compute_partition_1(ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+
+    dbgOut.tprintf(1, "Partition: %dx%dx%d (out of %dx%dx%d)\n", 
+                   ilMax-ilMin+1, jlMax-jlMin+1, klMax-klMin+1,
+                   iMax-iMin+1, jMax-jMin+1, kMax-kMin+1);
     ERRORR(rval, "Failed to compute partition.");
-    
-//    rval = compute_partition_2(ilMin, ilMax, jlMin, jlMax, klMin, klMax);
-//    ERRORR(rval, "Failed to compute partition.");
   }
 #endif
     
@@ -839,7 +847,7 @@ ErrorCode ReadNC::compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &j
   std::vector<double> kfactors;
   kfactors.push_back(1);
   int K = kMax - kMin;
-  for (int i = 2; i < 25; i++) 
+  for (int i = 2; i < K/2; i++) 
     if (!(K%i) && !(np%i)) kfactors.push_back(i);
   kfactors.push_back(K);
   
@@ -866,9 +874,9 @@ ErrorCode ReadNC::compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &j
   klMin = (nr % nk) * dk;
   klMax = klMin + dk;
   
-  int extra = (np / nk) % nj;
+  int extra = J % nj;
   
-  jlMin = (nr / nk) * dj + std::min(nr / nk, extra);
+  jlMin = jMin + (nr / nk) * dj + std::min(nr / nk, extra);
   jlMax = jlMin + dj + (nr / nk < extra ? 1 : 0);
 
   ilMin = iMin;
