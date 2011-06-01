@@ -170,6 +170,10 @@ ErrorCode ReadNC::load_file(const char *file_name,
   }
 #endif
   
+    // create nc conventional tags
+  rval = create_tags(tstep_nums);
+  ERRORR(rval, "Trouble creating nc conventional tags.");
+  
   return MB_SUCCESS;
 }
 
@@ -617,7 +621,7 @@ ErrorCode ReadNC::get_tag(VarData &var_data, int tstep_num, Tag &tagh)
 {
   std::ostringstream tag_name;
   tag_name << var_data.varName;
-  if (0 != tstep_num) tag_name << tstep_num;
+  tag_name << tstep_num;
   ErrorCode rval = MB_SUCCESS;
   tagh = 0;
   switch (var_data.varDataType) {
@@ -1075,6 +1079,176 @@ ErrorCode ReadNC::read_tag_values( const char* ,
                                    const SubsetList* ) 
 {
   return MB_FAILURE;
+}
+
+ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
+{
+  ErrorCode rval;
+  std::string tag_name;
+  
+  // <__NUM_DIMS>
+  Tag numDimsTag = 0;  
+  tag_name = "__NUM_DIMS";
+  int numDims = dimNames.size();
+  rval = mbImpl->tag_create(tag_name.c_str(), sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER, numDimsTag, &numDims);
+  ERRORR(rval, "Trouble creating __NUM_DIMS tag.");
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  
+  // <__NUM_VARS>
+  Tag numVarsTag = 0;
+  tag_name = "__NUM_VARS";
+  int numVars = varInfo.size();
+  rval = mbImpl->tag_create(tag_name.c_str(), sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER, numVarsTag, &numVars);
+  ERRORR(rval, "Trouble creating __NUM_VARS tag.");
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  
+  // <__DIM_NAMES>
+  Tag dimNamesTag = 0;
+  tag_name = "__DIM_NAMES";
+  std::string dimnames;
+  unsigned int dimNamesSz = dimNames.size();
+  for (unsigned int i = 0; i != dimNamesSz; ++i) {
+    dimnames.append(dimNames[i]);
+    dimnames.push_back('\0');
+  }
+  unsigned int dimnamesSz = dimnames.size();
+  rval = mbImpl->tag_create_variable_length(tag_name.c_str(), MB_TAG_SPARSE, MB_TYPE_OPAQUE, dimNamesTag, dimnames.c_str(), dimnamesSz);
+  ERRORR(rval, "Trouble creating __DIM_NAMES tag.");
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  
+  // <__VAR_NAMES>
+  Tag varNamesTag = 0;
+  tag_name = "__VAR_NAMES";
+  std::string varnames;
+  std::map<std::string,VarData>::iterator mapIter;
+  for (mapIter = varInfo.begin(); mapIter != varInfo.end(); ++mapIter) {
+    varnames.append(mapIter->first);
+    varnames.push_back('\0');
+  }
+  unsigned int varnamesSz = varnames.size();
+  rval = mbImpl->tag_create_variable_length(tag_name.c_str(), MB_TAG_SPARSE, MB_TYPE_OPAQUE, varNamesTag, varnames.c_str(), varnamesSz);
+  ERRORR(rval, "Trouble creating __VAR_NAMES tag.");
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  
+  // <dim_name>
+  dimNamesSz = dimNames.size();
+  for (unsigned int i = 0; i != dimNamesSz; ++i) {
+    tag_name = dimNames[i];
+    Tag tagh = 0; 
+    DataType data_type;
+    void * val = NULL;
+    int val_len = 0;
+    if (tag_name == "lon") 
+      val = &ilVals[0];
+    else if (tag_name == "lat")
+      val = &jlVals[0];
+    else if (tag_name == "lev")
+      val = &klVals[0];
+    else if (tag_name == "time")
+      val = &tVals[0];
+    else {
+      std::string s = "Unrecognized dimension name";
+      s += tag_name;
+      s += "\n";
+      ERRORR(MB_FAILURE, s.c_str());      
+    }
+    switch (varInfo[tag_name].varDataType) {
+    case NC_BYTE:
+    case NC_CHAR:
+    case NC_DOUBLE:
+      data_type = MB_TYPE_DOUBLE;
+      val_len = sizeof(double) * dimVals[i];
+      break;
+    case NC_FLOAT:
+    case NC_INT:
+      data_type = MB_TYPE_INTEGER;
+      val_len = sizeof(int) * dimVals[i];
+      break;
+    case NC_SHORT:
+    default:
+      std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;
+      rval = MB_FAILURE;
+    }
+    rval = mbImpl->tag_create_variable_length(tag_name.c_str(), MB_TAG_SPARSE, data_type, tagh, val, val_len);
+    ERRORR(rval, "Trouble creating <dim_name> tag.");
+    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  }
+
+  // __<dim_name>_LOC_MINMAX
+  for (unsigned int i = 0; i != dimNamesSz; ++i) {
+    if (dimNames[i] == "lon" || dimNames[i] == "lat" || dimNames[i] == "lev") {
+      std::stringstream ss_tag_name;
+      ss_tag_name << "__" << dimNames[i] << "_LOC_MINMAX";
+      tag_name = ss_tag_name.str();
+      Tag tagh = 0; 
+      std::vector<int> val(2, 0);
+      if (dimNames[i] == "lon") {
+	val[0] = ilMin; 
+	val[1] = ilMax; 
+      }
+      else if (dimNames[i] == "lat") {
+	val[0] = jlMin; 
+	val[1] = jlMax;
+      }
+      else if (dimNames[i] == "lev") {
+	val[0] = klMin; 
+	val[1] = klMax;
+      }
+      else if (dimNames[i] == "time") {
+	val[0] = tMin; 
+	val[1] = tMax;
+      }
+      rval = mbImpl->tag_create(tag_name.c_str(), sizeof(int) * 2, MB_TAG_SPARSE, MB_TYPE_INTEGER, tagh, &val[0]);
+      ERRORR(rval, "Trouble creating __<dim_name>_LOC_MINMAX tag.");
+      if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+    }
+  }
+
+  // __<dim_name>_LOC_VALS
+  for (unsigned int i = 0; i != dimNamesSz; ++i) {
+    if (dimNames[i] != "lon" && dimNames[i] != "lat" && dimNames[i] != "lev") {
+      Tag tagh = 0; 
+      std::vector<int> val;
+      if (dimNames[i] == "time") {
+	val = tstep_nums;
+      }
+      else {
+	std::string s = "Unsupported LOC_VALS for dimension ";
+	s += dimNames[i];
+	s += "\n";
+	ERRORR(MB_FAILURE, s.c_str());      
+      }
+      std::stringstream ss_tag_name;
+      ss_tag_name << "__" << dimNames[i] << "_LOC_VALS";
+      tag_name = ss_tag_name.str();
+      rval = mbImpl->tag_create(tag_name.c_str(), sizeof(int) * val.size(), MB_TAG_SPARSE, MB_TYPE_INTEGER, tagh, &val[0]);
+      ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
+      if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+    }
+  }
+
+  // __<var_name>_DIMS
+  for (mapIter = varInfo.begin(); mapIter != varInfo.end(); ++mapIter) {
+    if (std::find(dimNames.begin(), dimNames.end(), mapIter->first) == dimNames.end()) {
+      Tag varNamesDimsTag = 0;
+      std::stringstream ss_tag_name;
+      ss_tag_name << "__" << mapIter->first << "_DIMS";
+      tag_name = ss_tag_name.str();
+      unsigned int varDimSz = varInfo[mapIter->first].varDims.size();
+      varInfo[mapIter->first].varTags.resize(varDimSz, 0);
+      for (unsigned int i = 0; i != varDimSz; ++i) {
+	Tag tmptag = 0;
+	std::string tmptagname = dimNames[varInfo[mapIter->first].varDims[i]];
+	mbImpl->tag_get_handle(tmptagname.c_str(), tmptag);
+	varInfo[mapIter->first].varTags[i] = tmptag;
+      }
+      rval = mbImpl->tag_create(tag_name.c_str(), sizeof(Tag)*varDimSz, MB_TAG_SPARSE, MB_TYPE_HANDLE, varNamesDimsTag, &(varInfo[mapIter->first].varTags[0]));
+      ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
+      if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+    }
+  }
+  
+  return MB_SUCCESS;
 }
 
 } // namespace moab

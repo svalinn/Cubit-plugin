@@ -172,6 +172,9 @@ private:
     
   ErrorCode get_tag(VarData &var_data, int tstep_num, Tag &tagh);
   
+    //! create nc conventional tags
+  ErrorCode create_tags(const std::vector<int> &tstep_nums);
+
 //------------member variables ------------//
 
     //! interface instance
