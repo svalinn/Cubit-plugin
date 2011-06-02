@@ -359,7 +359,6 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
 #endif
     if (bglockless) {
       pfilename = std::string("bglockless:") + pfilename;
-      dbgOut.printf( 1, "Enabling lockless IO for BlueGene (filename: \"%s\")\n", pfilename.c_str() );
     }    
     
 #ifndef HDF5_PARALLEL
@@ -382,6 +381,9 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     dbgOut.set_rank(rank);
     dbgOut.limit_output_to_first_N_procs( 32 );
     mpiComm = new MPI_Comm(myPcomm->proc_config().proc_comm());
+    if (bglockless) {
+      dbgOut.printf( 1, "Enabling lockless IO for BlueGene (filename: \"%s\")\n", pfilename.c_str() );
+    }    
 
 #ifndef H5_MPI_COMPLEX_DERIVED_DATATYPE_WORKS 
     dbgOut.print(1,"H5_MPI_COMPLEX_DERIVED_DATATYPE_WORKS is not defined\n");
