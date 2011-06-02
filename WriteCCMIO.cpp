@@ -120,50 +120,31 @@ namespace moab {
 
     // initialize in case tag_get_handle fails below
     //! get and cache predefined tag handles
-    int dum_val = 0;
-    ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
-    if (MB_TAG_NOT_FOUND == result)
-      result = impl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mMaterialSetTag,
-				&dum_val);
-  
-    result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, mDirichletSetTag);
-    if (MB_TAG_NOT_FOUND == result)
-      result = impl->tag_create(DIRICHLET_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mDirichletSetTag,
-				&dum_val);
-  
-    result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME, mNeumannSetTag);
-    if (MB_TAG_NOT_FOUND == result)
-      result = impl->tag_create(NEUMANN_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mNeumannSetTag,
-				&dum_val);
+    impl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                         mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+    impl->tag_get_handle(DIRICHLET_SET_TAG_NAME 1, MB_TYPE_INTEGER,
+                         mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+    impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                         mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+    impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                         mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT);
 
 #ifdef USE_MPI  
-    result = impl->tag_get_handle(PARALLEL_PARTITION_TAG_NAME, mPartitionSetTag);
+    impl->tag_get_handle(PARALLEL_PARTITION_TAG_NAME, mPartitionSetTag);
     // no need to check result, if it's not there, we don't create one
 #endif
   
-    result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
-    if (MB_TAG_NOT_FOUND == result) {
-      int dum_val_array[] = {0, 0, 0, 0};
-      result = impl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, mHasMidNodesTag,
-				dum_val_array);
-    }
+    int dum_val_array[] = {0, 0, 0, 0};
+    impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
+                         mHasMidNodesTag, MB_TAG_SPARSE|MB_TAG_CREAT, dum_val_array);
   
-    result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, mGlobalIdTag);
-    if (MB_TAG_NOT_FOUND == result)
-      result = impl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mGlobalIdTag,
-				&dum_val);
-  
-    impl->tag_create("__WriteCCMIO element mark", 1, MB_TAG_BIT, mEntityMark, NULL);
-
-    result = mbImpl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
-    if (MB_TAG_NOT_FOUND == result) {
-      int dum_val_array[] = {0, 0, 0, 0};
-      result = mbImpl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, mHasMidNodesTag,
-				  dum_val_array);
-    }
+    impl->tag_get_handle("__WriteCCMIO element mark", 1, MB_TYPE_BIT, mEntityMark, MB_TAG_CREAT);
   
     // don't need to check return of following, since it doesn't matter if there isn't one
-    mbImpl->tag_get_handle(NAME_TAG_NAME, mNameTag);
+    mbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE, mNameTag);
   }
 
   WriteCCMIO::~WriteCCMIO() 
@@ -402,7 +383,7 @@ namespace moab {
     bool root_tagged = false, other_set_tagged = false;
     Tag simname;
     Range dum_sets;
-    rval = mbImpl->tag_get_handle("Title", simname);
+    rval = mbImpl->tag_get_handle("Title", 0, MB_TYPE_OPAQUE, simname, MB_TAG_ANY);
     if (MB_SUCCESS == rval) {
       int tag_size;
       rval = mbImpl->tag_get_size(simname, tag_size);
@@ -431,7 +412,7 @@ namespace moab {
       }
     }
   
-    rval = mbImpl->tag_get_handle("CreatingProgram", mCreatingProgramTag);
+    rval = mbImpl->tag_get_handle("CreatingProgram", 0, MB_TYPE_OPAQUE, mCreatingProgramTag, MB_TAG_ANY);
     if (MB_SUCCESS == rval) {
       int tag_size;
       rval = mbImpl->tag_get_size(mCreatingProgramTag, tag_size);
@@ -565,7 +546,7 @@ namespace moab {
     ErrorCode rval;
 
     if (!tag) {
-      rval = mbImpl->tag_get_handle(opt_name, tag);
+      rval = mbImpl->tag_get_handle(opt_name, 1, MB_TYPE_INTEGER, tag);
       // return success since that just means we don't have to write this option
       if (MB_SUCCESS != rval) return MB_SUCCESS;
     }
@@ -589,7 +570,7 @@ namespace moab {
     ErrorCode rval;
 
     if (!tag) {
-      rval = mbImpl->tag_get_handle(opt_name, tag);
+      rval = mbImpl->tag_get_handle(opt_name, 1, MB_TYPE_DOUBLE, tag);
       // return success since that just means we don't have to write this option
       if (MB_SUCCESS != rval) return MB_SUCCESS;
     }
@@ -615,7 +596,7 @@ namespace moab {
     ErrorCode rval;
 
     if (!tag) {
-      rval = mbImpl->tag_get_handle(opt_name, tag);
+      rval = mbImpl->tag_get_handle(opt_name, 0, MB_TYPE_OPAQUE, tag, MB_TAG_ANY);
       // return success since that just means we don't have to write this option
       if (MB_SUCCESS != rval) return MB_SUCCESS;
     }
@@ -835,8 +816,9 @@ namespace moab {
   ErrorCode WriteCCMIO::transform_coords(const int dimension, const int num_nodes, double *coords) 
   {
     Tag trans_tag;
-    ErrorCode result = mbImpl->tag_get_handle( MESH_TRANSFORM_TAG_NAME, trans_tag);
+    ErrorCode result = mbImpl->tag_get_handle( MESH_TRANSFORM_TAG_NAME, 16, MB_TYPE_DOUBLE, trans_tag);
     if( result == MB_TAG_NOT_FOUND ) return MB_SUCCESS;
+    else if (MB_SUCCESS != result) return result;
     double trans_matrix[16]; 
     const EntityHandle mesh = 0;
     result = mbImpl->tag_get_data( trans_tag, &mesh, 1, trans_matrix ); 
@@ -1025,8 +1007,8 @@ namespace moab {
 
       Tag fmark_tag;
       unsigned char mval = 0x0, omval;
-      result = mbImpl->tag_create("__fmark", 1, MB_TAG_DENSE, MB_TYPE_OPAQUE, 
-				  fmark_tag, &mval);
+      result = mbImpl->tag_get_handle("__fmark", 1, MB_TYPE_OPAQUE, 
+				  fmark_tag, MB_TAG_DENSE|MB_TAG_CREAT, &mval);
       CHKERR(result, "Couldn't create mark tag.");
 
       std::vector<EntityHandle> tmp_face_cells, storage;
@@ -1331,7 +1313,7 @@ namespace moab {
     // get the sense tag; don't need to check return, might be an error if the tag
     // hasn't been created yet
     Tag sense_tag = 0;
-    mbImpl->tag_get_handle("SENSE", sense_tag);
+    mbImpl->tag_get_handle("SENSE", 1, MB_TYPE_INTEGER, sense_tag);
 
     // get the entities in this set, non-recursive
     ErrorCode result = mbImpl->get_entities_by_handle(neuset, neuset_elems);

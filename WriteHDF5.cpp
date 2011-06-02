@@ -2950,7 +2950,7 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
     rval = iFace->tag_get_name( tag, tag_name ); CHK_MB_ERR_0(rval);
     tag_type_name = "__hdf5_tag_type_";
     tag_type_name += tag_name;
-    rval = iFace->tag_get_handle( tag_type_name.c_str(), type_handle );
+    rval = iFace->tag_get_handle( tag_type_name.c_str(), 0, MB_TYPE_OPAQUE, type_handle, MB_TAG_ANY );
     if (MB_TAG_NOT_FOUND == rval) {
       if (num_bytes == MB_VARIABLE_LENGTH)
         type_size = 1;

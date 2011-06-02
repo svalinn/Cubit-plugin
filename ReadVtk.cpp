@@ -90,8 +90,9 @@ public:
     this->mesh = iface;
     std::vector<unsigned char> default_val;
     default_val.resize( size * per_elem );
-    this->mesh->tag_create( tag_name.c_str(), size, MB_TAG_SPARSE,
-      mb_type, this->tag, &default_val[0], true );
+    this->mesh->tag_get_handle( tag_name.c_str(), per_elem, mb_type, this->tag,
+                            MB_TAG_SPARSE|MB_TAG_BYTES|MB_TAG_CREAT, 
+                            &default_val[0] );
     }
   void add_entity( EntityHandle ent, const unsigned char* bytes, size_t len )
     {
@@ -1059,40 +1060,11 @@ ErrorCode ReadVtk::vtk_read_tag_data( FileTokenizer& tokens,
   
     // get/create tag
   Tag handle;
-  result = mdbImpl->tag_get_handle ( name, handle );
-  if (result == MB_TAG_NOT_FOUND)
-  {
-    if (mb_type == MB_TYPE_BIT)
-      result = mdbImpl->tag_create( name, per_elem, MB_TAG_BIT, mb_type, handle, 0 );
-    else
-      result = mdbImpl->tag_create( name, size*per_elem, MB_TAG_DENSE, mb_type, handle, 0 );
-    if (MB_SUCCESS != result)
-      return result;
-  }
-  else if (result == MB_SUCCESS)
-  {
-    int existing_size;
-    DataType existing_type;
-    
-    result = mdbImpl->tag_get_size( handle, existing_size );
-    if (MB_SUCCESS != result)
-      return result;
-    result = mdbImpl->tag_get_data_type( handle, existing_type );
-    if (MB_SUCCESS != result)
-      return result;
-    
-    if ( (mb_type == MB_TYPE_BIT && (size_t)existing_size != per_elem) ||
-         (mb_type != MB_TYPE_BIT && (size_t)existing_size != size*per_elem) || 
-         (existing_type != mb_type) )
-    {
-      readMeshIface->report_error( 
-        "Tag name conflict for attribute \"%s\" at line %d\n",
-        name, tokens.line_number() );
-      return MB_FAILURE;
-    }
-  }
-  else
-  {
+  result = mdbImpl->tag_get_handle( name, per_elem, mb_type, handle, MB_TAG_DENSE|MB_TAG_CREAT );
+  if (MB_SUCCESS != result) {
+    readMeshIface->report_error( 
+      "Tag name conflict for attribute \"%s\" at line %d\n",
+      name, tokens.line_number() );
     return result;
   }
  

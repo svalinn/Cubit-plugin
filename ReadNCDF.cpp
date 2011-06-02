@@ -122,65 +122,28 @@ ReadNCDF::ReadNCDF(Interface* impl)
   mGlobalIdTag     = 0;
 
   //! get and cache predefined tag handles
-  int dum_val = 0;
-  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(MATERIAL_SET_TAG_NAME, 
-                              sizeof(int), 
-                              MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER,
-                              mMaterialSetTag,
-                              &dum_val);
-  
-  result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, mDirichletSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(DIRICHLET_SET_TAG_NAME, 
-                              sizeof(int), 
-                              MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER,
-                              mDirichletSetTag,
-                              &dum_val);
-  
-  result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME,   mNeumannSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(NEUMANN_SET_TAG_NAME, 
-                              sizeof(int), 
-                              MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER,
-                              mNeumannSetTag,
-                              &dum_val);
-  
-  result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
-  if (MB_TAG_NOT_FOUND == result) {
-    int dum_val_array[] = {0, 0, 0, 0};
-    result = impl->tag_create(HAS_MID_NODES_TAG_NAME, 
-                              4*sizeof(int), 
-                              MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER,
-                              mHasMidNodesTag,
-                              dum_val_array);
-  }
-  
-  result = impl->tag_get_handle("distFactor",           mDistFactorTag);
-  if (MB_TAG_NOT_FOUND == result) {
-    result = impl->tag_create_variable_length( "distFactor", 
-                                               MB_TAG_SPARSE,
-                                               MB_TYPE_DOUBLE,
-                                               mDistFactorTag );
-  }
-  
-  result = impl->tag_get_handle("qaRecord",             mQaRecordTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create_variable_length( "qaRecord", 
-                                               MB_TAG_SPARSE,
-                                               MB_TYPE_OPAQUE,
-                                               mQaRecordTag );
-  
-  result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME,             mGlobalIdTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
-  
+  ErrorCode result;
+  result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  assert(MB_SUCCESS == result);
+  result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  assert(MB_SUCCESS == result);
+  result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  assert(MB_SUCCESS == result);
+  result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
+                                mHasMidNodesTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  assert(MB_SUCCESS == result);
+  result = impl->tag_get_handle("distFactor", 0, MB_TYPE_DOUBLE, mDistFactorTag,
+                                MB_TAG_SPARSE|MB_TAG_VARLEN|MB_TAG_CREAT);
+  assert(MB_SUCCESS == result);
+  result = impl->tag_get_handle("qaRecord", 0, MB_TYPE_OPAQUE, mQaRecordTag,
+                                MB_TAG_SPARSE|MB_TAG_VARLEN|MB_TAG_CREAT);
+  const int zero = 0;
+  result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT, &zero);
+  assert(MB_SUCCESS == result);
 
   ncFile = 0;
 }
@@ -1087,11 +1050,9 @@ ErrorCode ReadNCDF::read_sidesets()
 
             // set the reverse tag
           Tag sense_tag;
-          result = mdbImpl->tag_get_handle("SENSE", sense_tag);
           int dum_sense = 0;
-          if (result == MB_TAG_NOT_FOUND) {
-            result = mdbImpl->tag_create("SENSE", sizeof(int), MB_TAG_SPARSE, sense_tag, &dum_sense);
-          }
+          result = mdbImpl->tag_get_handle("SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
+                                           MB_TAG_SPARSE|MB_TAG_CREAT, &dum_sense);
           if (result != MB_SUCCESS) return result;
           dum_sense = -1;
           result = mdbImpl->tag_set_data(sense_tag, &reverse_set, 1, &dum_sense);

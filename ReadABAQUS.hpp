@@ -410,9 +410,7 @@ private:
 				      const std::vector<double> &rotation);
 
   Tag get_tag(const char* tag_name, int tag_size, TagType tag_type,
-                DataType tag_data_type);
-  Tag get_tag(const char* tag_name, int tag_size, TagType tag_type,
-                DataType tag_data_type, const void* def_val);
+                DataType tag_data_type, const void* def_val = 0);
   
   void cyl2rect(std::vector<double> coord_list);
 

@@ -71,33 +71,21 @@ WriteGMV::WriteGMV(Interface *impl)
   //! get and cache predefined tag handles
   // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
-  int dum_val = 0;
-  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mMaterialSetTag,
-                              &dum_val);
-  
-  result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, mDirichletSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(DIRICHLET_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mDirichletSetTag,
-                              &dum_val);
-  
-  result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME,   mNeumannSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(NEUMANN_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mNeumannSetTag,
-                              &dum_val);
-  
-  result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
-  if (MB_TAG_NOT_FOUND == result) {
-    int dum_val_array[] = {0, 0, 0, 0};
-    result = impl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, mHasMidNodesTag,
-                              dum_val_array);
-  }
-  
-  result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME,             mGlobalIdTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mGlobalIdTag,
-                              &dum_val);
+  impl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+  impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+  impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+  impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+  int dum_val_array[] = {0, 0, 0, 0};
+  impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
+                       mHasMidNodesTag, MB_TAG_SPARSE|MB_TAG_CREAT, dum_val_array);
 }
 
 WriteGMV::~WriteGMV() 

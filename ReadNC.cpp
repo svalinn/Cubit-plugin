@@ -92,10 +92,10 @@ ErrorCode ReadNC::load_file(const char *file_name,
   else {
       //! get and cache predefined tag handles
     int dum_val = 0;
-    rval = mbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, mGlobalIdTag);
-    if (MB_TAG_NOT_FOUND == rval)
-      rval = mbImpl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_DENSE, 
-                                MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
+    rval = mbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                  mGlobalIdTag, MB_TAG_DENSE|MB_TAG_CREAT, &dum_val);
+    if (MB_SUCCESS != rval)
+      return rval;
   }
   
   bool nomesh = false;
@@ -158,7 +158,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
     ERRORR(rval, "Couldn't add new hexes to partition set.");
 
     Tag part_tag;
-    rval = mbImpl->tag_get_handle( partition_tag_name.c_str(), part_tag );
+    rval = mbImpl->tag_get_handle( partition_tag_name.c_str(), 1, MB_TYPE_INTEGER, part_tag );
     if (MB_SUCCESS != rval) {
         // fall back to the partition tag
       part_tag = myPcomm->partition_tag();
@@ -627,15 +627,15 @@ ErrorCode ReadNC::get_tag(VarData &var_data, int tstep_num, Tag &tagh)
   switch (var_data.varDataType) {
     case NC_BYTE:
     case NC_CHAR:
-        rval = mbImpl->tag_create(tag_name.str().c_str(), 1, MB_TAG_DENSE, MB_TYPE_OPAQUE, tagh, NULL, true);
+        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_OPAQUE, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
         break;
     case NC_DOUBLE:
     case NC_FLOAT:
-        rval = mbImpl->tag_create(tag_name.str().c_str(), sizeof(double), MB_TAG_DENSE, MB_TYPE_DOUBLE, tagh, NULL, true);
+        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_DOUBLE, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
         break;
     case NC_INT:
     case NC_SHORT:
-        rval = mbImpl->tag_create(tag_name.str().c_str(), sizeof(int), MB_TAG_DENSE, MB_TYPE_INTEGER, tagh, NULL, true);
+        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_INTEGER, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
         break;
     default:
         std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;

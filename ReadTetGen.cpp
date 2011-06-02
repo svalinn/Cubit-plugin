@@ -182,13 +182,11 @@ ErrorCode ReadTetGen::parse_attr_list( const std::string& option_str,
       index_list[i] = 0;
     }
     else {
-      ErrorCode rval = mbIface->tag_create( name_list[i].c_str(),
-                                  name_count[name_list[i]]*sizeof(double),
-                                  MB_TAG_DENSE,
+      ErrorCode rval = mbIface->tag_get_handle( name_list[i].c_str(),
+                                  name_count[name_list[i]],
                                   MB_TYPE_DOUBLE,
                                   tag_list[i],
-                                  0,
-                                  true );
+                                  MB_TAG_DENSE|MB_TAG_CREAT );
       if (MB_SUCCESS != rval)
         return rval;
     }
@@ -350,7 +348,7 @@ ErrorCode ReadTetGen::read_node_file( std::istream& file,
       return rval;
   }
   Tag idtag;
-  rval = mbIface->tag_get_handle( GLOBAL_ID_TAG_NAME, idtag );
+  rval = mbIface->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, idtag );
   if (MB_SUCCESS == rval) {
     rval = mbIface->tag_set_data( idtag, node_range, &ids[0] );
     if (MB_SUCCESS != rval)
@@ -406,12 +404,11 @@ ErrorCode ReadTetGen::read_elem_file( EntityType type,
     // create group map
   std::map<double,EntityHandle> groups;
   Tag dim_tag, id_tag;
-  rval = mbIface->tag_get_handle( GLOBAL_ID_TAG_NAME, id_tag );
+  rval = mbIface->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, id_tag );
   if (MB_SUCCESS != rval)
     return rval;
-  rval = mbIface->tag_create( GEOM_DIMENSION_TAG_NAME, sizeof(int),
-                             MB_TAG_SPARSE, MB_TYPE_INTEGER, dim_tag,
-                             0, true );
+  rval = mbIface->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                  dim_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
   if (MB_SUCCESS != rval)
     return rval;
     

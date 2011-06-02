@@ -93,55 +93,28 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
   mGlobalIdTag     = 0;
 
   //! get and cache predefined tag handles
-  int dum_val = 0;
-  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(MATERIAL_SET_TAG_NAME, 
-                              sizeof(int), 
-                              MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER,
-                              mMaterialSetTag,
-                              &dum_val);
+  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  1, MB_TYPE_INTEGER,
+                                          mMaterialSetTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+  assert(MB_SUCCESS == result);
   
-  result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, mDirichletSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(DIRICHLET_SET_TAG_NAME, 
-                              sizeof(int), 
-                              MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER,
-                              mDirichletSetTag,
-                              &dum_val);
+  result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                mDirichletSetTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+  assert(MB_SUCCESS == result); 
   
-  result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME,   mNeumannSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(NEUMANN_SET_TAG_NAME, 
-                              sizeof(int), 
-                              MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER,
-                              mNeumannSetTag,
-                              &dum_val);
+  result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                mNeumannSetTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+
+  result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
+                                mHasMidNodesTag, MB_TAG_CREAT|MB_TAG_SPASRE );
+  assert(MB_SUCCESS == result);
   
-  result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
-  if (MB_TAG_NOT_FOUND == result) {
-    int dum_val_array[] = {0, 0, 0, 0};
-    result = impl->tag_create(HAS_MID_NODES_TAG_NAME, 
-                              4*sizeof(int), 
-                              MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER,
-                              mHasMidNodesTag,
-                              dum_val_array);
-  }
-  
-  result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, mGlobalIdTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
-  
-  result = impl->tag_get_handle(NAME_TAG_NAME, mNameTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TAG_SPARSE, 
-                              MB_TYPE_OPAQUE, mNameTag, NULL);
-  
+  result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                mGlobalIdTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+  assert(MB_SUCCESS == result);
+
+  result = impl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
+                                mNameTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+  assert(MB_SUCCESS == result);
 }
 
 ReadCCMIO::~ReadCCMIO() 
@@ -235,12 +208,9 @@ ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
     if (NULL != name && strlen(name) != 0) {
         // make a tag for it and tag the read set
       Tag simname;
-      rval = mbImpl->tag_get_handle("Title", simname);
-      if (MB_TAG_NOT_FOUND == rval) {
-        rval = mbImpl->tag_create("Title", strlen(name), MB_TAG_SPARSE, 
-                                  MB_TYPE_OPAQUE, simname, NULL);
-        CHKERR(rval, "Simulation name tag not found or created.");
-      }
+      rval = mbImpl->tag_get_handle("Title", strlen(name), MB_TYPE_OPAQUE,
+                                    simname, MB_TAG_CREAT|MB_TAG_SPARSE);
+      CHKERR(rval, "Simulation name tag not found or created.");
       EntityHandle set = file_set ? *file_set : 0;
       rval = mbImpl->tag_set_data(simname, &set, 1, name);
       CHKERR(rval, "Problem setting simulation name tag.");
@@ -343,8 +313,8 @@ ErrorCode ReadCCMIO::get_int_option(const char *opt_str, EntityHandle seth,
   ErrorCode rval;
   if (kCCMIONoErr == CCMIOReadOpti(NULL, node, opt_str, &idum)) {
     if (!tag) {
-      rval = mbImpl->tag_create(opt_str, sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER, tag, 
-                                NULL, true);
+      rval = mbImpl->tag_get_handle(opt_str, 1, MB_TYPE_INTEGER, 
+                                    tag, MB_TAG_SPRASE|MB_TAG_CREAT);
       CHKERR(rval, NULL);
     }
     
@@ -362,8 +332,8 @@ ErrorCode ReadCCMIO::get_dbl_option(const char *opt_str, EntityHandle seth,
   if (kCCMIONoErr == CCMIOReadOptf(NULL, node, opt_str, &fdum)) {
     ErrorCode rval;
     if (!tag) {
-      rval = mbImpl->tag_create(opt_str, sizeof(double), MB_TAG_SPARSE, MB_TYPE_DOUBLE, tag, 
-                                NULL, true);
+      rval = mbImpl->tag_get_handle(opt_str, 1, MB_TYPE_DOUBLE, 
+                                    tag, MB_TAG_SPRASE|MB_TAG_CREAT);
       CHKERR(rval, NULL);
     }
     
@@ -388,14 +358,11 @@ ErrorCode ReadCCMIO::get_str_option(const char *opt_str, EntityHandle seth, Tag 
   CCMIOReadOptstr(&error, node, opt_str, &len, &opt_string[0]);
   ErrorCode rval = MB_SUCCESS;
   if (!tag) {
-    if (other_tag_name) 
-      rval = mbImpl->tag_create(other_tag_name, NAME_TAG_SIZE, MB_TAG_SPARSE, 
-                                MB_TYPE_OPAQUE, tag, NULL, true);
-    else
-      rval = mbImpl->tag_create(opt_str, NAME_TAG_SIZE, MB_TAG_SPARSE, 
-                                MB_TYPE_OPAQUE, tag, NULL, true);
+    rval = mbImpl->tag_get_handle( other_tag_name ? other_tag_name : opt_str,
+                                   NAME_TAG_SIZE, MB_TYPE_OPAQUE, tag,
+                                   MB_TAG_SPARSE|MB_TAG_CREAT );
+    CHKERR(rval, NULL);
   }
-  CHKERR(rval, NULL);
 
   if (opt_string.size() > NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
   else (opt_string.resize(NAME_TAG_SIZE, '\0'));

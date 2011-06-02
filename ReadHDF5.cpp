@@ -3153,7 +3153,7 @@ ErrorCode ReadHDF5::create_tag( const mhdf_TagDesc& info,
     Tag type_handle;
     std::string tag_type_name = "__hdf5_tag_type_";
     tag_type_name += info.name;
-    rval = iFace->tag_get_handle( tag_type_name.c_str(), type_handle );
+    rval = iFace->tag_get_handle( tag_type_name.c_str(), sizeof(hid_t), MB_TYPE_OPAQUE, type_handle );
     if (MB_SUCCESS == rval) {
       EntityHandle root = 0;
       rval = iFace->tag_get_data( type_handle, &root, 1, &hdf_type );
@@ -3245,85 +3245,20 @@ ErrorCode ReadHDF5::create_tag( const mhdf_TagDesc& info,
     }
   }
   
-  
-    // Check if tag already exists
-  rval = iFace->tag_get_handle( info.name, handle );
-  if (MB_SUCCESS == rval) {
-    // If tag exists, make sure it is consistant with the type in the file
-    int curr_size;
-    DataType curr_type;
-    TagType curr_store;
-    
-    rval = iFace->tag_get_size( handle, curr_size );
-    if (MB_VARIABLE_DATA_LENGTH == rval)
-      curr_size = -1;
-    else if (MB_SUCCESS != rval) {
-      if (hdf_type) H5Tclose( hdf_type );
-      return error(rval);
-    }
-    
-    rval = iFace->tag_get_data_type( handle, curr_type );
-    if (MB_SUCCESS != rval) {
-      if (hdf_type) H5Tclose( hdf_type );
-      return error(rval);
-    }
-    
-    rval = iFace->tag_get_type( handle, curr_store );
-    if (MB_SUCCESS != rval) {
-      if (hdf_type) H5Tclose( hdf_type );
-      return error(rval);
-    }
-    
-    bool match = true;
-    if (curr_type == MB_TYPE_BIT) {
-      if (mb_type != MB_TYPE_BIT)
-        match = false;
-      if (curr_size != info.size)
-        match = false;
-    }
-    else {
-      if (curr_type != MB_TYPE_OPAQUE &&
-          mb_type != MB_TYPE_OPAQUE &&
-          curr_type != mb_type)
-        match = false;
-      
-      if (curr_size == MB_VARIABLE_LENGTH) {
-        if (info.size != -1)
-          match = false;
-      }
-      else if (curr_size != info.bytes)
-        match = false;
-    }  
-    
-    if (!match)
-    {
-      readUtil->report_error( "Tag type in file does not match type in "
-                              "database for \"%s\"\n", info.name );
-      if (hdf_type) H5Tclose( hdf_type );
-      return error(MB_FAILURE);
-    }
-  }
-    // Create the tag if it doesn't exist
-  else if (MB_TAG_NOT_FOUND == rval)
+    // get tag handle, creating if necessary
+  if (info.size < 0) 
+    rval = iFace->tag_get_handle( info.name, info.default_value_size, 
+                                  mb_type, handle, storage|MB_TAG_CREAT|MB_TAG_VARLEN|MB_TAG_DFTOK,
+                                  info.default_value );
+  else
+    rval = iFace->tag_get_handle( info.name, info.size, mb_type, handle,
+                                  storage|MB_TAG_CREAT|MB_TAG_DFTOK, info.default_value );
+  if (MB_SUCCESS != rval)
   {
-    if (info.size < 0) {
-      size_t size = hdf_type ? H5Tget_size(hdf_type) : 1;
-      rval = iFace->tag_create_variable_length( info.name, storage, mb_type,
-                                                handle, info.default_value, 
-                                                info.default_value_size * size );
-    }
-    else
-      rval = iFace->tag_create( info.name, info.bytes, storage, mb_type,
-                                handle, info.default_value );
-    if (MB_SUCCESS != rval) {
-      if (hdf_type) H5Tclose( hdf_type );
-      return error(rval);
-    }
-  }
-    // error
-  else {
+    readUtil->report_error( "Tag type in file does not match type in "
+                            "database for \"%s\"\n", info.name );
     if (hdf_type) H5Tclose( hdf_type );
-    return error(rval);
+    return error(MB_FAILURE);
   }
     
   if (info.global_value) {

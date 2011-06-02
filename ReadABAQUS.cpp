@@ -78,19 +78,18 @@ ReadABAQUS::ReadABAQUS(Interface* impl)
   mat_id             = 0;
 
   //! get and cache predefined tag handles
-  mMaterialSetTag  = get_tag(MATERIAL_SET_TAG_NAME,   sizeof(int),MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mDirichletSetTag = get_tag(DIRICHLET_SET_TAG_NAME,  sizeof(int),MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mNeumannSetTag   = get_tag(NEUMANN_SET_TAG_NAME,    sizeof(int),MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  int def_val[4] = {0,0,0,0};
-  mHasMidNodesTag  = get_tag(HAS_MID_NODES_TAG_NAME,4*sizeof(int),MB_TAG_SPARSE,MB_TYPE_INTEGER,def_val);
+  mMaterialSetTag  = get_tag(MATERIAL_SET_TAG_NAME, 1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
+  mDirichletSetTag = get_tag(DIRICHLET_SET_TAG_NAME,1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
+  mNeumannSetTag   = get_tag(NEUMANN_SET_TAG_NAME,  1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
+  mHasMidNodesTag  = get_tag(HAS_MID_NODES_TAG_NAME,4,MB_TAG_SPARSE,MB_TYPE_INTEGER);
 
-  mSetTypeTag        = get_tag(ABAQUS_SET_TYPE_TAG_NAME,          sizeof(int),           MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mPartHandleTag     = get_tag(ABAQUS_PART_HANDLE_TAG_NAME,       sizeof(EntityHandle),MB_TAG_SPARSE,MB_TYPE_HANDLE);
-  mInstanceHandleTag = get_tag(ABAQUS_INSTANCE_HANDLE_TAG_NAME,   sizeof(EntityHandle),MB_TAG_DENSE, MB_TYPE_HANDLE);
-  mAssemblyHandleTag = get_tag(ABAQUS_ASSEMBLY_HANDLE_TAG_NAME,   sizeof(EntityHandle),MB_TAG_DENSE, MB_TYPE_HANDLE);
-  mInstancePIDTag    = get_tag(ABAQUS_INSTANCE_PART_ID_TAG_NAME,  sizeof(int),           MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mInstanceGIDTag    = get_tag(ABAQUS_INSTANCE_GLOBAL_ID_TAG_NAME,sizeof(int),           MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mLocalIDTag        = get_tag(ABAQUS_LOCAL_ID_TAG_NAME,          sizeof(int),           MB_TAG_DENSE, MB_TYPE_INTEGER);
+  mSetTypeTag        = get_tag(ABAQUS_SET_TYPE_TAG_NAME,          1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
+  mPartHandleTag     = get_tag(ABAQUS_PART_HANDLE_TAG_NAME,       1,MB_TAG_SPARSE,MB_TYPE_HANDLE);
+  mInstanceHandleTag = get_tag(ABAQUS_INSTANCE_HANDLE_TAG_NAME,   1,MB_TAG_DENSE, MB_TYPE_HANDLE);
+  mAssemblyHandleTag = get_tag(ABAQUS_ASSEMBLY_HANDLE_TAG_NAME,   1,MB_TAG_DENSE, MB_TYPE_HANDLE);
+  mInstancePIDTag    = get_tag(ABAQUS_INSTANCE_PART_ID_TAG_NAME,  1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
+  mInstanceGIDTag    = get_tag(ABAQUS_INSTANCE_GLOBAL_ID_TAG_NAME,1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
+  mLocalIDTag        = get_tag(ABAQUS_LOCAL_ID_TAG_NAME,          1,MB_TAG_DENSE, MB_TYPE_INTEGER);
   mSetNameTag        = get_tag(ABAQUS_SET_NAME_TAG_NAME,         ABAQUS_SET_NAME_LENGTH, MB_TAG_SPARSE,MB_TYPE_OPAQUE,0);
   mMatNameTag        = get_tag(ABAQUS_MAT_NAME_TAG_NAME,         ABAQUS_MAT_NAME_LENGTH, MB_TAG_SPARSE,MB_TYPE_OPAQUE,0);
 
@@ -1684,28 +1683,16 @@ ErrorCode ReadABAQUS::get_set_nodes(EntityHandle parent_set,
 Tag ReadABAQUS::get_tag(const char* tag_name, 
 			  int tag_size,
 			  TagType tag_type,
-			  DataType tag_data_type)
-{
-  int def_val = 0;
-  
-  return get_tag(tag_name,tag_size,tag_type,tag_data_type,&def_val);
-
-}
-
-Tag ReadABAQUS::get_tag(const char* tag_name, 
-			  int tag_size,
-			  TagType tag_type,
 			  DataType tag_data_type,
 			  const void* def_val)
 {
   Tag retval;
-
-  if (MB_TAG_NOT_FOUND == mdbImpl->tag_get_handle(tag_name, retval) )
-    mdbImpl->tag_create(tag_name,tag_size,tag_type,tag_data_type,retval,def_val);
-
-  return retval;
   
-  
+  ErrorCode rval = mdbImpl->tag_get_handle( tag_name, tag_size, tag_data_type,
+                                            retval, tag_type|MB_TAG_CREAT,
+                                            def_val );
+  assert(MB_SUCCESS == rval);
+  return MB_SUCCESS == rval ? retval : 0;
 }
 
 ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,

@@ -152,7 +152,6 @@ private:
   Tag mMaterialSetTag;
   Tag mDirichletSetTag;
   Tag mNeumannSetTag;
-  Tag mHasMidNodesTag;
   Tag mGlobalIdTag;
   Tag mMatSetIdTag;
 

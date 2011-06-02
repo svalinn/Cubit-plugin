@@ -150,9 +150,7 @@ private:
   Tag mMaterialSetTag;
   Tag mDirichletSetTag;
   Tag mNeumannSetTag;
-  Tag mHasMidNodesTag;
   Tag mGlobalIdTag;
-  Tag mMatSetIdTag;
 
   Tag mEntityMark;   //used to say whether an entity will be exported
 

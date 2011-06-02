@@ -180,18 +180,14 @@ Tqdcfr::Tqdcfr(Interface *impl)
   for (EntityType this_type = MBVERTEX; this_type < MBMAXTYPE; this_type++)
     currElementIdOffset[this_type] = -1;
 
-  mdbImpl->tag_get_handle(MATERIAL_SET_TAG_NAME, blockTag);
-  mdbImpl->tag_get_handle(DIRICHLET_SET_TAG_NAME, nsTag);
-  mdbImpl->tag_get_handle(NEUMANN_SET_TAG_NAME, ssTag);
+  mdbImpl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER, blockTag);
+  mdbImpl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER, nsTag);
+  mdbImpl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER, ssTag);
 
   if (0 == entityNameTag) {
-    ErrorCode result = mdbImpl->tag_get_handle(NAME_TAG_NAME, entityNameTag);
-    if (MB_SUCCESS != result || 0 == entityNameTag) {
-      char name_tag_data[NAME_TAG_SIZE];
-      memset( name_tag_data, 0, NAME_TAG_SIZE );
-      result = mdbImpl->tag_create(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TAG_SPARSE, 
-                                   entityNameTag, &name_tag_data);
-    }
+    mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE,
+                            MB_TYPE_OPAQUE, entityNameTag,
+                            MB_TAG_SPARSE|MB_TAG_CREAT);
   }
 
   cubMOABVertexMap = NULL;
@@ -430,7 +426,7 @@ ErrorCode Tqdcfr::convert_nodesets_sidesets()
   unsigned int nodeset_offset, sideset_offset;
   Tag tmp_tag;
   ErrorCode result = mdbImpl->tag_get_handle(BLOCK_NODESET_OFFSET_TAG_NAME,
-                                               tmp_tag);
+                                              1, MB_TYPE_INTEGER, tmp_tag);
   if (MB_SUCCESS != result) nodeset_offset = 0;
   else {
     result = mdbImpl->tag_get_data(tmp_tag, &mesh, 1, &nodeset_offset);
@@ -438,7 +434,7 @@ ErrorCode Tqdcfr::convert_nodesets_sidesets()
   }
 
   result = mdbImpl->tag_get_handle(BLOCK_SIDESET_OFFSET_TAG_NAME,
-                                   tmp_tag);
+                                   1, MB_TYPE_INTEGER, tmp_tag);
   if (MB_SUCCESS != result) sideset_offset = 0;
   else {
     result = mdbImpl->tag_get_data(tmp_tag, &mesh, 1, &sideset_offset);
@@ -484,8 +480,8 @@ ErrorCode Tqdcfr::convert_nodesets_sidesets()
   if (0 != nodeset_offset) {
     if (0 == nsTag) {
       int default_val = 0;
-      tmp_result = mdbImpl->tag_create(DIRICHLET_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                                       MB_TYPE_INTEGER, nsTag, &default_val);
+      tmp_result = mdbImpl->tag_get_handle(DIRICHLET_SET_TAG_NAME,1, MB_TYPE_INTEGER, 
+                                       nsTag, MB_TAG_SPARSE|MB_TAG_CREAT, &default_val);
       if (MB_SUCCESS != tmp_result) result = tmp_result;
     }
     if (MB_SUCCESS == tmp_result)
@@ -498,8 +494,8 @@ ErrorCode Tqdcfr::convert_nodesets_sidesets()
   if (0 != sideset_offset) {
     if (0 == ssTag) {
       int default_val = 0;
-      tmp_result = mdbImpl->tag_create(NEUMANN_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                                       MB_TYPE_INTEGER, ssTag, &default_val);
+      tmp_result = mdbImpl->tag_get_handle(NEUMANN_SET_TAG_NAME,1, MB_TYPE_INTEGER, 
+                                       ssTag, MB_TAG_SPARSE|MB_TAG_CREAT, &default_val);
       if (MB_SUCCESS != tmp_result) result = tmp_result;
     }
     if (MB_SUCCESS == tmp_result) 
@@ -659,11 +655,10 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
       // have to read dist factors
     FREADD(sideseth->numDF); num_read += sideseth->numDF*sizeof(double);
     Tag distFactorTag;
-    result = mdbImpl->tag_create_variable_length( "distFactor", 
-                                                  MB_TAG_SPARSE,
-                                                  MB_TYPE_DOUBLE,
-                                                  distFactorTag );
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    result = mdbImpl->tag_get_handle( "distFactor", 0, MB_TYPE_DOUBLE,
+                                      distFactorTag, 
+                                      MB_TAG_SPARSE|MB_TAG_VARLEN|MB_TAG_CREAT);
+    if (MB_SUCCESS != result) return result;
     const void* dist_data = &dbl_buf[0];
     const int dist_size = sideseth->numDF * sizeof(double);
     result = mdbImpl->tag_set_data( distFactorTag, &sideseth->setHandle, 1, &dist_data, &dist_size);
@@ -743,9 +738,9 @@ ErrorCode Tqdcfr::process_sideset_10(const int this_type, const int num_ents,
     if (tmp_result != MB_SUCCESS) result = tmp_result;
     int def_val = 1;
     Tag sense_tag;
-    tmp_result = mdbImpl->tag_create("SENSE", sizeof(int), 
-                                     MB_TAG_SPARSE, MB_TYPE_INTEGER, sense_tag, &def_val);
-    if (tmp_result != MB_SUCCESS && tmp_result != MB_ALREADY_ALLOCATED) result = tmp_result;
+    tmp_result = mdbImpl->tag_get_handle("SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
+                                     MB_TAG_SPARSE|MB_TAG_CREAT, &def_val);
+    if (tmp_result != MB_SUCCESS) result = tmp_result;
     def_val = -1;
     tmp_result = mdbImpl->tag_set_data(sense_tag, &reverse_set, 1, &def_val);
     if (tmp_result != MB_SUCCESS) result = tmp_result;
@@ -801,8 +796,8 @@ ErrorCode Tqdcfr::process_sideset_11(std::vector<EntityHandle> &ss_entities,
     if (tmp_result != MB_SUCCESS) result = tmp_result;
     int def_val = 1;
     Tag sense_tag;
-    tmp_result = mdbImpl->tag_create("SENSE", sizeof(int), 
-                                     MB_TAG_SPARSE, MB_TYPE_INTEGER, sense_tag, &def_val);
+    tmp_result = mdbImpl->tag_get_handle("SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
+                                      MB_TAG_SPARSE|MB_TAG_CREAT, &def_val);
     if (tmp_result != MB_SUCCESS && tmp_result != MB_ALREADY_ALLOCATED) result = tmp_result;
     def_val = -1;
     tmp_result = mdbImpl->tag_set_data(sense_tag, &reverse_set, 1, &def_val);
@@ -854,9 +849,15 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
     
     FREADD(blockh->attribOrder); num_read += sizeof(double);
       // now do something with them...
-    result = mdbImpl->tag_create("Block_Attributes", 
-                                 blockh->attribOrder*sizeof(double), MB_TAG_SPARSE, 
-                                 MB_TYPE_DOUBLE, block_attribs, NULL);
+      // This code seems broken.  It is apparently supposed to read 
+      // blockh->attribOrder values for each block and store them in
+      // a tag.  However, blockh->attribOrder is not a constant 
+      // so the same fixed-length tag cannot be used for all blocks.  
+      // For now, just store one value, as that was what the buggy code
+      // previously did.
+    result = mdbImpl->tag_get_handle("Block_Attributes", 1/*blockh->attribOrder*/, 
+                                 MB_TYPE_DOUBLE, block_attribs, 
+                                 MB_TAG_SPARSE|MB_TAG_CREAT);
     if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
     result = mdbImpl->tag_set_data(block_attribs, &(blockh->setHandle), 1,
                                    &(dbl_buf[0]));
@@ -946,13 +947,8 @@ ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, Entit
     if (-1 != md_index) {
       md_entry = &(md.metadataEntries[md_index]);
       Tag extra_name_tag;
-      result = mdbImpl->tag_get_handle(moab_extra_name.str().c_str(), extra_name_tag);
-      //assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
-      if (MB_SUCCESS != result || 0 == extra_name_tag) {
-        memset( name_tag_data, 0, NAME_TAG_SIZE );
-        result = mdbImpl->tag_create(moab_extra_name.str().c_str(), NAME_TAG_SIZE, MB_TAG_SPARSE, 
-                                     extra_name_tag, &name_tag_data );
-      }
+      mdbImpl->tag_get_handle( moab_extra_name.str().c_str(), NAME_TAG_SIZE, 
+                               MB_TYPE_OPAQUE, extra_name_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
       memset( name_tag_data, 0, NAME_TAG_SIZE ); // make sure any extra bytes zeroed
       strncpy( name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE );
       result = mdbImpl->tag_set_data(extra_name_tag, &seth, 1, name_tag_data);
@@ -997,14 +993,12 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
   if (-1 != md_index) {
     MetaDataContainer::MetaDataEntry *md_entry = &(model->groupMD.metadataEntries[md_index]);
     if (0 == entityNameTag) {
-      result = mdbImpl->tag_get_handle(NAME_TAG_NAME, entityNameTag);
-      if (MB_SUCCESS != result || 0 == entityNameTag) {
-        memset( name_tag_data, 0, NAME_TAG_SIZE );
-        result = mdbImpl->tag_create(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TAG_SPARSE, 
-                                     entityNameTag, &name_tag_data);
-      }
+       memset( name_tag_data, 0, NAME_TAG_SIZE );
+       result = mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
+                                      entityNameTag, MB_TAG_SPARSE|MB_TAG_CREAT,
+                                      name_tag_data);
+      if (MB_SUCCESS != result) return result;
     }
-    if (0 == entityNameTag) return MB_FAILURE;
     //assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
     memset( name_tag_data, 0, NAME_TAG_SIZE ); // make sure any extra bytes zeroed
     strncpy( name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE );
@@ -1024,13 +1018,12 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
         if (-1 != md_index) {
           md_entry = &(model->groupMD.metadataEntries[md_index]);
           Tag extra_name_tag;
-          result = mdbImpl->tag_get_handle(moab_extra_name.str().c_str(), extra_name_tag);
+          memset( name_tag_data, 0, NAME_TAG_SIZE );
+          result = mdbImpl->tag_get_handle(moab_extra_name.str().c_str(), 
+                                           NAME_TAG_SIZE, MB_TYPE_OPAQUE,
+                                           extra_name_tag, MB_TAG_SPARSE|MB_TAG_CREAT,
+                                           name_tag_data);
           //assert(md_entry->mdStringValue.length()+1 <= NAME_TAG_SIZE);
-          if (MB_SUCCESS != result || 0 == extra_name_tag) {
-            memset( name_tag_data, 0, NAME_TAG_SIZE );
-            result = mdbImpl->tag_create(moab_extra_name.str().c_str(), NAME_TAG_SIZE, MB_TAG_SPARSE, 
-                                         extra_name_tag, &name_tag_data );
-          }
           memset( name_tag_data, 0, NAME_TAG_SIZE ); // make sure any extra bytes zeroed
           strncpy( name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE );
           result = mdbImpl->tag_set_data(extra_name_tag, &grouph->setHandle, 1, 
@@ -1054,11 +1047,11 @@ ErrorCode Tqdcfr::put_into_set(EntityHandle set_handle,
     // check for excluded entities, and add them to a vector hung off the block if there
   Tag excl_tag;
   if (!excl_entities.empty()) {
-    result = mdbImpl->tag_create("Exclude_Entities", 
-                                   sizeof(std::vector<EntityHandle>), 
-                                   MB_TAG_SPARSE, 
-                                   excl_tag, NULL);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    result = mdbImpl->tag_get_handle("Exclude_Entities", 
+                                   sizeof(std::vector<EntityHandle>*), 
+                                   MB_TYPE_OPAQUE, excl_tag,
+                                   MB_TAG_SPARSE|MB_TAG_CREAT);
+    if (MB_SUCCESS != result) return result;
     std::vector<EntityHandle> *new_vector = new std::vector<EntityHandle>;
     new_vector->swap(excl_entities);
     result = mdbImpl->tag_set_data(excl_tag, &set_handle, 1, &new_vector);
@@ -1336,13 +1329,10 @@ ErrorCode Tqdcfr::read_nodes(const unsigned int gindex,
   }
 
   Tag fixedFlagTag;
-  result = mdbImpl->tag_get_handle("NodeFixed", fixedFlagTag);
-  if (MB_SUCCESS != result || 0 == fixedFlagTag) {
-    int dum_val = 0;
-    result = mdbImpl->tag_create("NodeFixed", sizeof(int), MB_TAG_SPARSE, 
-                                 MB_TYPE_INTEGER, fixedFlagTag, &dum_val);
-    if (MB_SUCCESS != result) return result;
-  }
+  int dum_val = 0;
+  result = mdbImpl->tag_get_handle("NodeFixed", 1, MB_TYPE_INTEGER, fixedFlagTag,
+                                   MB_TAG_SPARSE|MB_TAG_CREAT, &dum_val);
+  if (MB_SUCCESS != result) return result;
   result = mdbImpl->tag_set_data(fixedFlagTag, dum_range, &fixed_flags[0]);
 
   return result;
@@ -1671,10 +1661,11 @@ ErrorCode Tqdcfr::GeomHeader::read_info_header(const unsigned int model_offset,
   ErrorCode result;
 
   if (0 == instance->categoryTag) {
-    static const char val[CATEGORY_TAG_SIZE] = "\0";
-    result = instance->mdbImpl->tag_create(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
-                                           MB_TAG_SPARSE, instance->categoryTag, val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    static const char val[CATEGORY_TAG_SIZE] = {0};
+    result = instance->mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
+                                           MB_TYPE_OPAQUE, instance->categoryTag,
+                                           MB_TAG_SPARSE|MB_TAG_CREAT, val);
+    if (MB_SUCCESS != result) return result;
   }
 
   for (unsigned int i = 0; i < info.numEntities; i++) {
@@ -1744,10 +1735,11 @@ ErrorCode Tqdcfr::GroupHeader::read_info_header(const unsigned int model_offset,
   ErrorCode result;
 
   if (0 == instance->categoryTag) {
-    static const char val[CATEGORY_TAG_SIZE] = "\0";
-    result = instance->mdbImpl->tag_create(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
-                                           MB_TAG_SPARSE, instance->categoryTag, val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    static const char val[CATEGORY_TAG_SIZE] = {0};
+    result = instance->mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
+                                           MB_TYPE_OPAQUE, instance->categoryTag, 
+                                           MB_TAG_SPARSE|MB_TAG_CREAT, val);
+    if (MB_SUCCESS != result) return result;
   }
 
   for (unsigned int i = 0; i < info.numEntities; i++) {
@@ -1794,9 +1786,10 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
   ErrorCode result;
 
   if (0 == instance->categoryTag) {
-    static const char val[CATEGORY_TAG_SIZE] = "\0";
-    result = instance->mdbImpl->tag_create(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
-                                           MB_TAG_SPARSE, instance->categoryTag, val);
+    static const char val[CATEGORY_TAG_SIZE] = {0};
+    result = instance->mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
+                                           MB_TYPE_OPAQUE, instance->categoryTag, 
+                                           MB_TAG_SPARSE|MB_TAG_CREAT, val);
     if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
   }
 
@@ -1860,9 +1853,10 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
           // not a linear element; try to find hasMidNodes values
         for (int j = 0; j < 4; j++) block_headers[i].hasMidNodes[j] = 0;
         if (0 == instance->hasMidNodesTag) {
-          result = instance->mdbImpl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE, 
-                                                 MB_TYPE_INTEGER, instance->hasMidNodesTag, block_headers[i].hasMidNodes);
-          if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+          result = instance->mdbImpl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER, 
+                                                 instance->hasMidNodesTag, MB_TAG_SPARSE|MB_TAG_CREAT,
+                                                 block_headers[i].hasMidNodes);
+          if (MB_SUCCESS != result) return result;
         }
       
         CN::HasMidNodes(block_headers[i].blockEntityType, num_verts, 
@@ -1889,10 +1883,11 @@ ErrorCode Tqdcfr::NodesetHeader::read_info_header(const unsigned int model_offse
   ErrorCode result;
 
   if (0 == instance->categoryTag) {
-    static const char val[CATEGORY_TAG_SIZE] = "\0";
-    result = instance->mdbImpl->tag_create(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
-                                           MB_TAG_SPARSE, instance->categoryTag, val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    static const char val[CATEGORY_TAG_SIZE] = {0};
+    result = instance->mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
+                                           MB_TYPE_OPAQUE, instance->categoryTag, 
+                                           MB_TAG_SPARSE|MB_TAG_CREAT, val);
+    if (MB_SUCCESS != result) return result;
   }
 
   for (unsigned int i = 0; i < info.numEntities; i++) {
@@ -1939,10 +1934,11 @@ ErrorCode Tqdcfr::SidesetHeader::read_info_header(const unsigned int model_offse
   ErrorCode result;
 
   if (0 == instance->categoryTag) {
-    static const char val[CATEGORY_TAG_SIZE] = "\0";
-    result = instance->mdbImpl->tag_create(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
-                                           MB_TAG_SPARSE, instance->categoryTag, val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    static const char val[CATEGORY_TAG_SIZE] = {0};
+    result = instance->mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
+                                               MB_TYPE_OPAQUE, instance->categoryTag, 
+                                               MB_TAG_SPARSE|MB_TAG_CREAT, val);
+    if (MB_SUCCESS != result) return result;
   }
 
   for (unsigned int i = 0; i < info.numEntities; i++) {
@@ -2038,18 +2034,19 @@ ErrorCode Tqdcfr::ModelEntry::read_header_info( Tqdcfr* instance, const double d
   int default_val = -1;
   ErrorCode result;
 
-  result = instance->mdbImpl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_DENSE, MB_TYPE_INTEGER,
-                                         instance->globalIdTag, &default_val);
-  if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+  result = instance->mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                            instance->globalIdTag, MB_TAG_DENSE|MB_TAG_CREAT);
+  if (MB_SUCCESS != result) return result;
 
   if (feModelHeader.geomArray.numEntities > 0) {
-    result = instance->mdbImpl->tag_create(GEOM_DIMENSION_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                                           MB_TYPE_INTEGER, instance->geomTag, &default_val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    result = instance->mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER, 
+                                           instance->geomTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+    if (MB_SUCCESS != result) return result;
     
-    result = instance->mdbImpl->tag_create("UNIQUE_ID", sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER,
-                                           instance->uniqueIdTag, &default_val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    result = instance->mdbImpl->tag_get_handle("UNIQUE_ID", 1, MB_TYPE_INTEGER,
+                                           instance->uniqueIdTag, 
+                                           MB_TAG_SPARSE|MB_TAG_CREAT, &default_val);
+    if (MB_SUCCESS != result) return result;
     
     result = Tqdcfr::GeomHeader::read_info_header(modelOffset, 
                                                   feModelHeader.geomArray, 
@@ -2069,9 +2066,9 @@ ErrorCode Tqdcfr::ModelEntry::read_header_info( Tqdcfr* instance, const double d
   }
 
   if (feModelHeader.blockArray.numEntities > 0) {
-    result = instance->mdbImpl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                                           MB_TYPE_INTEGER, instance->blockTag, &default_val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    result = instance->mdbImpl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER, 
+                                               instance->blockTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+    if (MB_SUCCESS != result) return result;
     
     result = Tqdcfr::BlockHeader::read_info_header(data_version, modelOffset, 
                                                    feModelHeader.blockArray, 
@@ -2081,9 +2078,9 @@ ErrorCode Tqdcfr::ModelEntry::read_header_info( Tqdcfr* instance, const double d
     if (MB_SUCCESS != result) return result;
   }
   if (feModelHeader.nodesetArray.numEntities > 0) {
-    result = instance->mdbImpl->tag_create(DIRICHLET_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                                           MB_TYPE_INTEGER, instance->nsTag, &default_val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    result = instance->mdbImpl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER, 
+                                               instance->nsTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+    if (MB_SUCCESS != result) return result;
     
     result = Tqdcfr::NodesetHeader::read_info_header(modelOffset, 
                                                      feModelHeader.nodesetArray, 
@@ -2093,9 +2090,9 @@ ErrorCode Tqdcfr::ModelEntry::read_header_info( Tqdcfr* instance, const double d
     print_nodeset_headers("Nodeset headers:", feNodeSetH, feModelHeader.nodesetArray.numEntities);
   }
   if (feModelHeader.sidesetArray.numEntities > 0) {
-    result = instance->mdbImpl->tag_create(NEUMANN_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                                           MB_TYPE_INTEGER, instance->ssTag, &default_val);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    result = instance->mdbImpl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER, 
+                                               instance->ssTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+    if (MB_SUCCESS != result) return result;
     
     result = Tqdcfr::SidesetHeader::read_info_header(modelOffset, 
                                                      feModelHeader.sidesetArray, 
@@ -2244,9 +2241,9 @@ ErrorCode Tqdcfr::interpret_acis_records(std::vector<AcisRecord> &records)
     // make a tag for the vector holding unrecognized attributes
   void *default_val = NULL;
   ErrorCode result = 
-    mdbImpl->tag_create("ATTRIB_VECTOR", sizeof(void*), MB_TAG_SPARSE, 
-                        attribVectorTag, &default_val);
-  if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    mdbImpl->tag_get_handle("ATTRIB_VECTOR", sizeof(void*), MB_TYPE_OPAQUE, 
+                        attribVectorTag, MB_TAG_CREAT|MB_TAG_SPARSE, &default_val);
+  if (MB_SUCCESS != result) return result;
 
   unsigned int current_record = 0;
 
@@ -2386,15 +2383,12 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
     // set the name
   if (!name_tag.empty()) {
     if (0 == entityNameTag) {
-      result = mdbImpl->tag_get_handle(NAME_TAG_NAME, entityNameTag);
-      if (MB_SUCCESS != result || 0 == entityNameTag) {
-        char *dum_val = NULL;
-        result = mdbImpl->tag_create(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TAG_SPARSE, 
-                                     entityNameTag, &dum_val);
-      }
+      char dum_val[NAME_TAG_SIZE] = {0};
+      result = mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
+                                       entityNameTag, MB_TAG_SPARSE|MB_TAG_CREAT, dum_val);
+      if (MB_SUCCESS != result) return result;
     }
-    if (0 == entityNameTag) return MB_FAILURE;
-
+    
     size_t len = name_tag.size();
     if (len>=NAME_TAG_SIZE)
        len = NAME_TAG_SIZE-1;// truncate a name that is too big

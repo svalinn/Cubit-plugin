@@ -101,35 +101,19 @@ ErrorCode ReadSms::load_file( const char* filename,
 ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
 {
   bool warned = false;
+  double dum_params[] = {0.0, 0.0, 0.0};
   
-  ErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, globalId );
-  if (MB_TAG_NOT_FOUND == result)
-    result = mdbImpl->tag_create( GLOBAL_ID_TAG_NAME,
-                                  sizeof(int), MB_TAG_SPARSE,
-                                  MB_TYPE_INTEGER, globalId, 0 );
+  ErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                              globalId, MB_TAG_DENSE|MB_TAG_CREAT );
   CHECK("Failed to create gid tag.");
     
-  result = mdbImpl->tag_get_handle("PARAMETER_COORDS", paramCoords );
-  double dum_params[] = {0.0, 0.0, 0.0};
-  if (MB_TAG_NOT_FOUND == result) {
-    result = mdbImpl->tag_create("PARAMETER_COORDS",
-                                 3*sizeof(double), MB_TAG_DENSE,
-                                 MB_TYPE_DOUBLE, paramCoords, 0 );
-  }
+  result = mdbImpl->tag_get_handle("PARAMETER_COORDS", 3, MB_TYPE_DOUBLE,
+                                   paramCoords, MB_TAG_DENSE|MB_TAG_CREAT );
   CHECK("Failed to create param coords tag.");
-  if (MB_SUCCESS != result)
-    return result;
     
-  result = mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, geomDimension);
-  if (MB_TAG_NOT_FOUND == result) {
-    int dum_dim = -1;
-    result = mdbImpl->tag_create(GEOM_DIMENSION_TAG_NAME,
-                                 sizeof(int), MB_TAG_SPARSE,
-                                 MB_TYPE_INTEGER, geomDimension, &dum_dim);
-  }
+  result = mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                   geomDimension, MB_TAG_SPARSE|MB_TAG_CREAT );
   CHECK("Failed to create geom dim tag.");
-  if (MB_SUCCESS != result)
-    return result;
 
   int n;
   char line[256];

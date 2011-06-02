@@ -59,22 +59,14 @@ WriteAns::WriteAns(Interface *impl)
 
     // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
-  int dum_val = 0;
-  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mMaterialSetTag,
-                              &dum_val);
+  impl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
   
-  result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, mDirichletSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-   result = impl->tag_create(DIRICHLET_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mDirichletSetTag,
-                              &dum_val);
+  impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
   
-  result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME,   mNeumannSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(NEUMANN_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, mNeumannSetTag,
-                              &dum_val);
- 
+  impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
 }
 
 WriteAns::~WriteAns() 

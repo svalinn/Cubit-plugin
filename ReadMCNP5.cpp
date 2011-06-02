@@ -396,33 +396,33 @@ ErrorCode ReadMCNP5::create_tags( Tag &date_and_time_tag,
                                     Tag &tally_tag,
                                     Tag &error_tag ) {
   ErrorCode result;
-  result = MBI->tag_create("DATE_AND_TIME_TAG", sizeof(char[100]), MB_TAG_SPARSE, 
-                           MB_TYPE_OPAQUE, date_and_time_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
-  result = MBI->tag_create("TITLE_TAG", sizeof(char[100]), MB_TAG_SPARSE, 
-                           MB_TYPE_OPAQUE, title_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
-  result = MBI->tag_create("NPS_TAG", sizeof(unsigned long int), 
-                           MB_TAG_SPARSE, MB_TYPE_OPAQUE, nps_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
-  result = MBI->tag_create("TALLY_NUMBER_TAG", sizeof(int), MB_TAG_SPARSE, 
-                           MB_TYPE_INTEGER, tally_number_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
-  result = MBI->tag_create("TALLY_COMMENT_TAG", sizeof(char[100]), MB_TAG_SPARSE,
-                           MB_TYPE_OPAQUE, tally_comment_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
-  result = MBI->tag_create("TALLY_PARTICLE_TAG", sizeof(particle), MB_TAG_SPARSE,
-                           MB_TYPE_OPAQUE, tally_particle_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
-  result = MBI->tag_create("TALLY_COORD_SYS_TAG", sizeof(coordinate_system), MB_TAG_SPARSE,
-                           MB_TYPE_OPAQUE, tally_coord_sys_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
-  result = MBI->tag_create("TALLY_TAG", sizeof(double), MB_TAG_DENSE, 
-                           MB_TYPE_DOUBLE, tally_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
-  result = MBI->tag_create("ERROR_TAG", sizeof(double), MB_TAG_DENSE, 
-                           MB_TYPE_DOUBLE, error_tag, 0);
-  if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
+  result = MBI->tag_get_handle("DATE_AND_TIME_TAG", 100, MB_TYPE_OPAQUE, 
+                           date_and_time_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
+  result = MBI->tag_get_handle("TITLE_TAG", 100, MB_TYPE_OPAQUE, title_tag,
+                           MB_TAG_SPARSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
+  result = MBI->tag_get_handle("NPS_TAG", sizeof(unsigned long int), MB_TYPE_OPAQUE,
+                           nps_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
+  result = MBI->tag_get_handle("TALLY_NUMBER_TAG", 1, MB_TYPE_INTEGER, 
+                           tally_number_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
+  result = MBI->tag_get_handle("TALLY_COMMENT_TAG", 100, MB_TYPE_OPAQUE, 
+                           tally_comment_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
+  result = MBI->tag_get_handle("TALLY_PARTICLE_TAG", sizeof(particle), MB_TYPE_OPAQUE,
+                           tally_particle_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
+  result = MBI->tag_get_handle("TALLY_COORD_SYS_TAG", sizeof(coordinate_system), MB_TYPE_OPAQUE,
+                           tally_coord_sys_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
+  result = MBI->tag_get_handle("TALLY_TAG", 1, MB_TYPE_DOUBLE, tally_tag,
+                           MB_TAG_DENSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
+  result = MBI->tag_get_handle("ERROR_TAG", 1, MB_TYPE_DOUBLE, error_tag,
+                           MB_TAG_DENSE|MB_TAG_CREAT);
+  if(MB_SUCCESS!=result) return result;
   return MB_SUCCESS;
 }
 

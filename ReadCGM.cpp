@@ -77,24 +77,24 @@ ReadCGM::ReadCGM(Interface *impl)
   ErrorCode rval;
 
   // get some tag handles
-  rval = mdbImpl->tag_create( GEOM_DIMENSION_TAG_NAME, sizeof(int), 
-                            MB_TAG_SPARSE, MB_TYPE_INTEGER, geom_tag, 0, true ); 
+  rval = mdbImpl->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                  geom_tag, MB_TAG_SPARSE|MB_TAG_CREAT ); 
   assert(!rval);
-  rval = mdbImpl->tag_create( GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_DENSE,
-                            MB_TYPE_INTEGER, id_tag, 0, true );
+  rval = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                  id_tag, MB_TAG_DENSE|MB_TAG_CREAT ); 
   assert(!rval);
-  rval = mdbImpl->tag_create( NAME_TAG_NAME, NAME_TAG_SIZE, MB_TAG_SPARSE,
-                            MB_TYPE_OPAQUE, name_tag, 0, true );
+  rval = mdbImpl->tag_get_handle( NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
+                                  name_Tag, MB_TAG_SPARSE|MB_TAG_CREAT ); 
   assert(!rval);
 
-  rval = mdbImpl->tag_create( CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE,
-                            MB_TAG_SPARSE, MB_TYPE_OPAQUE, category_tag, 0, true );
+  rval = mdbImpl->tag_get_handle( CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, MB_TYPE_OPAQUE,
+                                  category_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
   assert(!rval);
-  rval = mdbImpl->tag_create("FACETING_TOL", sizeof(double), MB_TAG_SPARSE,
-			     MB_TYPE_DOUBLE, faceting_tol_tag, 0, true );
+  rval = mdbImpl->tag_get_handle("FACETING_TOL", 1, MB_TYPE_DOUBLE, faceting_tol_tag,
+                                 MB_TAG_SPARSE|MB_TAG_CREAT );
   assert(!rval);
-  rval = mdbImpl->tag_create("GEOMETRY_RESABS", sizeof(double), MB_TAG_SPARSE,
-			     MB_TYPE_DOUBLE, geometry_resabs_tag, 0, true );
+  rval = mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, MB_TYPE_DOUBLE, 
+                                 geometry_resabs_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
   assert(!rval);
 }
 
@@ -356,7 +356,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       for (int j = extra_name_tags.size(); j < name_list.size(); ++j) {
         sprintf( namebuf, "EXTRA_%s%d", NAME_TAG_NAME, j );
         Tag t;
-        rval = mdbImpl->tag_create( namebuf, NAME_TAG_SIZE, MB_TAG_SPARSE, MB_TYPE_OPAQUE, t, 0, true );
+        rval = mdbImpl->tag_get_handle( namebuf, NAME_TAG_SIZE, MB_TYPE_OPAQUE, t, MB_TAG_SPARSE|MB_TAG_CREAT );
         assert(!rval);
         extra_name_tags.push_back(t);
       }

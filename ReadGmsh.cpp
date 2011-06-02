@@ -87,11 +87,8 @@ ErrorCode ReadGmsh::load_file( const char* filename,
   }
 
   geomSets.clear();
-  ErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, globalId );
-  if (MB_TAG_NOT_FOUND == result)
-    result = mdbImpl->tag_create( GLOBAL_ID_TAG_NAME,
-                                  sizeof(int), MB_TAG_SPARSE,
-                                  MB_TYPE_INTEGER, globalId, 0 );
+  ErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, 
+                                              globalId, MB_TAG_DENSE|MB_TAG_CREAT );
   if (MB_SUCCESS != result)
     return result;
     
@@ -434,13 +431,8 @@ ErrorCode ReadGmsh::create_sets( EntityType type,
     case 2:
     {
       const char* name = set_type ? PARALLEL_PARTITION_TAG_NAME : MATERIAL_SET_TAG_NAME;
-      result = mdbImpl->tag_get_handle( name, tag_handles[0] );
-      if (result == MB_TAG_NOT_FOUND)
-        result = mdbImpl->tag_create( name, 
-                                      sizeof(int),
-                                      MB_TAG_SPARSE,
-                                      MB_TYPE_INTEGER,
-                                      tag_handles[0], 0 );
+      result = mdbImpl->tag_get_handle( name, 1, MB_TYPE_INTEGER, tag_handles[0],
+                                        MB_TAG_SPARSE|MB_TAG_CREAT );
       if (MB_SUCCESS != result)
         return result;
       num_tags = 1;
@@ -448,14 +440,8 @@ ErrorCode ReadGmsh::create_sets( EntityType type,
     }
     case 1:
     {
-      const char* name = GEOM_DIMENSION_TAG_NAME;
-      result = mdbImpl->tag_get_handle( name, tag_handles[1] );
-      if (result == MB_TAG_NOT_FOUND)
-        result = mdbImpl->tag_create( name, 
-                                      sizeof(int),
-                                      MB_TAG_SPARSE,
-                                      MB_TYPE_INTEGER,
-                                      tag_handles[1], 0 );
+      result = mdbImpl->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                        tag_handles[1], MB_TAG_SPARSE|MB_TAG_CREAT );
       if (MB_SUCCESS != result)
         return result;
       tag_values[1] = NULL;

@@ -94,50 +94,29 @@ WriteNCDF::WriteNCDF(Interface *impl)
 
   // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
-  int dum_val = 0;
-  ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  mMaterialSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(MATERIAL_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER, mMaterialSetTag, &dum_val);
-  
-  result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, mDirichletSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(DIRICHLET_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE,
-                              MB_TYPE_INTEGER, mDirichletSetTag, &dum_val);
-  
-  result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME,   mNeumannSetTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(NEUMANN_SET_TAG_NAME, sizeof(int), MB_TAG_SPARSE,
-                              MB_TYPE_INTEGER, mNeumannSetTag, &dum_val);
-  
-  result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, mHasMidNodesTag);
-  if (MB_TAG_NOT_FOUND == result) {
-    int dum_val_array[] = {0, 0, 0, 0};
-    result = impl->tag_create(HAS_MID_NODES_TAG_NAME, 4*sizeof(int), MB_TAG_SPARSE,
-                              MB_TYPE_INTEGER, mHasMidNodesTag, dum_val_array);
-  }
-  
-  result = impl->tag_get_handle("distFactor",           mDistFactorTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create_variable_length( "distFactor", 
-                                               MB_TAG_SPARSE, 
-                                               MB_TYPE_DOUBLE,
-                                               mDistFactorTag );
-  
-  result = impl->tag_get_handle("qaRecord",             mQaRecordTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create_variable_length( "qaRecord", 
-                                               MB_TAG_SPARSE, 
-                                               MB_TYPE_OPAQUE,
-                                               mQaRecordTag );
-  
-  result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME,             mGlobalIdTag);
-  if (MB_TAG_NOT_FOUND == result)
-    result = impl->tag_create(GLOBAL_ID_TAG_NAME, sizeof(int), MB_TAG_SPARSE, 
-                              MB_TYPE_INTEGER, mGlobalIdTag, &dum_val);
-  
+  impl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
 
-  impl->tag_create("WriteNCDF element mark", 1, MB_TAG_BIT, mEntityMark, NULL);
+  impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+  impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+  impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                       mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+
+  int dum_val_array[] = {0, 0, 0, 0};
+  impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
+                       mHasMidNodesTag, MB_TAG_SPARSE|MB_TAG_CREAT, dum_val_array);
+  
+  impl->tag_get_handle( "distFactor", 0, MB_TYPE_DOUBLE, mDistFactorTag,
+                        MB_TAG_SPARSE|MB_TAG_VARLEN|MB_TAG_CREAT );
+ 
+  impl->tag_get_handle( "qaRecord", 0, MB_TYPE_OPAQUE, mQaRecordTag,
+                        MB_TAG_SPARSE|MB_TAG_VARLEN|MB_TAG_CREAT );
+  
+  impl->tag_get_handle("WriteNCDF element mark", 1, MB_TYPE_BIT, mEntityMark, MB_TAG_CREAT);
 
 }
 
@@ -380,7 +359,7 @@ ErrorCode WriteNCDF::gather_mesh_information(
   rval = mdbImpl->tag_delete(mEntityMark);
   if (MB_SUCCESS != rval)
     return rval;
-  rval = mdbImpl->tag_create("WriteNCDF element mark", 1, MB_TAG_BIT, mEntityMark, NULL);
+  rval = mdbImpl->tag_get_handle("WriteNCDF element mark", 1, MB_TYPE_BIT, mEntityMark, MB_TAG_CREAT);
   if (MB_SUCCESS != rval)
     return rval;
 
@@ -846,7 +825,7 @@ ErrorCode WriteNCDF::write_nodes(int num_nodes, Range& nodes, int dimension)
   //see if should transform coordinates
   ErrorCode result;
   Tag trans_tag;
-  result = mdbImpl->tag_get_handle( MESH_TRANSFORM_TAG_NAME, trans_tag);
+  result = mdbImpl->tag_get_handle( MESH_TRANSFORM_TAG_NAME, 16, MB_TYPE_DOUBLE, trans_tag);
   bool transform_needed = true;
   if( result == MB_TAG_NOT_FOUND )
     transform_needed = false;
@@ -2013,7 +1992,7 @@ ErrorCode WriteNCDF::get_sideset_elems(EntityHandle sideset, int current_sense,
     // get the sense tag; don't need to check return, might be an error if the tag
     // hasn't been created yet
   Tag sense_tag = 0;
-  mdbImpl->tag_get_handle("SENSE", sense_tag);
+  mdbImpl->tag_get_handle("SENSE", 1, MB_TYPE_INTEGER, sense_tag);
 
     // get the entities in this set
   ErrorCode result = mdbImpl->get_entities_by_handle(sideset, ss_elems, true);
