@@ -339,21 +339,6 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     return error(MB_INVALID_SIZE);
   }
   
-  ReadHDF5Dataset::default_hyperslab_selection_limit();
-  int hslimit;
-  rval = opts.get_int_option( "HYPERSLAB_SELECT_LIMIT", hslimit );
-  if (MB_SUCCESS == rval && hslimit > 0)
-    ReadHDF5Dataset::set_hyperslab_selection_limit( hslimit );
-  else
-    ReadHDF5Dataset::default_hyperslab_selection_limit();
-  if (MB_SUCCESS != opts.get_null_option("HYPERSLAB_OR") &&
-     (MB_SUCCESS == opts.get_null_option( "HYPERSLAB_APPEND" )
-      || HDF5_can_append_hyperslabs())) {
-    ReadHDF5Dataset::append_hyperslabs();
-    if (MB_SUCCESS != opts.get_int_option( "HYPERSLAB_SELECT_LIMIT", hslimit ))
-      ReadHDF5Dataset::set_hyperslab_selection_limit( std::numeric_limits<int>::max() );
-  }
-  
   dataBuffer = (char*)malloc( bufferSize );
   if (!dataBuffer)
     return error(MB_MEMORY_ALLOCATION_FAILED);
@@ -395,6 +380,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     }
     const int rank = myPcomm->proc_config().proc_rank();
     dbgOut.set_rank(rank);
+    dbgOut.limit_output_to_first_N_procs( 32 );
     mpiComm = new MPI_Comm(myPcomm->proc_config().proc_comm());
 
 #ifndef H5_MPI_COMPLEX_DERIVED_DATATYPE_WORKS 
@@ -504,6 +490,22 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       mhdf_closeFile( filePtr, &status );
       return error(MB_FAILURE);
     }
+  }
+  
+  ReadHDF5Dataset::default_hyperslab_selection_limit();
+  int hslimit;
+  rval = opts.get_int_option( "HYPERSLAB_SELECT_LIMIT", hslimit );
+  if (MB_SUCCESS == rval && hslimit > 0)
+    ReadHDF5Dataset::set_hyperslab_selection_limit( hslimit );
+  else
+    ReadHDF5Dataset::default_hyperslab_selection_limit();
+  if (MB_SUCCESS != opts.get_null_option("HYPERSLAB_OR") &&
+     (MB_SUCCESS == opts.get_null_option( "HYPERSLAB_APPEND" )
+      || HDF5_can_append_hyperslabs())) {
+    ReadHDF5Dataset::append_hyperslabs();
+    if (MB_SUCCESS != opts.get_int_option( "HYPERSLAB_SELECT_LIMIT", hslimit ))
+      ReadHDF5Dataset::set_hyperslab_selection_limit( std::numeric_limits<int>::max() );
+    dbgOut.print(1,"Using H5S_APPEND for hyperslab selection\n");
   }
   
   return MB_SUCCESS;
