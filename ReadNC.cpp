@@ -171,8 +171,8 @@ ErrorCode ReadNC::load_file(const char *file_name,
 #endif
   
     // create nc conventional tags
-  rval = create_tags(tstep_nums);
-  ERRORR(rval, "Trouble creating nc conventional tags.");
+//  rval = create_tags(tstep_nums);
+//  ERRORR(rval, "Trouble creating nc conventional tags.");
   
   return MB_SUCCESS;
 }
