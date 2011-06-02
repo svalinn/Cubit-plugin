@@ -84,7 +84,7 @@ ReadCGM::ReadCGM(Interface *impl)
                                   id_tag, MB_TAG_DENSE|MB_TAG_CREAT ); 
   assert(!rval);
   rval = mdbImpl->tag_get_handle( NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
-                                  name_Tag, MB_TAG_SPARSE|MB_TAG_CREAT ); 
+                                  name_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
   assert(!rval);
 
   rval = mdbImpl->tag_get_handle( CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, MB_TYPE_OPAQUE,
