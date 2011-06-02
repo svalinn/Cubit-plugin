@@ -190,10 +190,10 @@ protected:
   virtual ErrorCode parallel_create_file( const char* filename,
                                             bool overwrite,
                                             const std::vector<std::string>& qa_records,
+                                            const FileOptions& opts,
                                             const Tag* tag_list,
                                             int num_tags,
                                             int dimension = 3,
-                                            int pcomm_no = 0,
                                             double* times = 0 );
 
 

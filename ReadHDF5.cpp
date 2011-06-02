@@ -304,6 +304,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     dbgOut.set_verbosity(tmpval);
     dbgOut.set_prefix("H5M ");
   }
+  dbgOut.limit_output_to_first_N_procs( 32 );
   
   // Enable some extra checks for reads.  Note: amongst other things this
   // will print errors if the entire file is not read, so if doing a 

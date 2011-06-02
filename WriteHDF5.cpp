@@ -636,15 +636,13 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   int junk;
   parallelWrite = (MB_SUCCESS == opts.match_option( "PARALLEL", optnames, junk ));
   if (parallelWrite) {
-    int pcomm_no = 0;
-    opts.get_int_option("PARALLEL_COMM", pcomm_no);
       // Just store Boolean value based on string option here.
       // parallel_create_file will set writeProp accordingly.
     //collectiveIO =  (MB_SUCCESS == opts.get_null_option("COLLECTIVE"));
     //dbgOut.printf(2,"'COLLECTIVE' option = %s\n", collectiveIO ? "YES" : "NO" );
       // Do this all the time, as it appears to be much faster than indep in some cases
     collectiveIO = true;
-    result = parallel_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension, pcomm_no, times );
+    result = parallel_create_file( filename, overwrite, qa_records, opts, tag_list, num_tags, user_dimension, times );
   }
   else {
     result = serial_create_file( filename, overwrite, qa_records, tag_list, num_tags, user_dimension );
@@ -2491,9 +2489,9 @@ ErrorCode WriteHDF5::gather_tags( const Tag* user_tag_list, int num_tags )
 ErrorCode WriteHDF5::parallel_create_file( const char* ,
                                     bool ,
                                     const std::vector<std::string>& ,
+                                    const FileOptions&,
                                     const Tag*,
                                     int ,
-                                    int,
                                     int,
                                     double*  )
 {
