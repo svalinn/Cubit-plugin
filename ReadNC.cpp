@@ -375,6 +375,8 @@ ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names,
   if (tstep_nums.empty() && -1 != tMin) {
     // no timesteps input, get them all
     for (int i = tMin; i <= tMax; i++) tstep_nums.push_back(i);
+  }
+  if (!tstep_nums.empty()) {
     for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);      
       vdatas[i].varDatas.resize(tstep_nums.size());
@@ -398,7 +400,7 @@ ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
 
         // get the tag to read into
       if (!vdatas[i].varTags[t]) {
-        rval = get_tag(vdatas[i], t, vdatas[i].varTags[t]);
+        rval = get_tag(vdatas[i], tstep_nums[t], vdatas[i].varTags[t]);
         ERRORR(rval, "Trouble getting tag.");
       }
   
@@ -523,7 +525,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], tstep_nums[t]);
+      ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], t);
       if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
     }
   }
@@ -618,8 +620,12 @@ ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int
 ErrorCode ReadNC::get_tag(VarData &var_data, int tstep_num, Tag &tagh) 
 {
   std::ostringstream tag_name;
-  tag_name << var_data.varName;
-  tag_name << tstep_num;
+  if (!tstep_num) {
+    std::string tmp_name = var_data.varName + "0";
+    tag_name << tmp_name.c_str();
+  }
+  else
+    tag_name << var_data.varName << tstep_num;
   ErrorCode rval = MB_SUCCESS;
   tagh = 0;
   switch (var_data.varDataType) {
@@ -1174,7 +1180,7 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
   Tag numDimsTag = 0;  
   tag_name = "__NUM_DIMS";
   int numDims = dimNames.size();
-  rval = mbImpl->tag_create(tag_name.c_str(), sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER, numDimsTag, &numDims);
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, numDimsTag, MB_TAG_SPARSE|MB_TAG_CREATE, &numDims);
   ERRORR(rval, "Trouble creating __NUM_DIMS tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   
@@ -1182,7 +1188,7 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
   Tag numVarsTag = 0;
   tag_name = "__NUM_VARS";
   int numVars = varInfo.size();
-  rval = mbImpl->tag_create(tag_name.c_str(), sizeof(int), MB_TAG_SPARSE, MB_TYPE_INTEGER, numVarsTag, &numVars);
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, numVarsTag, MB_TAG_SPARSE|MB_TAG_CREATE, &numVars);
   ERRORR(rval, "Trouble creating __NUM_VARS tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   
@@ -1282,7 +1288,7 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
 	val[0] = tMin; 
 	val[1] = tMax;
       }
-      rval = mbImpl->tag_create(tag_name.c_str(), sizeof(int) * 2, MB_TAG_SPARSE, MB_TYPE_INTEGER, tagh, &val[0]);
+      rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREATE, &val[0]);
       ERRORR(rval, "Trouble creating __<dim_name>_LOC_MINMAX tag.");
       if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
     }
@@ -1305,7 +1311,7 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
       std::stringstream ss_tag_name;
       ss_tag_name << "__" << dimNames[i] << "_LOC_VALS";
       tag_name = ss_tag_name.str();
-      rval = mbImpl->tag_create(tag_name.c_str(), sizeof(int) * val.size(), MB_TAG_SPARSE, MB_TYPE_INTEGER, tagh, &val[0]);
+      rval = mbImpl->tag_get_handle(tag_name.c_str(), val.size(), MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREATE, &val[0]);
       ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
       if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
     }
@@ -1326,7 +1332,8 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
 	mbImpl->tag_get_handle(tmptagname.c_str(), tmptag);
 	varInfo[mapIter->first].varTags[i] = tmptag;
       }
-      rval = mbImpl->tag_create(tag_name.c_str(), sizeof(Tag)*varDimSz, MB_TAG_SPARSE, MB_TYPE_HANDLE, varNamesDimsTag, &(varInfo[mapIter->first].varTags[0]));
+      rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE|MB_TAG_CREATE, 
+                                    &(varInfo[mapIter->first].varTags[0]));
       ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
       if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
     }
