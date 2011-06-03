@@ -135,11 +135,21 @@ private:
     //! parse min/max i/j/k in options, if any
   ErrorCode init_ijkt_vals(const FileOptions &opts);
 
-  ErrorCode compute_partition_1(int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                int &klMin, int &klMax);
+  int compute_partition_alljorkori(int np, int nr,
+                                   int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                   int &klMin, int &klMax);
   
-  ErrorCode compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                int &klMin, int &klMax);
+  int compute_partition_alljkbal(int np, int nr,
+                                 int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                 int &klMin, int &klMax);
+  
+  int compute_partition_sqij(int np, int nr,
+                             int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                             int &klMin, int &klMax);
+
+  int compute_partition_sqjk(int np, int nr,
+                             int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                             int &klMin, int &klMax);
   
   ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
                             std::vector<double> &cvals);
@@ -239,8 +249,8 @@ private:
     //! are we reading in parallel?
   bool isParallel;
 
-    //! use a 2d partition or not
-  bool use2DPartition;
+    //! partitioning method
+  int partMethod;
   
 #ifdef USE_MPI
   ParallelComm *myPcomm;

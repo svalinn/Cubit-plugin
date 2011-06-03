@@ -17,10 +17,10 @@
 #include "moab/ScdInterface.hpp"
 
 #define ERRORR(rval, str) \
-    if (MB_SUCCESS != rval) {readMeshIface->report_error(str); return rval;}
+    if (MB_SUCCESS != rval) {readMeshIface->report_error("%s", str); return rval;}
     
 #define ERRORS(err, str) \
-    if (err) {readMeshIface->report_error(str); return MB_FAILURE;}
+    if (err) {readMeshIface->report_error("%s", str); return MB_FAILURE;}
     
 namespace moab {
 
@@ -34,7 +34,7 @@ ReadNC::ReadNC(Interface* impl)
           iDim(-1), jDim(-1), kDim(-1), tDim(-1), numUnLim(-1), mCurrentMeshHandle(0),
           startVertex(0), startElem(0), mGlobalIdTag(0), 
           max_line_length(-1), max_str_length(-1), vertexOffset(0), dbgOut(stderr),
-          isParallel(false), use2DPartition(false)
+          isParallel(false), partMethod(-1)
 #ifdef USE_MPI
         , myPcomm(NULL)
 #endif
@@ -236,9 +236,7 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   const int rank = myPcomm->proc_config().proc_rank();
   dbgOut.set_rank(rank);
 
-  if (MB_SUCCESS == opts.get_null_option("2D_PARTITION"))
-    use2DPartition = true;
-  
+  opts.get_int_option("PARTITION_METHOD", partMethod);
 #endif
 
   return MB_SUCCESS;
@@ -708,18 +706,38 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   ErrorCode rval;
 #ifdef USE_MPI
   if (isParallel) {
-    if (use2DPartition)
-      rval = compute_partition_2(ilMin, ilMax, jlMin, jlMax, klMin, klMax);
-    else
-      rval = compute_partition_1(ilMin, ilMax, jlMin, jlMax, klMin, klMax);
-
+    switch (partMethod) {
+      case 1:
+      case -1:
+          compute_partition_alljorkori(myPcomm->proc_config().proc_size(),
+                                       myPcomm->proc_config().proc_rank(),
+                                       ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+          dbgOut.tprintf(1, "Using alljorkori method.\n");
+          break;
+      case 2:
+          compute_partition_alljkbal(myPcomm->proc_config().proc_size(),
+                                     myPcomm->proc_config().proc_rank(),
+                                     ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+          dbgOut.tprintf(1, "Using alljkbal method.\n");
+          break;
+      case 3:
+          compute_partition_sqij(myPcomm->proc_config().proc_size(),
+                                 myPcomm->proc_config().proc_rank(),
+                                 ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+          dbgOut.tprintf(1, "Using sqij method.\n");
+          break;
+      case 4:
+          compute_partition_sqjk(myPcomm->proc_config().proc_size(),
+                                 myPcomm->proc_config().proc_rank(),
+                                 ilMin, ilMax, jlMin, jlMax, klMin, klMax);
+          dbgOut.tprintf(1, "Using sqjk method.\n");
+          break;
+    }
     dbgOut.tprintf(1, "Partition: %dx%dx%d (out of %dx%dx%d)\n", 
                    ilMax-ilMin+1, jlMax-jlMin+1, klMax-klMin+1,
                    iMax-iMin+1, jMax-jMin+1, kMax-kMin+1);
     if (myPcomm->proc_config().proc_rank() == 0) 
       dbgOut.tprintf(1, "Contiguous chunks of size %d bytes.\n", 8*(ilMax-ilMin+1)*(jlMax-jlMin+1));
-    
-    ERRORR(rval, "Failed to compute partition.");
   }
 #endif
     
@@ -789,38 +807,39 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::compute_partition_1(int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                      int &klMin, int &klMax) 
+int ReadNC::compute_partition_alljorkori(int np, int nr,
+                                         int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                         int &klMin, int &klMax) 
 {
     // partition *the elements* over the parametric space; 1d partition for now, in the j, k, or i
     // parameters
 #ifdef USE_MPI
-  if (-1 != jlMin && (jMax - jMin) > (int)myPcomm->proc_config().proc_size()) {
-    int dj = (jMax - jMin) / myPcomm->proc_config().proc_size();
-    unsigned int extra = (jMax - jMin) % myPcomm->proc_config().proc_size();
-    jlMin = jMin + myPcomm->proc_config().proc_rank()*dj + 
-        std::min(myPcomm->proc_config().proc_rank(), extra);
-    jlMax = jlMin + dj + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+  if (-1 != jlMin && (jMax - jMin) > np) {
+    int dj = (jMax - jMin) / np;
+    int extra = (jMax - jMin) % np;
+    jlMin = jMin + nr*dj + 
+        std::min(nr, extra);
+    jlMax = jlMin + dj + (nr < extra ? 1 : 0);
 
     klMin = kMin; klMax = kMax;
     ilMin = iMin; ilMax = iMax;
   }
-  else if (-1 != klMin && (kMax - kMin) > (int)myPcomm->proc_config().proc_size()) {
-    int dk = (kMax - kMin) / myPcomm->proc_config().proc_size();
-    unsigned int extra = (kMax - kMin) % myPcomm->proc_config().proc_size();
-    klMin = kMin + myPcomm->proc_config().proc_rank()*dk + 
-        std::min(myPcomm->proc_config().proc_rank(), extra);
-    klMax = klMin + dk + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+  else if (-1 != klMin && (kMax - kMin) > np) {
+    int dk = (kMax - kMin) / np;
+    int extra = (kMax - kMin) % np;
+    klMin = kMin + nr*dk + 
+        std::min(nr, extra);
+    klMax = klMin + dk + (nr < extra ? 1 : 0);
 
     jlMin = jMin; jlMax = jMax;
     ilMin = iMin; ilMax = iMax;
   }
-  else if (-1 != ilMin && (iMax - iMin) > (int)myPcomm->proc_config().proc_size()) {
-    int di = (iMax - iMin) / myPcomm->proc_config().proc_size();
-    unsigned int extra = (iMax - iMin) % myPcomm->proc_config().proc_size();
-    ilMin = iMin + myPcomm->proc_config().proc_rank()*di + 
-        std::min(myPcomm->proc_config().proc_rank(), extra);
-    ilMax = ilMin + di + (myPcomm->proc_config().proc_rank() < extra ? 1 : 0);
+  else if (-1 != ilMin && (iMax - iMin) > np) {
+    int di = (iMax - iMin) / np;
+    int extra = (iMax - iMin) % np;
+    ilMin = iMin + nr*di + 
+        std::min(nr, extra);
+    ilMax = ilMin + di + (nr < extra ? 1 : 0);
 
     klMin = kMin; klMax = kMax;
     jlMin = jMin; jlMax = jMax;
@@ -836,25 +855,18 @@ ErrorCode ReadNC::compute_partition_1(int &ilMin, int &ilMax, int &jlMin, int &j
   klMax = kMax;
 #endif
   
-  return MB_SUCCESS;
+  return 1;
 }
 
-ErrorCode ReadNC::compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                      int &klMin, int &klMax) 
+int ReadNC::compute_partition_alljkbal(int np, int nr,
+                                       int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                       int &klMin, int &klMax) 
 {
     // improved, possibly 2-d partition
-#ifdef USE_MPI
-  int np = myPcomm->proc_config().proc_size();
-  int nr = myPcomm->proc_config().proc_rank();
-#else
-  int np = 1;
-  int nr = 0;
-#endif  
-
   std::vector<double> kfactors;
   kfactors.push_back(1);
   int K = kMax - kMin;
-  for (int i = 2; i < K/2; i++) 
+  for (int i = 2; i < K; i++) 
     if (!(K%i) && !(np%i)) kfactors.push_back(i);
   kfactors.push_back(K);
   
@@ -889,7 +901,79 @@ ErrorCode ReadNC::compute_partition_2(int &ilMin, int &ilMax, int &jlMin, int &j
   ilMin = iMin;
   ilMax = iMax;
   
-  return MB_SUCCESS;
+  return 1;
+}
+
+int ReadNC::compute_partition_sqij(int np, int nr,
+                                   int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                   int &klMin, int &klMax) 
+{
+    // square IxJ partition
+
+  std::vector<double> pfactors, ppfactors;
+  for (int i = 2; i <= np; i++) 
+    if (!(np%i)) {
+      pfactors.push_back(i);
+      ppfactors.push_back(((double)(i*i))/np);
+    }
+  
+    // ideally, Px/Py = I/J
+  double ijratio = ((double)(iMax-iMin))/((double)(jMax-jMin));
+
+  unsigned int ind = std::lower_bound(ppfactors.begin(), ppfactors.end(), ijratio) - ppfactors.begin();
+  if (ind && fabs(ppfactors[ind-1]-ijratio) < fabs(ppfactors[ind]-ijratio)) ind--;
+  
+  int pi = pfactors[ind];
+  int pj = np / pi;
+
+  int I = (iMax - iMin), J = (jMax - jMin);
+  int iextra = I%pi, jextra = J%pj, i = I/pi, j = J/pj;
+  int nri = nr % pi, nrj = nr / pi;
+  ilMin = i*nri + std::min(iextra, nri);
+  ilMax = ilMin + i + (nri < iextra ? 1 : 0);
+  jlMin = j*nrj + std::min(jextra, nrj);
+  jlMax = jlMin + j + (nrj < jextra ? 1 : 0);
+
+  klMin = kMin;
+  klMax = kMax;
+  
+  return 1;
+}
+
+int ReadNC::compute_partition_sqjk(int np, int nr,
+                                   int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
+                                   int &klMin, int &klMax) 
+{
+    // square JxK partition
+
+  std::vector<double> pfactors, ppfactors;
+  for (int p = 2; p <= np; p++) 
+    if (!(np%p)) {
+      pfactors.push_back(p);
+      ppfactors.push_back(((double)(p*p))/np);
+    }
+  
+    // ideally, Pj/Pk = J/K
+  double jkratio = ((double)(jMax-jMin))/((double)(kMax-kMin));
+
+  unsigned int ind = std::lower_bound(ppfactors.begin(), ppfactors.end(), jkratio) - ppfactors.begin();
+  if (ind && fabs(ppfactors[ind-1]-jkratio) < fabs(ppfactors[ind]-jkratio)) ind--;
+  
+  int pj = pfactors[ind];
+  int pk = np / pj;
+
+  int K = (kMax - kMin), J = (jMax - jMin);
+  int jextra = J%pj, kextra = K%pk, j = J/pj, k = K/pk;
+  int nrj = nr % pj, nrk = nr / pj;
+  jlMin = j*nrj + std::min(jextra, nrj);
+  jlMax = jlMin + j + (nrj < jextra ? 1 : 0);
+  klMin = k*nrk + std::min(kextra, nrk);
+  klMax = klMin + k + (nrk < kextra ? 1 : 0);
+
+  ilMin = iMin;
+  ilMax = iMax;
+  
+  return 1;
 }
 
 ErrorCode ReadNC::read_coordinate(const char *var_name, int lmin, int lmax,
