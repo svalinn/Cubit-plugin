@@ -105,7 +105,7 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
                                 mNeumannSetTag, MB_TAG_CREAT|MB_TAG_SPARSE);
 
   result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
-                                mHasMidNodesTag, MB_TAG_CREAT|MB_TAG_SPASRE );
+                                mHasMidNodesTag, MB_TAG_CREAT|MB_TAG_SPARSE );
   assert(MB_SUCCESS == result);
   
   result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
@@ -314,7 +314,7 @@ ErrorCode ReadCCMIO::get_int_option(const char *opt_str, EntityHandle seth,
   if (kCCMIONoErr == CCMIOReadOpti(NULL, node, opt_str, &idum)) {
     if (!tag) {
       rval = mbImpl->tag_get_handle(opt_str, 1, MB_TYPE_INTEGER, 
-                                    tag, MB_TAG_SPRASE|MB_TAG_CREAT);
+                                    tag, MB_TAG_SPARSE|MB_TAG_CREAT);
       CHKERR(rval, NULL);
     }
     
@@ -333,7 +333,7 @@ ErrorCode ReadCCMIO::get_dbl_option(const char *opt_str, EntityHandle seth,
     ErrorCode rval;
     if (!tag) {
       rval = mbImpl->tag_get_handle(opt_str, 1, MB_TYPE_DOUBLE, 
-                                    tag, MB_TAG_SPRASE|MB_TAG_CREAT);
+                                    tag, MB_TAG_SPARSE|MB_TAG_CREAT);
       CHKERR(rval, NULL);
     }
     

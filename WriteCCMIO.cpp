@@ -123,7 +123,7 @@ namespace moab {
     impl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
                          mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
 
-    impl->tag_get_handle(DIRICHLET_SET_TAG_NAME 1, MB_TYPE_INTEGER,
+    impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
                          mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
 
     impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
