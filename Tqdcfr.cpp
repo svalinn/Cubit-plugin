@@ -398,8 +398,12 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
     // **************************
     // restore geometric topology
     // **************************
-  GeomTopoTool gtt(mdbImpl);
+  GeomTopoTool gtt(mdbImpl, true);
   result = gtt.restore_topology();
+  if (MB_SUCCESS != result)
+  {
+    std::cout << "Failed to restore topology " << std::endl;
+  }
 
     // convert blocks to nodesets/sidesets if tag is set
   result = convert_nodesets_sidesets();
