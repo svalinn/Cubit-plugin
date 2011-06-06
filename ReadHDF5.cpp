@@ -3853,8 +3853,6 @@ ErrorCode ReadHDF5::read_tag_values( const char* file_name,
   if (MB_SUCCESS != rval)
     return error(rval);
 
-  CHECK_OPEN_HANDLES;
-  
   int tag_index;
   rval = find_int_tag( tag_name, tag_index );
   if (MB_SUCCESS != rval) {
