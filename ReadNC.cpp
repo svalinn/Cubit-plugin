@@ -1228,10 +1228,7 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
   dimNamesSz = dimNames.size();
   for (unsigned int i = 0; i != dimNamesSz; ++i) {
     tag_name = dimNames[i];
-    Tag tagh = 0; 
-    DataType data_type;
     void * val = NULL;
-    int val_len = 0;
     if (tag_name == "lon") 
       val = &ilVals[0];
     else if (tag_name == "lat")
@@ -1241,22 +1238,20 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
     else if (tag_name == "time")
       val = &tVals[0];
     else {
-      std::string s = "Unrecognized dimension name";
-      s += tag_name;
-      s += "\n";
-      ERRORR(MB_FAILURE, s.c_str());      
+      continue;
     }
+    Tag tagh = 0; 
+    DataType data_type;
+    int val_len = dimVals[i];
     switch (varInfo[tag_name].varDataType) {
     case NC_BYTE:
     case NC_CHAR:
     case NC_DOUBLE:
       data_type = MB_TYPE_DOUBLE;
-      val_len = sizeof(double) * dimVals[i];
       break;
     case NC_FLOAT:
     case NC_INT:
       data_type = MB_TYPE_INTEGER;
-      val_len = sizeof(int) * dimVals[i];
       break;
     case NC_SHORT:
     default:
@@ -1300,25 +1295,16 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
 
   // __<dim_name>_LOC_VALS
   for (unsigned int i = 0; i != dimNamesSz; ++i) {
-    if (dimNames[i] != "lon" && dimNames[i] != "lat" && dimNames[i] != "lev") {
-      Tag tagh = 0; 
-      std::vector<int> val;
-      if (dimNames[i] == "time") {
-	val = tstep_nums;
-      }
-      else {
-	std::string s = "Unsupported LOC_VALS for dimension ";
-	s += dimNames[i];
-	s += "\n";
-	ERRORR(MB_FAILURE, s.c_str());      
-      }
-      std::stringstream ss_tag_name;
-      ss_tag_name << "__" << dimNames[i] << "_LOC_VALS";
-      tag_name = ss_tag_name.str();
-      rval = mbImpl->tag_get_handle(tag_name.c_str(), val.size(), MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT, &val[0]);
-      ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
-      if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
-    }
+    if (dimNames[i] != "time")
+      continue;
+    Tag tagh = 0; 
+    std::vector<int> val = tstep_nums;
+    std::stringstream ss_tag_name;
+    ss_tag_name << "__" << dimNames[i] << "_LOC_VALS";
+    tag_name = ss_tag_name.str();
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), val.size(), MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT, &val[0]);
+    ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
+    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   }
 
   // __<var_name>_DIMS
@@ -1329,11 +1315,13 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
       ss_tag_name << "__" << mapIter->first << "_DIMS";
       tag_name = ss_tag_name.str();
       unsigned int varDimSz = varInfo[mapIter->first].varDims.size();
+      if (varDimSz == 0)
+	continue;
       varInfo[mapIter->first].varTags.resize(varDimSz, 0);
       for (unsigned int i = 0; i != varDimSz; ++i) {
 	Tag tmptag = 0;
 	std::string tmptagname = dimNames[varInfo[mapIter->first].varDims[i]];
-	mbImpl->tag_get_handle(tmptagname.c_str(), tmptag);
+	mbImpl->tag_get_handle(tmptagname.c_str(), 0, MB_TYPE_OPAQUE, tmptag, MB_TAG_ANY);
 	varInfo[mapIter->first].varTags[i] = tmptag;
       }
       rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE|MB_TAG_CREAT, 
