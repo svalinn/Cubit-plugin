@@ -2057,14 +2057,14 @@ ErrorCode WriteHDF5::write_var_len_indices( const TagDesc& tag_data,
     iter = stop;
     assert(tmp.size() == (unsigned)count);
     
-    rval = iFace->tag_get_data( tag_data.tag_id, tmp, junk, size_buffer );
+    rval = iFace->tag_get_by_ptr( tag_data.tag_id, tmp, junk, size_buffer );
     CHK_MB_ERR_0( rval );
     
       // calculate end indices
     dbgOut.print(3,"  writing var-len tag offset chunk.\n");
     track.record_io( offset, count );
     for (size_t i = 0; i < count; ++i) {
-      data_offset += size_buffer[i] / type_size;
+      data_offset += size_buffer[i];
       idx_buffer[i] = data_offset;
     }
     
@@ -2147,10 +2147,10 @@ ErrorCode WriteHDF5::write_var_len_data( const TagDesc& tag_data,
     }
   
     for ( ; count < buffer_size && iter != range.end(); ++iter) {
-      int bytes;
+      int len;
       const void* ptr;
-      rval = iFace->tag_get_data( tag_data.tag_id, &*iter, 1, &ptr, &bytes );
-      int len = bytes / type_size;
+      rval = iFace->tag_get_by_ptr( tag_data.tag_id, &*iter, 1, &ptr, &len );
+      int bytes = len * type_size;
       CHK_MB_ERR_0(rval);
       if (len+count > buffer_size) {
         prev_len = len + count - buffer_size;
@@ -2649,7 +2649,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     CHK_MB_ERR_0(rval);
     
     int s;
-    bool var_len = (MB_VARIABLE_DATA_LENGTH == iFace->tag_get_size( tag_iter->tag_id, s ));
+    bool var_len = (MB_VARIABLE_DATA_LENGTH == iFace->tag_get_length( tag_iter->tag_id, s ));
     
       // Determine which ExportSets we want to write dense
       // data for. We never write dense data for variable-length
@@ -2895,9 +2895,16 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
   bool close_hdf_type = false;
   
   rval = iFace->tag_get_data_type( tag, moab_type ); CHK_MB_ERR_0(rval);
-  rval = iFace->tag_get_size( tag, num_bytes );     
-  if (MB_VARIABLE_DATA_LENGTH == rval)
+  rval = iFace->tag_get_length( tag, array_length );     
+  if (MB_VARIABLE_DATA_LENGTH == rval) {
+    array_length = MB_VARIABLE_LENGTH;
+  }
+  else if (MB_SUCCESS != rval)
+    return error(rval);
+  rval = iFace->tag_get_bytes( tag, num_bytes );     
+  if (MB_VARIABLE_DATA_LENGTH == rval) {
     num_bytes = MB_VARIABLE_LENGTH;
+  }
   else if (MB_SUCCESS != rval)
     return error(rval);
 
@@ -2908,39 +2915,26 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
     file_type = mhdf_INTEGER;
     hdf_type = H5T_NATIVE_INT;
     close_hdf_type = false;
-    array_length = num_bytes/type_size;
     break;
   case MB_TYPE_DOUBLE:
     type_size = sizeof(double);
     file_type = mhdf_FLOAT;
     hdf_type = H5T_NATIVE_DOUBLE;
     close_hdf_type = false;
-    array_length = num_bytes/type_size;
     break;
   case MB_TYPE_BIT:
     type_size = sizeof(bool);
     file_type = mhdf_BITFIELD;
-    if (num_bytes <= 8)
-      hdf_type = H5Tcopy( H5T_NATIVE_B8 );
-    else if (num_bytes <= 16)
-      hdf_type = H5Tcopy( H5T_NATIVE_B16 );
-    else if (num_bytes <= 32)
-      hdf_type = H5Tcopy( H5T_NATIVE_B32 );
-    else if (num_bytes <= 64)
-      hdf_type = H5Tcopy( H5T_NATIVE_B64 );
-    else
-      return error(MB_FAILURE);
-    H5Tset_precision( hdf_type, num_bytes );
+    assert(array_length <= 8);
+    hdf_type = H5Tcopy( H5T_NATIVE_B8 );
+    H5Tset_precision( hdf_type, array_length );
     close_hdf_type = true;
-    array_length = num_bytes;
-    num_bytes = (num_bytes+7)/8;
     break;
   case MB_TYPE_HANDLE:
     type_size = sizeof(EntityHandle);
     file_type = mhdf_ENTITY_ID;
     hdf_type = id_type;
     close_hdf_type = false;
-    array_length = num_bytes/type_size;
     break;
   case MB_TYPE_OPAQUE:
     file_type = mhdf_OPAQUE;
@@ -2959,7 +2953,7 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
     }
     else if (MB_SUCCESS == rval) {
       int hsize;
-      rval = iFace->tag_get_size( type_handle, hsize );
+      rval = iFace->tag_get_bytes( type_handle, hsize );
       if (hsize != sizeof(hid_t))
         return error(MB_FAILURE);
       
@@ -2977,8 +2971,13 @@ ErrorCode WriteHDF5::get_tag_size( Tag tag,
     else {
       return error(rval);
     }
-    array_length = 1;
+    num_bytes = array_length;
+    array_length = (num_bytes == MB_VARIABLE_LENGTH) ? MB_VARIABLE_LENGTH : 1;
   }
+  
+  assert(num_bytes == MB_VARIABLE_LENGTH || 
+         (moab_type == MB_TYPE_BIT && num_bytes == 1) ||
+         array_length * type_size == num_bytes );
   
   if (num_bytes == MB_VARIABLE_LENGTH) {
     array_length = MB_VARIABLE_LENGTH;
@@ -3027,7 +3026,7 @@ ErrorCode WriteHDF5::get_tag_data_length( const TagDesc& tag_info,
     subrange.merge( iter, end );
     iter = end;
       // get tag sizes for entities
-    rval = iFace->tag_get_data( tag_info.tag_id, subrange, ptr_buffer, size_buffer );
+    rval = iFace->tag_get_by_ptr( tag_info.tag_id, subrange, ptr_buffer, size_buffer );
     if (MB_SUCCESS != rval)
       return error(rval);
       // sum lengths
@@ -3038,25 +3037,11 @@ ErrorCode WriteHDF5::get_tag_data_length( const TagDesc& tag_info,
   subrange.clear();
   subrange.merge( iter, range.end() );
   assert( subrange.size() == remaining );
-  rval = iFace->tag_get_data( tag_info.tag_id, subrange, ptr_buffer, size_buffer );
+  rval = iFace->tag_get_by_ptr( tag_info.tag_id, subrange, ptr_buffer, size_buffer );
   if (MB_SUCCESS != rval)
     return error(rval);
   for (size_t i= 0; i < remaining; ++i)
     result += size_buffer[i];
-    
-  DataType type;
-  rval = iFace->tag_get_data_type( tag_info.tag_id, type );
-  if (MB_SUCCESS != rval)
-    return error(rval);
-  switch (type) {
-    case MB_TYPE_INTEGER: result /= sizeof(int);            break;
-    case MB_TYPE_DOUBLE:  result /= sizeof(double);         break;
-    case MB_TYPE_HANDLE:  result /= sizeof(EntityHandle); break;
-    case MB_TYPE_OPAQUE:                                    break;
-      // We fail for MB_TYPE_BIT because MOAB currently does
-      // not support variable-length bit tags.
-    default:          return error(MB_FAILURE);
-  }
     
   return MB_SUCCESS;
 }
@@ -3070,7 +3055,7 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
   TagType mb_storage;
   DataType mb_type;
   mhdf_TagDataType mhdf_type;
-  int tag_size, elem_size, mhdf_size, storage;
+  int tag_bytes, type_size, num_vals, storage;
   hid_t hdf_type = (hid_t)0;
   hid_t handles[3];
   std::string tag_name;
@@ -3090,7 +3075,7 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
     default: return error(MB_FAILURE);
   }
   rval = iFace->tag_get_name( tag_data.tag_id, tag_name ); CHK_MB_ERR_0(rval);
-  rval = get_tag_size( tag_data.tag_id, mb_type, tag_size, elem_size, mhdf_size, mhdf_type, hdf_type );
+  rval = get_tag_size( tag_data.tag_id, mb_type, tag_bytes, type_size, num_vals, mhdf_type, hdf_type );
   CHK_MB_ERR_0(rval);
   
     // get default value
@@ -3115,7 +3100,7 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
     mesh_val_len = 1;
   }
   else {
-    rval = iFace->tag_get_data( tag_data.tag_id, &root, 1, &mesh_value, &mesh_val_len );
+    rval = iFace->tag_get_by_ptr( tag_data.tag_id, &root, 1, &mesh_value, &mesh_val_len );
   }
   if (MB_TAG_NOT_FOUND == rval) {
     mesh_value = 0;
@@ -3133,9 +3118,8 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
 
       // convert default value
     if (def_value) {
-      memcpy( dataBuffer, def_value, def_val_len );
-      if (convert_handle_tag( reinterpret_cast<EntityHandle*>(dataBuffer), 
-                              def_val_len / sizeof(EntityHandle) ))
+      memcpy( dataBuffer, def_value, def_val_len*sizeof(EntityHandle) );
+      if (convert_handle_tag( reinterpret_cast<EntityHandle*>(dataBuffer), def_val_len ))
         def_value = dataBuffer;
       else
         def_value = 0;
@@ -3143,9 +3127,9 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
     
       // convert mesh value
     if (mesh_value) {
-      EntityHandle* ptr = reinterpret_cast<EntityHandle*>(dataBuffer + def_val_len);
-      memcpy( ptr, mesh_value, mesh_val_len );
-      if (convert_handle_tag( ptr, mesh_val_len / sizeof(EntityHandle) ))
+      EntityHandle* ptr = reinterpret_cast<EntityHandle*>(dataBuffer) + def_val_len;
+      memcpy( ptr, mesh_value, mesh_val_len*sizeof(EntityHandle) );
+      if (convert_handle_tag( ptr, mesh_val_len ))
         mesh_value = ptr;
       else
         mesh_value = 0;
@@ -3153,12 +3137,12 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
   }
      
  
-  if (MB_VARIABLE_LENGTH != tag_size) {
+  if (MB_VARIABLE_LENGTH != tag_bytes) {
       // write the tag description to the file
     mhdf_createTag( filePtr,
                     tag_name.c_str(),
                     mhdf_type,
-                    mhdf_size,
+                    num_vals,
                     storage,
                     def_value,
                     mesh_value,
@@ -3199,8 +3183,8 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
                           tag_name.c_str(),
                           mhdf_type,
                           storage,
-                          def_value, def_val_len / elem_size,
-                          mesh_value, mesh_val_len / elem_size,
+                          def_value, def_val_len,
+                          mesh_value, mesh_val_len,
                           hdf_type, mb_type == MB_TYPE_HANDLE ? id_type : 0,
                           &status );
     H5Tclose(hdf_type);

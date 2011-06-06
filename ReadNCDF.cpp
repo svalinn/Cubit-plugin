@@ -891,9 +891,9 @@ ErrorCode ReadNCDF::read_nodesets()
 
       if( !dist_factor_vector.empty() )
       {
-        int size = dist_factor_vector.size() * sizeof(double);  
+        int size = dist_factor_vector.size();  
         const void* data = &dist_factor_vector[0];    
-        if( mdbImpl->tag_set_data( mDistFactorTag, &ns_handle, 1, &data, &size ) != MB_SUCCESS )
+        if( mdbImpl->tag_set_by_ptr( mDistFactorTag, &ns_handle, 1, &data, &size ) != MB_SUCCESS )
           return MB_FAILURE;
       }
     }
@@ -902,16 +902,15 @@ ErrorCode ReadNCDF::read_nodesets()
         // append dist factors to vector 
       const void* ptr = 0;
       int size = 0;
-      if( mdbImpl->tag_get_data( mDistFactorTag, &ns_handle, 1, &ptr, &size ) != MB_SUCCESS )
+      if( mdbImpl->tag_get_by_ptr( mDistFactorTag, &ns_handle, 1, &ptr, &size ) != MB_SUCCESS )
         return MB_FAILURE;
       
-      size /= sizeof(double);
       const double* data = reinterpret_cast<const double*>(ptr);
       dist_factor_vector.reserve( dist_factor_vector.size() + size );
       std::copy( data, data+size, std::back_inserter( dist_factor_vector ) );
-      size = dist_factor_vector.size() * sizeof(double);  
+      size = dist_factor_vector.size();  
       ptr = &dist_factor_vector[0];    
-      if( mdbImpl->tag_set_data( mDistFactorTag, &ns_handle, 1, &ptr, &size ) != MB_SUCCESS )
+      if( mdbImpl->tag_set_by_ptr( mDistFactorTag, &ns_handle, 1, &ptr, &size ) != MB_SUCCESS )
         return MB_FAILURE;
     }
 
@@ -1070,15 +1069,14 @@ ErrorCode ReadNCDF::read_sidesets()
         //if this sideset does not already has a distribution factor array...set one
         const void* ptr = 0;
         int size = 0;
-        if (MB_SUCCESS == mdbImpl->tag_get_data( mDistFactorTag, &ss_handle, 1, &ptr, &size )) {
+        if (MB_SUCCESS == mdbImpl->tag_get_by_ptr( mDistFactorTag, &ss_handle, 1, &ptr, &size )) {
           const double* data = reinterpret_cast<const double*>(ptr);
-          size /= sizeof(double);
           std::copy( data, data+size, std::back_inserter( temp_dist_factor_vector ) );
         }
         
         ptr = &temp_dist_factor_vector[0];
-        size =  temp_dist_factor_vector.size() * sizeof(double);
-        if (mdbImpl->tag_set_data( mDistFactorTag, &ss_handle, 1, &ptr, &size ) != MB_SUCCESS)
+        size =  temp_dist_factor_vector.size();
+        if (mdbImpl->tag_set_by_ptr( mDistFactorTag, &ss_handle, 1, &ptr, &size ) != MB_SUCCESS)
           return MB_FAILURE;
       }
     }
@@ -1464,7 +1462,7 @@ ErrorCode ReadNCDF::read_qa_records(EntityHandle file_set)
   {
     const void* ptr = &tag_data[0];
     int size = tag_data.size();
-    if( mdbImpl->tag_set_data( mQaRecordTag, &file_set, 1, &ptr, &size  ) != MB_SUCCESS ) {
+    if( mdbImpl->tag_set_by_ptr( mQaRecordTag, &file_set, 1, &ptr, &size  ) != MB_SUCCESS ) {
       return MB_FAILURE;
     }
   }

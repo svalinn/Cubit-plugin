@@ -3273,9 +3273,7 @@ ErrorCode ReadHDF5::create_tag( const mhdf_TagDesc& info,
     }
     else {
       int tag_size = info.global_value_size;
-      if (hdf_type) // not opaque
-        tag_size *= H5Tget_size(hdf_type); 
-      rval = iFace->tag_set_data( handle, &root, 1, &info.global_value, &tag_size );
+      rval = iFace->tag_set_by_ptr( handle, &root, 1, &info.global_value, &tag_size );
     }
     if (MB_SUCCESS != rval) {
       if (hdf_type) H5Tclose( hdf_type );
@@ -3305,11 +3303,11 @@ ErrorCode ReadHDF5::read_dense_tag( Tag tag_handle,
 
   
   int read_size;
-  rval = iFace->tag_get_size( tag_handle, read_size );
+  rval = iFace->tag_get_bytes( tag_handle, read_size );
   if (MB_SUCCESS != rval) // wrong function for variable-length tags
     return error(rval);
-  if (MB_TYPE_BIT == mb_type) 
-    read_size = (read_size + 7)/8; // convert bits to bytes, plus 7 for ceiling
+  //if (MB_TYPE_BIT == mb_type) 
+  //  read_size = (read_size + 7)/8; // convert bits to bytes, plus 7 for ceiling
     
   if (hdf_read_type) { // if not opaque
     hsize_t hdf_size = H5Tget_size( hdf_read_type );
@@ -3507,11 +3505,11 @@ ErrorCode ReadHDF5::read_sparse_tag( Tag tag_handle,
     return error(rval);
   
   int read_size;
-  rval = iFace->tag_get_size( tag_handle, read_size );
+  rval = iFace->tag_get_bytes( tag_handle, read_size );
   if (MB_SUCCESS != rval) // wrong function for variable-length tags
     return error(rval);
-  if (MB_TYPE_BIT == mbtype) 
-    read_size = (read_size + 7)/8; // convert bits to bytes, plus 7 for ceiling
+  //if (MB_TYPE_BIT == mbtype) 
+  //  read_size = (read_size + 7)/8; // convert bits to bytes, plus 7 for ceiling
     
   if (hdf_read_type) { // if not opaque
     hsize_t hdf_size = H5Tget_size( hdf_read_type );
@@ -3584,7 +3582,7 @@ ErrorCode ReadHDF5::read_var_len_tag( Tag tag_handle,
 
     // if here, MOAB tag must be variable-length
   int mbsize;
-  if (MB_VARIABLE_DATA_LENGTH != iFace->tag_get_size( tag_handle, mbsize )) {
+  if (MB_VARIABLE_DATA_LENGTH != iFace->tag_get_bytes( tag_handle, mbsize )) {
     assert(false);
     return error(MB_VARIABLE_DATA_LENGTH);
   }
@@ -3640,9 +3638,8 @@ ErrorCode ReadHDF5::read_var_len_tag( Tag tag_handle,
           if (MB_SUCCESS != rval)
             return error(rval);
         }
-        int n = count*readSize;
-        assert(count*readSize == (size_t)n); // watch for overflow
-        return readHDF5->moab()->tag_set_data( tagHandle, &file_id, 1, &data, &n );
+        int n = count;
+        return readHDF5->moab()->tag_set_by_ptr( tagHandle, &file_id, 1, &data, &n );
       }
       VTReader( DebugOutput& debug_output, void* buffer, size_t buffer_size,
                 Tag tag, bool is_handle_tag, size_t read_size, ReadHDF5* owner )

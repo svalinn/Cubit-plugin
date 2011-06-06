@@ -664,8 +664,8 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
                                       MB_TAG_SPARSE|MB_TAG_VARLEN|MB_TAG_CREAT);
     if (MB_SUCCESS != result) return result;
     const void* dist_data = &dbl_buf[0];
-    const int dist_size = sideseth->numDF * sizeof(double);
-    result = mdbImpl->tag_set_data( distFactorTag, &sideseth->setHandle, 1, &dist_data, &dist_size);
+    const int dist_size = sideseth->numDF;
+    result = mdbImpl->tag_set_by_ptr( distFactorTag, &sideseth->setHandle, 1, &dist_data, &dist_size);
     if (MB_SUCCESS != result) return result;
   }
   

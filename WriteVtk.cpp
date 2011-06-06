@@ -373,31 +373,13 @@ ErrorCode WriteVtk::write_tags( std::ostream& stream,
     if (dtype == MB_TYPE_HANDLE)
       continue;
       
-      // Get size.  Variable-length tags should have been filtered
-      // out by WriteUtil already.
-    int size;
-    rval = mbImpl->tag_get_size( *i, size );
-    if (MB_SUCCESS != rval)
-      return rval;
-    
       // If in strict mode, don't write tags that do not fit in any 
       // attribute type (SCALAR : 1 to 4 values, VECTOR : 3 values, TENSOR : 9 values)
     if (mStrict) {
-      int count = 0;
-      switch (dtype) {
-        case MB_TYPE_INTEGER:
-          count = size/sizeof(int);
-          break;
-        case MB_TYPE_DOUBLE:
-          count = size/sizeof(double);
-          break;
-        case MB_TYPE_BIT:
-        case MB_TYPE_OPAQUE:
-          count = size;
-          break;
-        default:
-          return MB_TYPE_OUT_OF_RANGE;
-      }
+      int count;
+      rval = mbImpl->tag_get_length( *i, count );
+      if (MB_SUCCESS != rval)
+        return rval;
       if (count < 1 || (count > 4 && count != 9))
         continue;
     }
@@ -487,17 +469,10 @@ ErrorCode WriteVtk::write_tag( std::ostream& stream, Tag tag, const Range& entit
     // Get tag properties  
 
   std::string name;
-  int size;
+  int vals_per_tag;
   if (MB_SUCCESS != mbImpl->tag_get_name( tag, name ) ||
-      MB_SUCCESS != mbImpl->tag_get_size( tag, size ) )
+      MB_SUCCESS != mbImpl->tag_get_length( tag, vals_per_tag ) )
     return MB_FAILURE;
-
-  unsigned type_size = sizeof(T);
-  unsigned vals_per_tag = size / type_size;
-  if (size % type_size) {
-    writeTool->report_error( "Invalid tag size for tag \"%s\"\n", name.c_str() );
-    return MB_FAILURE;
-  } 
   
     // Get a tag value for each entity.  Do this by initializing the
     // "data" vector with zero, and then filling in the values for
@@ -509,7 +484,7 @@ ErrorCode WriteVtk::write_tag( std::ostream& stream, Tag tag, const Range& entit
   rval = mbImpl-> tag_get_default_value( tag, &(def_value[0]));
   if (MB_SUCCESS==rval)
   {
-     SysUtil::setmem(&(data[0]), &(def_value[0]), size, n);
+     SysUtil::setmem(&(data[0]), &(def_value[0]), vals_per_tag*sizeof(T), n);
   }
   Range::const_iterator t = tagged.begin();
   typename std::vector<T>::iterator d = data.begin();
@@ -544,7 +519,7 @@ ErrorCode WriteVtk::write_bit_tag( std::ostream& stream,
   std::string name;
   int vals_per_tag;
   if (MB_SUCCESS != mbImpl->tag_get_name( tag, name ) ||
-      MB_SUCCESS != mbImpl->tag_get_size( tag, vals_per_tag ) )
+      MB_SUCCESS != mbImpl->tag_get_length( tag, vals_per_tag ) )
     return MB_FAILURE;
 
   if (vals_per_tag > 8) {
@@ -594,32 +569,15 @@ ErrorCode WriteVtk::write_tag( std::ostream& s, Tag tag,
     // Get tag properties
   std::string name;
   DataType type;
-  int size;
+  int vals_per_tag;
   if (MB_SUCCESS != mbImpl->tag_get_name( tag, name ) ||
-      MB_SUCCESS != mbImpl->tag_get_size( tag, size ) ||
+      MB_SUCCESS != mbImpl->tag_get_length( tag, vals_per_tag ) ||
       MB_SUCCESS != mbImpl->tag_get_data_type( tag, type ))
     return MB_FAILURE;
   
     // Skip tags of type ENTITY_HANDLE
   if (type == MB_TYPE_HANDLE)
     return MB_FAILURE;
-  
-    // Get the size of the specified tag type
-  unsigned type_size;
-  switch (type) {
-    case MB_TYPE_OPAQUE:  type_size = 1;              break;
-    case MB_TYPE_INTEGER: type_size = sizeof(int);    break;
-    case MB_TYPE_DOUBLE:  type_size = sizeof(double); break;
-    case MB_TYPE_BIT:     type_size = 1;              break;
-    default: return MB_FAILURE;
-  }
-  
-    // Get array length of tag
-  unsigned vals_per_tag = size / type_size;
-  if (size % type_size) {
-    writeTool->report_error( "Invalid tag size for tag \"%s\"\n", name.c_str() );
-    return MB_FAILURE;
-  } 
   
     // Now that we're past the point where the name would be used in
     // an error message, remove any spaces to conform to VTK file.

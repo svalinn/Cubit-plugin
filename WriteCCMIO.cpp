@@ -386,7 +386,7 @@ namespace moab {
     rval = mbImpl->tag_get_handle("Title", 0, MB_TYPE_OPAQUE, simname, MB_TAG_ANY);
     if (MB_SUCCESS == rval) {
       int tag_size;
-      rval = mbImpl->tag_get_size(simname, tag_size);
+      rval = mbImpl->tag_get_bytes(simname, tag_size);
       if (MB_SUCCESS == rval) {
 	std::vector<char> title_tag(tag_size+1);
 	rval = mbImpl->get_entities_by_type_and_tag(0, MBENTITYSET, &simname, NULL, 1, dum_sets);
@@ -415,7 +415,7 @@ namespace moab {
     rval = mbImpl->tag_get_handle("CreatingProgram", 0, MB_TYPE_OPAQUE, mCreatingProgramTag, MB_TAG_ANY);
     if (MB_SUCCESS == rval) {
       int tag_size;
-      rval = mbImpl->tag_get_size(mCreatingProgramTag, tag_size);
+      rval = mbImpl->tag_get_bytes(mCreatingProgramTag, tag_size);
       if (MB_SUCCESS == rval) {
 	std::vector<char> cp_tag(tag_size+1);
 	rval = mbImpl->get_entities_by_type_and_tag(0, MBENTITYSET, &mCreatingProgramTag, NULL, 1, dum_sets);
@@ -601,7 +601,7 @@ namespace moab {
       if (MB_SUCCESS != rval) return MB_SUCCESS;
     }
   
-    rval = mbImpl->tag_get_size(tag, tag_size);
+    rval = mbImpl->tag_get_bytes(tag, tag_size);
     if (MB_SUCCESS != rval) return MB_SUCCESS;
     std::vector<char> opt_val(tag_size+1);
 
