@@ -221,7 +221,9 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   isParallel = (rval != MB_ENTITY_NOT_FOUND);
   
 
-  if (!isParallel) return rval;
+  if (!isParallel) 
+      // return success here, since rval still has _NOT_FOUND from not finding option
+    return MB_SUCCESS;
   
   int pcomm_no = 0;
   rval = opts.get_int_option("PARALLEL_COMM", pcomm_no);
