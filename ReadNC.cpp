@@ -1331,6 +1331,13 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
     }
   }
   
+  // <PARTITION_METHOD>
+  Tag partMethodTag = 0;  
+  tag_name = "PARTITION_METHOD";
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, partMethodTag, MB_TAG_SPARSE|MB_TAG_CREAT, &partMethod);
+  ERRORR(rval, "Trouble creating PARTITION_METHOD tag.");
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  
   return MB_SUCCESS;
 }
 
