@@ -168,10 +168,11 @@ private:
                           std::vector<int> &tstep_nums,
                           std::vector<double> &tstep_vals,
                           bool &nomesh,
+                          bool &novars,
                           std::string &partition_tag_name);
   
   ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
-                           std::vector<int> &tstep_nums, bool nomesh);
+                           std::vector<int> &tstep_nums);
   
   ErrorCode read_variable_allocate(std::vector<VarData> &vdatas,
                                    std::vector<int> &tstep_nums, 

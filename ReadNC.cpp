@@ -98,9 +98,9 @@ ErrorCode ReadNC::load_file(const char *file_name,
       return rval;
   }
   
-  bool nomesh = false;
+  bool nomesh = false, novars = false;
   std::string partition_tag_name;
-  rval = parse_options(opts, var_names, tstep_nums, tstep_vals, nomesh, partition_tag_name);
+  rval = parse_options(opts, var_names, tstep_nums, tstep_vals, nomesh, novars, partition_tag_name);
   ERRORR(rval, "Trouble parsing option string.");
 
   // Open the file
@@ -139,19 +139,21 @@ ErrorCode ReadNC::load_file(const char *file_name,
 
     // Create structured mesh vertex/hex sequences
   Range hexes;
-  if (nomesh) {
+  if (nomesh && !novars) {
     rval = check_verts_hexes(tmp_set);
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
-  else {
+  else if (!nomesh) {
     rval = create_verts_hexes(tmp_set, hexes);
     ERRORR(rval, "Trouble creating vertices.");
   }
 
     // Read variables onto grid
-  rval = read_variables(tmp_set, var_names, tstep_nums, nomesh);
-  if (MB_FAILURE == rval) return rval;
-
+  if (!novars) {
+    rval = read_variables(tmp_set, var_names, tstep_nums);
+    if (MB_FAILURE == rval) return rval;
+  }
+  
     // close the file
   success = NCFUNC(close)(fileId);
   ERRORS(success, "Trouble closing file.");
@@ -191,6 +193,7 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
                                 std::vector<int> &tstep_nums,
                                 std::vector<double> &tstep_vals,
                                 bool &nomesh,
+                                bool &novars,
                                 std::string &partition_tag_name) 
 {
   int tmpval;
@@ -199,10 +202,12 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
     dbgOut.set_prefix("NC ");
   }
   
-  opts.get_strs_option("VARIABLE", var_names ); 
+  ErrorCode rval = opts.get_strs_option("VARIABLE", var_names ); 
+  if (MB_TYPE_OUT_OF_RANGE == rval) novars = true;
+  else novars = false;
   opts.get_ints_option("TIMESTEP", tstep_nums); 
   opts.get_reals_option("TIMEVAL", tstep_vals);
-  ErrorCode rval = opts.get_null_option("NOMESH");
+  rval = opts.get_null_option("NOMESH");
   if (MB_SUCCESS == rval) nomesh = true;
 
   if (2 <= dbgOut.get_verbosity()) {
@@ -490,7 +495,7 @@ ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
 }
 
 ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
-                                 std::vector<int> &tstep_nums, bool /*nomesh*/) 
+                                 std::vector<int> &tstep_nums) 
 {
   std::vector<VarData> vdatas;
   ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas);
