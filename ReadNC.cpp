@@ -124,7 +124,10 @@ ErrorCode ReadNC::load_file(const char *file_name,
 
     // make sure there's a file set to put things in
   EntityHandle tmp_set;
-  if (!file_set || (file_set && *file_set == 0)) {
+  if (nomesh && !file_set) {
+    ERRORR(MB_FAILURE, "NOMESH option requires non-NULL file set on input.\n");
+  }
+  else if (!file_set || (file_set && *file_set == 0)) {
     rval = mbImpl->create_meshset(MESHSET_SET, tmp_set);
     ERRORR(rval, "Trouble creating file set.");
   }
@@ -136,8 +139,14 @@ ErrorCode ReadNC::load_file(const char *file_name,
 
     // Create structured mesh vertex/hex sequences
   Range hexes;
-  rval = create_verts_hexes(tmp_set, hexes);
-  ERRORR(rval, "Trouble creating vertices.");
+  if (nomesh) {
+    rval = check_verts_hexes(tmp_set);
+    ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
+  }
+  else {
+    rval = create_verts_hexes(tmp_set, hexes);
+    ERRORR(rval, "Trouble creating vertices.");
+  }
 
     // Read variables onto grid
   rval = read_variables(tmp_set, var_names, tstep_nums, nomesh);
@@ -244,6 +253,32 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   return MB_SUCCESS;
 }
     
+ErrorCode ReadNC::check_verts_hexes(EntityHandle file_set) 
+{
+    // check parameters on this read against what was on the mesh from last read
+    // get the number of vertices 
+  int num_verts;
+  ErrorCode rval = mbImpl->get_number_entities_by_dimension(file_set, 0, num_verts);
+  ERRORR(rval, "Trouble getting number of vertices.");
+  
+    // check against parameters
+  int expected_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) * (-1 == klMin ? 1 : klMax - klMin + 1);
+  if (num_verts != expected_verts)
+    ERRORR(MB_FAILURE, "Number of vertices doesn't match.");
+  
+    // check the number of elements too
+  int num_elems;
+  rval = mbImpl->get_number_entities_by_dimension(file_set, (-1 == klMin ? 2 : 3), num_elems);
+  ERRORR(rval, "Trouble getting number of elements.");
+  
+    // check against parameters
+  int expected_elems = (ilMax - ilMin) * (jlMax - jlMin) * (-1 == klMin ? 1 : klMax - klMin);
+  if (num_elems != expected_elems)
+    ERRORR(MB_FAILURE, "Number of elements doesn't match.");
+  
+  return MB_SUCCESS;
+}
+  
 ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes) 
 {
     // get the scd interface
@@ -1247,9 +1282,9 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
     case NC_BYTE:
     case NC_CHAR:
     case NC_DOUBLE:
+    case NC_FLOAT:
       data_type = MB_TYPE_DOUBLE;
       break;
-    case NC_FLOAT:
     case NC_INT:
       data_type = MB_TYPE_INTEGER;
       break;

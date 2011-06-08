@@ -160,6 +160,9 @@ private:
     //! create vertices for the file
   ErrorCode create_verts_hexes(EntityHandle file_set, Range &hexes);
 
+    //! check number of vertices and elements against what's already in file_set
+  ErrorCode check_verts_hexes(EntityHandle file_set);
+  
   ErrorCode parse_options(const FileOptions &opts,
                           std::vector<std::string> &var_names, 
                           std::vector<int> &tstep_nums,
