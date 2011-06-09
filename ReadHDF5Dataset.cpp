@@ -55,6 +55,43 @@ std::pair<int,int> ReadHDF5Dataset::mpeReadEvent;
 std::pair<int,int> ReadHDF5Dataset::mpeReduceEvent;
 
 ReadHDF5Dataset::ReadHDF5Dataset( const char* debug_desc,
+                                  bool parallel,
+                                  const Comm* communicator )
+  : closeDataSet(false),
+    dataSet( -1 ),
+    dataSpace( -1 ),
+    dataType( -1 ),
+    ioProp(H5P_DEFAULT),
+    dataSpaceRank(0),
+    rowsInTable(0),
+    doConversion(false),
+    nativeParallel(parallel),
+    readCount(0),
+    bufferSize(0),
+    mpiComm(communicator),
+    mpeDesc( debug_desc )
+{
+  if (!haveMPEEvents) {
+    haveMPEEvents = true;
+    mpeReadEvent   = allocate_mpe_state( "ReadHDF5Dataset::read", "yellow" );
+    mpeReduceEvent = allocate_mpe_state( "ReadHDF5Dataset::all_reduce", "yellow" );
+  }
+  
+#ifndef HDF5_PARALLEL
+  if (nativeParallel) 
+    throw Exception(__LINE__);
+#else
+  if (nativeParallel && !mpiComm)
+    throw Exception(__LINE__);
+  
+  if (mpiComm) {
+    ioProp = H5Pcreate(H5P_DATASET_XFER);
+    H5Pset_dxpl_mpio(ioProp, H5FD_MPIO_COLLECTIVE);
+  }
+#endif
+}    
+
+ReadHDF5Dataset::ReadHDF5Dataset( const char* debug_desc,
                                   hid_t data_set_handle,
                                   bool parallel,
                                   const Comm* communicator,
@@ -80,25 +117,7 @@ ReadHDF5Dataset::ReadHDF5Dataset( const char* debug_desc,
     mpeReduceEvent = allocate_mpe_state( "ReadHDF5Dataset::all_reduce", "yellow" );
   }
 
-
-  fileType = H5Dget_type( data_set_handle );
-  if (fileType < 0)
-    throw Exception(__LINE__);
-
-  dataSpace = H5Dget_space( dataSet );
-  if (dataSpace < 0)
-    throw Exception(__LINE__);
-  
-  dataSpaceRank = H5Sget_simple_extent_dims( dataSpace, dataSetCount, dataSetOffset );
-  if (dataSpaceRank < 0) 
-    throw Exception(__LINE__);
-  rowsInTable = dataSetCount[0];
-  
-  
-  for (int i = 0; i < dataSpaceRank; ++i)
-    dataSetOffset[i] = 0;
-
-  currOffset = rangeEnd = internalRange.end();
+  init( data_set_handle, close_data_set );
   
 #ifndef HDF5_PARALLEL
   if (nativeParallel) 
@@ -112,6 +131,30 @@ ReadHDF5Dataset::ReadHDF5Dataset( const char* debug_desc,
     H5Pset_dxpl_mpio(ioProp, H5FD_MPIO_COLLECTIVE);
   }
 #endif
+}
+
+void ReadHDF5Dataset::init( hid_t data_set_handle, bool close_data_set )
+{
+  closeDataSet = close_data_set;
+  dataSet = data_set_handle;
+  
+  fileType = H5Dget_type( data_set_handle );
+  if (fileType < 0)
+    throw Exception(__LINE__);
+
+  dataSpace = H5Dget_space( dataSet );
+  if (dataSpace < 0)
+    throw Exception(__LINE__);
+  
+  dataSpaceRank = H5Sget_simple_extent_dims( dataSpace, dataSetCount, dataSetOffset );
+  if (dataSpaceRank < 0) 
+    throw Exception(__LINE__);
+  rowsInTable = dataSetCount[0];
+  
+  for (int i = 0; i < dataSpaceRank; ++i)
+    dataSetOffset[i] = 0;
+
+  currOffset = rangeEnd = internalRange.end();
 }
 
 unsigned ReadHDF5Dataset::columns() const

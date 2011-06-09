@@ -69,6 +69,11 @@ public:
                    const Comm* communicator = 0,
                    bool close_data_set_on_destruct = true );
   
+  ReadHDF5Dataset( const char* debug_desc,
+                   bool parallel,
+                   const Comm* communicator = 0 );
+  void init( hid_t data_set_handle, bool close_data_set_on_destruct = true );
+  
   bool will_close_data_set() const { return closeDataSet; }
   void close_data_set_on_destruct( bool val ) { closeDataSet = val; }
   

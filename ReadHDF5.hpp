@@ -172,6 +172,9 @@ private:
   //! Store old HDF5 error handling function
   HDF5ErrorHandler errorHandler;
   
+  long (*setMeta)[4];
+  ErrorCode read_all_set_meta();
+  
   ErrorCode set_up_read( const char* file_name, const FileOptions& opts );
   ErrorCode clean_up_read( const FileOptions& opts );
   
@@ -245,17 +248,6 @@ private:
   
   //! Read sets
   ErrorCode read_sets( const Range& set_file_ids );
-  
-  //! Read set contents
-  ErrorCode read_set_contents( hid_t set_description_handle,
-                               hid_t set_contents_handle,
-                               const unsigned long data_len );
-  
-  //! Read set parents/children
-  ErrorCode read_parents_children( bool parents, 
-                                   hid_t set_description_handle,
-                                   hid_t set_contents_handle,
-                                   const unsigned long data_len );
   
   ErrorCode read_adjacencies( hid_t adjacency_table,
                               long table_length );
@@ -436,68 +428,26 @@ private:
   ErrorCode read_sets_partial( const Range& sets_in );
 
   /** Find file IDs of sets containing any entities in the passed id_map */
-  ErrorCode find_sets_containing( hid_t meta_handle,
-                                  hid_t content_handle, 
-                                  hid_t meta_type,
+  ErrorCode find_sets_containing( hid_t content_handle, 
                                   hid_t content_type,
                                   long content_len,
                                   Range& file_ids );  
- 
-  /** Given a list of file IDs for entity sets, read the list of 
-   *  file IDs for all child entity sets.
-   */
-  ErrorCode read_child_ids( const Range& set_file_ids,
-                            hid_t meta_handle,
-                            hid_t child_handle,
-                            Range& child_file_ids );
- 
-  /** Given a list of file IDs for entity sets, read the list of 
-   *  file IDs for all contained entity sets.
-   */
-  ErrorCode read_contained_set_ids( const Range& set_file_ids,
-                                    hid_t meta_handle,
-                                    hid_t contents_handle,
-                                    Range& containd_set_file_ids );
-    
-    /**\brief Create sets 
-     *
-     * For the list of entity sets designated by the file IDs contained
-     * in file_ids, instantiate the sets in MOAB with consecutive handles.
-     *
-     *\param info      Summary of data contained in the file.
-     *\param file_ids  List of file IDs designating which sets will be read.
-     *\param set_meta_handle HDF5/mhdf handle for set metadata table.
-     *\parma id_map    Map from file IDs to EntityHandle for entities read
-     *                 from file.  Sets created by this function will be appended.
-     *\param ranged_file_ids_out This function will add to this container
-     *                 the file IDs for any sets for which the contents are
-     *                 stored using ranged compression (any set for which
-     *                 mhdf_SET_RANGE_BIT is set in the flags.)
-     */
-  ErrorCode read_sets( const Range& file_ids,
-                       hid_t set_meta_handle, 
-                       Range& ranged_file_ids_out,
-                       EntityHandle& start_handle,
-                       bool create = true );
-   
-  ErrorCode read_contents( const Range& set_file_ids,
-                           EntityHandle start_handle,
-                           hid_t set_meta_data_table,
-                           hid_t set_contents_table,
-                           long set_contents_length,
-                           const Range& ranged_set_file_ids );
 
-  ErrorCode read_parents( const Range& set_file_ids,
-                          EntityHandle start_handle,
-                          hid_t set_meta_data_table,
-                          hid_t set_parents_table,
-                          long set_parents_length );
-
-  ErrorCode read_children( const Range& set_file_ids,
-                           EntityHandle start_handle,
-                           hid_t set_meta_data_table,
-                           hid_t set_children_table,
-                           long set_children_length );
+public: 
+  enum SetMode { CONTENT = 0, CHILD = 1, PARENT = 2 };
+private:
+    // Read the set data specified by by which_data.  
+    // Update set data in MOAB according to which_data, 
+    // unless file_ids_out is non-null.  If file_ids_out is
+    // non-null, then return the file IDs in the passed
+    // range and do not make any changes to MOAB data 
+    // structures.  If file_ids_out is NULL, then set_start_handle
+    // is ignored.
+  ErrorCode read_set_data( const Range& set_file_ids,
+                           EntityHandle set_start_handle,
+                           ReadHDF5Dataset& set_data_set,
+                           SetMode which_data,
+                           Range* file_ids_out = 0 );
 
     /**\brief Store file IDS in tag values
      *
