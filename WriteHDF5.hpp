@@ -95,12 +95,19 @@ public:
     //! processor.
     long total_num_ents;
     
-    bool operator<( const ExportSet& other ) const
+    bool operator<( const ExportType& other ) const
       { return type < other.type || 
-               (type == other.type && 
-                type != MBPOLYGON &&
-                type != MBPOLYHEDRON &&
-                num_nodes < other.num_nodes); }
+               (type == other.type && num_nodes < other.num_nodes); }
+    
+    bool operator<( std::pair<int,int> other ) const
+      { return type < other.first || 
+               (type == other.first && num_nodes < other.second); }
+    
+    bool operator==( const ExportType& other ) const
+      { return (type == other.type && num_nodes == other.num_nodes); }
+    
+    bool operator==( std::pair<int,int> other ) const
+      { return (type == other.first && num_nodes == other.second); }
                 
     const char* name() const;
   };

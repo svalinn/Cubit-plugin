@@ -913,6 +913,9 @@ ErrorCode WriteHDF5::write_nodes( )
   hid_t node_table;
   long first_id, num_nodes;
 
+  if (!nodeSet.total_num_ents)
+    return MB_SUCCESS; // no nodes!
+
   CHECK_OPEN_HANDLES;
   
   rval = iFace->get_dimension( mesh_dim );
@@ -2037,10 +2040,9 @@ ErrorCode WriteHDF5::write_var_len_indices( const TagDesc& tag_data,
   size_t remaining = range.size();
   size_t offset = tag_data.sparse_offset;
   size_t num_writes = (remaining + chunk_size - 1)/chunk_size;
-    //size_t num_global_writes = num_writes;
   if (tag_data.max_num_ents) {
     assert(tag_data.max_num_ents >= (unsigned long)remaining);
-      //num_global_writes = (tag_data.max_num_ents + chunk_size - 1)/chunk_size;
+    num_writes = (tag_data.max_num_ents + chunk_size - 1)/chunk_size;
   }
   Range::const_iterator iter = range.begin();
   while (remaining)
@@ -3119,10 +3121,8 @@ ErrorCode WriteHDF5::create_tag( const TagDesc& tag_data,
       // convert default value
     if (def_value) {
       memcpy( dataBuffer, def_value, def_val_len*sizeof(EntityHandle) );
-      if (convert_handle_tag( reinterpret_cast<EntityHandle*>(dataBuffer), def_val_len ))
-        def_value = dataBuffer;
-      else
-        def_value = 0;
+      convert_handle_tag( reinterpret_cast<EntityHandle*>(dataBuffer), def_val_len );
+      def_value = dataBuffer;
     }
     
       // convert mesh value
