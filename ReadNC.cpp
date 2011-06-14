@@ -182,7 +182,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
 #endif
   
     // create nc conventional tags
-//  rval = create_tags(tstep_nums);
+//  rval = create_tags(tmp_set, tstep_nums);
 //  ERRORR(rval, "Trouble creating nc conventional tags.");
   
   return MB_SUCCESS;
@@ -1213,7 +1213,7 @@ ErrorCode ReadNC::read_tag_values( const char* ,
   return MB_FAILURE;
 }
 
-ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
+ErrorCode ReadNC::create_tags(EntityHandle file_set, const std::vector<int>& tstep_nums)
 {
   ErrorCode rval;
   std::string tag_name;
@@ -1222,16 +1222,20 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
   Tag numDimsTag = 0;  
   tag_name = "__NUM_DIMS";
   int numDims = dimNames.size();
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, numDimsTag, MB_TAG_SPARSE|MB_TAG_CREAT, &numDims);
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, numDimsTag, MB_TAG_SPARSE|MB_TAG_CREAT);
   ERRORR(rval, "Trouble creating __NUM_DIMS tag.");
+  rval = mbImpl->tag_set_data(numDimsTag, &file_set, 1, &numDims);
+  ERRORR(rval, "Trouble setting data for __NUM_DIMS tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   
   // <__NUM_VARS>
   Tag numVarsTag = 0;
   tag_name = "__NUM_VARS";
   int numVars = varInfo.size();
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, numVarsTag, MB_TAG_SPARSE|MB_TAG_CREAT, &numVars);
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, numVarsTag, MB_TAG_SPARSE|MB_TAG_CREAT);
   ERRORR(rval, "Trouble creating __NUM_VARS tag.");
+  rval = mbImpl->tag_set_data(numVarsTag, &file_set, 1, &numVars);
+  ERRORR(rval, "Trouble setting data for __NUM_VARS tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   
   // <__DIM_NAMES>
@@ -1243,12 +1247,14 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
     dimnames.append(dimNames[i]);
     dimnames.push_back('\0');
   }
-  unsigned int dimnamesSz = dimnames.size();
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), dimnamesSz, MB_TYPE_OPAQUE, dimNamesTag, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN, 
-                                dimnames.c_str());
+  int dimnamesSz = dimnames.size();
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, dimNamesTag, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN); 
   ERRORR(rval, "Trouble creating __DIM_NAMES tag.");
+  const void* ptr = dimnames.c_str();
+  rval = mbImpl->tag_set_by_ptr(dimNamesTag, &file_set, 1, &ptr, &dimnamesSz);
+  ERRORR(rval, "Trouble setting data for __DIM_NAMES tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
-  
+
   // <__VAR_NAMES>
   Tag varNamesTag = 0;
   tag_name = "__VAR_NAMES";
@@ -1258,10 +1264,12 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
     varnames.append(mapIter->first);
     varnames.push_back('\0');
   }
-  unsigned int varnamesSz = varnames.size();
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), varnamesSz, MB_TYPE_OPAQUE, varNamesTag, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN, 
-                                varnames.c_str());
+  int varnamesSz = varnames.size();
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varNamesTag, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN);
   ERRORR(rval, "Trouble creating __VAR_NAMES tag.");
+  ptr = varnames.c_str();
+  rval = mbImpl->tag_set_by_ptr(varNamesTag, &file_set, 1, &ptr, &varnamesSz);
+  ERRORR(rval, "Trouble setting data for __VAR_NAMES tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   
   // <dim_name>
@@ -1298,8 +1306,10 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
       std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;
       rval = MB_FAILURE;
     }
-    rval = mbImpl->tag_get_handle(tag_name.c_str(), val_len, data_type, tagh, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN, val);
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, data_type, tagh, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN);
     ERRORR(rval, "Trouble creating <dim_name> tag.");
+    rval = mbImpl->tag_set_by_ptr(tagh, &file_set, 1, &val, &val_len);
+    ERRORR(rval, "Trouble setting data for <dim_name> tag.");
     if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   }
 
@@ -1327,8 +1337,10 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
 	val[0] = tMin; 
 	val[1] = tMax;
       }
-      rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT, &val[0]);
+      rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT);
       ERRORR(rval, "Trouble creating __<dim_name>_LOC_MINMAX tag.");
+      rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+      ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_MINMAX tag.");
       if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
     }
   }
@@ -1337,14 +1349,18 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
   for (unsigned int i = 0; i != dimNamesSz; ++i) {
     if (dimNames[i] != "time")
       continue;
-    Tag tagh = 0; 
-    std::vector<int> val = tstep_nums;
-    std::stringstream ss_tag_name;
-    ss_tag_name << "__" << dimNames[i] << "_LOC_VALS";
-    tag_name = ss_tag_name.str();
-    rval = mbImpl->tag_get_handle(tag_name.c_str(), val.size(), MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT, &val[0]);
-    ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
-    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+    if (!tstep_nums.empty()) {
+      Tag tagh = 0; 
+      std::vector<int> val = tstep_nums;
+      std::stringstream ss_tag_name;
+      ss_tag_name << "__" << dimNames[i] << "_LOC_VALS";
+      tag_name = ss_tag_name.str();
+      rval = mbImpl->tag_get_handle(tag_name.c_str(), val.size(), MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT);
+      ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
+      rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+      ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_VALS tag.");
+      if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+    }
   }
 
   // __<var_name>_DIMS
@@ -1364,9 +1380,10 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
 	mbImpl->tag_get_handle(tmptagname.c_str(), 0, MB_TYPE_OPAQUE, tmptag, MB_TAG_ANY);
 	varInfo[mapIter->first].varTags[i] = tmptag;
       }
-      rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE|MB_TAG_CREAT, 
-                                    &(varInfo[mapIter->first].varTags[0]));
+      rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE|MB_TAG_CREAT);
       ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
+      rval = mbImpl->tag_set_data(varNamesDimsTag, &file_set, 1, &(varInfo[mapIter->first].varTags[0]));
+      ERRORR(rval, "Trouble setting data for __<var_name>_DIMS tag.");
       if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
     }
   }
@@ -1374,8 +1391,10 @@ ErrorCode ReadNC::create_tags(const std::vector<int>& tstep_nums)
   // <PARTITION_METHOD>
   Tag partMethodTag = 0;  
   tag_name = "PARTITION_METHOD";
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, partMethodTag, MB_TAG_SPARSE|MB_TAG_CREAT, &partMethod);
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, partMethodTag, MB_TAG_SPARSE|MB_TAG_CREAT);
   ERRORR(rval, "Trouble creating PARTITION_METHOD tag.");
+  rval = mbImpl->tag_set_data(partMethodTag, &file_set, 1, &partMethod);
+  ERRORR(rval, "Trouble setting data for PARTITION_METHOD tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   
   return MB_SUCCESS;

@@ -187,7 +187,7 @@ private:
   ErrorCode get_tag(VarData &var_data, int tstep_num, Tag &tagh);
   
     //! create nc conventional tags
-  ErrorCode create_tags(const std::vector<int> &tstep_nums);
+  ErrorCode create_tags(EntityHandle file_set, const std::vector<int> &tstep_nums);
 
 //------------member variables ------------//
 
