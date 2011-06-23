@@ -38,8 +38,8 @@ H5S_seloper_t ReadHDF5Dataset::hyperslabSelectOp = H5S_SELECT_OR;
 static std::pair<int,int> allocate_mpe_state( const char* name, const char* color )
 {
   std::pair<int,int> result;
-  result.first = MPE_Allocate_event();
-  result.second = MPE_Allocate_event();
+  result.first = MPE_Log_get_event_number();
+  result.second = MPE_Log_get_event_number();
   MPE_Describe_state( result.first, result.second, name, color );
   return result;
 }
