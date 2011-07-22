@@ -475,7 +475,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   
     /* get tag list */
   tag_names = mhdf_getTagNames( file_handle, &num_tag_names, status );
-  if (tag_names == NULL) {
+  if (mhdf_isError(status)) {
     free( elem_handles );
     free( result );
     return NULL;
