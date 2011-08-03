@@ -144,14 +144,14 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (MB_SUCCESS != opts.get_real_option("MAX_FACET_EDGE_LENGTH", len_tol))
     len_tol = DEFAULT_LEN_TOL;
 
-  bool verbose_curve_warnings = false;
-  if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_CURVE_WARNINGS"))
-    verbose_curve_warnings = true;
+  bool verbose_warnings = false;
+  if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_WARNINGS"))
+    verbose_warnings = true;
 
   const char* name = "CGM_ATTRIBS";
   const char* value = "no";
   rval = opts.match_option(name,value); 
-  if(MB_SUCCESS == opts.match_option(name,value)) 
+  if(MB_SUCCESS == rval) 
     act_att = false; 
 
   // always tag with the faceting_tol and geometry absolute resolution
@@ -178,6 +178,10 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (act_att) {
     CGMApp::instance()->attrib_manager()->set_all_auto_read_flags( act_att );
     CGMApp::instance()->attrib_manager()->set_all_auto_actuate_flags( act_att );
+  }
+
+  if( !verbose_warnings ){
+    CGMApp::instance()->attrib_manager()->silent_flag( true );
   }
 
   CubitStatus s;
@@ -505,9 +509,9 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
      || (  end_vtx->coordinates() - points.back() ).length() > GEOMETRY_RESABS ) {
 
       curve_warnings--;
-      if( curve_warnings >= 0 || verbose_curve_warnings ){ 
+      if( curve_warnings >= 0 || verbose_warnings ){ 
 	std::cerr << "Warning: vertices not at ends of curve " << edge->id() << std::endl;
-	if( curve_warnings == 0 && !verbose_curve_warnings ){
+	if( curve_warnings == 0 && !verbose_warnings ){
 	  std::cerr << "         further instances of this warning will be suppressed..." << std::endl;
 	}
       }
@@ -548,10 +552,10 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       return MB_FAILURE;
   }
 
-  if( !verbose_curve_warnings && curve_warnings < 0 ){
+  if( !verbose_warnings && curve_warnings < 0 ){
     std::cerr << "Suppressed " << -curve_warnings 
 	      << " 'vertices not at ends of curve' warnings." << std::endl;
-    std::cerr << "To see all warnings, use reader param VERBOSE_CGM_CURVE_WARNINGS." << std::endl;
+    std::cerr << "To see all warnings, use reader param VERBOSE_CGM_WARNINGS." << std::endl;
   }
   
     // create geometry for all surfaces
