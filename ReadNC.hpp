@@ -56,6 +56,7 @@
 namespace moab {
 
 class ReadUtilIface;
+class ScdInterface;
 
 
 //! Output Exodus File for VERDE
@@ -133,24 +134,8 @@ private:
   ErrorCode get_variables();
   
     //! parse min/max i/j/k in options, if any
-  ErrorCode init_ijkt_vals(const FileOptions &opts);
+  ErrorCode init_ijkt_vals(const FileOptions &opts, ScdInterface *scdi);
 
-  int compute_partition_alljorkori(int np, int nr,
-                                   int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                   int &klMin, int &klMax);
-  
-  int compute_partition_alljkbal(int np, int nr,
-                                 int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                 int &klMin, int &klMax);
-  
-  int compute_partition_sqij(int np, int nr,
-                             int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                             int &klMin, int &klMax);
-
-  int compute_partition_sqjk(int np, int nr,
-                             int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                             int &klMin, int &klMax);
-  
   ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
                             std::vector<double> &cvals);
   
@@ -158,7 +143,7 @@ private:
   unsigned int number_dimensions();
 
     //! create vertices for the file
-  ErrorCode create_verts_hexes(EntityHandle file_set, Range &hexes);
+  ErrorCode create_verts_hexes(ScdInterface *scdi, EntityHandle file_set, Range &hexes);
 
     //! check number of vertices and elements against what's already in file_set
   ErrorCode check_verts_hexes(EntityHandle file_set);
@@ -187,7 +172,8 @@ private:
   ErrorCode get_tag(VarData &var_data, int tstep_num, Tag &tagh);
   
     //! create nc conventional tags
-  ErrorCode create_tags(EntityHandle file_set, const std::vector<int> &tstep_nums);
+  ErrorCode create_tags(ScdInterface *scdi, EntityHandle file_set, 
+                        const std::vector<int> &tstep_nums);
 
 //------------member variables ------------//
 
@@ -215,10 +201,10 @@ private:
   std::map<std::string,VarData> varInfo;
   
     //! dimensions of grid in file
-  int iMin, iMax, jMin, jMax, kMin, kMax, tMin, tMax;
+  int gDims[6], tMin, tMax;
   
     //! dimensions of my part of grid
-  int ilMin, ilMax, jlMin, jlMax, klMin, klMax;
+  int lDims[6];
 
     //! values for i/j/k
   std::vector<double> ilVals, jlVals, klVals, tVals;

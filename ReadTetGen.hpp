@@ -4,6 +4,7 @@
 #include <iosfwd>
 #include "moab/Forward.hpp"
 #include "moab/ReaderIface.hpp"
+#include <string>
 
 namespace moab {
 

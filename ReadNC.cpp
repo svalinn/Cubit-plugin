@@ -29,8 +29,7 @@ ReaderIface* ReadNC::factory( Interface* iface )
 
 ReadNC::ReadNC(Interface* impl)
         : mbImpl(impl), CPU_WORD_SIZE(-1), IO_WORD_SIZE(-1), fileId(-1), 
-          iMin(-1), iMax(-1), jMin(-1), jMax(-1), kMin(-1), kMax(-1), tMin(-1), tMax(-1),
-          ilMin(-1), ilMax(-1), jlMin(-1), jlMax(-1), klMin(-1), klMax(-1), 
+          tMin(-1), tMax(-1),
           iDim(-1), jDim(-1), kDim(-1), tDim(-1), numUnLim(-1), mCurrentMeshHandle(0),
           startVertex(0), startElem(0), mGlobalIdTag(0), 
           max_line_length(-1), max_str_length(-1), vertexOffset(0), dbgOut(stderr),
@@ -50,8 +49,12 @@ void ReadNC::reset()
   CPU_WORD_SIZE = -1;
   IO_WORD_SIZE = -1;
   fileId = -1;
-  iMin = iMax = jMin = jMax = kMin = kMax = tMin = tMax = -1;
-  ilMin = ilMax = jlMin = jlMax = klMin = klMax = -1;
+  tMin = tMax = -1;
+  for (unsigned int i = 0; i < 6; i++) {
+    gDims[i] = -1;
+    lDims[i] = -1;
+  }
+  
   iDim = jDim = kDim = tDim = -1;
   numUnLim = -1;
   mCurrentMeshHandle = 0;
@@ -133,8 +136,13 @@ ErrorCode ReadNC::load_file(const char *file_name,
   }
   else tmp_set = *file_set;
   
+    // get the scd interface
+  ScdInterface *scdi = NULL;
+  rval = mbImpl->query_interface(scdi);
+  if (!scdi) return MB_FAILURE;
+
     // Get bounds on ijk space
-  rval = init_ijkt_vals(opts);
+  rval = init_ijkt_vals(opts, scdi);
   ERRORR(rval, "Trouble initializing ijk values.");
 
     // Create structured mesh vertex/hex sequences
@@ -144,7 +152,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
   else if (!nomesh) {
-    rval = create_verts_hexes(tmp_set, hexes);
+    rval = create_verts_hexes(scdi, tmp_set, hexes);
     ERRORR(rval, "Trouble creating vertices.");
   }
 
@@ -181,9 +189,12 @@ ErrorCode ReadNC::load_file(const char *file_name,
   }
 #endif
   
+  mbImpl->release_interface(scdi);
+  ERRORR(rval, "Trouble creating scd element sequence.");
+  
     // create nc conventional tags
-//  rval = create_tags(tmp_set, tstep_nums);
-//  ERRORR(rval, "Trouble creating nc conventional tags.");
+  rval = create_tags(scdi, tmp_set, tstep_nums);
+  ERRORR(rval, "Trouble creating nc conventional tags.");
   
   return MB_SUCCESS;
 }
@@ -252,7 +263,17 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   const int rank = myPcomm->proc_config().proc_rank();
   dbgOut.set_rank(rank);
 
-  opts.get_int_option("PARTITION_METHOD", partMethod);
+  const char *part_options[] = {"alljorkori", "alljkbal", "sqij", "sqjk"};
+  int dum;
+  rval = opts.match_option("PARTITION_METHOD", part_options, dum);
+  if (rval == MB_FAILURE) {
+    readMeshIface->report_error("Unknown partition method specified.");
+    partMethod = ScdInterface::ALLJORKORI;
+  }
+  else if (rval != MB_ENTITY_NOT_FOUND)
+    partMethod = ScdInterface::ALLJORKORI;
+  else
+    partMethod = dum;
 #endif
 
   return MB_SUCCESS;
@@ -267,44 +288,43 @@ ErrorCode ReadNC::check_verts_hexes(EntityHandle file_set)
   ERRORR(rval, "Trouble getting number of vertices.");
   
     // check against parameters
-  int expected_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) * (-1 == klMin ? 1 : klMax - klMin + 1);
+  int expected_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2] + 1);
   if (num_verts != expected_verts)
     ERRORR(MB_FAILURE, "Number of vertices doesn't match.");
   
     // check the number of elements too
   int num_elems;
-  rval = mbImpl->get_number_entities_by_dimension(file_set, (-1 == klMin ? 2 : 3), num_elems);
+  rval = mbImpl->get_number_entities_by_dimension(file_set, (-1 == lDims[2] ? 2 : 3), num_elems);
   ERRORR(rval, "Trouble getting number of elements.");
   
     // check against parameters
-  int expected_elems = (ilMax - ilMin) * (jlMax - jlMin) * (-1 == klMin ? 1 : klMax - klMin);
+  int expected_elems = (lDims[3] - lDims[0]) * (lDims[4] - lDims[1]) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2]);
   if (num_elems != expected_elems)
     ERRORR(MB_FAILURE, "Number of elements doesn't match.");
   
   return MB_SUCCESS;
 }
   
-ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes) 
+ErrorCode ReadNC::create_verts_hexes(ScdInterface *scdi, EntityHandle tmp_set, Range &hexes) 
 {
-    // get the scd interface
-  ScdInterface *scdi = NULL;
-  ErrorCode rval = mbImpl->query_interface(scdi);
-  if (!scdi) return MB_FAILURE;
-
   Range tmp_range;
   ScdBox *scd_box;
-  rval = scdi->construct_box(HomCoord(ilMin, jlMin, (-1 != klMin ? klMin : 0), 1),
-                             HomCoord(ilMax, jlMax, (-1 != klMax ? klMax : 0), 1),
-                             NULL, 0, scd_box);
-  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
+  ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], (-1 != lDims[2] ? lDims[2] : 0), 1),
+                                       HomCoord(lDims[3], lDims[4], (-1 != lDims[5] ? lDims[5] : 0), 1),
+                                       NULL, 0, scd_box);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
+    // set the global box parameters
+  scd_box->set_global_box_dims(gDims);
+
+    // set the partitioning method
+  scd_box->part_method(partMethod);
+  
     // add box set and new vertices, elements to the file set
   tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex()+scd_box->num_vertices()-1);
   tmp_range.insert(scd_box->start_element(), scd_box->start_element()+scd_box->num_elements()-1);
   tmp_range.insert(scd_box->box_set());
   rval = mbImpl->add_entities(tmp_set, tmp_range);
-  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Couldn't add new vertices to file set.");
   
     // get a ptr to global id memory
@@ -314,7 +334,6 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
                                                      scd_box->start_vertex() + scd_box->num_vertices());
   rval = mbImpl->tag_iterate(mGlobalIdTag, tmp_range.begin(), topv, 
                              count, data);
-  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Failed to get tag iterator.");
   assert(count == scd_box->num_vertices());
   int *gid_data = (int*)data;
@@ -322,26 +341,25 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
     // set the vertex coordinates
   double *xc, *yc, *zc;
   rval = scd_box->get_coordinate_arrays(xc, yc, zc);
-  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
   int i, j, k, il, jl, kl;
-  int dil = ilMax - ilMin + 1;
-  int djl = jlMax - jlMin + 1;
-  int di = iMax - iMin + 1;
-  int dj = jMax - jMin + 1;
+  int dil = lDims[3] - lDims[0] + 1;
+  int djl = lDims[4] - lDims[1] + 1;
+  int di = gDims[3] - gDims[0] + 1;
+  int dj = gDims[4] - gDims[1] + 1;
   assert(dil == (int)ilVals.size() && djl == (int)jlVals.size() && 
-         (-1 == klMin || klMax-klMin+1 == (int)klVals.size()));
-  for (kl = klMin; kl <= klMax; kl++) {
-    k = kl - klMin;
-    for (jl = jlMin; jl <= jlMax; jl++) {
-      j = jl - jlMin;
-      for (il = ilMin; il <= ilMax; il++) {
-        i = il - ilMin;
+         (-1 == lDims[2] || lDims[5]-lDims[2]+1 == (int)klVals.size()));
+  for (kl = lDims[2]; kl <= lDims[5]; kl++) {
+    k = kl - lDims[2];
+    for (jl = lDims[1]; jl <= lDims[4]; jl++) {
+      j = jl - lDims[1];
+      for (il = lDims[0]; il <= lDims[3]; il++) {
+        i = il - lDims[0];
         unsigned int pos = i + j*dil + k*dil*djl;
         xc[pos] = ilVals[i];
         yc[pos] = jlVals[j];
-        zc[pos] = (-1 == klMin ? 0.0 : klVals[k]);
+        zc[pos] = (-1 == lDims[2] ? 0.0 : klVals[k]);
         *gid_data = (-1 != kl ? kl*di*dj : 0) + jl*di + il + 1;
         gid_data++;
       }
@@ -349,12 +367,11 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
   }
 
 #ifndef NDEBUG
-  int num_verts = (ilMax - ilMin + 1) * (jlMax - jlMin + 1) *
-    (-1 == klMin ? 1 : klMax-klMin+1);
+  int num_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) *
+    (-1 == lDims[2] ? 1 : lDims[5]-lDims[2]+1);
   std::vector<int> gids(num_verts);
   Range verts(scd_box->start_vertex(), scd_box->start_vertex()+scd_box->num_vertices()-1);
   rval = mbImpl->tag_get_data(mGlobalIdTag, verts, &gids[0]);
-  if (MB_SUCCESS != rval) mbImpl->release_interface(scdi);
   ERRORR(rval, "Trouble getting gid values.");
   int vmin = *(std::min_element(gids.begin(), gids.end())),
       vmax = *(std::max_element(gids.begin(), gids.end()));
@@ -378,9 +395,6 @@ ErrorCode ReadNC::create_verts_hexes(EntityHandle tmp_set, Range &hexes)
     ERRORR(rval, "Trouble listing element connectivity.");
   }
   
-  mbImpl->release_interface(scdi);
-  ERRORR(rval, "Trouble creating scd element sequence.");
-  
   return MB_SUCCESS;
 }
 
@@ -397,7 +411,7 @@ ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names,
       if (-1 != tMin && 
           std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) 
         tmp_v.push_back(tDim);
-      if (-1 != klMin && 
+      if (-1 != lDims[2] && 
           std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end()) 
         tmp_v.push_back(kDim);
       tmp_v.push_back(jDim);
@@ -462,8 +476,8 @@ ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
         // then z/y/x
       bool have_k = false;
       if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), kDim) != vdatas[i].varDims.end()) {
-        vdatas[i].readDims[t].push_back(klMin); 
-        vdatas[i].readCounts[t].push_back(klMax - klMin + 1);
+        vdatas[i].readDims[t].push_back(lDims[2]); 
+        vdatas[i].readCounts[t].push_back(lDims[5] - lDims[2] + 1);
         have_k = true;
       }
     
@@ -474,10 +488,10 @@ ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
         have_ij = false;
 #endif    
 
-      vdatas[i].readDims[t].push_back(jlMin);
-      vdatas[i].readDims[t].push_back(ilMin);
-      vdatas[i].readCounts[t].push_back(have_ij ? jlMax-jlMin+1 : 0);
-      vdatas[i].readCounts[t].push_back(have_ij ? ilMax-ilMin+1 : 0);
+      vdatas[i].readDims[t].push_back(lDims[1]);
+      vdatas[i].readDims[t].push_back(lDims[0]);
+      vdatas[i].readCounts[t].push_back(have_ij ? lDims[4]-lDims[1]+1 : 0);
+      vdatas[i].readCounts[t].push_back(have_ij ? lDims[3]-lDims[0]+1 : 0);
 
       assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
   
@@ -693,10 +707,10 @@ ErrorCode ReadNC::get_tag(VarData &var_data, int tstep_num, Tag &tagh)
   return rval;
 }
 
-ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts) 
+ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts, ScdInterface *scdi) 
 {
     // look for names of i/j/k dimensions
-  iMin = iMax = -1;
+  gDims[0] = gDims[3] = -1;
   std::vector<std::string>::iterator vit;
   unsigned int idx;
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lon")) != dimNames.end()) 
@@ -707,8 +721,8 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
     idx = vit-dimNames.begin();
   else ERRORR(MB_FAILURE, "Couldn't find i variable.");
   iDim = idx;
-  iMax = dimVals[idx]-1;
-  iMin = 0;
+  gDims[3] = dimVals[idx]-1;
+  gDims[0] = 0;
   iName = dimNames[idx];
 
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lat")) != dimNames.end()) 
@@ -719,19 +733,19 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
     idx = vit-dimNames.begin();
   else ERRORR(MB_FAILURE, "Couldn't find j variable.");
   jDim = idx;
-  jMax = dimVals[idx]-1;
-  jMin = 0;
+  gDims[4] = dimVals[idx]-1;
+  gDims[1] = 0;
   jName = dimNames[idx];
   
-  kMin = kMax = -1;
+  gDims[2] = gDims[5] = -1;
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end()) {
     idx = vit-dimNames.begin();
-    kMax = dimVals[idx]-1, kMin = 0, kName = std::string("lev");
+    gDims[5] = dimVals[idx]-1, gDims[2] = 0, kName = std::string("lev");
     kDim = idx;
   }
   else if ((vit = std::find(dimNames.begin(), dimNames.end(), "z")) != dimNames.end()) {
     idx = vit-dimNames.begin();
-    kMax = dimVals[idx]-1, kMin = 0, kName = std::string("z");
+    gDims[5] = dimVals[idx]-1, gDims[2] = 0, kName = std::string("z");
     kDim = idx;
   }
 
@@ -746,71 +760,47 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
   tName = dimNames[idx];
 
     // initialize parameter bounds
-  ilMin = iMin; ilMax = iMax;
-  jlMin = jMin; jlMax = jMax;
-  klMin = kMin; klMax = kMax;
+  std::copy(gDims, gDims+6, lDims);
   
     // parse options to get subset
   ErrorCode rval;
 #ifdef USE_MPI
   if (isParallel) {
-    switch (partMethod) {
-      case 1:
-      case -1:
-          compute_partition_alljorkori(myPcomm->proc_config().proc_size(),
-                                       myPcomm->proc_config().proc_rank(),
-                                       ilMin, ilMax, jlMin, jlMax, klMin, klMax);
-          dbgOut.tprintf(1, "Using alljorkori method.\n");
-          break;
-      case 2:
-          compute_partition_alljkbal(myPcomm->proc_config().proc_size(),
-                                     myPcomm->proc_config().proc_rank(),
-                                     ilMin, ilMax, jlMin, jlMax, klMin, klMax);
-          dbgOut.tprintf(1, "Using alljkbal method.\n");
-          break;
-      case 3:
-          compute_partition_sqij(myPcomm->proc_config().proc_size(),
-                                 myPcomm->proc_config().proc_rank(),
-                                 ilMin, ilMax, jlMin, jlMax, klMin, klMax);
-          dbgOut.tprintf(1, "Using sqij method.\n");
-          break;
-      case 4:
-          compute_partition_sqjk(myPcomm->proc_config().proc_size(),
-                                 myPcomm->proc_config().proc_rank(),
-                                 ilMin, ilMax, jlMin, jlMax, klMin, klMax);
-          dbgOut.tprintf(1, "Using sqjk method.\n");
-          break;
-    }
+    rval = ScdInterface::compute_partition(partMethod, myPcomm->proc_config().proc_size(), 
+                                           myPcomm->proc_config().proc_rank(), 
+                                           gDims, lDims);
+    if (MB_SUCCESS != rval) return rval;
+
     dbgOut.tprintf(1, "Partition: %dx%dx%d (out of %dx%dx%d)\n", 
-                   ilMax-ilMin+1, jlMax-jlMin+1, klMax-klMin+1,
-                   iMax-iMin+1, jMax-jMin+1, kMax-kMin+1);
+                   lDims[3]-lDims[0]+1, lDims[4]-lDims[1]+1, lDims[5]-lDims[2]+1,
+                   gDims[3]-gDims[0]+1, gDims[4]-gDims[1]+1, gDims[5]-gDims[2]+1);
     if (myPcomm->proc_config().proc_rank() == 0) 
-      dbgOut.tprintf(1, "Contiguous chunks of size %d bytes.\n", 8*(ilMax-ilMin+1)*(jlMax-jlMin+1));
+      dbgOut.tprintf(1, "Contiguous chunks of size %d bytes.\n", 8*(lDims[3]-lDims[0]+1)*(lDims[4]-lDims[1]+1));
   }
 #endif
     
-  opts.get_int_option("IMIN", ilMin);
-  opts.get_int_option("IMAX", ilMax);
-  opts.get_int_option("JMIN", jlMin);
-  opts.get_int_option("JMAX", jlMax);
+  opts.get_int_option("IMIN", lDims[0]);
+  opts.get_int_option("IMAX", lDims[3]);
+  opts.get_int_option("JMIN", lDims[1]);
+  opts.get_int_option("JMAX", lDims[4]);
 
-  if (-1 != kMin) {
-    opts.get_int_option("KMIN", klMin);
-    opts.get_int_option("KMAX", klMax);
+  if (-1 != gDims[2]) {
+    opts.get_int_option("KMIN", lDims[2]);
+    opts.get_int_option("KMAX", lDims[5]);
   }
   
     // now get actual coordinate values for these dimensions
     // first allocate space...
-  if (-1 != ilMin) ilVals.resize(ilMax - ilMin + 1);
-  if (-1 != jlMin) jlVals.resize(jlMax - jlMin + 1);
-  if (-1 != klMin) klVals.resize(klMax - klMin + 1);
+  if (-1 != lDims[0]) ilVals.resize(lDims[3] - lDims[0] + 1);
+  if (-1 != lDims[1]) jlVals.resize(lDims[4] - lDims[1] + 1);
+  if (-1 != lDims[2]) klVals.resize(lDims[5] - lDims[2] + 1);
   if (-1 != tMin) tVals.resize(tMax - tMin + 1);
 
     // ... then read actual values
   std::map<std::string,VarData>::iterator vmit;
-  if (ilMin != -1) {
+  if (lDims[0] != -1) {
     if ((vmit = varInfo.find(iName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate(iName.c_str(), ilMin, ilMax, ilVals);
+      rval = read_coordinate(iName.c_str(), lDims[0], lDims[3], ilVals);
       ERRORR(rval, "Trouble reading x variable.");
     }
     else {
@@ -818,9 +808,9 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
     }
   }
   
-  if (jlMin != -1) {
+  if (lDims[1] != -1) {
     if ((vmit = varInfo.find(jName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate(jName.c_str(), jlMin, jlMax, jlVals);
+      rval = read_coordinate(jName.c_str(), lDims[1], lDims[4], jlVals);
       ERRORR(rval, "Trouble reading y variable.");
     }
     else {
@@ -828,9 +818,9 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
     }
   }
   
-  if (klMin != -1) {
+  if (lDims[2] != -1) {
     if ((vmit = varInfo.find(kName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate(kName.c_str(), klMin, klMax, klVals);
+      rval = read_coordinate(kName.c_str(), lDims[2], lDims[5], klVals);
       ERRORR(rval, "Trouble reading z variable.");
     }
     else {
@@ -848,180 +838,11 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts)
     }
   }
 
-  dbgOut.tprintf(1, "I=%d-%d, J=%d-%d, K=%d-%d\n", ilMin, ilMax, jlMin, jlMax, klMin, klMax);
-  dbgOut.tprintf(1, "%d elements, %d vertices\n", (ilMax-ilMin)*(jlMax-jlMin)*(klMax-klMin),
-                 (ilMax-ilMin+1)*(jlMax-jlMin+1)*(klMax-klMin+1));
+  dbgOut.tprintf(1, "I=%d-%d, J=%d-%d, K=%d-%d\n", lDims[0], lDims[3], lDims[1], lDims[4], lDims[2], lDims[5]);
+  dbgOut.tprintf(1, "%d elements, %d vertices\n", (lDims[3]-lDims[0])*(lDims[4]-lDims[1])*(lDims[5]-lDims[2]),
+                 (lDims[3]-lDims[0]+1)*(lDims[4]-lDims[1]+1)*(lDims[5]-lDims[2]+1));
   
   return MB_SUCCESS;
-}
-
-int ReadNC::compute_partition_alljorkori(int np, int nr,
-                                         int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                         int &klMin, int &klMax) 
-{
-    // partition *the elements* over the parametric space; 1d partition for now, in the j, k, or i
-    // parameters
-#ifdef USE_MPI
-  if (-1 != jlMin && (jMax - jMin) > np) {
-    int dj = (jMax - jMin) / np;
-    int extra = (jMax - jMin) % np;
-    jlMin = jMin + nr*dj + 
-        std::min(nr, extra);
-    jlMax = jlMin + dj + (nr < extra ? 1 : 0);
-
-    klMin = kMin; klMax = kMax;
-    ilMin = iMin; ilMax = iMax;
-  }
-  else if (-1 != klMin && (kMax - kMin) > np) {
-    int dk = (kMax - kMin) / np;
-    int extra = (kMax - kMin) % np;
-    klMin = kMin + nr*dk + 
-        std::min(nr, extra);
-    klMax = klMin + dk + (nr < extra ? 1 : 0);
-
-    jlMin = jMin; jlMax = jMax;
-    ilMin = iMin; ilMax = iMax;
-  }
-  else if (-1 != ilMin && (iMax - iMin) > np) {
-    int di = (iMax - iMin) / np;
-    int extra = (iMax - iMin) % np;
-    ilMin = iMin + nr*di + 
-        std::min(nr, extra);
-    ilMax = ilMin + di + (nr < extra ? 1 : 0);
-
-    klMin = kMin; klMax = kMax;
-    jlMin = jMin; jlMax = jMax;
-  }
-  else
-    ERRORR(MB_FAILURE, "Couldn't find a suitable partition.");
-#else
-  ilMin = iMin;
-  ilMax = iMax;
-  jlMin = jMin;
-  jlMax = jMax;
-  klMin = kMin;
-  klMax = kMax;
-#endif
-  
-  return 1;
-}
-
-int ReadNC::compute_partition_alljkbal(int np, int nr,
-                                       int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                       int &klMin, int &klMax) 
-{
-    // improved, possibly 2-d partition
-  std::vector<double> kfactors;
-  kfactors.push_back(1);
-  int K = kMax - kMin;
-  for (int i = 2; i < K; i++) 
-    if (!(K%i) && !(np%i)) kfactors.push_back(i);
-  kfactors.push_back(K);
-  
-    // compute the ideal nj and nk
-  int J = jMax - jMin;
-  double njideal = sqrt(((double)(np*J))/((double)K));
-  double nkideal = (njideal*K)/J;
-  
-  int nk, nj;
-  if (nkideal < 1.0) {
-    nk = 1;
-    nj = np;
-  }
-  else {
-    std::vector<double>::iterator vit = std::lower_bound(kfactors.begin(), kfactors.end(), nkideal);
-    if (vit == kfactors.begin()) nk = 1;
-    else nk = (int)*(--vit);
-    nj = np / nk;
-  }
-
-  int dk = K / nk;
-  int dj = J / nj;
-  
-  klMin = (nr % nk) * dk;
-  klMax = klMin + dk;
-  
-  int extra = J % nj;
-  
-  jlMin = jMin + (nr / nk) * dj + std::min(nr / nk, extra);
-  jlMax = jlMin + dj + (nr / nk < extra ? 1 : 0);
-
-  ilMin = iMin;
-  ilMax = iMax;
-  
-  return 1;
-}
-
-int ReadNC::compute_partition_sqij(int np, int nr,
-                                   int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                   int &klMin, int &klMax) 
-{
-    // square IxJ partition
-
-  std::vector<double> pfactors, ppfactors;
-  for (int i = 2; i <= np; i++) 
-    if (!(np%i)) {
-      pfactors.push_back(i);
-      ppfactors.push_back(((double)(i*i))/np);
-    }
-  
-    // ideally, Px/Py = I/J
-  double ijratio = ((double)(iMax-iMin))/((double)(jMax-jMin));
-
-  unsigned int ind = std::lower_bound(ppfactors.begin(), ppfactors.end(), ijratio) - ppfactors.begin();
-  if (ind && fabs(ppfactors[ind-1]-ijratio) < fabs(ppfactors[ind]-ijratio)) ind--;
-  
-  int pi = pfactors[ind];
-  int pj = np / pi;
-
-  int I = (iMax - iMin), J = (jMax - jMin);
-  int iextra = I%pi, jextra = J%pj, i = I/pi, j = J/pj;
-  int nri = nr % pi, nrj = nr / pi;
-  ilMin = i*nri + std::min(iextra, nri);
-  ilMax = ilMin + i + (nri < iextra ? 1 : 0);
-  jlMin = j*nrj + std::min(jextra, nrj);
-  jlMax = jlMin + j + (nrj < jextra ? 1 : 0);
-
-  klMin = kMin;
-  klMax = kMax;
-  
-  return 1;
-}
-
-int ReadNC::compute_partition_sqjk(int np, int nr,
-                                   int &ilMin, int &ilMax, int &jlMin, int &jlMax, 
-                                   int &klMin, int &klMax) 
-{
-    // square JxK partition
-
-  std::vector<double> pfactors, ppfactors;
-  for (int p = 2; p <= np; p++) 
-    if (!(np%p)) {
-      pfactors.push_back(p);
-      ppfactors.push_back(((double)(p*p))/np);
-    }
-  
-    // ideally, Pj/Pk = J/K
-  double jkratio = ((double)(jMax-jMin))/((double)(kMax-kMin));
-
-  unsigned int ind = std::lower_bound(ppfactors.begin(), ppfactors.end(), jkratio) - ppfactors.begin();
-  if (ind && fabs(ppfactors[ind-1]-jkratio) < fabs(ppfactors[ind]-jkratio)) ind--;
-  
-  int pj = pfactors[ind];
-  int pk = np / pj;
-
-  int K = (kMax - kMin), J = (jMax - jMin);
-  int jextra = J%pj, kextra = K%pk, j = J/pj, k = K/pk;
-  int nrj = nr % pj, nrk = nr / pj;
-  jlMin = j*nrj + std::min(jextra, nrj);
-  jlMax = jlMin + j + (nrj < jextra ? 1 : 0);
-  klMin = k*nrk + std::min(kextra, nrk);
-  klMax = klMin + k + (nrk < kextra ? 1 : 0);
-
-  ilMin = iMin;
-  ilMax = iMax;
-  
-  return 1;
 }
 
 ErrorCode ReadNC::read_coordinate(const char *var_name, int lmin, int lmax,
@@ -1213,7 +1034,8 @@ ErrorCode ReadNC::read_tag_values( const char* ,
   return MB_FAILURE;
 }
 
-ErrorCode ReadNC::create_tags(EntityHandle file_set, const std::vector<int>& tstep_nums)
+ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set, 
+                              const std::vector<int>& tstep_nums)
 {
   ErrorCode rval;
   std::string tag_name;
@@ -1322,16 +1144,16 @@ ErrorCode ReadNC::create_tags(EntityHandle file_set, const std::vector<int>& tst
       Tag tagh = 0; 
       std::vector<int> val(2, 0);
       if (dimNames[i] == "lon") {
-	val[0] = ilMin; 
-	val[1] = ilMax; 
+	val[0] = lDims[0]; 
+	val[1] = lDims[3]; 
       }
       else if (dimNames[i] == "lat") {
-	val[0] = jlMin; 
-	val[1] = jlMax;
+	val[0] = lDims[1]; 
+	val[1] = lDims[4];
       }
       else if (dimNames[i] == "lev") {
-	val[0] = klMin; 
-	val[1] = klMax;
+	val[0] = lDims[2]; 
+	val[1] = lDims[5];
       }
       else if (dimNames[i] == "time") {
 	val[0] = tMin; 
@@ -1389,11 +1211,10 @@ ErrorCode ReadNC::create_tags(EntityHandle file_set, const std::vector<int>& tst
   }
   
   // <PARTITION_METHOD>
-  Tag partMethodTag = 0;  
-  tag_name = "PARTITION_METHOD";
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, partMethodTag, MB_TAG_SPARSE|MB_TAG_CREAT);
-  ERRORR(rval, "Trouble creating PARTITION_METHOD tag.");
-  rval = mbImpl->tag_set_data(partMethodTag, &file_set, 1, &partMethod);
+  Tag part_tag = scdi->part_method_tag();
+  if (!part_tag) 
+    ERRORR(MB_FAILURE, "Trouble getting partition method tag.");
+  rval = mbImpl->tag_set_data(part_tag, &file_set, 1, &partMethod);
   ERRORR(rval, "Trouble setting data for PARTITION_METHOD tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   
