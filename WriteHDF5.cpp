@@ -346,7 +346,7 @@ ErrorCode WriteHDF5::assign_ids( const Range& entities, id_t id )
 
 const char* WriteHDF5::ExportSet::name() const
 {
-  static char buffer[32];
+  static char buffer[128];
   switch (type) {
     case MBVERTEX:
       return mhdf_node_type_handle();
@@ -1187,10 +1187,13 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
   // the total number of write calls that must be made, including no-ops for collective io
   const size_t num_total_writes = (max_vals + buffer_size-1)/buffer_size;
   
+  std::vector<SpecialSetData>::iterator si = specialSets.begin();
+  
   std::vector<id_t> remaining; // data left over from prev iteration because it didn't fit in buffer
   size_t remaining_offset = 0; // avoid erasing from front of 'remaining'
   const EntityHandle* remaining_ptr = 0; // remaining for non-ranged data
   size_t remaining_count = 0;
+  const id_t* special_rem_ptr = 0;
   Range::const_iterator i = setSet.range.begin(), j, rhint, nshint;
   if (ranged) rhint = ranged->begin();
   if (null_stripped) nshint = null_stripped->begin();
@@ -1238,11 +1241,47 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
         remaining_count = 0;
       }
     }
+      // If we had some left-over data from a "special" (i.e. parallel shared)
+      // set.
+    else if (special_rem_ptr) {
+      if (remaining_count > buffer_size) {
+        memcpy( buffer, special_rem_ptr, buffer_size*sizeof(id_t) );
+        count = buffer_size;
+        special_rem_ptr += count;
+        remaining_count -= count;
+      }
+      else {
+        memcpy( buffer, special_rem_ptr, remaining_count*sizeof(id_t) );
+        count = remaining_count;
+        special_rem_ptr = 0;
+        remaining_count = 0;
+      }
+    }
     
       // While there is both space remaining in the buffer and 
       // more sets to write, append more set data to buffer.
     
     while (count < buffer_size && i != setSet.range.end()) {
+      
+        // Special case for "special" (i.e. parallel shared) sets:
+        // we already have the data in a vector, just copy it.
+      if (si != specialSets.end() && si->setHandle == *i) {
+        std::vector<id_t>& list = 
+          (which_data == WriteUtilIface::CONTENTS) ? si->contentIds :
+          (which_data == WriteUtilIface::PARENTS ) ? si->parentIds  :
+                                                     si->childIds   ;
+        size_t append = list.size();
+        if (count + list.size() > buffer_size) {
+          append = buffer_size - count;
+          special_rem_ptr = &list[append];
+          remaining_count = list.size() - append;
+        }
+        memcpy( buffer+count, &list[0], append*sizeof(id_t) );    
+        ++i;
+        count += append;
+        continue;    
+      } 
+      
       j = i; ++i;
       const EntityHandle* ptr;
       int len;
@@ -1333,19 +1372,11 @@ ErrorCode WriteHDF5::write_sets( double* times )
     rval = write_set_data( WriteUtilIface::PARENTS, table, track );
     topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
-    times[LOCAL_SET_PARENT] = timer.elapsed();
-    
-    if (parallelWrite) {
-      topState.start( "writing parent lists for shared sets" );
-      rval = write_shared_set_parents( table, &track );
-      topState.end(rval);
-      CHK_MB_ERR_1(rval,table,status);
-      times[SHARED_SET_PARENT] = timer.elapsed();
-    }  
     
     mhdf_closeData( filePtr, table, &status );
     CHK_MHDF_ERR_0(status);
    
+    times[SET_PARENT] = timer.elapsed();
     track.all_reduce();
   }
   
@@ -1360,19 +1391,11 @@ ErrorCode WriteHDF5::write_sets( double* times )
     rval = write_set_data( WriteUtilIface::CHILDREN, table, track );
     topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
-    times[LOCAL_SET_CHILD] = timer.elapsed();
-    
-    if (parallelWrite) {
-      topState.start( "writing child lists for shared sets" );
-      rval = write_shared_set_children( table, &track );
-      topState.end(rval);
-      CHK_MB_ERR_1(rval,table,status);
-      times[SHARED_SET_CHILD] = timer.elapsed();
-    }  
     
     mhdf_closeData( filePtr, table, &status );
     CHK_MHDF_ERR_0(status);
    
+    times[SET_CHILD] = timer.elapsed();
     track.all_reduce();
   }
   
@@ -1390,19 +1413,11 @@ ErrorCode WriteHDF5::write_sets( double* times )
                            &ranged_sets, &null_stripped_sets, &set_sizes );
     topState.end(rval);
     CHK_MB_ERR_1(rval,table,status);
-    times[LOCAL_SET_CONTENT] = timer.elapsed();
-    
-    if (parallelWrite) {
-      topState.start( "writing content lists for shared sets" );
-      rval = write_shared_set_contents( table, &track );
-      topState.end(rval);
-      CHK_MB_ERR_1(rval,table,status);
-      times[SHARED_SET_CONTENT] = timer.elapsed();
-    }  
     
     mhdf_closeData( filePtr, table, &status );
     CHK_MHDF_ERR_0(status);
    
+    times[SET_CONTENT] = timer.elapsed();
     track.all_reduce();
   }
   assert( ranged_sets.size() + null_stripped_sets.size() == set_sizes.size() );
@@ -1440,6 +1455,7 @@ ErrorCode WriteHDF5::write_sets( double* times )
   Range::const_iterator r = ranged_sets.begin();
   Range::const_iterator s = null_stripped_sets.begin();
   std::vector<mhdf_index_t>::const_iterator n = set_sizes.begin();
+  assert(ranged_sets.size() + null_stripped_sets.size() == set_sizes.size());
 
     /* we write the end index for each list, rather than the count */
   mhdf_index_t prev_contents_end = setContentsOffset - 1;
@@ -1448,6 +1464,7 @@ ErrorCode WriteHDF5::write_sets( double* times )
   
     /* while there is more data to write */
   size_t offset = setSet.offset;
+  std::vector<SpecialSetData>::const_iterator si = specialSets.begin();
   for (size_t w = 0; w < num_local_writes; ++w) {
       // get a buffer full of data
     size_t count = 0;
@@ -1455,20 +1472,37 @@ ErrorCode WriteHDF5::write_sets( double* times )
         // get set properties
       long num_ent, num_child, num_parent;
       unsigned long flags;
-      rval = get_set_info( *i, num_ent, num_child, num_parent, flags );
-      CHK_MB_ERR_1(rval, table,status);
-      
-        // check if size is something other than num handles in set
-      if (r != ranged_sets.end() && *i == *r) {
-        num_ent = *n;
-        ++r;
-        ++n;
-        flags |= mhdf_SET_RANGE_BIT;
+      if (si != specialSets.end() && si->setHandle == *i) {
+        flags = si->setFlags;
+        num_ent = si->contentIds.size();
+        num_child = si->childIds.size();
+        num_parent = si->parentIds.size();
+        ++si;
+        if (r != ranged_sets.end() && *i == *r) {
+          assert(flags & mhdf_SET_RANGE_BIT);
+          ++r;
+          ++n;
+        }
       }
-      else if (s != null_stripped_sets.end() && *i == *s) {
-        num_ent = *n;
-        ++s;
-        ++n;
+      else {
+        assert(si == specialSets.end() || si->setHandle > *i);
+      
+          // get set properties
+        rval = get_set_info( *i, num_ent, num_child, num_parent, flags );
+        CHK_MB_ERR_1(rval, table,status);
+
+          // check if size is something other than num handles in set
+        if (r != ranged_sets.end() && *i == *r) {
+          num_ent = *n;
+          ++r;
+          ++n;
+          flags |= mhdf_SET_RANGE_BIT;
+        }
+        else if (s != null_stripped_sets.end() && *i == *s) {
+          num_ent = *n;
+          ++s;
+          ++n;
+        }
       }
 
         // put data in buffer
@@ -1504,21 +1538,11 @@ ErrorCode WriteHDF5::write_sets( double* times )
     CHK_MHDF_ERR_1(status, table);    
   }
   
-  times[LOCAL_SET_META] = timer.elapsed();
-  
   topState.end();
-  if (parallelWrite) {
-    topState.start( "writing descriptions of shared sets" );
-    rval = write_shared_set_descriptions( table, &track_meta );
-    topState.end(rval);
-    CHK_MB_ERR_1(rval,table,status);
-  }  
-  
-  times[SHARED_SET_META] = timer.elapsed();
-  
   mhdf_closeData( filePtr, table, &status );
   CHK_MHDF_ERR_0(status);
 
+  times[SET_META] = timer.elapsed();
   track_meta.all_reduce();
 
   return MB_SUCCESS;
@@ -1758,7 +1782,7 @@ ErrorCode WriteHDF5::write_adjacencies( const ExportSet& elements )
   //  return MB_SUCCESS;
 
   long offset = elements.adj_offset;
-  if (offset < 0)
+  if (elements.max_num_adjs == 0)
     return MB_SUCCESS;
   
   /* Create data list */
@@ -2549,7 +2573,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   for (ex_itor = exportList.begin(); ex_itor != exportList.end(); ++ex_itor)
   {
     ex_itor->total_num_ents = ex_itor->range.size();
-    rval = create_elem_tables( *ex_itor, first_id );
+    rval = create_elem_table( *ex_itor, ex_itor->total_num_ents, first_id );
     CHK_MB_ERR_0(rval);
       
     ex_itor->first_id = (id_t)first_id;
@@ -2563,6 +2587,8 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
 #ifdef MB_H5M_WRITE_NODE_ADJACENCIES  
   rval = count_adjacencies( nodeSet.range, num_adjacencies );
   CHK_MB_ERR_0(rval);
+  nodeSet.adj_offset = 0;
+  nodeSet.max_num_adjs = num_adjacencies;
   if (num_adjacencies > 0)
   {
     handle = mhdf_createAdjacency( filePtr,
@@ -2571,10 +2597,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
                                    &status );
     CHK_MHDF_ERR_0(status);
     mhdf_closeData( filePtr, handle, &status );
-    nodeSet.adj_offset = 0;
   }
-  else
-    nodeSet.adj_offset = -1;
 #endif
   
     // create element adjacency tables
@@ -2583,6 +2606,8 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     rval = count_adjacencies( ex_itor->range, num_adjacencies );
     CHK_MB_ERR_0(rval);
     
+    ex_itor->adj_offset = 0;
+    ex_itor->max_num_adjs = num_adjacencies;
     if (num_adjacencies > 0)
     {
       handle = mhdf_createAdjacency( filePtr,
@@ -2591,10 +2616,7 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
                                      &status );
       CHK_MHDF_ERR_0(status);
       mhdf_closeData( filePtr, handle, &status );
-      ex_itor->adj_offset = 0;
     }
-    else
-      ex_itor->adj_offset = -1;
   }
   
     // create set tables
@@ -2602,11 +2624,10 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
   if (writeSets)
   {
     long contents_len, children_len, parents_len;
-    writeSets = true;
     
     setSet.total_num_ents = setSet.range.size();
     setSet.max_num_ents = setSet.total_num_ents;
-    rval = create_set_meta( first_id );
+    rval = create_set_meta( setSet.total_num_ents, first_id );
     CHK_MB_ERR_0(rval);
 
     setSet.first_id = (id_t)first_id;
@@ -2752,23 +2773,22 @@ ErrorCode WriteHDF5::count_adjacencies( const Range& set, id_t& result )
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::create_elem_tables( const ExportSet& block,
-                                         long& first_id_out )
+ErrorCode WriteHDF5::create_elem_table( const ExportSet& block,
+                                        long num_entities,
+                                        long& first_id_out )
 {
-  char name[64];
   mhdf_Status status;
   hid_t handle;
 
   CHECK_OPEN_HANDLES;
   
-  sprintf( name, "%s%d", CN::EntityTypeName(block.type), block.num_nodes );
-  mhdf_addElement( filePtr, name, block.type, &status );
+  mhdf_addElement( filePtr, block.name(), block.type, &status );
   CHK_MHDF_ERR_0(status);
   
   handle = mhdf_createConnectivity( filePtr, 
-                                    name,
+                                    block.name(),
                                     block.num_nodes,
-                                    block.total_num_ents,
+                                    num_entities,
                                     &first_id_out,
                                     &status );
   CHK_MHDF_ERR_0(status);
@@ -2786,18 +2806,28 @@ ErrorCode WriteHDF5::count_set_size( const Range& sets,
 {
   ErrorCode rval;
   Range set_contents;
-  Range::const_iterator iter = sets.begin();
-  const Range::const_iterator end = sets.end();
   long contents_length_set, children_length_set, parents_length_set;
   unsigned long flags;
   std::vector<id_t> set_contents_ids;
+  std::vector<SpecialSetData>::const_iterator si = specialSets.begin();
   
   contents_length_out = 0;
   children_length_out = 0;
   parents_length_out = 0;
   
-  for (; iter != end; ++iter)
+  for (Range::const_iterator iter = sets.begin(); iter != sets.end(); ++iter)
   {
+    while (si != specialSets.end() && si->setHandle < *iter)
+      ++si;
+      
+    if (si != specialSets.end() && si->setHandle == *iter) {
+      contents_length_out += si->contentIds.size();
+      children_length_out += si->childIds.size();
+      parents_length_out += si->parentIds.size();
+      ++si;
+      continue;
+    }
+  
     rval = get_set_info( *iter, contents_length_set, children_length_set,
                          parents_length_set, flags );
     CHK_MB_ERR_0(rval);
@@ -2828,20 +2858,26 @@ ErrorCode WriteHDF5::count_set_size( const Range& sets,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteHDF5::create_set_meta( long& first_id_out )
+ErrorCode WriteHDF5::create_set_meta( long num_sets, long& first_id_out )
 {
   hid_t handle;
   mhdf_Status status;
   
   CHECK_OPEN_HANDLES;
 
-  handle = mhdf_createSetMeta( filePtr, setSet.total_num_ents, &first_id_out, &status );
+  handle = mhdf_createSetMeta( filePtr, num_sets, &first_id_out, &status );
   CHK_MHDF_ERR_0(status);
   mhdf_closeData( filePtr, handle, &status );
   
   return MB_SUCCESS;
 }
 
+WriteHDF5::SpecialSetData* WriteHDF5::find_set_data( EntityHandle h )
+{
+  std::vector<SpecialSetData>::iterator i;
+  i = std::lower_bound( specialSets.begin(), specialSets.end(), h, SpecSetLess() );
+  return (i == specialSets.end() || i->setHandle != h) ? 0 : &*i;
+}
 
 ErrorCode WriteHDF5::create_set_tables( long num_set_contents,
                                         long num_set_children,
@@ -3287,21 +3323,17 @@ void WriteHDF5::print_times( const double* t ) const
             << "    file id exch:    " << t[FILEID_EXCHANGE_TIME] << std::endl
             << "    create adj:      " << t[CREATE_ADJ_TIME] << std::endl
             << "    create set:      " << t[CREATE_SET_TIME] << std::endl
-            << "      resolve sets:  " << t[RESOLVE_SHARED_SET_TIME] << std::endl
-            << "      local sets:    " << t[LOCAL_SET_OFFSET_TIME] << std::endl
-            << "      shared sets:   " << t[SHARED_SET_OFFSET_TIME] << std::endl
+            << "      shared ids:    " << t[SHARED_SET_IDS] << std::endl
+            << "      shared data:   " << t[SHARED_SET_CONTENTS] << std::endl
+            << "      set offsets:   " << t[SET_OFFSET_TIME] << std::endl
             << "    create tags:     " << t[CREATE_TAG_TIME] << std::endl
             << "  coordinates:       " << t[COORD_TIME] << std::endl
             << "  connectivity:      " << t[CONN_TIME] << std::endl
             << "  sets:              " << t[SET_TIME] << std::endl
-            << "    local descrip:   " << t[LOCAL_SET_META] << std::endl
-            << "    local content:   " << t[LOCAL_SET_CONTENT] << std::endl
-            << "    local parent:    " << t[LOCAL_SET_PARENT] << std::endl
-            << "    local child:     " << t[LOCAL_SET_CHILD] << std::endl
-            << "    shared descrip:  " << t[SHARED_SET_META] << std::endl
-            << "    shared content:  " << t[SHARED_SET_CONTENT] << std::endl
-            << "    shared parent:   " << t[SHARED_SET_PARENT] << std::endl
-            << "    shared child:    " << t[SHARED_SET_CHILD] << std::endl
+            << "    set descrip:     " << t[SET_META] << std::endl
+            << "    set content:     " << t[SET_CONTENT] << std::endl
+            << "    set parent:      " << t[SET_PARENT] << std::endl
+            << "    set child:       " << t[SET_CHILD] << std::endl
             << "  adjacencies:       " << t[ADJ_TIME] << std::endl
             << "  tags:              " << t[TAG_TIME] << std::endl
             << "    dense data:      " << t[DENSE_TAG_TIME] << std::endl

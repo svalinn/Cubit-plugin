@@ -48,6 +48,27 @@ class WriteHDF5 : public WriterIface
 
 public:
 
+  static WriterIface* factory( Interface* );
+
+  WriteHDF5( Interface* iface );
+  
+  virtual ~WriteHDF5();
+  
+  /** Export specified meshsets to file
+   * \param filename     The filename to export. 
+   * \param export_sets  Array of handles to sets to export, or NULL to export all.
+   * \param export_set_count Length of <code>export_sets</code> array.
+   */
+  ErrorCode write_file( const char* filename,
+                          const bool overwrite,
+                          const FileOptions& opts,
+                          const EntityHandle* export_sets,
+                          const int export_set_count,
+                          const std::vector<std::string>& qa_records,
+                          const Tag* tag_list = 0,
+                          int num_tags = 0,
+                          int user_dimension = 3 );
+
   /** The type to use for entity IDs w/in the file.
    * 
    * NOTE:  If this is changed, the value of id_type 
@@ -82,9 +103,9 @@ public:
     id_t first_id;
     //! The offset at which to begin writting this processor's data.
     //! Always zero except for parallel IO.
-    id_t offset;
+    long offset;
     //! Offset for adjacency data.  Always zero except for parallel IO
-    EntityID adj_offset;
+    long adj_offset;
     //! If doing parallel IO, largest number of entities to write
     //! for any processor (needed to do collective IO).  Zero if unused.
     long max_num_ents, max_num_adjs;
@@ -145,27 +166,6 @@ public:
     bool operator<(const TagDesc&) const;
   };
 
-  static WriterIface* factory( Interface* );
-
-  WriteHDF5( Interface* iface );
-  
-  virtual ~WriteHDF5();
-  
-  /** Export specified meshsets to file
-   * \param filename     The filename to export. 
-   * \param export_sets  Array of handles to sets to export, or NULL to export all.
-   * \param export_set_count Length of <code>export_sets</code> array.
-   */
-  ErrorCode write_file( const char* filename,
-                          const bool overwrite,
-                          const FileOptions& opts,
-                          const EntityHandle* export_sets,
-                          const int export_set_count,
-                          const std::vector<std::string>& qa_records,
-                          const Tag* tag_list = 0,
-                          int num_tags = 0,
-                          int user_dimension = 3 );
-
   /** Create attributes holding the HDF5 type handle for the 
    *  type of a bunch of the default tags.
    */
@@ -176,20 +176,15 @@ public:
     HDF5_Error_Func_Type func;
     void* data;
   };
-
-  struct Times;
+  
+  mhdf_FileHandle file_ptr() { return filePtr; }
+  
+  WriteUtilIface* write_util() { return writeUtil; }
 
 protected:
   
   //! Store old HDF5 error handling function
   HDF5ErrorHandler errorHandler;
-  
-  ErrorCode serial_create_file( const char* filename,
-                                  bool overwrite,
-                                  const std::vector<std::string>& qa_records,
-                                  const Tag* tag_list,
-                                  int num_tags,
-                                  int dimension = 3 );
 
   /** Function to create the file.  Virtual to allow override
    *  for parallel version.
@@ -202,17 +197,6 @@ protected:
                                             int num_tags,
                                             int dimension = 3,
                                             double* times = 0 );
-
-
-  /** Functions that the parallel version overrides*/
-  virtual ErrorCode write_shared_set_descriptions( hid_t, IODebugTrack* ) 
-    { return MB_SUCCESS;}
-  virtual ErrorCode write_shared_set_contents( hid_t, IODebugTrack* )
-    { return MB_SUCCESS;}
-  virtual ErrorCode write_shared_set_children( hid_t, IODebugTrack* )
-    { return MB_SUCCESS;}
-  virtual ErrorCode write_shared_set_parents( hid_t, IODebugTrack* )
-    { return MB_SUCCESS;}
   virtual ErrorCode write_finished();
   virtual void debug_barrier_line(int lineno);
  
@@ -244,12 +228,22 @@ protected:
    */
   ErrorCode count_adjacencies( const Range& elements, id_t& result );
   
+public: // make these public so helper classes in WriteHDF5Parallel can use them
+
   /** Helper function for create-file
    *
    * Create zero-ed tables where element connectivity and 
    * adjacency data will be stored.
    */
-  ErrorCode create_elem_tables( const ExportSet& block, long& first_id_out );
+  ErrorCode create_elem_table( const ExportSet& block, long num_ents, long& first_id_out );
+  
+  /** Helper function for create-file
+   *
+   * Create zero-ed table where set descriptions will be written
+   */
+  ErrorCode create_set_meta( long num_sets, long& first_id_out );
+
+protected:
   
   /** Helper function for create-file
    *
@@ -259,25 +253,24 @@ protected:
                               long& contents_length_out,
                               long& children_length_out,
                               long& parents_length_out );
-  
-  /** Helper function for create-file
-   *
-   * Create zero-ed table where set descriptions will be written
-   */
-  ErrorCode create_set_meta( long& first_id_out );
+
+  //! Get information about a meshset
+  ErrorCode get_set_info( EntityHandle set,
+                            long& num_entities,
+                            long& num_children,
+                            long& num_parents,
+                            unsigned long& flags );
 
   /** Helper function for create-file
    *
    * Create zero-ed tables where set data will be written.
    */
-  ErrorCode create_set_tables( long contents_length, 
-                                 long children_length,
-                                 long parents_length );
+  ErrorCode create_set_tables( long contents_length,
+                               long children_length,
+                               long parents_length );
 
   //! Write exodus-type QA info
   ErrorCode write_qa( const std::vector<std::string>& list );
-
-protected:
 
   //!\brief Get tagged entities for which to write tag values
   ErrorCode get_num_sparse_tagged_entities( const TagDesc& tag, size_t& count );
@@ -337,6 +330,28 @@ protected:
   //! to be written.
   bool writeSets, writeSetContents, writeSetChildren, writeSetParents;
   
+  //! Struct describing a set for which the contained and linked entity
+  //! lists are something other than the local values.  Used to store
+  //! data for shared sets owned by this process when writing in parallel.
+  struct SpecialSetData {
+    EntityHandle setHandle;
+    unsigned setFlags;
+    std::vector<id_t> contentIds;
+    std::vector<id_t> childIds;
+    std::vector<id_t> parentIds;
+  };
+  struct SpecSetLess {
+    bool operator() (const SpecialSetData& a, EntityHandle b) const
+      { return a.setHandle < b; }
+  };
+
+  
+  //! Array of special/shared sets, in order of handle value.
+  std::vector<SpecialSetData> specialSets;
+  const SpecialSetData* find_set_data( EntityHandle h ) const
+    { return const_cast<WriteHDF5*>(this)->find_set_data(h); }
+  SpecialSetData* find_set_data( EntityHandle h );
+  
   //! The list of tags to export
   std::list<TagDesc> tagList;
 
@@ -363,32 +378,6 @@ protected:
 
   void print_id_map() const;
   void print_id_map( std::ostream& str, const char* prefix = "" ) const;
-  
-  
-private:
-
-  //! Do the actual work of write_file.  Separated from write_file
-  //! for easier resource cleanup.
-  ErrorCode write_file_impl( const char* filename,
-                               const bool overwrite,
-                               const FileOptions& opts,
-                               const EntityHandle* export_sets,
-                               const int export_set_count,
-                               const std::vector<std::string>& qa_records,
-                               const Tag* tag_list,
-                               int num_tags,
-                               int user_dimension = 3 );
-
-  ErrorCode init();
-
-  //! Get information about a meshset
-  ErrorCode get_set_info( EntityHandle set,
-                            long& num_entities,
-                            long& num_children,
-                            long& num_parents,
-                            unsigned long& flags );
-
-protected:
 
   /** Helper function for create-file
    *
@@ -493,6 +482,27 @@ protected:
                                  unsigned long& result );
   
 private:
+
+  //! Do the actual work of write_file.  Separated from write_file
+  //! for easier resource cleanup.
+  ErrorCode write_file_impl( const char* filename,
+                               const bool overwrite,
+                               const FileOptions& opts,
+                               const EntityHandle* export_sets,
+                               const int export_set_count,
+                               const std::vector<std::string>& qa_records,
+                               const Tag* tag_list,
+                               int num_tags,
+                               int user_dimension = 3 );
+
+  ErrorCode init();
+  
+  ErrorCode serial_create_file( const char* filename,
+                                  bool overwrite,
+                                  const std::vector<std::string>& qa_records,
+                                  const Tag* tag_list,
+                                  int num_tags,
+                                  int dimension = 3 );
   
   /** Get all mesh to export from given list of sets.
    *
@@ -665,7 +675,7 @@ private:
 
 protected:
 
-  enum TimeingValues { 
+  enum TimingValues { 
        TOTAL_TIME = 0,
          GATHER_TIME,
          CREATE_TIME,
@@ -675,21 +685,17 @@ protected:
            FILEID_EXCHANGE_TIME,
            CREATE_ADJ_TIME,
            CREATE_SET_TIME,
-             RESOLVE_SHARED_SET_TIME,
-             LOCAL_SET_OFFSET_TIME,
-             SHARED_SET_OFFSET_TIME,
+             SHARED_SET_IDS,
+             SHARED_SET_CONTENTS,
+             SET_OFFSET_TIME,
            CREATE_TAG_TIME,
          COORD_TIME,
          CONN_TIME,
          SET_TIME,
-           LOCAL_SET_META,
-           LOCAL_SET_CONTENT,
-           LOCAL_SET_PARENT,
-           LOCAL_SET_CHILD,
-           SHARED_SET_META,
-           SHARED_SET_CONTENT,
-           SHARED_SET_PARENT,
-           SHARED_SET_CHILD,
+           SET_META,
+           SET_CONTENT,
+           SET_PARENT,
+           SET_CHILD,
          ADJ_TIME,
          TAG_TIME,
            DENSE_TAG_TIME,
