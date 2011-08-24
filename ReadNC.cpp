@@ -270,7 +270,7 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
     readMeshIface->report_error("Unknown partition method specified.");
     partMethod = ScdInterface::ALLJORKORI;
   }
-  else if (rval != MB_ENTITY_NOT_FOUND)
+  else if (rval == MB_ENTITY_NOT_FOUND)
     partMethod = ScdInterface::ALLJORKORI;
   else
     partMethod = dum;
