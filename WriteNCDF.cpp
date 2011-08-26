@@ -384,27 +384,6 @@ ErrorCode WriteNCDF::gather_mesh_information(
     if (dummy_range.empty())
       continue;
 
-    // wait a minute, we are doing some filtering here that doesn't make sense at this level  CJS
-
-      // find the dimension of the last entity in this range
-    Range::iterator entity_iter = dummy_range.end();
-    entity_iter = dummy_range.end();
-    entity_iter--;
-    int this_dim = CN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
-    entity_iter = dummy_range.begin();
-    while (entity_iter != dummy_range.end() &&
-           CN::Dimension(TYPE_FROM_HANDLE(*entity_iter)) != this_dim)
-      entity_iter++;
-    
-    if (entity_iter != dummy_range.end())
-      std::copy(entity_iter, dummy_range.end(), range_inserter(block_data.elements));
-
-    assert(block_data.elements.begin() == block_data.elements.end() ||
-           CN::Dimension(TYPE_FROM_HANDLE(*(block_data.elements.begin()))) == this_dim);
-    
-    // end of -- wait a minute, we are doing some filtering here that doesn't make sense at this level CJS
-   
-
     // get the block's id
     if(mdbImpl->tag_get_data(mMaterialSetTag, &(*vector_iter), 1, &id) != MB_SUCCESS ) {
       mWriteIface->report_error("Couldn't get block id from a tag for an element block.");
@@ -413,17 +392,23 @@ ErrorCode WriteNCDF::gather_mesh_information(
     
     block_data.id = id; 
     block_data.number_attributes = 0;
- 
-     // iterate through all the elements in the meshset
-    Range::iterator elem_range_iter, end_elem_range_iter;
-    elem_range_iter = block_data.elements.begin();
-    end_elem_range_iter = block_data.elements.end();
+
+    // wait a minute, we are doing some filtering here that doesn't make sense at this level  CJS
+
+      // find the dimension of the last entity in this range
+    int this_dim = CN::Dimension(TYPE_FROM_HANDLE(dummy_range.back()));
+    if (this_dim > 3) {
+      mWriteIface->report_error("Block %d contains entity sets.", id);
+      return MB_TYPE_OUT_OF_RANGE;
+    }
+    block_data.elements = dummy_range.subset_by_dimension( this_dim );
+    
+    // end of -- wait a minute, we are doing some filtering here that doesn't make sense at this level CJS
+   
 
       // get the entity type for this block, verifying that it's the same for all elements
-      // THIS ASSUMES HANDLES SORT BY TYPE!!!
-    EntityType entity_type = TYPE_FROM_HANDLE(*elem_range_iter);
-    end_elem_range_iter--;
-    if (entity_type != TYPE_FROM_HANDLE(*(end_elem_range_iter++))) {
+    EntityType entity_type = TYPE_FROM_HANDLE(block_data.elements.front());
+    if (!block_data.elements.all_of_type(entity_type)) {
       mWriteIface->report_error("Entities in block %i not of common type", id);
       return MB_FAILURE;
     }
@@ -432,7 +417,7 @@ ErrorCode WriteNCDF::gather_mesh_information(
     if(entity_type == MBQUAD || entity_type == MBTRI)
       dimension = 3;   // output shells by default
     else if(entity_type == MBEDGE)
-      dimension = 2;
+      dimension = 2; // SHOULD THIS BE 1?? -- J.Kraftcheck, August, 2011
     else
       dimension = CN::Dimension(entity_type);
 
@@ -440,7 +425,7 @@ ErrorCode WriteNCDF::gather_mesh_information(
       highest_dimension_of_element_blocks = dimension;
 
     std::vector<EntityHandle> tmp_conn;
-    rval = mdbImpl->get_connectivity(&(*(block_data.elements.begin())), 1, tmp_conn);
+    rval = mdbImpl->get_connectivity(&(block_data.elements.front()), 1, tmp_conn);
     if (MB_SUCCESS != rval)
       return rval;
     block_data.element_type = ExoIIUtil::get_element_type_from_num_verts(tmp_conn.size(), entity_type, dimension);
