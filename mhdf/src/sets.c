@@ -235,6 +235,7 @@ mhdf_readwriteSetMeta( hid_t table_id, int read,
   herr_t rval = 0;
   int dims, i;
   const int fill_val = -1;
+  const hsize_t one = 1;
 
   mcounts[0] = count;
   mcounts[1] = 4;
@@ -281,7 +282,15 @@ mhdf_readwriteSetMeta( hid_t table_id, int read,
   counts[0] = (hsize_t)count;
   offsets[0] = (hsize_t)offset;
 
-  mem_id = H5Screate_simple( dims, mcounts, NULL );
+  if (count) 
+    mem_id = H5Screate_simple( dims, mcounts, NULL );
+  else { /* special case for 'NULL' read during collective parallel IO */
+    mem_id = H5Screate_simple( 1, &one, NULL );
+    if (mem_id && 0 > H5Sselect_none( mem_id )) {
+      H5Sclose( mem_id );
+      mem_id = -1;
+    }
+  }
   if (mem_id < 0)
   {
     mhdf_setFail( status, "Internal error calling H5Screate_simple." );
@@ -294,7 +303,7 @@ mhdf_readwriteSetMeta( hid_t table_id, int read,
     offsets[1] = 0;
     if (count) 
       rval = H5Sselect_hyperslab( slab_id, H5S_SELECT_SET, offsets, NULL, counts, NULL );
-    else 
+    else /* special case for 'NULL' read during collective parallel IO */
       rval = H5Sselect_none( slab_id );
     if (rval < 0)
     {
