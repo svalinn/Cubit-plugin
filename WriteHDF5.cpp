@@ -1278,6 +1278,7 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
         }
         memcpy( buffer+count, &list[0], append*sizeof(id_t) );    
         ++i;
+        ++si;
         count += append;
         continue;    
       } 
@@ -1481,6 +1482,10 @@ ErrorCode WriteHDF5::write_sets( double* times )
         if (r != ranged_sets.end() && *i == *r) {
           assert(flags & mhdf_SET_RANGE_BIT);
           ++r;
+          ++n;
+        }
+        else if (s != null_stripped_sets.end() && *i == *s) {
+           ++s;
           ++n;
         }
       }
