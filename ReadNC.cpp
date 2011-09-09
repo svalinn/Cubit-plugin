@@ -192,10 +192,12 @@ ErrorCode ReadNC::load_file(const char *file_name,
   mbImpl->release_interface(scdi);
   ERRORR(rval, "Trouble creating scd element sequence.");
   
-    // create nc conventional tags
-  rval = create_tags(scdi, tmp_set, tstep_nums);
-  ERRORR(rval, "Trouble creating nc conventional tags.");
-  
+    // create nc conventional tags when loading header info only
+  if (nomesh && novars) {
+    rval = create_tags(scdi, tmp_set, tstep_nums);
+    ERRORR(rval, "Trouble creating nc conventional tags.");
+  }
+
   return MB_SUCCESS;
 }
 
@@ -470,7 +472,7 @@ ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
   
         // set up the dimensions and counts
         // first time
-      vdatas[i].readDims[t].push_back(t);
+      vdatas[i].readDims[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
         // then z/y/x
@@ -1107,9 +1109,9 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set,
       val = &klVals[0];
     else if (tag_name == "time")
       val = &tVals[0];
-    else {
+    else
       continue;
-    }
+
     Tag tagh = 0; 
     DataType data_type;
     int val_len = dimVals[i];
@@ -1171,43 +1173,46 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set,
   for (unsigned int i = 0; i != dimNamesSz; ++i) {
     if (dimNames[i] != "time")
       continue;
-    if (!tstep_nums.empty()) {
-      Tag tagh = 0; 
-      std::vector<int> val = tstep_nums;
-      std::stringstream ss_tag_name;
-      ss_tag_name << "__" << dimNames[i] << "_LOC_VALS";
-      tag_name = ss_tag_name.str();
-      rval = mbImpl->tag_get_handle(tag_name.c_str(), val.size(), MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT);
-      ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
-      rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
-      ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_VALS tag.");
-      if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+    std::vector<int> val;
+    if (!tstep_nums.empty())
+      val = tstep_nums;
+    else {
+      val.resize(tVals.size());
+      for (unsigned int i = 0; i != tVals.size(); ++i)
+	val[i] = i;
     }
+    Tag tagh = 0; 
+    std::stringstream ss_tag_name;
+    ss_tag_name << "__" << dimNames[i] << "_LOC_VALS";
+    tag_name = ss_tag_name.str();
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), val.size(), MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT);
+    ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
+    rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+    ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_VALS tag.");
+    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   }
 
   // __<var_name>_DIMS
   for (mapIter = varInfo.begin(); mapIter != varInfo.end(); ++mapIter) {
-    if (std::find(dimNames.begin(), dimNames.end(), mapIter->first) == dimNames.end()) {
-      Tag varNamesDimsTag = 0;
-      std::stringstream ss_tag_name;
-      ss_tag_name << "__" << mapIter->first << "_DIMS";
-      tag_name = ss_tag_name.str();
-      unsigned int varDimSz = varInfo[mapIter->first].varDims.size();
-      if (varDimSz == 0)
-	continue;
-      varInfo[mapIter->first].varTags.resize(varDimSz, 0);
-      for (unsigned int i = 0; i != varDimSz; ++i) {
-	Tag tmptag = 0;
-	std::string tmptagname = dimNames[varInfo[mapIter->first].varDims[i]];
-	mbImpl->tag_get_handle(tmptagname.c_str(), 0, MB_TYPE_OPAQUE, tmptag, MB_TAG_ANY);
-	varInfo[mapIter->first].varTags[i] = tmptag;
-      }
-      rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE|MB_TAG_CREAT);
-      ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
-      rval = mbImpl->tag_set_data(varNamesDimsTag, &file_set, 1, &(varInfo[mapIter->first].varTags[0]));
-      ERRORR(rval, "Trouble setting data for __<var_name>_DIMS tag.");
-      if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+    Tag varNamesDimsTag = 0;
+    std::stringstream ss_tag_name;
+    ss_tag_name << "__" << mapIter->first << "_DIMS";
+    tag_name = ss_tag_name.str();
+    unsigned int varDimSz = varInfo[mapIter->first].varDims.size();
+    if (varDimSz == 0)
+      continue;
+    varInfo[mapIter->first].varTags.resize(varDimSz, 0);
+    for (unsigned int i = 0; i != varDimSz; ++i) {
+      Tag tmptag = 0;
+      std::string tmptagname = dimNames[varInfo[mapIter->first].varDims[i]];
+      mbImpl->tag_get_handle(tmptagname.c_str(), 0, MB_TYPE_OPAQUE, tmptag, MB_TAG_ANY);
+      varInfo[mapIter->first].varTags[i] = tmptag;
     }
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+    ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
+    rval = mbImpl->tag_set_data(varNamesDimsTag, &file_set, 1, &(varInfo[mapIter->first].varTags[0]));
+    ERRORR(rval, "Trouble setting data for __<var_name>_DIMS tag.");
+    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   }
   
   // <PARTITION_METHOD>
