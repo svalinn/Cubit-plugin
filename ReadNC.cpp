@@ -39,8 +39,12 @@ ReadNC::ReadNC(Interface* impl)
 #endif
 {
   assert(impl != NULL);
-  reset();
-  
+
+  for (unsigned int i = 0; i < 6; i++) {
+    gDims[i] = -1;
+    lDims[i] = -1;
+  }
+    
   impl->query_interface(readMeshIface);
 }
 
