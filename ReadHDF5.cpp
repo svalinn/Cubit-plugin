@@ -330,14 +330,6 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     return MB_NOT_IMPLEMENTED;
   }
 
-  MPI_Info info = MPI_INFO_NULL;
-  std::string cb_size;
-  rval = opts.get_str_option("CB_BUFFER_SIZE", cb_size);
-  if (MB_SUCCESS == rval) {
-    MPI_Info_create (&info);
-    MPI_Info_set (info, "cb_buffer_size", const_cast<char*>(cb_size.c_str()));
-  }
-  
   // This option is intended for testing purposes only, and thus
   // is not documented anywhere.  Decreasing the buffer size can
   // expose bugs that would otherwise only be seen when reading
@@ -378,6 +370,14 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     return MB_NOT_IMPLEMENTED;
 #else
 
+    MPI_Info info = MPI_INFO_NULL;
+    std::string cb_size;
+    rval = opts.get_str_option("CB_BUFFER_SIZE", cb_size);
+    if (MB_SUCCESS == rval) {
+      MPI_Info_create (&info);
+      MPI_Info_set (info, "cb_buffer_size", const_cast<char*>(cb_size.c_str()));
+    }
+  
     int pcomm_no = 0;
     rval = opts.get_int_option("PARALLEL_COMM", pcomm_no);
     if (rval == MB_TYPE_OUT_OF_RANGE) {
