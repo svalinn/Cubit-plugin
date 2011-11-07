@@ -329,6 +329,14 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     readUtil->report_error( "'USE_MPIO' option specified w/out 'PARALLEL' option" );
     return MB_NOT_IMPLEMENTED;
   }
+
+  MPI_Info info = MPI_INFO_NULL;
+  std::string cb_size;
+  rval = opts.get_str_option("CB_BUFFER_SIZE", cb_size);
+  if (MB_SUCCESS == rval) {
+    MPI_Info_create (&info);
+    MPI_Info_set (info, "cb_buffer_size", const_cast<char*>(cb_size.c_str()));
+  }
   
   // This option is intended for testing purposes only, and thus
   // is not documented anywhere.  Decreasing the buffer size can
@@ -439,7 +447,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     }
   
     file_prop = H5Pcreate(H5P_FILE_ACCESS);
-    err = H5Pset_fapl_mpio(file_prop, myPcomm->proc_config().proc_comm(), MPI_INFO_NULL);
+    err = H5Pset_fapl_mpio(file_prop, myPcomm->proc_config().proc_comm(), info);
     assert(file_prop >= 0);
     assert(err >= 0);
 
@@ -720,7 +728,7 @@ ErrorCode ReadHDF5::get_subset_ids( const ReaderIface::IDTag* subset_list,
                                       Range& file_ids )
 {
   ErrorCode rval;
-  
+
   for (int i = 0; i < subset_list_length; ++i) {  
     
     int tag_index;
