@@ -128,7 +128,7 @@ private:
                            const char *prefix="");
   
     //! get all dimensions in the file
-  ErrorCode get_dimensions();
+  ErrorCode get_dimensions(int file_id, std::vector<std::string> &dim_names, std::vector<int> &dim_vals);
 
     //! get the variable names and other info defined for this file
   ErrorCode get_variables();
@@ -175,6 +175,10 @@ private:
   ErrorCode create_tags(ScdInterface *scdi, EntityHandle file_set, 
                         const std::vector<int> &tstep_nums);
 
+  ErrorCode init_ucd_mesh(const FileOptions &opts);
+
+  ErrorCode create_ucd_verts_hexes(const FileOptions &opts, EntityHandle tmp_set, Range &hexes);
+  
 //------------member variables ------------//
 
     //! interface instance
@@ -186,8 +190,8 @@ private:
     //! file name
   std::string fileName;
 
-    //! file number assigned by netcdf
-  int fileId;
+    //! file numbers assigned by netcdf
+  int fileId, connectId;
   
     //! dimensions
   std::vector<std::string> dimNames;
@@ -241,7 +245,9 @@ private:
 
     //! partitioning method
   int partMethod;
-  
+
+  bool ucdMesh;
+
 #ifdef USE_MPI
   ParallelComm *myPcomm;
 #endif

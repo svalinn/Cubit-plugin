@@ -33,7 +33,7 @@ ReadNC::ReadNC(Interface* impl)
           iDim(-1), jDim(-1), kDim(-1), tDim(-1), numUnLim(-1), mCurrentMeshHandle(0),
           startVertex(0), startElem(0), mGlobalIdTag(0), 
           max_line_length(-1), max_str_length(-1), vertexOffset(0), dbgOut(stderr),
-          isParallel(false), partMethod(-1)
+          isParallel(false), partMethod(-1), ucdMesh(false)
 #ifdef USE_MPI
         , myPcomm(NULL)
 #endif
@@ -70,6 +70,8 @@ void ReadNC::reset()
   dbgOut = stderr;
   mCurrentMeshHandle = 0;
   vertexOffset = 0; 
+  ucdMesh = false;
+  
 #ifdef USE_MPI
   myPcomm = NULL;
 #endif
@@ -147,16 +149,27 @@ ErrorCode ReadNC::load_file(const char *file_name,
 
     // Get bounds on ijk space
   rval = init_ijkt_vals(opts, scdi);
+
+  if (MB_SUCCESS != rval) {
+      // try reading ucd format (HOMME) data
+    rval = init_ucd_mesh(opts);
+    if (MB_SUCCESS == rval) {
+      ucdMesh = true;
+    }
+  }
   ERRORR(rval, "Trouble initializing ijk values.");
 
-    // Create structured mesh vertex/hex sequences
+    // Create mesh vertex/hex sequences
   Range hexes;
   if (nomesh && !novars) {
     rval = check_verts_hexes(tmp_set);
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
   else if (!nomesh) {
-    rval = create_verts_hexes(scdi, tmp_set, hexes);
+    if (ucdMesh) 
+      rval = create_ucd_verts_hexes(opts, tmp_set, hexes);
+    else
+      rval = create_verts_hexes(scdi, tmp_set, hexes);
     ERRORR(rval, "Trouble creating vertices.");
   }
 
@@ -400,6 +413,158 @@ ErrorCode ReadNC::create_verts_hexes(ScdInterface *scdi, EntityHandle tmp_set, R
     rval = mbImpl->list_entities(&connect[0], connect.size());
     ERRORR(rval, "Trouble listing element connectivity.");
   }
+  
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::create_ucd_verts_hexes(const FileOptions &opts,
+                                         EntityHandle tmp_set, Range &hexes) 
+{
+    // need to get/read connectivity data before creating elements
+
+    // open the connectivity file
+  std::string conn_fname;
+  ErrorCode rval = opts.get_str_option("CONN", conn_fname);
+  if (MB_SUCCESS != rval) return rval;
+
+  int success;
+#ifdef PNETCDF_FILE
+  if (isParallel)
+    success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+  else
+    success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+#else
+  success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
+#endif
+  ERRORS(success, "Failed on open.");
+
+  std::vector<std::string> conn_names;
+  std::vector<int> conn_vals;
+  rval = get_dimensions(connectId, conn_names, conn_vals);
+  ERRORR(rval, "Failed to get dimensions for connectivity.");
+  
+    // hardwire for ncenters, ncorners
+  if (2 != conn_names.size() || conn_names[0] != std::string("ncenters") || conn_names[1] != std::string("ncorners"))
+    ERRORR(MB_FAILURE, "Connectivity file didn't have correct dimension names.");
+
+  if (conn_vals[0] != gDims[3]-gDims[0]+1+2) {
+    dbgOut.tprintf(1, "Warning: number of quads from %s and vertices from %s are inconsistent; nverts = %d, nquads = %d.\n",
+                   conn_fname.c_str(), fileName.c_str(), gDims[3]-gDims[0]+1, conn_vals[0]);
+  }
+  
+  unsigned int num_hex_layers = lDims[5] - lDims[2];
+
+    // read connectivity into temporary variable
+  int num_quads = lDims[4]-lDims[1]+1;
+
+  std::vector<int> tmp_conn(4*num_quads);
+  NCDF_SIZE tmp_dims[2] = {0, lDims[0]}, tmp_counts[2] = {4, num_quads};
+  success = NCFUNCAG(_vara_int)(connectId, 0, tmp_dims, tmp_counts, &tmp_conn[0] NCREQ);
+
+    // on this proc, I get columns ldims[1]..ldims[4], inclusive; need to find which vertices those correpond to
+  Range tmp_range;
+  std::copy(tmp_conn.begin(), tmp_conn.end(), range_inserter(tmp_range));
+  unsigned int num_verts = tmp_range.size();
+
+   // create vertices
+  ReadUtilIface *iface;
+  rval = mbImpl->query_interface(iface);
+  std::vector<double*> arrays;
+  EntityHandle start_vertex, start_hex;
+  rval = iface->get_node_coords(3, num_verts*(num_hex_layers+1), 0, start_vertex, arrays);
+  ERRORR(rval, "Couldn't create vertices in ucd mesh.");
+
+    // set vertex coordinates
+  unsigned int i, k;
+  Range::iterator rit;
+    // start with first layer
+  double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
+  for (i = 0, rit = tmp_range.begin(); i < num_verts; i++, rit++) {
+    xptr[i] = ilVals[(*rit)-1];
+    yptr[i] = jlVals[(*rit)-1];
+    zptr[i] = klVals[lDims[2]];
+  }
+  zptr += num_verts;
+  for (i = lDims[2]+1; (int)i <= lDims[5]; i++) {
+    std::copy(xptr, xptr+num_verts, xptr+num_verts);
+    std::copy(yptr, yptr+num_verts, yptr+num_verts);
+    std::fill(zptr, zptr+num_verts, klVals[i]);
+    xptr += num_verts;
+    yptr += num_verts;
+    zptr += num_verts;
+  }
+  xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
+  const double pideg = acos(-1.0)/180.0;
+  for (i = 0; i < num_verts; i++) {
+    double cosphi = cos(pideg*yptr[i]);
+    double zmult = sin(pideg*yptr[i]), xmult = cosphi * cos(xptr[i]*pideg),
+        ymult = cosphi * sin(xptr[i]*pideg);
+    double rad = 8.0e3 + klVals[lDims[2]];
+    xptr[i] = rad * xmult, yptr[i] = rad * ymult, zptr[i] = rad * zmult;
+    for (k = 1; k < num_hex_layers+1; k++) {
+      double thisrad = 8.0e3 + ((int)k+lDims[2] < gDims[5] ? klVals[lDims[2]+k] : klVals[gDims[5]]+1.0);
+      xptr[i+k*num_verts] = thisrad * xmult;
+      yptr[i+k*num_verts] = thisrad * ymult;
+      zptr[i+k*num_verts] = thisrad * zmult;
+    }
+  }
+    
+    // get ptr to gid memory for vertices
+  Range vert_range(start_vertex, start_vertex+num_verts-1);
+  void *data;
+  int count;
+  rval = mbImpl->tag_iterate(mGlobalIdTag, vert_range.begin(), vert_range.end(), count, data);
+  ERRORR(rval, "Failed to get tag iterator.");
+  assert(count == (int) num_verts);
+  int *gid_data = (int*)data;
+
+    // copy first num_verts into gids
+  std::copy(tmp_range.begin(), tmp_range.end(), gid_data);
+  
+    // generate subsequent layers by adding to first; use global # verts, not local number
+  unsigned int global_num_verts = gDims[3] - gDims[0] + 1;
+  for (i = lDims[2]+1; (int)i <= lDims[5]; i++) {
+    std::transform(gid_data, gid_data+num_verts, gid_data+num_verts, std::bind2nd(std::plus<int>(),global_num_verts) );
+    gid_data += num_verts;
+  }
+  
+    // create map from file ids to vertex handles, used later to set connectivity
+  std::map<unsigned int,EntityHandle> vert_handles;
+  for (rit = tmp_range.begin(), i = 0; rit != tmp_range.end(); rit++, i++) {
+    vert_handles[*rit] = start_vertex+i;
+  }
+  
+    // now create hexes
+  EntityHandle *conn_array;
+  rval = readMeshIface->get_element_connect(num_quads*num_hex_layers, 8, MBHEX, 0, start_hex, conn_array);
+  ERRORR(rval, "Failed to create hexes.");
+  
+    // set hex connectivity
+  for (unsigned int l = 0; l < num_hex_layers; l++) {
+    for (int q = 0; q < num_quads; q++) {
+        // first layer 
+      conn_array[0] = vert_handles[tmp_conn[q  ]]+l*num_verts;
+      conn_array[1] = vert_handles[tmp_conn[q+num_quads]]+l*num_verts;
+      conn_array[2] = vert_handles[tmp_conn[q+2*num_quads]]+l*num_verts;
+      conn_array[3] = vert_handles[tmp_conn[q+3*num_quads]]+l*num_verts;
+        // second layer
+      conn_array[4] = conn_array[0] + num_verts;
+      conn_array[5] = conn_array[1] + num_verts;
+      conn_array[6] = conn_array[2] + num_verts;
+      conn_array[7] = conn_array[3] + num_verts;
+      conn_array += 8;
+    }
+  }
+
+    // reuse tmp_range
+  tmp_range.clear();
+  tmp_range.insert(start_vertex, start_vertex+num_verts*(num_hex_layers+1)-1);
+  tmp_range.insert(start_hex, start_hex+num_quads*num_hex_layers-1);
+  rval = mbImpl->add_entities(tmp_set, tmp_range);
+  ERRORR(rval, "Couldn't add new vertices and hexes to file set.");
+
+    // add hexes to range passed in
+  hexes.insert(start_hex, start_hex + num_quads*num_hex_layers-1);
   
   return MB_SUCCESS;
 }
@@ -851,6 +1016,126 @@ ErrorCode ReadNC::init_ijkt_vals(const FileOptions &opts, ScdInterface *scdi)
   return MB_SUCCESS;
 }
 
+ErrorCode ReadNC::init_ucd_mesh(const FileOptions &opts) 
+{
+  ErrorCode rval;
+  unsigned int idx;
+  std::vector<std::string>::iterator vit;
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end()) 
+    idx = vit-dimNames.begin();
+  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end()) 
+    idx = vit-dimNames.begin();
+  else ERRORR(MB_FAILURE, "Couldn't find time variable.");
+  tDim = idx;
+  tMax = dimVals[idx]-1;
+  tMin = 0;
+  tName = dimNames[idx];
+
+    // get number of vertices (labeled as number of columns) and levels
+  gDims[0] = gDims[3] = -1;
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "ncol")) != dimNames.end()) {
+    idx = vit-dimNames.begin();
+    gDims[3] = dimVals[idx] - 1;
+    gDims[0] = 0;
+    iDim = idx;
+  }
+  if (-1 == gDims[0]) return MB_FAILURE;
+
+    // set j coordinate to the number of quads
+  gDims[1] = gDims[0];
+  gDims[4] = gDims[3] - 2;
+  
+  gDims[2] = gDims[5] = -1;
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end()) {
+    idx = vit-dimNames.begin();
+    gDims[5] = dimVals[idx]-1, gDims[2] = 0, kName = std::string("ilev");
+    kDim = idx;
+  }
+  if (-1 == gDims[2]) return MB_FAILURE;
+
+    // read coordinate data
+  std::map<std::string,VarData>::iterator vmit;
+  if (gDims[0] != -1) {
+    if ((vmit = varInfo.find("lon")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("lon", gDims[0], gDims[3], ilVals);
+      ERRORR(rval, "Trouble reading x variable.");
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find x coordinate.");
+    }
+  }
+  
+    // store lon values in jlVals parameterized by i
+  if (gDims[1] != -1) {
+    if ((vmit = varInfo.find("lat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("lat", gDims[0], gDims[3], jlVals);
+      ERRORR(rval, "Trouble reading y variable.");
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find y coordinate.");
+    }
+  }
+  
+  if (gDims[2] != -1) {
+    if ((vmit = varInfo.find("ilev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("ilev", gDims[2], gDims[5], klVals);
+      ERRORR(rval, "Trouble reading z variable.");
+
+        // decide whether down is positive
+      char posval[10];
+      int success = NCFUNC(get_att_text)(fileId, (*vmit).second.varId, "positive", posval);
+      if (0 == success && !strcmp(posval, "down")) {
+        for (std::vector<double>::iterator vit = klVals.begin(); vit != klVals.end(); vit++)
+          (*vit) *= -1.0;
+      }
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find z coordinate.");
+    }
+  }
+  
+  if (tMin != -1) {
+    if ((vmit = varInfo.find(tName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate(tName.c_str(), tMin, tMax, tVals);
+      ERRORR(rval, "Trouble reading time variable.");
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find time coordinate.");
+    }
+  }
+
+  if ((vmit = varInfo.find(tName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+    rval = read_coordinate(tName.c_str(), tMin, tMax, tVals);
+    ERRORR(rval, "Trouble reading time variable.");
+  }
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find time coordinate.");
+  }
+
+    // partition; must use the sqjk method here, others don't make sense
+#ifdef USE_MPI
+  if (isParallel) {
+    rval = ScdInterface::compute_partition(ScdInterface::SQJK, 
+                                           myPcomm->proc_config().proc_size(), 
+                                           myPcomm->proc_config().proc_rank(), 
+                                           gDims, lDims);
+    if (MB_SUCCESS != rval) return rval;
+
+    dbgOut.tprintf(1, "Partition: %dx%dx%d (out of %dx%dx%d)\n", 
+                   lDims[3]-lDims[0]+1, lDims[4]-lDims[1]+1, lDims[5]-lDims[2]+1,
+                   gDims[3]-gDims[0]+1, gDims[4]-gDims[1]+1, gDims[5]-gDims[2]+1);
+  }
+  else
+    std::copy(gDims, gDims+6, lDims);
+#else
+    // local is same as global
+  std::copy(gDims, gDims+6, lDims);
+#endif
+
+    // don't read coordinates of columns until we actually create the mesh
+  return MB_SUCCESS;
+}
+
 ErrorCode ReadNC::read_coordinate(const char *var_name, int lmin, int lmax,
                                   std::vector<double> &cvals) 
 {
@@ -899,7 +1184,7 @@ ErrorCode ReadNC::read_header()
   dbgOut.tprintf(1, "Read %u attributes\n", (unsigned int)globalAtts.size());
 
     // read in dimensions into dimVals
-  result = get_dimensions();
+  result = get_dimensions(fileId, dimNames, dimVals);
   ERRORR(result, "Getting dimensions.");
   dbgOut.tprintf(1, "Read %u dimensions\n", (unsigned int)dimVals.size());
 
@@ -936,11 +1221,11 @@ ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::get_dimensions()
+ErrorCode ReadNC::get_dimensions(int file_id, std::vector<std::string> &dim_names, std::vector<int> &dim_vals)
 {
     // get the number of dimensions
   int num_dims;
-  int success = NCFUNC(inq_ndims)(fileId, &num_dims);
+  int success = NCFUNC(inq_ndims)(file_id, &num_dims);
   ERRORS(success, "Trouble getting number of dimensions.");
 
   if (num_dims > NC_MAX_DIMS) {
@@ -951,15 +1236,15 @@ ErrorCode ReadNC::get_dimensions()
 
   char dim_name[NC_MAX_NAME+1];
   NCDF_SIZE dum_len;
-  dimNames.resize(num_dims);
-  dimVals.resize(num_dims);
+  dim_names.resize(num_dims);
+  dim_vals.resize(num_dims);
   
   for (int i = 0; i < num_dims; i++) {
-    success = NCFUNC(inq_dim)(fileId, i, dim_name, &dum_len);
+    success = NCFUNC(inq_dim)(file_id, i, dim_name, &dum_len);
     ERRORS(success, "Trouble getting dimension info.");
     
-    dimVals[i] = dum_len;
-    dimNames[i] = std::string(dim_name);
+    dim_vals[i] = dum_len;
+    dim_names[i] = std::string(dim_name);
 
     dbgOut.tprintf(2, "Dimension %s, length=%u\n",
                    dim_name, (unsigned int)dum_len);
