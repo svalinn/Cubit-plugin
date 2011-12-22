@@ -414,7 +414,7 @@ private:
   /** Find all sets containing one or more entities read from the file
    *  and added to idMap 
    */
-  ErrorCode find_sets_containing( Range& sets_out );
+  ErrorCode find_sets_containing( Range& sets_out, bool read_set_containing_parents );
  
   /**\brief Read sets from file into MOAB for partial read of file.
    *
@@ -431,6 +431,7 @@ private:
   ErrorCode find_sets_containing( hid_t content_handle, 
                                   hid_t content_type,
                                   long content_len,
+                                  bool read_set_containing_parents,
                                   Range& file_ids );  
 
 public: 

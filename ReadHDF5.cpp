@@ -850,7 +850,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   dbgOut.tprint( 1, "GATHERING ADDITIONAL ENTITIES\n" );
   
   enum RecusiveSetMode { RSM_NONE, RSM_SETS, RSM_CONTENTS };
-  const char* const set_opts[] = { "NONE", "SETS", "CONTENTS" };
+  const char* const set_opts[] = { "NONE", "SETS", "CONTENTS", NULL };
   int child_mode;
   rval = opts.match_option( "CHILDREN", set_opts, child_mode );
   if (MB_ENTITY_NOT_FOUND == rval)
@@ -1115,9 +1115,17 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
   
   dbgOut.tprint( 1, "  doing find_sets_containing\n" );
   mpe_event.start( "finding sets containing any read entities" );
+
+    // decide whether to read set-containing parents
+  bool read_set_containing_parents = true;
+  std::string tmp_opt;
+  rval = opts.get_option( "NO_SET_CONTAINING_PARENTS", tmp_opt );
+  if (MB_SUCCESS == rval)
+    read_set_containing_parents = false;
+  
     // Append file IDs of sets containing any of the nodes or elements
     // we've read up to this point.
-  rval = find_sets_containing( sets );
+  rval = find_sets_containing( sets, read_set_containing_parents );
   mpe_event.end(rval);
   if (MB_SUCCESS != rval)
     return error(rval);
@@ -2127,7 +2135,8 @@ ErrorCode ReadHDF5::read_set_ids_recursive( Range& sets_in_out,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadHDF5::find_sets_containing( Range& sets_out )
+ErrorCode ReadHDF5::find_sets_containing( Range& sets_out, 
+                                          bool read_set_containing_parents)
 {
   ErrorCode rval;
   mhdf_Status status;
@@ -2146,7 +2155,8 @@ ErrorCode ReadHDF5::find_sets_containing( Range& sets_out )
 
   hid_t data_type = H5Dget_type( content_handle );
 
-  rval = find_sets_containing( content_handle, data_type, content_len, sets_out );
+  rval = find_sets_containing( content_handle, data_type, content_len, 
+                               read_set_containing_parents, sets_out );
   
   H5Tclose( data_type );
 
@@ -2159,7 +2169,7 @@ ErrorCode ReadHDF5::find_sets_containing( Range& sets_out )
 
 static bool set_map_intersect( bool ranged,
                                const long* contents,
-                               int content_len,
+                               int content_len, 
                                const RangeMap<long,EntityHandle>& id_map  )
 {
   if (ranged) {
@@ -2194,6 +2204,7 @@ struct SetContOffComp {
 ErrorCode ReadHDF5::find_sets_containing( hid_t contents_handle, 
                                           hid_t content_type,
                                           long contents_len,
+                                          bool read_set_containing_parents,
                                           Range& file_ids )
 {
 
@@ -2244,6 +2255,7 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t contents_handle,
 
     // scan set table  
   Range::iterator hint = file_ids.begin();
+  Range tmp_range;
   long prev_idx = -1;
   int mm = 0;
   long sets_offset = 0;
@@ -2286,7 +2298,15 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t contents_handle,
           #endif
         }
         
-        if (set_map_intersect( setMeta[sets_offset][3] & mhdf_SET_RANGE_BIT,
+        if (read_set_containing_parents) {
+          tmp_range.clear();
+          if (setMeta[sets_offset][3] & mhdf_SET_RANGE_BIT) tmp_range.insert(*content_buffer, *(content_buffer+1));
+          else std::copy(content_buffer, content_buffer+content_count, range_inserter(tmp_range));
+          tmp_range = intersect(tmp_range, file_ids);
+        }
+
+        if (!tmp_range.empty() ||
+            set_map_intersect( setMeta[sets_offset][3] & mhdf_SET_RANGE_BIT,
                                content_buffer, content_count, idMap )) {
           long id = fileInfo->sets.start_id + sets_offset;
           hint = file_ids.insert( hint, id, id );
@@ -2329,7 +2349,17 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t contents_handle,
       for (long i = 0; i < sets_count; ++i) {
         long set_size = setMeta[i+sets_offset][CONTENT] - prev_idx;
         prev_idx += set_size;
-        if (set_map_intersect( setMeta[sets_offset+i][3] & mhdf_SET_RANGE_BIT,
+
+          // check whether contents include set already being loaded
+        if (read_set_containing_parents) {
+          tmp_range.clear();
+          if (setMeta[sets_offset+i][3] & mhdf_SET_RANGE_BIT) tmp_range.insert(*buff_iter, *(buff_iter+1));
+          else std::copy(buff_iter, buff_iter+set_size, range_inserter(tmp_range));
+          tmp_range = intersect(tmp_range, file_ids);
+        }
+        
+        if (!tmp_range.empty() ||
+            set_map_intersect( setMeta[sets_offset+i][3] & mhdf_SET_RANGE_BIT,
                                buff_iter, set_size, idMap )) {
           long id = fileInfo->sets.start_id + sets_offset + i;
           hint = file_ids.insert( hint, id, id );
