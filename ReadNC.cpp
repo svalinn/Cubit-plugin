@@ -1417,7 +1417,7 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set,
     case NC_SHORT:
     default:
       std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;
-      rval = MB_FAILURE;
+      ERRORR(MB_FAILURE, "Unrecognized data type");
     }
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, data_type, tagh, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN);
     ERRORR(rval, "Trouble creating <dim_name> tag.");
