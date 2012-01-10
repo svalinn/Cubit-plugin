@@ -50,6 +50,12 @@ else
   MOAB_CCMIO_SRCS = 
 endif
 
+if DAMSEL_FILE
+  MOAB_DAMSEL_SRCS = WriteDamsel.cpp WriteDamsel.hpp
+else
+  MOAB_DAMSEL_SRCS =
+endif
+
 if HAVE_CGM
   AM_CPPFLAGS += @CGM_CPPFLAGS@ -DCGM @MOAB_CGM_DEFINES@
   MOAB_CGM_SRCS =  ReadCGM.cpp  ReadCGM.hpp
@@ -113,6 +119,7 @@ libmoabio_la_SOURCES = \
   $(MOAB_NETCDF_SRCS) \
   $(MOAB_HDF5_SRCS) \
   $(MOAB_CCMIO_SRCS) \
+  $(MOAB_DAMSEL_SRCS) \
   $(MOAB_CGM_SRCS)
 
 
