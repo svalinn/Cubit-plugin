@@ -533,7 +533,7 @@ ErrorCode WriteNCDF::gather_mesh_information(
     const void* ptr = 0;
    
     int has_dist_factors = 0; 
-    if(mdbImpl->tag_get_data(mDistFactorTag,&(*vector_iter), 1, &ptr, &dist_factor_size) == MB_SUCCESS &&
+    if(mdbImpl->tag_get_by_ptr(mDistFactorTag,&(*vector_iter), 1, &ptr, &dist_factor_size) == MB_SUCCESS &&
        dist_factor_size)
       has_dist_factors = 1;
     dist_factor_size /= sizeof(double);
@@ -626,8 +626,8 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
   const double* dist_fac_iter = 0;
   const void* ptr = 0;
   bool has_dist_factors = false; 
-  if(mdbImpl->tag_get_data(mDistFactorTag,
-                           &(sideset_data.mesh_set_handle), 1, &ptr, &dist_factor_size) == MB_SUCCESS &&
+  if(mdbImpl->tag_get_by_ptr(mDistFactorTag,
+                             &(sideset_data.mesh_set_handle), 1, &ptr, &dist_factor_size) == MB_SUCCESS &&
      dist_factor_size)
   {
     has_dist_factors = true;
