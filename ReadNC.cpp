@@ -657,6 +657,8 @@ ErrorCode ReadNC::read_variable_allocate(std::vector<VarData> &vdatas,
         // whether we actually read anything depends on parallel and whether there's a k
       if (!have_k && -1 != kDim && 0 != myPcomm->proc_config().proc_rank())
         have_ij = false;
+#else
+      if (have_k); // to get rid of compiler warning
 #endif    
 
       vdatas[i].readDims[t].push_back(lDims[1]);

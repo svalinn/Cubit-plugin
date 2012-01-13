@@ -971,10 +971,8 @@ ErrorCode ReadMCNP5::transform_point_to_cartesian(double *in, double *out,
       break;
     case SPHERICAL :
       return MB_NOT_IMPLEMENTED;
-      break;
     default :
       return MB_NOT_IMPLEMENTED;
-      break;
   }
   
   return MB_SUCCESS;

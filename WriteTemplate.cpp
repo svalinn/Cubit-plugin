@@ -590,10 +590,6 @@ ErrorCode WriteTEMPLATE::write_matsets(MeshInfo & /* mesh_info (commented out to
   for (i = 0; i < matset_data.size(); i++) {
     matset = matset_data[i];
     
-    int id = matset.id;
-      // bogus line to get rid of warning
-    (void)id;
-
     for (rit = matset.elements->begin(); rit != matset.elements->end(); rit++) {
       
         // get the connectivity of this element

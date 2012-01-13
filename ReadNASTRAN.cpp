@@ -220,10 +220,8 @@ ErrorCode ReadNASTRAN::tokenize_line(const std::string line, const line_format f
     break; 
   } case LARGE_FIELD:
     return MB_NOT_IMPLEMENTED;
-    break;
   case FREE_FIELD:
     return MB_NOT_IMPLEMENTED;
-    break;
   default:
     return MB_FAILURE;
   }
