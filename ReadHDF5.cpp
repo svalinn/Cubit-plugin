@@ -375,7 +375,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     rval = opts.get_str_option("CB_BUFFER_SIZE", cb_size);
     if (MB_SUCCESS == rval) {
       MPI_Info_create (&info);
-      MPI_Info_set (info, "cb_buffer_size", const_cast<char*>(cb_size.c_str()));
+      MPI_Info_set (info, const_cast<char*>("cb_buffer_size"), const_cast<char*>(cb_size.c_str()));
     }
   
     int pcomm_no = 0;
@@ -3433,6 +3433,7 @@ void ReadHDF5::convert_range_to_handle( const EntityHandle* ranges,
     if (id < it->begin)
       id = it->begin;
     while (id < end) {
+      if (id < it->begin) id = it->begin;
       const long off = id - it->begin;
       long count = std::min( it->count - off,  end - id );
       hint = merge.insert( hint, it->value + off, it->value + off + count - 1 );
