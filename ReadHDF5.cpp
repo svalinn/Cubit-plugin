@@ -2455,7 +2455,9 @@ ErrorCode ReadHDF5::read_set_data( const Range& set_file_ids,
       return MB_FAILURE;
     }
     
-    assert(fileid_iter != set_file_ids.end() );
+    // assert not appropriate here - I might have treated all my file ids, but maybe
+    // another proc hasn't; for me, count will be zero, so I won't do anything, but
+    // I still need to go through the motions to make the read work
     
       // Handle 'special' case where we read some, but not all
       // of the data for an entity during the last iteration.
