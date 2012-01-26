@@ -2013,7 +2013,7 @@ ErrorCode ReadHDF5::read_all_set_meta()
   bool bcast = false;
   hid_t ioprop = H5P_DEFAULT;
 #ifdef USE_MPI
-  MPI_Comm comm;
+  MPI_Comm comm = 0;
   if (nativeParallel) {
     rank = myPcomm->proc_config().proc_rank();
     comm = myPcomm->proc_config().proc_comm();
@@ -2220,7 +2220,7 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t contents_handle,
   int rank = 0;
   bool bcast = false;
 #ifdef USE_MPI
-  MPI_Comm comm;
+  MPI_Comm comm = 0;
   if (nativeParallel) {
     rank = myPcomm->proc_config().proc_rank();
     comm = myPcomm->proc_config().proc_comm();
