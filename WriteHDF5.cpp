@@ -674,7 +674,6 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     if (MB_SUCCESS != result)
       return error(result);
   }
-
   times[CONN_TIME] = timer.elapsed();
 
   dbgOut.tprint(1,"Writing sets.\n");
@@ -683,8 +682,8 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   result = write_sets(times);
   if (MB_SUCCESS != result)
     return error(result);
-
   debug_barrier();
+  
   times[SET_TIME] = timer.elapsed();
   dbgOut.tprint(1,"Writing adjacencies.\n");
   
@@ -786,7 +785,6 @@ ErrorCode WriteHDF5::initialize_mesh( const Range ranges[5] )
         bins.resize(firstlen+1);
       bins[firstlen].merge( first, i );
     }
-
       // Create ExportSet for each group
     for (std::vector<Range>::iterator j = bins.begin(); j != bins.end(); ++j) {
       if (j->empty())
@@ -799,7 +797,6 @@ ErrorCode WriteHDF5::initialize_mesh( const Range ranges[5] )
       exportList.back().range.swap( *j );
     }
   }
-    
   return MB_SUCCESS;  
 }
 
@@ -1868,7 +1865,6 @@ ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data,
     return error(rval);
 
   CHECK_OPEN_HANDLES;
-
   debug_barrier();
   dbgOut.tprintf( 1, "Writing tag: \"%s\"\n", name.c_str() );
  
@@ -2304,11 +2300,9 @@ ErrorCode WriteHDF5::write_dense_tag( const TagDesc& tag_data,
                                      value_type_size,
                                      elem_data.max_num_ents,
                                      track );
-  
   mhdf_closeData( filePtr, table, &status );
   CHK_MB_ERR_0(rval);
   CHK_MHDF_ERR_0(status);
-  
   return MB_SUCCESS;
 }
   
