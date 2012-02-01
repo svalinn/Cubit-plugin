@@ -179,10 +179,6 @@ ErrorCode ReadNC::load_file(const char *file_name,
     if (MB_FAILURE == rval) return rval;
   }
   
-    // close the file
-  success = NCFUNC(close)(fileId);
-  ERRORS(success, "Trouble closing file.");
-
 #ifdef USE_MPI
     // create partition set, and populate with elements
   if (isParallel) {
@@ -214,6 +210,10 @@ ErrorCode ReadNC::load_file(const char *file_name,
     rval = create_tags(scdi, tmp_set, tstep_nums);
     ERRORR(rval, "Trouble creating nc conventional tags.");
   }
+
+    // close the file
+  success = NCFUNC(close)(fileId);
+  ERRORS(success, "Trouble closing file.");
 
   return MB_SUCCESS;
 }
@@ -1513,8 +1513,135 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set,
   rval = mbImpl->tag_set_data(part_tag, &file_set, 1, &partMethod);
   ERRORR(rval, "Trouble setting data for PARTITION_METHOD tag.");
   if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+
+  // <__GLOBAL_ATTRIBS>
+  tag_name = "__GLOBAL_ATTRIBS";
+  Tag globalAttTag = 0;
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, globalAttTag, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN);
+  ERRORR(rval, "Trouble creating __GLOBAL_ATTRIBS tag.");
+  std::string gattVal;
+  std::vector<int> gattLen;
+  rval = create_attrib_string(globalAtts, gattVal, gattLen);
+  ERRORR(rval, "Trouble creating attribute strings.");
+  const void* gattptr = gattVal.c_str();
+  int globalAttSz = gattVal.size();
+  rval = mbImpl->tag_set_by_ptr(globalAttTag, &file_set, 1, &gattptr, &globalAttSz);
+  ERRORR(rval, "Trouble setting data for __GLOBAL_ATTRIBS tag.");
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  
+  // <__GLOBAL_ATTRIBS_LEN>
+  tag_name ="__GLOBAL_ATTRIBS_LEN";
+  Tag globalAttLenTag = 0;
+  if (gattLen.size() == 0)
+    gattLen.push_back(0);
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), gattLen.size(), MB_TYPE_INTEGER, 
+				globalAttLenTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+  ERRORR(rval, "Trouble creating __GLOBAL_ATTRIBS_LEN tag.");
+  rval = mbImpl->tag_set_data(globalAttLenTag, &file_set, 1, &gattLen[0]);
+  ERRORR(rval, "Trouble setting data for __GLOBAL_ATTRIBS_LEN tag.");
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+
+  // __<var_name>_ATTRIBS and __<var_name>_ATTRIBS_LEN
+  for (mapIter = varInfo.begin(); mapIter != varInfo.end(); ++mapIter) {
+    std::stringstream ssTagName;
+    ssTagName << "__" << mapIter->first << "_ATTRIBS";
+    tag_name = ssTagName.str();
+    Tag varAttTag = 0;
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varAttTag, MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN);
+    ERRORR(rval, "Trouble creating __<var_name>_ATTRIBS tag.");
+    std::string varAttVal;
+    std::vector<int> varAttLen;
+    rval = create_attrib_string(mapIter->second.varAtts, varAttVal, varAttLen);
+    ERRORR(rval, "Trouble creating attribute strings.");
+    const void* varAttPtr = varAttVal.c_str();
+    int varAttSz = varAttVal.size(); 
+    rval = mbImpl->tag_set_by_ptr(varAttTag, &file_set, 1, &varAttPtr, &varAttSz);
+    ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS tag.");
+    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+    if (varAttLen.size() == 0)
+      varAttLen.push_back(0);
+    ssTagName << "_LEN";
+    tag_name = ssTagName.str();
+    Tag varAttLenTag = 0;
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), varAttLen.size(), MB_TYPE_INTEGER, 
+				  varAttLenTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+    ERRORR(rval, "Trouble creating __<var_name>_ATTRIBS_LEN tag.");
+    rval = mbImpl->tag_set_data(varAttLenTag, &file_set, 1, &varAttLen[0]);
+    ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS_LEN tag.");
+    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  } 
   
   return MB_SUCCESS;
 }
+
+ErrorCode ReadNC::create_attrib_string(const std::map<std::string, AttData>& attMap, 
+				       std::string& attVal,
+				       std::vector<int>& attLen)
+{
+  int success;
+  std::stringstream ssAtt;
+  unsigned int sz = 0;
+  std::map<std::string,AttData>::const_iterator attIt = attMap.begin();
+  for (;attIt != attMap.end(); ++attIt) {
+    ssAtt << attIt->second.attName;
+    ssAtt << '\0';
+    void* attData = NULL;
+    switch (attIt->second.attDataType) {
+    case NC_BYTE:
+    case NC_CHAR:
+      sz = attIt->second.attLen;
+      attData = (char *) malloc(sz);
+      success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, 
+				     attIt->second.attName.c_str(), (char*)attData);
+      ERRORS(success, "Failed to read attribute char data.");
+      ssAtt << "char;";
+      break;
+    case NC_DOUBLE:
+      sz = attIt->second.attLen * sizeof(double);
+      attData = (double *) malloc(sz);
+      success = NCFUNC(get_att_double)(fileId, attIt->second.attVarId,
+				       attIt->second.attName.c_str(), (double*)attData);
+      ERRORS(success, "Failed to read attribute double data.");
+      ssAtt << "double;";
+      break;
+    case NC_FLOAT:
+      sz = attIt->second.attLen * sizeof(float);
+      attData = (float *) malloc(sz);
+      success = NCFUNC(get_att_float)(fileId, attIt->second.attVarId,
+				      attIt->second.attName.c_str(), (float*)attData);
+      ERRORS(success, "Failed to read attribute float data.");
+      ssAtt << "float;";
+      break;
+    case NC_INT:
+      sz = attIt->second.attLen * sizeof(int);
+      attData = (int *) malloc(sz);
+      success = NCFUNC(get_att_int)(fileId, attIt->second.attVarId,
+				    attIt->second.attName.c_str(), (int*)attData);
+      ERRORS(success, "Failed to read attribute int data.");
+      ssAtt << "int;";
+      break;
+    case NC_SHORT:
+      sz = attIt->second.attLen * sizeof(short);
+      attData = (short *) malloc(sz);
+      success = NCFUNC(get_att_short)(fileId, attIt->second.attVarId,
+				      attIt->second.attName.c_str(), (short*)attData);
+      ERRORS(success, "Failed to read attribute short data.");
+      ssAtt << "short;";
+      break;
+    default:
+      success = 1;
+    }    
+    char* tmpc = (char *) attData;
+    for (unsigned int counter = 0; counter != sz; ++counter)
+      ssAtt << tmpc[counter];
+    free(attData);
+    ssAtt << ';';
+    attLen.push_back(ssAtt.str().size()-1);
+  }
+  attVal = ssAtt.str();
+  
+  return MB_SUCCESS;
+}
+
 
 } // namespace moab

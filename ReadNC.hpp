@@ -174,6 +174,15 @@ private:
     //! create nc conventional tags
   ErrorCode create_tags(ScdInterface *scdi, EntityHandle file_set, 
                         const std::vector<int> &tstep_nums);
+  
+    //! create a character string attString of attMap.  with '\0'
+    //! terminating each attribute name, ';' separating the data type
+    //! and value, and ';' separating one name/data type/value from
+    //! the next'.  attLen stores the end postion for each name/data
+    //! type/ value.
+  ErrorCode create_attrib_string(const std::map<std::string, AttData>& attMap, 
+				 std::string& attString,
+				 std::vector<int>& attLen);
 
   ErrorCode init_ucd_mesh(const FileOptions &opts);
 
