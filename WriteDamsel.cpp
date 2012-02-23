@@ -248,7 +248,8 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
   Range ent_range(start_ent, end_ent);
   int count;
   EntityHandle *connect;
-  ErrorCode rval = mbImpl->connect_iterate(ent_range.begin(), ent_range.end(), count, connect);
+  int verts_per_ent;
+  ErrorCode rval = mbImpl->connect_iterate(ent_range.begin(), ent_range.end(), connect, verts_per_ent, count);
   CHK_MB_ERR_2(rval, "Failed to get connect iterator for entities starting with handle %lu.", rsi.get_start_handle());
   if (count != (int)ent_range.size())
     CHK_MB_ERR_2(MB_FAILURE, "Entity subrange not in the same sequence for entities starting with handle %lu.", 
@@ -286,8 +287,8 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
   Range vert_range(start_vert, end_vert);
   double *xcoords = NULL, *ycoords = NULL, *zcoords = NULL;
   int count;
-  ErrorCode rval = mbImpl->coords_iterate(vert_range.begin(), vert_range.end(), count,
-                                          xcoords, ycoords, zcoords);
+  ErrorCode rval = mbImpl->coords_iterate(vert_range.begin(), vert_range.end(),
+                                          xcoords, ycoords, zcoords, count);
   CHK_MB_ERR_2(rval, "Failed to get coordinate iterator for vertices starting with handle %lu.", 
              rsi.get_start_handle());
   if (count != (int)vert_range.size()) {
