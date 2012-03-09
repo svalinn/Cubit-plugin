@@ -52,6 +52,7 @@ endif
 
 if DAMSEL_FILE
   MOAB_DAMSEL_SRCS = WriteDamsel.cpp WriteDamsel.hpp
+  libmoabio_la_LIBADD += $(DAMSEL_LIBS)
 else
   MOAB_DAMSEL_SRCS =
 endif

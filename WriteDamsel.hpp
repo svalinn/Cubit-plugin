@@ -41,7 +41,7 @@ class WriteDamsel : public WriterIface
  
 public:
     //! factory function, for ReaderWriter
-  WriterIface* factory( Interface* iface );
+  static WriterIface* factory( Interface* iface );
 
     //! Constructor
   WriteDamsel(Interface *impl);
@@ -146,6 +146,8 @@ private:
 
     //! Damsel handle type used in (this build of) MOAB
   damsel_handle_type moabHandleType;
+
+  damsel_data_type moab_to_damsel_data_type[MB_MAX_DATA_TYPE];
 };
 
 } // namespace moab
