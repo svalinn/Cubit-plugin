@@ -87,8 +87,8 @@ WriterIface* WriteDamsel::factory( Interface* iface )
 
 WriteDamsel::WriteDamsel(Interface *impl) 
         : mbImpl(impl), mWriteIface(NULL), mError(NULL), sequenceManager(NULL),
-          mGlobalIdTag(0), dmslLib(DAMSEL_ID_INVALID), dmslModel(DAMSEL_ID_INVALID),
-          dmslXcoord(DAMSEL_ID_INVALID), dmslYcoord(DAMSEL_ID_INVALID), dmslZcoord(DAMSEL_ID_INVALID),
+          mGlobalIdTag(0), dmslLib(DAMSEL_LIBRARY_INVALID), dmslModel(DAMSEL_MODEL_INVALID),
+          dmslXcoord(DAMSEL_TAG_INVALID), dmslYcoord(DAMSEL_TAG_INVALID), dmslZcoord(DAMSEL_TAG_INVALID),
           moabHandleType(DAMSEL_HANDLE_TYPE_INVALID)
 {
   assert(impl != NULL);
@@ -108,19 +108,11 @@ WriteDamsel::WriteDamsel(Interface *impl)
   moabHandleType = (sizeof(EntityHandle) == 64 ? DAMSEL_HANDLE_TYPE_HANDLE64 :
                     DAMSEL_HANDLE_TYPE_HANDLE32);
   
-  dmslLib = DMSLlib_init();
-
-  moab_to_damsel_data_type[MB_TYPE_OPAQUE] = DAMSEL_DATA_TYPE_BYTES;
-  moab_to_damsel_data_type[MB_TYPE_INTEGER] = DAMSEL_DATA_TYPE_INTEGER;
-  moab_to_damsel_data_type[MB_TYPE_DOUBLE] = DAMSEL_DATA_TYPE_DOUBLE;
-  moab_to_damsel_data_type[MB_TYPE_BIT] = DAMSEL_DATA_TYPE_INVALID;
-  moab_to_damsel_data_type[MB_TYPE_HANDLE] = DAMSEL_DATA_TYPE_HANDLE;
 }
 
 WriteDamsel::~WriteDamsel() 
 {
   mbImpl->release_interface(mWriteIface);
-  DMSLlib_finalize(dmslLib);
 }
 
 ErrorCode WriteDamsel::write_file(const char *file_name, 
@@ -138,7 +130,13 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   ErrorCode rval;
   damsel_err_t err;
 
-  DMSLlib_init();
+  dmslLib = DMSLlib_init();
+
+  moab_to_damsel_data_type[MB_TYPE_OPAQUE] = DAMSEL_DATA_TYPE_BYTES;
+  moab_to_damsel_data_type[MB_TYPE_INTEGER] = DAMSEL_DATA_TYPE_INTEGER;
+  moab_to_damsel_data_type[MB_TYPE_DOUBLE] = DAMSEL_DATA_TYPE_DOUBLE;
+  moab_to_damsel_data_type[MB_TYPE_BIT] = DAMSEL_DATA_TYPE_INVALID;
+  moab_to_damsel_data_type[MB_TYPE_HANDLE] = DAMSEL_DATA_TYPE_HANDLE;
   
     // create a damsel model
   dmslModel = DMSLmodel_create(sizeof(EntityHandle) == 8 ? DAMSEL_HANDLE_TYPE_HANDLE64 : 
@@ -185,6 +183,10 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   damsel_status_t status;
   err = DMSLmodel_wait(request, &status);
   CHK_DMSL_ERR(err, "DMSLmodel_wait failed.");
+
+  DMSLstore_close((damsel_store*)dmslModel);
+
+  DMSLlib_finalize(dmslLib);
   
     // we should be done
   return MB_SUCCESS;
@@ -196,7 +198,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
 
   ErrorCode rval = MB_SUCCESS;
   std::vector<EntityHandle> ents;
-  damsel_id_t dseth;
+  damsel_container dseth;
   damsel_err_t err;
   for (EntityHandle seth = rsi.get_start_handle(); seth <= rsi.get_end_handle(); seth++) {
     // get the set type (range or set)
@@ -234,7 +236,7 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
   EntityHandle start_ent = rsi.get_start_handle(), end_ent = rsi.get_end_handle();
 
     // create a damsel container for these entity handles
-  damsel_id_t ent_cont;
+  damsel_container ent_cont;
   damsel_handle dum;
   ent_cont = DMSLhandle_create_sequence(dmslModel, dum, (int)(end_ent-start_ent+1), 
                                         start_ent, 1);
@@ -283,7 +285,7 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
 
     // create a damsel container for these vertex handles
   damsel_handle dum;
-  damsel_id_t vertex_cont = DMSLhandle_create_sequence(dmslModel, dum, 
+  damsel_container vertex_cont = DMSLhandle_create_sequence(dmslModel, dum, 
                                                        (int)(end_vert-start_vert+1), 
                                                        start_vert, 1);
   if (DAMSEL_ID_INVALID == vertex_cont) 
@@ -311,7 +313,7 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
                rsi.get_start_handle());
   }
   
-  damsel_id_t xcoords_dtag, ycoords_dtag, zcoords_dtag;
+  damsel_tag xcoords_dtag, ycoords_dtag, zcoords_dtag;
   
   if (xcoords && !ycoords && !zcoords) {
       // interleaved
@@ -350,8 +352,8 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
   return MB_SUCCESS;
 }
 
-ErrorCode WriteDamsel::damsel_coords_tags(damsel_id_t &xcoords_dtag, damsel_id_t &ycoords_dtag, 
-                                          damsel_id_t &zcoords_dtag, bool create_if_missing) 
+ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &ycoords_dtag, 
+                                          damsel_tag &zcoords_dtag, bool create_if_missing) 
 {
   xcoords_dtag = dmslXcoord; ycoords_dtag = dmslYcoord; zcoords_dtag = dmslZcoord;
   if ((DAMSEL_ID_INVALID == xcoords_dtag || DAMSEL_ID_INVALID == ycoords_dtag || DAMSEL_ID_INVALID == zcoords_dtag) &&
@@ -387,7 +389,7 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_id_t &xcoords_dtag, damsel_id_t
   return rval;
 }
 
-ErrorCode WriteDamsel::damsel_coords_tags(damsel_id_t &coords_dtag, bool create_if_missing) 
+ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &coords_dtag, bool create_if_missing) 
 {
   assert(false && "NEED TO DEFINE COMPOUND DATA TYPE TO STORE COORDS INTERLEAVED, AND DAMSEL DOESN'T HAVE THAT YET.");
   coords_dtag = dmslXcoord;
@@ -407,14 +409,14 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_id_t &coords_dtag, bool create_
   return rval;
 }
 
-ErrorCode WriteDamsel::write_dense_tags(RangeSeqIntersectIter &rsi, damsel_id_t &ent_cont) 
+ErrorCode WriteDamsel::write_dense_tags(RangeSeqIntersectIter &rsi, damsel_container &ent_cont) 
 {
     // all dense tags should have been initialized before this, so here we just go through
     // them and register data if there is any
   const unsigned char *val_ptr;
   ErrorCode rval = MB_SUCCESS;
   std::vector<Tag>::iterator tagit;
-  std::vector<damsel_id_t>::iterator did_it;
+  std::vector<damsel_tag>::iterator did_it;
   for (tagit = denseTags.begin(), did_it = dmslDenseTags.begin(); 
        tagit != denseTags.end(); tagit++, did_it++) {
       // get a ptr to memory for this tag/sequence
@@ -443,9 +445,9 @@ ErrorCode WriteDamsel::write_dense_tags(RangeSeqIntersectIter &rsi)
   const unsigned char *val_ptr;
   ErrorCode rval = MB_SUCCESS;
   std::vector<Tag>::iterator tagit;
-  std::vector<damsel_id_t>::iterator did_it;
+  std::vector<damsel_tag>::iterator did_it;
   damsel_err_t err;
-  damsel_id_t ent_cont = 0;
+  damsel_container ent_cont = 0;
   
   for (tagit = denseTags.begin(), did_it = dmslDenseTags.begin(); 
        tagit != denseTags.end(); tagit++, did_it++) {
@@ -492,7 +494,7 @@ ErrorCode WriteDamsel::init_dense_tag_info()
 
       // get a damsel id for this tag
     Tag thandle = *vit;
-    damsel_id_t dtag = DMSLtag_define(dmslModel, (damsel_handle_ptr)&thandle, 
+    damsel_tag dtag = DMSLtag_define(dmslModel, (damsel_handle_ptr)&thandle, 
                                       moab_to_damsel_data_type[thandle->get_data_type()],
                                       thandle->get_name().c_str());
     if (DAMSEL_ID_INVALID == dtag) CHK_MB_ERR_2(MB_FAILURE, "Failure to get Damsel tag for MOAB tag %s.", 

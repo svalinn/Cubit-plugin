@@ -91,8 +91,8 @@ private:
     //! \param ycoords_dtag Damsel id for tag used to store y coordinates for blocked storage
     //! \param zcoords_dtag Damsel id for tag used to store z coordinates for blocked storage
     //! \param create_if_missing If true and damsel id for a tag is not yet initialized, make one
-  ErrorCode damsel_coords_tags(damsel_id_t &xcoords_dtag, damsel_id_t &ycoords_dtag, 
-                               damsel_id_t &zcoords_dtag, bool create_if_missing);
+  ErrorCode damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &ycoords_dtag, 
+                               damsel_tag &zcoords_dtag, bool create_if_missing);
   
     //! Get the damsel tag id for the corresponding MOAB coordinates
     //! This version assumes coordinates are stored in the same Damsel tag
@@ -100,10 +100,10 @@ private:
     //! \param ycoords_dtag Damsel id for tag used to store y coordinates for interleaved storage
     //! \param zcoords_dtag Damsel id for tag used to store z coordinates for interleaved storage
     //! \param create_if_missing If true and damsel id for a tag is not yet initialized, make one
-  ErrorCode damsel_coords_tags(damsel_id_t &coords_dtag, bool create_if_missing);
+  ErrorCode damsel_coords_tags(damsel_tag &coords_dtag, bool create_if_missing);
   
     //! Write dense tags for the specified entities, using the specified damsel entity container
-  ErrorCode write_dense_tags(RangeSeqIntersectIter &rsi, damsel_id_t &ent_cont);
+  ErrorCode write_dense_tags(RangeSeqIntersectIter &rsi, damsel_container &ent_cont);
 
     //! Write dense tags for the specified entities; a new entity container is created if necessary
   ErrorCode write_dense_tags(RangeSeqIntersectIter &rsi);
@@ -130,19 +130,19 @@ private:
   std::string fileName;
 
     //! damsel library id
-  damsel_id_t dmslLib;
+  damsel_library dmslLib;
   
     //! damsel model id
-  damsel_id_t dmslModel;
+  damsel_model dmslModel;
   
     //! damsel coordinates tag ids (only first is used if interleaved)
-  damsel_id_t dmslXcoord, dmslYcoord, dmslZcoord;
+  damsel_tag dmslXcoord, dmslYcoord, dmslZcoord;
 
     //! all dense tag handles in model
   std::vector<Tag> denseTags;
   
     //! damsel ids for dense tags
-  std::vector<damsel_id_t> dmslDenseTags;
+  std::vector<damsel_tag> dmslDenseTags;
 
     //! Damsel handle type used in (this build of) MOAB
   damsel_handle_type moabHandleType;
