@@ -2346,6 +2346,21 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
       num_read = sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 1 0 1 %d", &uid);
       if (1 != num_read) return MB_FAILURE;
     }
+    else if (strncmp(records[current_attrib].att_string.c_str(), "COMPOSITE_ATTRIB @9 UNIQUE_ID", 29) == 0) {
+        // parse uid
+      int dum1, dum2, dum3, dum4;
+      num_read = sscanf(records[current_attrib].att_string.c_str(), "COMPOSITE_ATTRIB @9 UNIQUE_ID %d %d %d %d %d",
+          &dum1, &dum2, &dum3, &dum4, &uid);
+      if (5 != num_read) return MB_FAILURE;
+    }
+    else if (strncmp(records[current_attrib].att_string.c_str(), "COMPOSITE_ATTRIB @9 ENTITY_ID", 29) == 0) {
+        // parse id
+      int dum1, dum2, dum3;
+      num_read = sscanf(records[current_attrib].att_string.c_str(), "COMPOSITE_ATTRIB @9 ENTITY_ID %d %d %d %d",
+          &dum1, &dum2, &dum3, &id);
+      if (4 != num_read) return MB_FAILURE;
+    }
+
     else {
       attrib_vec.push_back(records[current_attrib].att_string);
     }
