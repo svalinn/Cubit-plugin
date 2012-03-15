@@ -69,6 +69,9 @@ public:
                        int /* num_tags */,
                        int /* requested_output_dimension */);
 
+  enum {DAMSEL_IS_TRACKING = 0x1
+  } DAMSEL_FLAGS;
+  
 private:
 
     //! Write the sets in the model, for the handles in the specified RangeSeqIntersectIter
@@ -126,6 +129,9 @@ private:
     //! Used to track file handles
   Tag mGlobalIdTag;
   
+    //! Used for set flags
+  Tag mSetFlagsTag;
+  
     //! file name
   std::string fileName;
 
@@ -147,8 +153,8 @@ private:
     //! Damsel handle type used in (this build of) MOAB
   damsel_handle_type moabHandleType;
 
-  damsel_data_type moab_to_damsel_data_type[MB_MAX_DATA_TYPE];
-};
+  damsel_data_type moab_to_damsel_data_type[MB_MAX_DATA_TYPE];}
+;
 
 } // namespace moab
 
