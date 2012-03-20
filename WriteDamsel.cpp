@@ -212,7 +212,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
                      DAMSEL_HANDLE_COLLECTION_TYPE_VECTOR);
 
       // make a damsel collection
-    dseth = DMSLcoll_create(dmslModel, (damsel_handle_ptr)&seth, coll_type);
+    dseth = DMSLcontainer_tree_create(dmslModel, (damsel_handle_ptr)&seth, coll_type);
     if (DAMSEL_CONTAINER_INVALID == dseth) CHK_MB_ERR_2(MB_FAILURE, "Bad handle returned by Damsel for meshset %lu.", seth);
 
       // get all the entities & add
@@ -220,7 +220,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
     rval = mbImpl->get_entities_by_handle(seth, ents);
     CHK_MB_ERR_2(rval, "get_entities_by_handle failed for set %lu.", seth);
     if (!ents.empty()) {
-      err = DMSLcoll_add_fast(dseth, (damsel_handle_ptr)&ents[0], ents.size());
+      err = DMSLcontainer_tree_add_fast(dseth, (damsel_handle_ptr)&ents[0], ents.size());
       CHK_DMSL_ERR_2(err, "DMSLcoll_add_fast failed for meshset %lu.", seth);
     }
 
@@ -388,7 +388,7 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &
     xcoords_dtag = dmslXcoord = DMSLtag_define(dmslModel, (damsel_handle_ptr)&tmp_handle,
                                                DAMSEL_DATA_TYPE_DOUBLE, "XCOORDS");
     if (DAMSEL_TAG_INVALID == xcoords_dtag) rval = MB_FAILURE;
-    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &tag_cont,
+    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &xcoords_dtag,
                                         1, (damsel_handle*)&tmp_handle);
     err = DMSLmodel_map_handles_inventing_file_handles(tag_cont);
     CHK_DMSL_ERR(err, "Problem in DMSLmodel_map_handles_inventing_file_handles.");
@@ -401,7 +401,7 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &
                                                "YCOORDS");
     if (DAMSEL_TAG_INVALID == ycoords_dtag) rval = MB_FAILURE;
 
-    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &tag_cont,
+    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &ycoords_dtag,
                                         1, (damsel_handle*)&tmp_handle);
     err = DMSLmodel_map_handles_inventing_file_handles(tag_cont);
     CHK_DMSL_ERR(err, "Problem in DMSLmodel_map_handles_inventing_file_handles.");
@@ -413,7 +413,7 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &
                                                DAMSEL_DATA_TYPE_DOUBLE,
                                                "ZCOORDS");
     if (DAMSEL_TAG_INVALID == zcoords_dtag) rval = MB_FAILURE;
-    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &tag_cont,
+    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &zcoords_dtag,
                                         1, (damsel_handle*)&tmp_handle);
     err = DMSLmodel_map_handles_inventing_file_handles(tag_cont);
     CHK_DMSL_ERR(err, "Problem in DMSLmodel_map_handles_inventing_file_handles.");
