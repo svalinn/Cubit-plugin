@@ -897,6 +897,8 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
     // the mid-element node if there is one.  Need to reconsturct additional
     // connectivity entries from mid-nodes of adjacent lower-order entities.
   int node_per_elem = cub_elem_num_verts[blockh->blockElemType];
+  if (blockh->blockEntityType==MBMAXTYPE)
+    return MB_SUCCESS;
   if (52 == blockh->blockElemType ||
       CN::VerticesPerEntity(blockh->blockEntityType) == node_per_elem)
     return MB_SUCCESS;
