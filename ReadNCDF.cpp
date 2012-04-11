@@ -1125,6 +1125,7 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
   int side_node_idx[32];
 
   int df_index = 0;
+  int sense;
   for(i=0; i < num_sides; i++)
   {
     ExoIIElementType exoii_type;
@@ -1153,9 +1154,10 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
       for (k = 0; k < num_side_nodes; ++k)
         connectivity[k] = nodes[ side_node_idx[k] ];
         
-      if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle ))
+      if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle, sense ))
         return MB_FAILURE;
-      entities_to_add.push_back( ent_handle );
+      if (1 == sense) entities_to_add.push_back( ent_handle );
+      else reverse_entities.push_back(ent_handle);
 
       //read in distribution factor array
       if( num_dist_factors )
@@ -1180,9 +1182,10 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
       for (k = 0; k < num_side_nodes; ++k)
         connectivity[k] = nodes[ side_node_idx[k] ];
         
-      if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle ))
+      if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle, sense ))
         return MB_FAILURE;
-      entities_to_add.push_back( ent_handle );
+      if (1 == sense) entities_to_add.push_back( ent_handle );
+      else reverse_entities.push_back(ent_handle);
 
       //read in distribution factor array
       if( num_dist_factors )
@@ -1201,7 +1204,8 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
       //just use this quad
       if( side_list[i] == 1)
       {
-        entities_to_add.push_back( ent_handle );
+        if (1 == sense) entities_to_add.push_back( ent_handle );
+        else reverse_entities.push_back(ent_handle);
 
         if( num_dist_factors )
         {
@@ -1237,9 +1241,10 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
         for (k = 0; k < num_side_nodes; ++k)
           connectivity[k] = nodes[ side_node_idx[k] ];
 
-        if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle ))
+        if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle, sense ))
           return MB_FAILURE;
-        entities_to_add.push_back( ent_handle );
+        if (1 == sense) entities_to_add.push_back( ent_handle );
+        else reverse_entities.push_back(ent_handle);
 
         if( num_dist_factors )
         {
@@ -1263,9 +1268,10 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
       for (k = 0; k < num_side_nodes; ++k)
         connectivity[k] = nodes[ side_node_idx[k] ];
         
-      if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle ))
+      if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle, sense ))
         return MB_FAILURE;
-      entities_to_add.push_back( ent_handle );
+      if (1 == sense) entities_to_add.push_back( ent_handle );
+      else reverse_entities.push_back(ent_handle);
 
       //read in distribution factor array
       if( num_dist_factors )
@@ -1279,7 +1285,8 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
       int side_offset = 0;
       if(number_dimensions() == 3 && side_list[i] <= 2)
       {
-        entities_to_add.push_back(ent_handle);
+        if (1 == sense) entities_to_add.push_back(ent_handle);
+        else reverse_entities.push_back(ent_handle);
         if( num_dist_factors )
         {
           for(k=0; k<3; k++)
@@ -1306,9 +1313,10 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
         for (k = 0; k < num_side_nodes; ++k)
           connectivity[k] = nodes[ side_node_idx[k] ];
 
-        if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle ))
+        if (MB_SUCCESS != create_sideset_element( connectivity, subtype, ent_handle, sense ))
           return MB_FAILURE;
-        entities_to_add.push_back( ent_handle );
+        if (1 == sense) entities_to_add.push_back( ent_handle );
+        else reverse_entities.push_back(ent_handle);
 
         if( num_dist_factors )
         {
@@ -1325,7 +1333,7 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
 }
 
 ErrorCode ReadNCDF::create_sideset_element( const std::vector<EntityHandle>& connectivity, 
-                                              EntityType type, EntityHandle& handle)
+                                            EntityType type, EntityHandle& handle, int &sense)
 {
   // get adjacent entities
   ErrorCode error = MB_SUCCESS;
@@ -1337,6 +1345,8 @@ ErrorCode ReadNCDF::create_sideset_element( const std::vector<EntityHandle>& con
   // if we find a match, return it
   bool match_found = false;
   std::vector<EntityHandle> match_conn;
+    // by default, assume positive sense
+  sense = 1;
   for(unsigned int i=0; i<adj_ent.size() && match_found == false; i++)
   {
     // get the connectivity
@@ -1385,6 +1395,8 @@ ErrorCode ReadNCDF::create_sideset_element( const std::vector<EntityHandle>& con
         ++j;
         --k;
       }
+        // if they matched here, sense is reversed
+      if (they_match) sense = -1;
     }
     match_found = they_match;
     if(match_found == true)

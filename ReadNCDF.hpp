@@ -163,7 +163,7 @@ private:
                                          */
 
   //! creates an element with the given connectivity
-  ErrorCode create_sideset_element( const std::vector<EntityHandle>&, EntityType, EntityHandle&);
+  ErrorCode create_sideset_element( const std::vector<EntityHandle>&, EntityType, EntityHandle&, int&);
 
   int get_number_nodes( EntityHandle handle );
 
