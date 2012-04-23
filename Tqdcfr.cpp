@@ -742,7 +742,7 @@ ErrorCode Tqdcfr::process_sideset_10(const int this_type, const int num_ents,
     if (tmp_result != MB_SUCCESS) result = tmp_result;
     int def_val = 1;
     Tag sense_tag;
-    tmp_result = mdbImpl->tag_get_handle("SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
+    tmp_result = mdbImpl->tag_get_handle("NEUSET_SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
                                      MB_TAG_SPARSE|MB_TAG_CREAT, &def_val);
     if (tmp_result != MB_SUCCESS) result = tmp_result;
     def_val = -1;
@@ -800,7 +800,7 @@ ErrorCode Tqdcfr::process_sideset_11(std::vector<EntityHandle> &ss_entities,
     if (tmp_result != MB_SUCCESS) result = tmp_result;
     int def_val = 1;
     Tag sense_tag;
-    tmp_result = mdbImpl->tag_get_handle("SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
+    tmp_result = mdbImpl->tag_get_handle("NEUSET_SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
                                       MB_TAG_SPARSE|MB_TAG_CREAT, &def_val);
     if (tmp_result != MB_SUCCESS && tmp_result != MB_ALREADY_ALLOCATED) result = tmp_result;
     def_val = -1;

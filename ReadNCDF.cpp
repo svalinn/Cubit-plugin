@@ -1052,7 +1052,7 @@ ErrorCode ReadNCDF::read_sidesets()
             // set the reverse tag
           Tag sense_tag;
           int dum_sense = 0;
-          result = mdbImpl->tag_get_handle("SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
+          result = mdbImpl->tag_get_handle("NEUSET_SENSE", 1, MB_TYPE_INTEGER, sense_tag, 
                                            MB_TAG_SPARSE|MB_TAG_CREAT, &dum_sense);
           if (result != MB_SUCCESS) return result;
           dum_sense = -1;
