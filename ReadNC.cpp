@@ -330,7 +330,7 @@ ErrorCode ReadNC::create_verts_hexes(ScdInterface *scdi, EntityHandle tmp_set, R
   ScdBox *scd_box;
   ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], (-1 != lDims[2] ? lDims[2] : 0), 1),
                                        HomCoord(lDims[3], lDims[4], (-1 != lDims[5] ? lDims[5] : 0), 1),
-                                       NULL, 0, scd_box);
+                                       NULL, 0, scd_box, true);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
     // set the global box parameters
