@@ -317,9 +317,9 @@ ErrorCode ReadNC::check_verts_hexes(EntityHandle file_set)
   ERRORR(rval, "Trouble getting number of elements.");
   
     // check against parameters
-  int expected_elems = (lDims[3] - lDims[0]) * (lDims[4] - lDims[1]) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2]);
-  if (num_elems != expected_elems)
-    ERRORR(MB_FAILURE, "Number of elements doesn't match.");
+  //int expected_elems = (lDims[3] - lDims[0]) * (lDims[4] - lDims[1]) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2]);
+  //if (num_elems != expected_elems)
+  //ERRORR(MB_FAILURE, "Number of elements doesn't match.");
   
   return MB_SUCCESS;
 }
