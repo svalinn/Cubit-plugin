@@ -274,16 +274,10 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
     CHK_MB_ERR_2(MB_FAILURE, "Entity subrange not in the same sequence for entities starting with handle %lu.", 
                rsi.get_start_handle());
   
-  damsel_container conn_cont = DMSLhandle_create_vector(dmslModel, 
-                                                        count*verts_per_ent, (damsel_handle*)connect);
-
     // define the entities to damsel
-  err = DMSLentity_define(ent_cont, moab_to_damsel_entity_type[etype], num_connect, conn_cont);
+  err = DMSLentity_define_fast(ent_cont, moab_to_damsel_entity_type[etype], num_connect, (damsel_handle*)connect);
   CHK_DMSL_ERR_2(err, "DMSLentity_define failed for entities starting with handle %lu.", rsi.get_start_handle());
   
-    // NOTE: THE FOLLOWING CALL SHOULDN'T BE NEEDED AFTER BEN FIXES WRITING SEQUENCES/VECTORS TO FILE
-  err = DMSLmodel_map_handles_inventing_file_handles(conn_cont);
-
     // write dense tags
   rval = write_dense_tags(rsi, ent_cont);
   CHK_MB_ERR(rval, NULL);
