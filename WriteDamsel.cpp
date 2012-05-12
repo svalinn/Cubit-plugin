@@ -212,7 +212,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
                      DAMSEL_HANDLE_COLLECTION_TYPE_VECTOR);
 
       // make a damsel collection
-    dseth = DMSLcontainer_tree_create(dmslModel, (damsel_handle_ptr)&seth, coll_type);
+    dseth = DMSLcontainer_tree_create(dmslModel, coll_type);
     if (DAMSEL_CONTAINER_INVALID == dseth) CHK_MB_ERR_2(MB_FAILURE, "Bad handle returned by Damsel for meshset %lu.", seth);
 
       // get all the entities & add
@@ -250,8 +250,7 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
 
     // create a damsel container for these entity handles
   damsel_container ent_cont;
-  ent_cont = DMSLhandle_create_sequence(dmslModel, (damsel_handle)&ent_cont, (int)(end_ent-start_ent+1), 
-                                        start_ent, 1);
+  ent_cont = DMSLhandle_create_sequence(dmslModel, (int)(end_ent-start_ent+1), start_ent, 1);
   if (DAMSEL_CONTAINER_INVALID == ent_cont)
     CHK_MB_ERR(MB_FAILURE, "Bad sequence returned by Damsel.");
 
@@ -264,10 +263,6 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
   int num_connect = rsi.get_sequence()->values_per_entity();
   assert(0 < num_connect);
   
-    // define the entities to damsel
-  err = DMSLentity_define(ent_cont, moab_to_damsel_entity_type[etype], num_connect);
-  CHK_DMSL_ERR_2(err, "DMSLentity_define failed for entities starting with handle %lu.", rsi.get_start_handle());
-  
     // get the connectivity storage location and pass to damsel
   Range ent_range(start_ent, end_ent);
   int count;
@@ -279,18 +274,15 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
     CHK_MB_ERR_2(MB_FAILURE, "Entity subrange not in the same sequence for entities starting with handle %lu.", 
                rsi.get_start_handle());
   
-  damsel_container conn_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &conn_cont,
+  damsel_container conn_cont = DMSLhandle_create_vector(dmslModel, 
                                                         count*verts_per_ent, (damsel_handle*)connect);
 
+    // define the entities to damsel
+  err = DMSLentity_define(ent_cont, moab_to_damsel_entity_type[etype], num_connect, conn_cont);
+  CHK_DMSL_ERR_2(err, "DMSLentity_define failed for entities starting with handle %lu.", rsi.get_start_handle());
+  
     // NOTE: THE FOLLOWING CALL SHOULDN'T BE NEEDED AFTER BEN FIXES WRITING SEQUENCES/VECTORS TO FILE
   err = DMSLmodel_map_handles_inventing_file_handles(conn_cont);
-
-  err = DMSLentity_set_connectivity(ent_cont, conn_cont);
-  CHK_DMSL_ERR(err, "Failure creating connectivity vector container.");
-
-//  err = DMSLentity_set_connectivity_fast(ent_cont, (damsel_handle_ptr)connect);
-  CHK_DMSL_ERR_2(err, "Failed in DMSLentity_set_connectivity_fast for entities starting with handle %lu.", 
-                 rsi.get_start_handle());
 
     // write dense tags
   rval = write_dense_tags(rsi, ent_cont);
@@ -305,9 +297,8 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
   EntityHandle start_vert = rsi.get_start_handle(), end_vert = rsi.get_end_handle();
 
     // create a damsel container for these vertex handles
-  damsel_container vertex_cont = DMSLhandle_create_sequence(dmslModel, (damsel_handle)&vertex_cont, 
-                                                       (int)(end_vert-start_vert+1), 
-                                                       start_vert, 1);
+  damsel_container vertex_cont = DMSLhandle_create_sequence(dmslModel, (int)(end_vert-start_vert+1), 
+                                                            start_vert, 1);
   if (DAMSEL_CONTAINER_INVALID == vertex_cont) 
     CHK_MB_ERR_2(MB_FAILURE, "Failed to create vertex sequence for vertices starting with handle %lu.", 
                rsi.get_start_handle());
@@ -316,7 +307,7 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
   CHK_DMSL_ERR(err, "Failed to map handles.");
 
     // define the entities to damsel
-  err = DMSLentity_define(vertex_cont, DAMSEL_ENTITY_TYPE_VERTEX, 1);
+  err = DMSLentity_define(vertex_cont, DAMSEL_ENTITY_TYPE_VERTEX, 1, vertex_cont);
   CHK_DMSL_ERR_2(err, "Failure in DMSLentity_define for vertices starting with handle %lu.", 
                rsi.get_start_handle());
   
@@ -388,8 +379,7 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &
     xcoords_dtag = dmslXcoord = DMSLtag_define(dmslModel, (damsel_handle_ptr)&tmp_handle,
                                                DAMSEL_DATA_TYPE_DOUBLE, "XCOORDS");
     if (DAMSEL_TAG_INVALID == xcoords_dtag) rval = MB_FAILURE;
-    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &xcoords_dtag,
-                                        1, (damsel_handle*)&tmp_handle);
+    tag_cont = DMSLhandle_create_vector(dmslModel, 1, (damsel_handle*)&tmp_handle);
     err = DMSLmodel_map_handles_inventing_file_handles(tag_cont);
     CHK_DMSL_ERR(err, "Problem in DMSLmodel_map_handles_inventing_file_handles.");
   }
@@ -401,8 +391,7 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &
                                                "YCOORDS");
     if (DAMSEL_TAG_INVALID == ycoords_dtag) rval = MB_FAILURE;
 
-    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &ycoords_dtag,
-                                        1, (damsel_handle*)&tmp_handle);
+    tag_cont = DMSLhandle_create_vector(dmslModel, 1, (damsel_handle*)&tmp_handle);
     err = DMSLmodel_map_handles_inventing_file_handles(tag_cont);
     CHK_DMSL_ERR(err, "Problem in DMSLmodel_map_handles_inventing_file_handles.");
   }
@@ -413,8 +402,7 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &
                                                DAMSEL_DATA_TYPE_DOUBLE,
                                                "ZCOORDS");
     if (DAMSEL_TAG_INVALID == zcoords_dtag) rval = MB_FAILURE;
-    tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &zcoords_dtag,
-                                        1, (damsel_handle*)&tmp_handle);
+    tag_cont = DMSLhandle_create_vector(dmslModel, 1, (damsel_handle*)&tmp_handle);
     err = DMSLmodel_map_handles_inventing_file_handles(tag_cont);
     CHK_DMSL_ERR(err, "Problem in DMSLmodel_map_handles_inventing_file_handles.");
   }
@@ -439,8 +427,7 @@ ErrorCode WriteDamsel::damsel_coords_tags(damsel_tag &coords_dtag, bool create_i
                                                "XYZCOORDS");
     if (DAMSEL_TAG_INVALID == coords_dtag) rval = MB_FAILURE;
 
-    damsel_container tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &tag_cont,
-                                                         1, (damsel_handle*)&tmp_handle);
+    damsel_container tag_cont = DMSLhandle_create_vector(dmslModel, 1, (damsel_handle*)&tmp_handle);
     damsel_err_t err = DMSLmodel_map_handles_inventing_file_handles(tag_cont);
     CHK_DMSL_ERR(err, "Problem in DMSLmodel_map_handles_inventing_file_handles.");
   }
@@ -503,8 +490,7 @@ ErrorCode WriteDamsel::write_dense_tags(RangeSeqIntersectIter &rsi)
     
     if (DAMSEL_CONTAINER_INVALID == ent_cont) {
       EntityHandle starth = rsi.get_start_handle();
-      ent_cont = DMSLhandle_create_sequence(dmslModel, (damsel_handle)&ent_cont, 
-                                            (int)(rsi.get_end_handle()-starth+1), 
+      ent_cont = DMSLhandle_create_sequence(dmslModel, (int)(rsi.get_end_handle()-starth+1), 
                                             starth, 1);
       if (DAMSEL_CONTAINER_INVALID == ent_cont) 
         CHK_MB_ERR_2(MB_FAILURE, "Failure creating entity sequence when writing tag for entities starting with handle %lu.",
@@ -547,8 +533,7 @@ ErrorCode WriteDamsel::init_dense_tag_info()
 
   if (dmslDenseTags.empty()) return MB_SUCCESS;
   
-  damsel_container tag_cont = DMSLhandle_create_vector(dmslModel, (damsel_handle) &tag_cont,
-                                                       dmslDenseTags.size(), (damsel_handle*)&denseTags[0]);
+  damsel_container tag_cont = DMSLhandle_create_vector(dmslModel, dmslDenseTags.size(), (damsel_handle*)&denseTags[0]);
   damsel_err_t err = DMSLmodel_map_handles_inventing_file_handles(tag_cont);
   CHK_DMSL_ERR(err, "Problem mapping dense tag handles.");
   
