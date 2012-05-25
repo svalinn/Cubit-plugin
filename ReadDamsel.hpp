@@ -61,6 +61,9 @@ public:
                                      const SubsetList* subset_list = 0 );
 private:
 
+  //! get contents of the container (containing file-side handles) and put in range
+  ErrorCode get_contents(damsel_model m, damsel_container c, Range &ents);
+
 //------------member variables ------------//
 
     //! interface instance
@@ -102,7 +105,14 @@ private:
     //! Damsel handle type used in (this build of) MOAB
   damsel_handle_type moabHandleType;
 
+    //! translation table for data types
   damsel_data_type moab_to_damsel_data_type[MB_MAX_DATA_TYPE];
+
+    //! damsel to moab tag handles
+  std::map<damsel_handle, Tag> tagMap;
+
+  //! map from damsel to moab handles
+  RangeMap<damsel_handle, EntityHandle> entityMap;
 };
 
 } // namespace moab
