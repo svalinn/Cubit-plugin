@@ -2520,6 +2520,7 @@ ErrorCode WriteHDF5::parallel_create_file( const char* ,
                                     int,
                                     double*  )
 {
+  writeUtil->report_error("WriteHDF5 does not support parallel writing.\n");
   return error(MB_NOT_IMPLEMENTED);
 }
 
