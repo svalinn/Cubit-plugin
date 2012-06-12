@@ -386,7 +386,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     }
     myPcomm = ParallelComm::get_pcomm(iFace, pcomm_no);
     if (0 == myPcomm) {
-      myPcomm = new ParallelComm(iFace);
+      myPcomm = new ParallelComm(iFace, MPI_COMM_WORLD);
     }
     const int rank = myPcomm->proc_config().proc_rank();
     dbgOut.set_rank(rank);

@@ -277,7 +277,7 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   }
   myPcomm = ParallelComm::get_pcomm(mbImpl, pcomm_no);
   if (0 == myPcomm) {
-    myPcomm = new ParallelComm(mbImpl);
+    myPcomm = new ParallelComm(mbImpl, MPI_COMM_WORLD);
   }
   const int rank = myPcomm->proc_config().proc_rank();
   dbgOut.set_rank(rank);
