@@ -328,9 +328,14 @@ ErrorCode ReadNC::create_verts_hexes(ScdInterface *scdi, EntityHandle tmp_set, R
 {
   Range tmp_range;
   ScdBox *scd_box;
+  bool lperiodic_i = false, gperiodic_i = true;
+#ifdef USE_MPI
+    // if serial, use a locally-periodic representation, otherwise don't
+  if (myPcomm->proc_config().proc_size() == 1) lperiodic_i = true;
+#endif  
   ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], (-1 != lDims[2] ? lDims[2] : 0), 1),
                                        HomCoord(lDims[3], lDims[4], (-1 != lDims[5] ? lDims[5] : 0), 1),
-                                       NULL, 0, scd_box, true);
+                                       NULL, 0, scd_box, lperiodic_i, false);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
     // set the global box parameters
@@ -362,13 +367,14 @@ ErrorCode ReadNC::create_verts_hexes(ScdInterface *scdi, EntityHandle tmp_set, R
   rval = scd_box->get_coordinate_arrays(xc, yc, zc);
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
-  int i, j, k, il, jl, kl;
+  int i, j, k, il, jl, kl, itmp;
   int dil = lDims[3] - lDims[0] + 1;
   int djl = lDims[4] - lDims[1] + 1;
   int di = gDims[3] - gDims[0] + 1;
   int dj = gDims[4] - gDims[1] + 1;
   assert(dil == (int)ilVals.size() && djl == (int)jlVals.size() && 
          (-1 == lDims[2] || lDims[5]-lDims[2]+1 == (int)klVals.size()));
+#define INDEX(i,j,k) ()
   for (kl = lDims[2]; kl <= lDims[5]; kl++) {
     k = kl - lDims[2];
     for (jl = lDims[1]; jl <= lDims[4]; jl++) {
@@ -379,11 +385,13 @@ ErrorCode ReadNC::create_verts_hexes(ScdInterface *scdi, EntityHandle tmp_set, R
         xc[pos] = ilVals[i];
         yc[pos] = jlVals[j];
         zc[pos] = (-1 == lDims[2] ? 0.0 : klVals[k]);
-        *gid_data = (-1 != kl ? kl*di*dj : 0) + jl*di + il + 1;
+        itmp = (!lperiodic_i && gperiodic_i && il == gDims[3] ? gDims[0] : il);
+        *gid_data = (-1 != kl ? kl*di*dj : 0) + jl*di + itmp + 1;
         gid_data++;
       }
     }
   }
+#undef INDEX
 
 #ifndef NDEBUG
   int num_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) *
