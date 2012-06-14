@@ -331,7 +331,7 @@ ErrorCode ReadNC::create_verts_hexes(ScdInterface *scdi, EntityHandle tmp_set, R
   bool lperiodic_i = false, gperiodic_i = true;
 #ifdef USE_MPI
     // if serial, use a locally-periodic representation, otherwise don't
-  if (myPcomm->proc_config().proc_size() == 1) lperiodic_i = true;
+  if (!isParallel || (myPcomm && myPcomm->proc_config().proc_size() == 1)) lperiodic_i = true;
 #endif  
   ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], (-1 != lDims[2] ? lDims[2] : 0), 1),
                                        HomCoord(lDims[3], lDims[4], (-1 != lDims[5] ? lDims[5] : 0), 1),
