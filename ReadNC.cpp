@@ -836,11 +836,13 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	  // east/west edges
 	  vdatas[i].readDims[t].push_back(lCDims[1]);
 	  vdatas[i].readDims[t].push_back(lDims[0]);
+#ifdef USE_MPI
 	  if ((isParallel) && 
 	      (myPcomm->proc_config().proc_size() != 1) &&
 	      ((gDims[3]-gDims[0]) == (lDims[3]-lDims[0])))
 	    vdatas[i].readCounts[t].push_back(lDims[3]-lDims[0]);
 	  else
+#endif
 	    vdatas[i].readCounts[t].push_back(lCDims[4]-lCDims[1]+1);	  
 	  vdatas[i].readCounts[t].push_back(lDims[3]-lDims[0]);
 	  assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
