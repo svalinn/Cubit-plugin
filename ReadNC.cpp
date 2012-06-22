@@ -1424,7 +1424,10 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   // if serial, use a locally-periodic representation only if local mesh is periodic, otherwise don't
   if ((myPcomm->proc_config().proc_size() == 1) && gperiodic_i)
     lperiodic_i = true;
-#endif  
+#else
+  if (gperiodic_i)
+    lperiodic_i = true;
+#endif
 
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lat")) != dimNames.end()) 
     idx = vit-dimNames.begin();
@@ -1720,7 +1723,10 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
   // if serial, use a locally-periodic representation only if local mesh is periodic, otherwise don't
   if ((myPcomm->proc_config().proc_size() == 1) && gperiodic_i)
     lperiodic_i = true;
-#endif  
+#else
+  if (gperiodic_i)
+    lperiodic_i = true;
+#endif
 
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lat")) != dimNames.end()) 
     idx = vit-dimNames.begin();
