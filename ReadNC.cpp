@@ -430,7 +430,11 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
   int i, j, k, il, jl, kl, itmp;
-  int dil = lDims[3] - lDims[0] + 1;
+  int dil;
+  if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3])
+    dil = lDims[3] - lDims[0];
+  else
+    dil = lDims[3] - lDims[0] + 1;
   int djl = lDims[4] - lDims[1] + 1;
   int di = gDims[3] - gDims[0] + 1;
   int dj = gDims[4] - gDims[1] + 1;
