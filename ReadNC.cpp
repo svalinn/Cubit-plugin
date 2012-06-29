@@ -35,8 +35,7 @@ ReadNC::ReadNC(Interface* impl)
 	  numUnLim(-1), mCurrentMeshHandle(0),
           startVertex(0), startElem(0), mGlobalIdTag(0), 
           max_line_length(-1), max_str_length(-1), vertexOffset(0), dbgOut(stderr),
-          isParallel(false), partMethod(-1), ucdMesh(false), 
-	  lperiodic_i(false), gperiodic_i(false)
+          isParallel(false), partMethod(-1), ucdMesh(false)
 
 #ifdef USE_MPI
         , myPcomm(NULL)
@@ -51,6 +50,9 @@ ReadNC::ReadNC(Interface* impl)
     lCDims[i] = -1;
   }
     
+  locallyPeriodic[0] = locallyPeriodic[1] = 0;
+  globallyPeriodic[0] = globallyPeriodic[1] = 0;
+  
   impl->query_interface(readMeshIface);
 }
 
@@ -80,8 +82,6 @@ void ReadNC::reset()
   mCurrentMeshHandle = 0;
   vertexOffset = 0; 
   ucdMesh = false;
-  lperiodic_i = false;
-  gperiodic_i = false;
   
 #ifdef USE_MPI
   myPcomm = NULL;
@@ -154,12 +154,12 @@ ErrorCode ReadNC::load_file(const char *file_name,
   if (attIt == globalAtts.end())
     ERRORR(MB_FAILURE, "File does not have conventions global attribute.\n");
   unsigned int sz = attIt->second.attLen;
-  void* attData = (char *) malloc(sz);  
+  char *att_data = (char *) malloc(sz+1);  
+  att_data[sz] ='\000';
   success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, 
-				 attIt->second.attName.c_str(), (char*)attData);
+				 attIt->second.attName.c_str(), (char*)att_data);
   ERRORS(success, "Failed to read attribute char data.");
-  char* tmpc = (char*) attData;
-  std::string tmpstr(tmpc);
+  std::string tmpstr(att_data);
   std::string cf("CF");
   if (tmpstr.find(cf) == std::string::npos)
     ERRORR(MB_FAILURE, "File not following known conventions.\n");
@@ -184,12 +184,12 @@ ErrorCode ReadNC::load_file(const char *file_name,
   attIt = globalAtts.find("source");
   if (attIt != globalAtts.end()) {
     unsigned int sz = attIt->second.attLen;
-    void* attData = (char *) malloc(sz);  
+    char* att_data = (char *) malloc(sz+1);  
+    att_data[sz] ='\000';
     success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, 
-				   attIt->second.attName.c_str(), (char*)attData);
+				   attIt->second.attName.c_str(), att_data);
     ERRORS(success, "Failed to read attribute char data.");
-    char* tmpc = (char*) attData;
-    std::string tmpstr(tmpc);
+    std::string tmpstr(att_data);
     std::string cf("CAM");
     if (tmpstr.find(cf) != std::string::npos)
       isCam = true;
@@ -357,10 +357,10 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   rval = opts.match_option("PARTITION_METHOD", part_options, dum);
   if (rval == MB_FAILURE) {
     readMeshIface->report_error("Unknown partition method specified.");
-    partMethod = ScdInterface::ALLJORKORI;
+    partMethod = ScdParData::ALLJORKORI;
   }
   else if (rval == MB_ENTITY_NOT_FOUND)
-    partMethod = ScdInterface::ALLJORKORI;
+    partMethod = ScdParData::ALLJORKORI;
   else
     partMethod = dum;
 #endif
@@ -401,15 +401,9 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
 
   ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], (-1 != lDims[2] ? lDims[2] : 0), 1),
                                        HomCoord(lDims[3], lDims[4], (-1 != lDims[5] ? lDims[5] : 0), 1),
-                                       NULL, 0, scd_box, lperiodic_i, false);
+                                       NULL, 0, scd_box, locallyPeriodic, &parData);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
   
-    // set the global box parameters
-  scd_box->set_global_box_dims(gDims);
-
-    // set the partitioning method
-  scd_box->part_method(partMethod);
-
     // add box set and new vertices, elements to the file set
   tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex()+scd_box->num_vertices()-1);
   tmp_range.insert(scd_box->start_element(), scd_box->start_element()+scd_box->num_elements()-1);
@@ -453,7 +447,7 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
         xc[pos] = ilVals[i];
         yc[pos] = jlVals[j];
         zc[pos] = (-1 == lDims[2] ? 0.0 : klVals[k]);
-        itmp = (!lperiodic_i && gperiodic_i && il == gDims[3] ? gDims[0] : il);
+        itmp = (!locallyPeriodic[0] && globallyPeriodic[0] && il == gDims[3] ? gDims[0] : il);
         *gid_data = (-1 != kl ? kl*di*dj : 0) + jl*di + itmp + 1;
         gid_data++;
       }
@@ -1059,7 +1053,7 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set,
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Seting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+      dbgOut.tprintf(2, "Setting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
       ErrorCode tmp_rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &file_set, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
       if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
       if (!vdatas[i].has_t) break;
@@ -1409,24 +1403,24 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   gCDims[0] = 0;
   iCName = dimNames[idx];
   
-  // check and set gperiodic_i
+  // check and set globallyPeriodic[0]
   std::vector<double> tilVals(2);
   ErrorCode rval = read_coordinate(iCName.c_str(), dimVals[idx]-2, dimVals[idx]-1, tilVals);
   ERRORR(rval, "Trouble reading slon variable.");    
   if (std::fabs(2*tilVals[1] - tilVals[0]- 360) < 0.001)
-    gperiodic_i = true; 
-  if (gperiodic_i)
+    globallyPeriodic[0] = 1; 
+  if (globallyPeriodic[0])
     assert("Number of vertices and edges should be same" && gDims[3] == gCDims[3]);
   else
     assert("Number of vertices should equal to number of edges plus one" && gDims[3] == gCDims[3]+1);
 
 #ifdef USE_MPI
   // if serial, use a locally-periodic representation only if local mesh is periodic, otherwise don't
-  if ((myPcomm->proc_config().proc_size() == 1) && gperiodic_i)
-    lperiodic_i = true;
+  if ((myPcomm->proc_config().proc_size() == 1) && globallyPeriodic[0])
+    locallyPeriodic[0] = 1;
 #else
-  if (gperiodic_i)
-    lperiodic_i = true;
+  if (globallyPeriodic[0])
+    locallyPeriodic[0] = 1;
 #endif
 
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lat")) != dimNames.end()) 
@@ -1448,13 +1442,21 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
     // initialize parameter bounds
   std::copy(gDims, gDims+6, lDims);
   
+    // initialize globally periodic based on file info
+
     // parse options to get subset
 #ifdef USE_MPI
   if (isParallel) {
-    rval = ScdInterface::compute_partition(partMethod, myPcomm->proc_config().proc_size(), 
+    for (int i = 0; i < 6; i++) parData.gDims[i] = gDims[i];
+    for (int i = 0; i < 3; i++) parData.gPeriodic[i] = globallyPeriodic[i];
+    parData.partMethod = partMethod;
+    int pdims[3];
+    
+    rval = ScdInterface::compute_partition(myPcomm->proc_config().proc_size(), 
                                            myPcomm->proc_config().proc_rank(), 
-                                           gDims, lDims);
+                                           parData, lDims, locallyPeriodic, pdims);
     if (MB_SUCCESS != rval) return rval;
+    for (int i = 0; i < 3; i++) parData.pDims[i] = pdims[i];
 
     dbgOut.tprintf(1, "Partition: %dx%d (out of %dx%d)\n", 
                    lDims[3]-lDims[0]+1, lDims[4]-lDims[1]+1,
@@ -1476,7 +1478,7 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   if (-1 != tMin) tVals.resize(tMax - tMin + 1);
   
   // initialize center dimension parameter bounds  
-  if ((gperiodic_i) && ((gDims[3]-gDims[0]) == (lDims[3]-lDims[0])))
+  if ((globallyPeriodic[0]) && ((gDims[3]-gDims[0]) == (lDims[3]-lDims[0])))
     lCDims[3] = lDims[3];
   else
     lCDims[3] = lDims[3]-1;
@@ -1704,51 +1706,43 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
   // look for names of center i/j dimensions
   std::vector<std::string>::iterator vit;
   unsigned int idx;
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "lon")) != dimNames.end()) 
+  iCName = std::string("lon");
+  iName = std::string("slon");
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), iCName.c_str())) != dimNames.end()) 
     idx = vit-dimNames.begin();
   else ERRORR(MB_FAILURE, "Couldn't find center i variable.");
-  gCDims[3] = dimVals[idx]-1;
-  gCDims[0] = 0;
   iCDim = idx;
-  iCName = std::string("lon");
 
-  // check and set gperiodic_i
-  std::vector<double> tilVals(2);
-  ErrorCode rval = read_coordinate(iCName.c_str(), dimVals[idx]-2, dimVals[idx]-1, tilVals);
+  // decide on i periodicity using math for now
+  std::vector<double> tilVals(dimVals[idx]);
+  ErrorCode rval = read_coordinate(iCName.c_str(), 0, dimVals[idx]-1, tilVals);
   ERRORR(rval, "Trouble reading lon variable.");    
-  if (std::fabs(2*tilVals[1] - tilVals[0]- 360) < 0.001)
-    gperiodic_i = true;
+  if (std::fabs(2*(*(tilVals.rbegin())) - *(tilVals.rbegin()+1)- 360) < 0.001)
+    globallyPeriodic[0] = 1;
   
-#ifdef USE_MPI
-  // if serial, use a locally-periodic representation only if local mesh is periodic, otherwise don't
-  if ((myPcomm->proc_config().proc_size() == 1) && gperiodic_i)
-    lperiodic_i = true;
-#else
-  if (gperiodic_i)
-    lperiodic_i = true;
-#endif
+    // now we can set gCDims and gDims for i
+  gCDims[0] = 0;
+  gDims[0] = 0;
+  gCDims[3] = dimVals[idx]-1; // these are stored directly in file
+  gDims[3] = gCDims[3] + (globallyPeriodic[0] ? 0 : 1); // only if not periodic is vertex param max > elem param max
 
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "lat")) != dimNames.end()) 
+
+    // now j
+  jCName = std::string("lat");
+  jName = std::string("slat");
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), jCName.c_str())) != dimNames.end()) 
     idx = vit-dimNames.begin();
   else ERRORR(MB_FAILURE, "Couldn't find center j variable.");
-  gCDims[4] = dimVals[idx]-1;
-  gCDims[1] = 0;
   jCDim = idx;
-  jCName = std::string("lat");
   
-  // set paraemters of i/j dimensions
-  gDims[3] = gCDims[3]+1;   
-  gDims[0] = 0;
-
-  iName = std::string("slon");
-  
-  gDims[4] = gCDims[4]+1;
+    // for Eul models, will always be non-periodic in j
+  gCDims[1] = 0;
   gDims[1] = 0;
-  jName = std::string("slat");
+  gCDims[4] = dimVals[idx]-1;
+  gDims[4] = gCDims[4]+1;
   
-  // FIXME: get_neighbor_sqij crashed when setting both equals -1;
-  // should remove when that is fixed
-  gDims[2] = 0; gDims[5] = 20;
+    // try a truly 2d mesh
+  gDims[2] = -1; gDims[5] = -1;
 
   // look for time dimensions 
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end()) 
@@ -1762,59 +1756,62 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
   tMin = 0;
   tName = dimNames[idx];
   
-  // initialize parameter bounds
-  std::copy(gDims, gDims+6, lDims);
-  
     // parse options to get subset
-#ifdef USE_MPI
   if (isParallel) {
-    rval = ScdInterface::compute_partition(partMethod, myPcomm->proc_config().proc_size(), 
+#ifdef USE_MPI
+    for (int i = 0; i < 6; i++) parData.gDims[i] = gDims[i];
+    for (int i = 0; i < 3; i++) parData.gPeriodic[i] = globallyPeriodic[i];
+    parData.partMethod = partMethod;
+    int pdims[3];
+    
+    rval = ScdInterface::compute_partition(myPcomm->proc_config().proc_size(), 
                                            myPcomm->proc_config().proc_rank(), 
-                                           gDims, lDims);
+                                           parData, lDims, locallyPeriodic, pdims);
     if (MB_SUCCESS != rval) return rval;
+    for (int i = 0; i < 3; i++) parData.pDims[i] = pdims[i];
 
     dbgOut.tprintf(1, "Partition: %dx%d (out of %dx%d)\n", 
                    lDims[3]-lDims[0]+1, lDims[4]-lDims[1]+1,
                    gDims[3]-gDims[0]+1, gDims[4]-gDims[1]+1);
     if (myPcomm->proc_config().proc_rank() == 0) 
       dbgOut.tprintf(1, "Contiguous chunks of size %d bytes.\n", 8*(lDims[3]-lDims[0]+1)*(lDims[4]-lDims[1]+1));
-  }
 #endif
+  }
+  else {
+    for (int i = 0; i < 6; i++) lDims[i] = gDims[i];
+    locallyPeriodic[0] = globallyPeriodic[0];
+  }
     
   opts.get_int_option("IMIN", lDims[0]);
   opts.get_int_option("IMAX", lDims[3]);
   opts.get_int_option("JMIN", lDims[1]);
   opts.get_int_option("JMAX", lDims[4]);
     
-    // now get actual coordinate values for these dimensions
-    // first allocate space...
-
-  if (-1 != lDims[0]) {
-    if ((gperiodic_i) && ((gDims[3]-gDims[0]) == (lDims[3]-lDims[0]))) {
-      gDims[3] -= 1;
-      lDims[3] -= 1;
-    }
+    // now get actual coordinate values for vertices and cell centers; first resize
+  if (locallyPeriodic[0]) {
+      // if locally periodic, doesn't matter what global periodicity is, # vertex coords = # elem coords
     ilVals.resize(lDims[3] - lDims[0] + 1);
-  } 
-  if (-1 != lDims[1]) jlVals.resize(lDims[4] - lDims[1] + 1);
+    ilCVals.resize(lDims[3] - lDims[0] + 1);
+  }
+  else if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
+      // globally periodic and I'm the last proc, get fewer vertex coords than vertices in i
+    ilVals.resize(lDims[3] - lDims[0]);
+    ilCVals.resize(lDims[3] - lDims[0]);
+  }
+  
+
+  if (-1 != lDims[1]) {
+    jlVals.resize(lDims[4] - lDims[1] + 1);
+    jlCVals.resize(lCDims[4] - lCDims[1] + 1);
+  }
+  
   if (-1 != tMin) tVals.resize(tMax - tMin + 1);
   
-  // initialize center dimension parameter bounds  
-  if ((gperiodic_i) && ((gDims[3]-gDims[0]) == (lDims[3]-lDims[0])))
-    lCDims[3] = lDims[3];
-  else
-    lCDims[3] = lDims[3]-1;
-  lCDims[0] = lDims[0];
-  lCDims[4] = lDims[4]-1;
-  lCDims[1] = lDims[1];
-  if (-1 != lCDims[0]) ilCVals.resize(lCDims[3] - lCDims[0] + 1);
-  if (-1 != lCDims[1]) jlCVals.resize(lCDims[4] - lCDims[1] + 1);
-  
-  // ... then read actual values
+  // now read coord values
   std::map<std::string,VarData>::iterator vmit;
-  if (lCDims[0] != -1) {
+  if (!ilCVals.empty()) {
     if ((vmit = varInfo.find(iCName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate(iCName.c_str(), lCDims[0], lCDims[3], ilCVals);
+      rval = read_coordinate(iCName.c_str(), lDims[0], lDims[0]+ilCVals.size()-1, ilCVals);
       ERRORR(rval, "Trouble reading lon variable.");
     }
     else {
@@ -1822,9 +1819,9 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
     }
   }
   
-  if (lCDims[1] != -1) {
+  if (!jlCVals.empty()) {
     if ((vmit = varInfo.find(jCName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate(jCName.c_str(), lCDims[1], lCDims[4], jlCVals);
+      rval = read_coordinate(jCName.c_str(), lDims[1], lDims[1]+jlCVals.size()-1, jlCVals);
       ERRORR(rval, "Trouble reading lat variable.");
     }
     else {
@@ -1835,23 +1832,13 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
   if (lDims[0] != -1) {
     if ((vmit = varInfo.find(iCName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       // last column
-      if ((gDims[3]!=gCDims[3]) && (lDims[3] == gDims[3])) {
-	  std::vector<double> tilVals(ilVals.size()-1, 0.0);
-	  rval = read_coordinate(iCName.c_str(), lDims[0], lDims[3]-1, tilVals);
-	  double dif = (tilVals[1] - tilVals[0])/2;
-	  std::size_t i;
-	  for (i = 0; i != tilVals.size(); ++i)
-	    ilVals[i] = tilVals[i] - dif;	  
-	  ilVals[i] = tilVals[i-1] + dif;
-      }
-      else {
-	std::vector<double> tilVals(ilVals.size(), 0.0);
-	rval = read_coordinate(iCName.c_str(), lDims[0], lDims[3], tilVals);
-	double dif = (tilVals[1] - tilVals[0])/2;
-	for (std::size_t i = 0; i != tilVals.size(); ++i)
-	  ilVals[i] = tilVals[i] - dif;
-	ERRORR(rval, "Trouble reading x variable.");
-      }
+      unsigned int num_vals = lDims[3]-lDims[0]+1;
+      double dif = (ilCVals[1] - ilCVals[0])/2;
+      std::size_t i;
+      for (i = 0; i != ilCVals.size(); ++i)
+        ilVals[i] = ilCVals[i] - dif;
+      for (i = tilVals.size(); i < num_vals; i++)
+        ilVals[i] = ilCVals[i-1] + 2*dif;
     }
     else {
       ERRORR(MB_FAILURE, "Couldn't find x coordinate.");
@@ -2147,11 +2134,15 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts)
     // partition; must use the sqjk method here, others don't make sense
 #ifdef USE_MPI
   if (isParallel) {
-    rval = ScdInterface::compute_partition(ScdInterface::SQJK, 
-                                           myPcomm->proc_config().proc_size(), 
+    for (int i = 0; i < 6; i++) parData.gDims[i] = gDims[i];
+    for (int i = 0; i < 3; i++) parData.gPeriodic[i] = globallyPeriodic[i];
+    parData.partMethod = partMethod;
+    int pdims[3];
+    rval = ScdInterface::compute_partition(myPcomm->proc_config().proc_size(), 
                                            myPcomm->proc_config().proc_rank(), 
-                                           gDims, lDims);
+                                           parData, lDims, locallyPeriodic, pdims);
     if (MB_SUCCESS != rval) return rval;
+    for (int i = 0; i < 3; i++) parData.pDims[i] = pdims[i];
 
     dbgOut.tprintf(1, "Partition: %dx%dx%d (out of %dx%dx%d)\n", 
                    lDims[3]-lDims[0]+1, lDims[4]-lDims[1]+1, lDims[5]-lDims[2]+1,
