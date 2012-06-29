@@ -1792,13 +1792,18 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
       // if locally periodic, doesn't matter what global periodicity is, # vertex coords = # elem coords
     ilVals.resize(lDims[3] - lDims[0] + 1);
     ilCVals.resize(lDims[3] - lDims[0] + 1);
+    lCDims[3] = lDims[3];
   }
   else if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
       // globally periodic and I'm the last proc, get fewer vertex coords than vertices in i
     ilVals.resize(lDims[3] - lDims[0]);
     ilCVals.resize(lDims[3] - lDims[0]);
+    lCDims[3] = lDims[3]-1;
   }
-  
+
+  lCDims[0] = lDims[0];
+  lCDims[4] = lDims[4]-1;
+  lCDims[1] = lDims[1];
 
   if (-1 != lDims[1]) {
     jlVals.resize(lDims[4] - lDims[1] + 1);
