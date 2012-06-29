@@ -1794,11 +1794,19 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
     ilCVals.resize(lDims[3] - lDims[0] + 1);
     lCDims[3] = lDims[3];
   }
-  else if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
+  else {
+    if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
       // globally periodic and I'm the last proc, get fewer vertex coords than vertices in i
-    ilVals.resize(lDims[3] - lDims[0]);
-    ilCVals.resize(lDims[3] - lDims[0]);
-    lCDims[3] = lDims[3]-1;
+      ilVals.resize(lDims[3] - lDims[0]);
+      ilCVals.resize(lDims[3] - lDims[0]);
+      lCDims[3] = lDims[3]-1;
+    }
+    else
+      {
+	ilVals.resize(lDims[3] - lDims[0] + 1);
+	ilCVals.resize(lDims[3] - lDims[0]);
+	lCDims[3] = lDims[3]-1;
+      }
   }
 
   lCDims[0] = lDims[0];
