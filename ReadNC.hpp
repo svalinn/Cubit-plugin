@@ -20,6 +20,7 @@
 #include "moab/Forward.hpp"
 #include "moab/ReaderIface.hpp"
 #include "moab/Range.hpp"
+#include "moab/ScdInterface.hpp"
 #include "DebugOutput.hpp"
 
 #ifdef USE_MPI
@@ -294,10 +295,15 @@ private:
 
   bool ucdMesh;
 
-  bool lperiodic_i;
+    //! whether mesh is locally periodic in i or j
+  int locallyPeriodic[2];
 
-  bool gperiodic_i;
+    //! whether mesh is globally periodic in i or j
+  int globallyPeriodic[2];
 
+    //! parallel data object, to be cached with ScdBox
+  ScdParData parData;
+  
 #ifdef USE_MPI
   ParallelComm *myPcomm;
 #endif
