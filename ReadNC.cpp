@@ -399,8 +399,8 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
   Range tmp_range;
   ScdBox *scd_box;
 
-  ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], (-1 != lDims[2] ? lDims[2] : 0), 1),
-                                       HomCoord(lDims[3], lDims[4], (-1 != lDims[5] ? lDims[5] : 0), 1),
+  ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], lDims[2], 1),
+                                       HomCoord(lDims[3], lDims[4], lDims[5], 1),
                                        NULL, 0, scd_box, locallyPeriodic, &parData);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
   
