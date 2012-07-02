@@ -221,9 +221,6 @@ ErrorCode ReadNC::load_file(const char *file_name,
   }
   ERRORR(rval, "Trouble initializing mesh values.");
 
-  // FIXME: compute partition will set lDims[2] and lDims[5] to 0 when they equal to -1
-  lDims[2]=lDims[5]=-1;
-
     // Create mesh vertex/quads sequences
   Range quads;
   if (nomesh && !novars) {
@@ -1393,11 +1390,7 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   gDims[4] = dimVals[idx]-1+2; // add 2 for the pole points
   gDims[1] = 0;
   jName = dimNames[idx];
-  
-  // get_neighbor_sqij has errors when setting both equals -1;
-  // should remove when that is fixed
-  gDims[2] = 0; gDims[5] = 20;
-  
+    
   // look for names of center i/j dimensions
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lon")) != dimNames.end()) 
     idx = vit-dimNames.begin();
@@ -1443,14 +1436,9 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   tMin = 0;
   tName = dimNames[idx];
 
-    // initialize parameter bounds
-  std::copy(gDims, gDims+6, lDims);
-  
-    // initialize globally periodic based on file info
-
-    // parse options to get subset
-#ifdef USE_MPI
+  // parse options to get subset
   if (isParallel) {
+#ifdef USE_MPI
     for (int i = 0; i < 6; i++) parData.gDims[i] = gDims[i];
     for (int i = 0; i < 3; i++) parData.gPeriodic[i] = globallyPeriodic[i];
     parData.partMethod = partMethod;
@@ -1467,31 +1455,50 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
                    gDims[3]-gDims[0]+1, gDims[4]-gDims[1]+1);
     if (myPcomm->proc_config().proc_rank() == 0) 
       dbgOut.tprintf(1, "Contiguous chunks of size %d bytes.\n", 8*(lDims[3]-lDims[0]+1)*(lDims[4]-lDims[1]+1));
-  }
 #endif
+  }
+  else {
+    for (int i = 0; i < 6; i++) lDims[i] = gDims[i];
+    locallyPeriodic[0] = globallyPeriodic[0];
+  }
     
   opts.get_int_option("IMIN", lDims[0]);
   opts.get_int_option("IMAX", lDims[3]);
   opts.get_int_option("JMIN", lDims[1]);
   opts.get_int_option("JMAX", lDims[4]);
 
-  // now get actual coordinate values for these dimensions
-  // first allocate space...
-  if (-1 != lDims[0]) ilVals.resize(lDims[3] - lDims[0] + 1);
-  if (-1 != lDims[1]) jlVals.resize(lDims[4] - lDims[1] + 1);
-  if (-1 != tMin) tVals.resize(tMax - tMin + 1);
-  
-  // initialize center dimension parameter bounds  
-  if ((globallyPeriodic[0]) && ((gDims[3]-gDims[0]) == (lDims[3]-lDims[0])))
+  // now get actual coordinate values for vertices and cell centers; first resize
+  if (locallyPeriodic[0]) {
+    // if locally periodic, doesn't matter what global periodicity is, # vertex coords = # elem coords
+    ilVals.resize(lDims[3] - lDims[0] + 1);
+    ilCVals.resize(lDims[3] - lDims[0] + 1);
     lCDims[3] = lDims[3];
-  else
-    lCDims[3] = lDims[3]-1;
+  }
+  else {
+    if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
+      // globally periodic and I'm the last proc, get fewer vertex coords than vertices in i
+      ilVals.resize(lDims[3] - lDims[0]);
+      ilCVals.resize(lDims[3] - lDims[0]);
+      lCDims[3] = lDims[3]-1;
+    }
+    else {
+      ilVals.resize(lDims[3] - lDims[0] + 1);
+      ilCVals.resize(lDims[3] - lDims[0]);
+      lCDims[3] = lDims[3]-1;
+    }
+  }
+
   lCDims[0] = lDims[0];
   lCDims[4] = lDims[4]-1;
   lCDims[1] = lDims[1];
-  if (-1 != lCDims[0]) ilCVals.resize(lCDims[3] - lCDims[0] + 1);
-  if (-1 != lCDims[1]) jlCVals.resize(lCDims[4] - lCDims[1] + 1);
 
+  if (-1 != lDims[1]) {
+    jlVals.resize(lDims[4] - lDims[1] + 1);
+    jlCVals.resize(lCDims[4] - lCDims[1] + 1);
+  }
+  
+  if (-1 != tMin) tVals.resize(tMax - tMin + 1);
+  
   // ... then read actual values
   std::map<std::string,VarData>::iterator vmit;
   if (lCDims[0] != -1) {
@@ -1517,7 +1524,7 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   if (lDims[0] != -1) {
     if ((vmit = varInfo.find(iName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       // last column
-      if ((gDims[3]!=gCDims[3]) && (lDims[3] == gDims[3])) {
+      if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
 	std::vector<double> tilVals(ilVals.size()-1, 0.0);
 	rval = read_coordinate(iName.c_str(), lDims[0], lDims[3]-1, tilVals);
 	double dif = (tilVals[1] - tilVals[0])/2;
@@ -1729,7 +1736,6 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
   gDims[0] = 0;
   gCDims[3] = dimVals[idx]-1; // these are stored directly in file
   gDims[3] = gCDims[3] + (globallyPeriodic[0] ? 0 : 1); // only if not periodic is vertex param max > elem param max
-
 
     // now j
   jCName = std::string("lat");
