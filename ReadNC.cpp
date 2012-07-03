@@ -817,6 +817,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	  break;
 	case 1:
 	  // north/south edges
+	  /*
 	  vdatas[i].readDims[t].push_back(lDims[1]);
 	  vdatas[i].readDims[t].push_back(lCDims[0]);
 	  // FIXME: need to figure out what to do with extra 2 pole points
@@ -826,9 +827,12 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	  assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
 	  ehandles = &ns_edges_handles;
 	  range = &verts; // FIXME: should remove when edge handles are used
+	  */
+	  ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
 	  break;
 	case 2:
 	  // east/west edges
+	  /*
 	  vdatas[i].readDims[t].push_back(lCDims[1]);
 	  vdatas[i].readDims[t].push_back(lDims[0]);
 #ifdef USE_MPI
@@ -843,6 +847,8 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	  assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
 	  ehandles = &ew_edges_handles;
 	  range = &verts; // FIXME: should remove when edge handles are used
+	  */
+	  ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
 	  break;
 	case 3:
 	  // quads
