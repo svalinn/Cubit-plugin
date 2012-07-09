@@ -374,9 +374,9 @@ ErrorCode ReadNC::check_verts_quads(EntityHandle file_set)
   ERRORR(rval, "Trouble getting number of vertices.");
   
     // check against parameters
-  int expected_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2] + 1);
-  if (num_verts != expected_verts)
-    ERRORR(MB_FAILURE, "Number of vertices doesn't match.");
+  //int expected_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2] + 1);
+  //if (num_verts != expected_verts)
+  //ERRORR(MB_FAILURE, "Number of vertices doesn't match.");
   
     // check the number of elements too
   int num_elems;
@@ -762,7 +762,11 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	 quads.psize() == 1);
   //quads_handles.resize(quads.size());
   //std::copy(quads.begin(), quads.end(), quads_handles.begin());
-  
+  moab::Range quads_owned;    
+  rval = myPcomm->filter_pstatus(quads, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1,
+				 &quads_owned);
+  ERRORR(rval, "Trouble getting owned quads in set.");
+
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
@@ -857,7 +861,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	  vdatas[i].readCounts[t].push_back(lCDims[4]-lCDims[1]+1);
 	  vdatas[i].readCounts[t].push_back(lCDims[3]-lCDims[0]+1);
 	  assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
-	  range = &quads;
+	  range = &quads_owned;
 	  break;
 	case 4:
 	  // set 
@@ -1714,6 +1718,36 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
     ERRORR(rval, "Trouble setting data for __<coordinate_dim_name>_LOC_MINMAX tag.");
     if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   }
+
+  // __<coordinate_dim_name>_GLOBAL_MINMAX
+  for (unsigned int i = 0; i != ijdimNames.size(); ++i) {
+    std::stringstream ss_tag_name;
+    ss_tag_name << ijdimNames[i] << "_GLOBAL_MINMAX";
+    tag_name = ss_tag_name.str();
+    Tag tagh = 0; 
+    std::vector<int> val(2, 0);
+    if (ijdimNames[i] == "__slon") {
+      val[0] = gDims[0]; 
+      val[1] = gDims[3]; 
+    }
+    else if (ijdimNames[i] == "__slat") {
+      val[0] = gDims[1]; 
+      val[1] = gDims[4];
+    }
+    else if (ijdimNames[i] == "__lon") {
+      val[0] = gCDims[0]; 
+      val[1] = gCDims[3]; 
+    }
+    else if (ijdimNames[i] == "__lat") {
+      val[0] = gCDims[1]; 
+      val[1] = gCDims[4];
+    }
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT);
+    ERRORR(rval, "Trouble creating __<coordinate_dim_name>_GLOBAL_MINMAX tag.");
+    rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+    ERRORR(rval, "Trouble setting data for __<coordinate_dim_name>_GLOBAL_MINMAX tag.");
+    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  }
   
   return MB_SUCCESS;
 }
@@ -2058,6 +2092,36 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
     ERRORR(rval, "Trouble creating __<coordinate_dim_name>_LOC_MINMAX tag.");
     rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
     ERRORR(rval, "Trouble setting data for __<coordinate_dim_name>_LOC_MINMAX tag.");
+    if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
+  }
+
+  // __<coordinate_dim_name>_GLOBAL_MINMAX
+  for (unsigned int i = 0; i != ijdimNames.size(); ++i) {
+    std::stringstream ss_tag_name;
+    ss_tag_name << ijdimNames[i] << "_GLOBAL_MINMAX";
+    tag_name = ss_tag_name.str();
+    Tag tagh = 0; 
+    std::vector<int> val(2, 0);
+    if (ijdimNames[i] == "__slon") {
+      val[0] = gDims[0]; 
+      val[1] = gDims[3]; 
+    }
+    else if (ijdimNames[i] == "__slat") {
+      val[0] = gDims[1]; 
+      val[1] = gDims[4];
+    }
+    else if (ijdimNames[i] == "__lon") {
+      val[0] = gCDims[0]; 
+      val[1] = gCDims[3]; 
+    }
+    else if (ijdimNames[i] == "__lat") {
+      val[0] = gCDims[1]; 
+      val[1] = gCDims[4];
+    }
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE|MB_TAG_CREAT);
+    ERRORR(rval, "Trouble creating __<coordinate_dim_name>_GLOBAL_MINMAX tag.");
+    rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+    ERRORR(rval, "Trouble setting data for __<coordinate_dim_name>_GLOBAL_MINMAX tag.");
     if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());    
   }
   
