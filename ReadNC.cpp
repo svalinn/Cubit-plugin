@@ -762,10 +762,12 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	 quads.psize() == 1);
   //quads_handles.resize(quads.size());
   //std::copy(quads.begin(), quads.end(), quads_handles.begin());
+#ifdef USE_MPI
   moab::Range quads_owned;    
   rval = myPcomm->filter_pstatus(quads, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1,
 				 &quads_owned);
   ERRORR(rval, "Trouble getting owned quads in set.");
+#endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
@@ -861,7 +863,11 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	  vdatas[i].readCounts[t].push_back(lCDims[4]-lCDims[1]+1);
 	  vdatas[i].readCounts[t].push_back(lCDims[3]-lCDims[0]+1);
 	  assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+#ifdef USE_MPI
 	  range = &quads_owned;
+#else
+	  range = &quads;
+#endif
 	  break;
 	case 4:
 	  // set 
