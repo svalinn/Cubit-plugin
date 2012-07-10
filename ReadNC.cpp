@@ -125,6 +125,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
 
   // Open the file
   dbgOut.tprintf(1, "Opening file %s\n", file_name);
+  fileName = std::string(file_name);
   int success;
   
 #ifdef PNETCDF_FILE
@@ -229,7 +230,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
   }
   else if (!nomesh) {
     if (ucdMesh) 
-      rval = create_ucd_verts_hexes(opts, tmp_set, quads);
+      rval = create_ucd_verts_quads(opts, tmp_set, quads);
     else
       rval = create_verts_quads(scdi, tmp_set, quads);
     ERRORR(rval, "Trouble creating vertices.");
@@ -245,17 +246,29 @@ ErrorCode ReadNC::load_file(const char *file_name,
     rval = read_variables(tmp_set, dimNames, tstep_nums);
     if (MB_FAILURE == rval) return rval;
   }
-  
+ 
 #ifdef USE_MPI
     // create partition set, and populate with elements
   if (isParallel) {
     EntityHandle partn_set;
     rval = mbImpl->create_meshset(MESHSET_SET, partn_set);
     ERRORR(rval, "Trouble creating partition set.");
+
+    Range verts;
+    mbImpl->get_entities_by_type(0, MBVERTEX, verts);
+    mbImpl->add_entities(partn_set,quads);
+    mbImpl->add_entities(partn_set,verts);
     myPcomm->partition_sets().insert(partn_set);
     rval = mbImpl->add_entities(partn_set, quads);
-    ERRORR(rval, "Couldn't add new hexes to partition set.");
+    ERRORR(rval, "Couldn't add new quads to partition set.");
 
+#ifndef NDEBUG
+    rval = myPcomm->resolve_shared_ents(0,-1,-1);
+    ERRORR(rval, "Trouble resolving shared entities");
+    //TODO print which procs own which verts, check global number of verts
+#endif
+
+      //write partition tag name on partition set
     Tag part_tag;
     rval = mbImpl->tag_get_handle( partition_tag_name.c_str(), 1, MB_TYPE_INTEGER, part_tag );
     if (MB_SUCCESS != rval) {
@@ -330,7 +343,9 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   isParallel = (rval != MB_ENTITY_NOT_FOUND);
   rval = opts.match_option("PARALLEL", "READ_PART");
   isParallel = (rval != MB_ENTITY_NOT_FOUND);
-  
+  rval = opts.get_null_option("TRIVIAL_PARTITION");
+  isParallel = (rval != MB_ENTITY_NOT_FOUND);
+
 
   if (!isParallel) 
       // return success here, since rval still has _NOT_FOUND from not finding option
@@ -491,24 +506,37 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::create_ucd_verts_hexes(const FileOptions &opts,
-                                         EntityHandle tmp_set, Range &hexes) 
+ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
+                                         EntityHandle tmp_set, Range &quads) 
 {
     // need to get/read connectivity data before creating elements
+  std::string conn_fname, default_fname;
 
-    // open the connectivity file
-  std::string conn_fname;
+    // default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
+  default_fname = std::string(fileName);
+  int idx = default_fname.find_last_of("/");
+  default_fname = default_fname.substr(0,idx).append("/HommeMapping.nc");
+
+    // try to open the connectivity file through CONN option, if used
   ErrorCode rval = opts.get_str_option("CONN", conn_fname);
-  if (MB_SUCCESS != rval) return rval;
+  if (MB_SUCCESS != rval) conn_fname = default_fname;
 
   int success;
+  int rank, procs;
+
 #ifdef PNETCDF_FILE
-  if (isParallel)
+  if (isParallel) {
     success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
-  else
+    rank  = myPcomm->proc_config().proc_rank();
+    procs = myPcomm->proc_config().proc_size();
+  }
+  else {
     success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+    rank = 0; procs = 1;
+  }
 #else
   success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
+  rank = 0, procs = 1;
 #endif
   ERRORS(success, "Failed on open.");
 
@@ -521,86 +549,96 @@ ErrorCode ReadNC::create_ucd_verts_hexes(const FileOptions &opts,
   if (2 != conn_names.size() || conn_names[0] != std::string("ncenters") || conn_names[1] != std::string("ncorners"))
     ERRORR(MB_FAILURE, "Connectivity file didn't have correct dimension names.");
 
-  if (conn_vals[0] != gDims[3]-gDims[0]+1+2) {
+  if (conn_vals[0] != gDims[3]-gDims[0]+1-2) {
     dbgOut.tprintf(1, "Warning: number of quads from %s and vertices from %s are inconsistent; nverts = %d, nquads = %d.\n",
                    conn_fname.c_str(), fileName.c_str(), gDims[3]-gDims[0]+1, conn_vals[0]);
   }
   
-  unsigned int num_hex_layers = lDims[5] - lDims[2];
-
     // read connectivity into temporary variable
-  int num_quads = lDims[4]-lDims[1]+1;
+//  NCDF_SIZE tmp_dims[2], tmp_counts[2];
+  int num_local_quads, start_idx;
+  int num_quads = conn_vals[0];
 
-  std::vector<int> tmp_conn(4*num_quads);
-  NCDF_SIZE tmp_dims[2] = {0, lDims[0]}, tmp_counts[2] = {4, num_quads};
+  if (isParallel) {
+    if (rank < num_quads%procs) {
+      num_local_quads = int(floor(num_quads/procs))+1;
+      start_idx = 4*rank*num_local_quads;
+    }
+    else {
+      num_local_quads = int(floor(num_quads/procs));
+      start_idx = 4*(num_quads%procs + rank*num_local_quads);
+    }
+  }
+  else {
+    num_local_quads = num_quads;
+    start_idx = 0;
+  }
+
+  //TODO use one vector for this
+  std::vector<int> tmp_conn(4*num_quads), tmp_conn_local(4*num_local_quads);
+  std::vector<int> conn_intrlvd(4*num_quads);
+
+  NCDF_SIZE tmp_dims[2] = {0, 0}, tmp_counts[2] = {4, num_quads};
   success = NCFUNCAG(_vara_int)(connectId, 0, tmp_dims, tmp_counts, &tmp_conn[0] NCREQ);
+
+  int m = 0;
+  for (int i = 0; i < 4*num_quads-3; i+=4) {
+    conn_intrlvd[i]   = tmp_conn[m ];
+    conn_intrlvd[i+1] = tmp_conn[m+1*num_quads];
+    conn_intrlvd[i+2] = tmp_conn[m+2*num_quads];
+    conn_intrlvd[i+3] = tmp_conn[m+3*num_quads];
+    m++;
+  }
+
+    //in the trivial partition, quads divided among procs equally
+  m = 0;
+  for (int i = 0; i < 4*num_local_quads; i++) {
+    tmp_conn_local[i] = conn_intrlvd[start_idx+m];
+    m++;
+  }
 
     // on this proc, I get columns ldims[1]..ldims[4], inclusive; need to find which vertices those correpond to
   Range tmp_range;
-  std::copy(tmp_conn.begin(), tmp_conn.end(), range_inserter(tmp_range));
-  unsigned int num_verts = tmp_range.size();
+  std::copy(tmp_conn_local.begin(), tmp_conn_local.end(), range_inserter(tmp_range));
+  unsigned int num_local_verts = tmp_range.size();
 
    // create vertices
   ReadUtilIface *iface;
   rval = mbImpl->query_interface(iface);
   std::vector<double*> arrays;
-  EntityHandle start_vertex, start_hex;
-  rval = iface->get_node_coords(3, num_verts*(num_hex_layers+1), 0, start_vertex, arrays);
+  EntityHandle start_vertex, start_quad;
+  rval = iface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays);
   ERRORR(rval, "Couldn't create vertices in ucd mesh.");
 
     // set vertex coordinates
-  unsigned int i, k;
+  unsigned int i;
   Range::iterator rit;
-    // start with first layer
   double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
-  for (i = 0, rit = tmp_range.begin(); i < num_verts; i++, rit++) {
+  for (i = 0, rit = tmp_range.begin(); i < num_local_verts; i++, rit++) {
     xptr[i] = ilVals[(*rit)-1];
     yptr[i] = jlVals[(*rit)-1];
     zptr[i] = klVals[lDims[2]];
   }
-  zptr += num_verts;
-  for (i = lDims[2]+1; (int)i <= lDims[5]; i++) {
-    std::copy(xptr, xptr+num_verts, xptr+num_verts);
-    std::copy(yptr, yptr+num_verts, yptr+num_verts);
-    std::fill(zptr, zptr+num_verts, klVals[i]);
-    xptr += num_verts;
-    yptr += num_verts;
-    zptr += num_verts;
-  }
-  xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
+
+  //xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
   const double pideg = acos(-1.0)/180.0;
-  for (i = 0; i < num_verts; i++) {
+  for (i = 0; i < num_local_verts; i++) {
     double cosphi = cos(pideg*yptr[i]);
     double zmult = sin(pideg*yptr[i]), xmult = cosphi * cos(xptr[i]*pideg),
         ymult = cosphi * sin(xptr[i]*pideg);
     double rad = 8.0e3 + klVals[lDims[2]];
     xptr[i] = rad * xmult, yptr[i] = rad * ymult, zptr[i] = rad * zmult;
-    for (k = 1; k < num_hex_layers+1; k++) {
-      double thisrad = 8.0e3 + ((int)k+lDims[2] < gDims[5] ? klVals[lDims[2]+k] : klVals[gDims[5]]+1.0);
-      xptr[i+k*num_verts] = thisrad * xmult;
-      yptr[i+k*num_verts] = thisrad * ymult;
-      zptr[i+k*num_verts] = thisrad * zmult;
-    }
   }
     
     // get ptr to gid memory for vertices
-  Range vert_range(start_vertex, start_vertex+num_verts-1);
+  Range vert_range(start_vertex, start_vertex+num_local_verts-1);
   void *data;
   int count;
   rval = mbImpl->tag_iterate(mGlobalIdTag, vert_range.begin(), vert_range.end(), count, data);
   ERRORR(rval, "Failed to get tag iterator.");
-  assert(count == (int) num_verts);
+  assert(count == (int) num_local_verts);
   int *gid_data = (int*)data;
-
-    // copy first num_verts into gids
   std::copy(tmp_range.begin(), tmp_range.end(), gid_data);
-  
-    // generate subsequent layers by adding to first; use global # verts, not local number
-  unsigned int global_num_verts = gDims[3] - gDims[0] + 1;
-  for (i = lDims[2]+1; (int)i <= lDims[5]; i++) {
-    std::transform(gid_data, gid_data+num_verts, gid_data+num_verts, std::bind2nd(std::plus<int>(),global_num_verts) );
-    gid_data += num_verts;
-  }
   
     // create map from file ids to vertex handles, used later to set connectivity
   std::map<unsigned int,EntityHandle> vert_handles;
@@ -608,38 +646,25 @@ ErrorCode ReadNC::create_ucd_verts_hexes(const FileOptions &opts,
     vert_handles[*rit] = start_vertex+i;
   }
   
-    // now create hexes
-  EntityHandle *conn_array;
-  rval = readMeshIface->get_element_connect(num_quads*num_hex_layers, 8, MBHEX, 0, start_hex, conn_array);
-  ERRORR(rval, "Failed to create hexes.");
+    // now create quads
+  EntityHandle *conn_arr;
+  rval = readMeshIface->get_element_connect(num_local_quads, 4, MBQUAD, 0, start_quad, conn_arr);
+  ERRORR(rval, "Failed to create quads.");
   
-    // set hex connectivity
-  for (unsigned int l = 0; l < num_hex_layers; l++) {
-    for (int q = 0; q < num_quads; q++) {
-        // first layer 
-      conn_array[0] = vert_handles[tmp_conn[q  ]]+l*num_verts;
-      conn_array[1] = vert_handles[tmp_conn[q+num_quads]]+l*num_verts;
-      conn_array[2] = vert_handles[tmp_conn[q+2*num_quads]]+l*num_verts;
-      conn_array[3] = vert_handles[tmp_conn[q+3*num_quads]]+l*num_verts;
-        // second layer
-      conn_array[4] = conn_array[0] + num_verts;
-      conn_array[5] = conn_array[1] + num_verts;
-      conn_array[6] = conn_array[2] + num_verts;
-      conn_array[7] = conn_array[3] + num_verts;
-      conn_array += 8;
-    }
+
+  for(int q = 0; q < 4*num_local_quads; q++) {
+    conn_arr[q] = vert_handles[tmp_conn_local[q]];
   }
+
+  quads.insert(start_quad, start_quad+num_local_quads-1);
 
     // reuse tmp_range
   tmp_range.clear();
-  tmp_range.insert(start_vertex, start_vertex+num_verts*(num_hex_layers+1)-1);
-  tmp_range.insert(start_hex, start_hex+num_quads*num_hex_layers-1);
+  tmp_range.insert(start_vertex, start_vertex+num_local_verts-1);
+  tmp_range.insert(start_quad, start_quad+num_local_quads-1);
   rval = mbImpl->add_entities(tmp_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices and hexes to file set.");
 
-    // add hexes to range passed in
-  hexes.insert(start_hex, start_hex + num_quads*num_hex_layers-1);
-  
   return MB_SUCCESS;
 }
 
@@ -906,21 +931,265 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
 {
   std::vector<VarData> vdatas;
   std::vector<VarData> vsetdatas;
-  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
-  ERRORR(rval, "Trouble setting up read variable.");
+
+  if(!ucdMesh) { //structured data
+    ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+    ERRORR(rval, "Trouble setting up read variable.");
   
-  if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(file_set, vsetdatas, tstep_nums);
-    ERRORR(rval, "Trouble read variables to set.");
+    if (!vsetdatas.empty()) {
+      rval = read_variable_to_set(file_set, vsetdatas, tstep_nums);
+      ERRORR(rval, "Trouble read variables to set.");
+    }
+  
+    if (!vdatas.empty()) {
+      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums);
+      ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
+    }
+  } 
+  else {  // unstructured HOMME data
+    ErrorCode rval = read_variable_ucd_setup(var_names, tstep_nums, vdatas);
+    ERRORR(rval, "Trouble setting up read variable.");
+
+    if(!vdatas.empty()) {
+      rval = read_variable_to_ucdmesh(file_set, var_names, tstep_nums, vdatas);
+      ERRORR(rval, "Trouble read variables to ucd mesh.");      
+    }
+  } 
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::read_variable_to_ucdmesh(EntityHandle file_set, 
+                                           std::vector<std::string> &varnames,
+                                           std::vector<int> &tstep_nums,
+                                           std::vector<VarData> &vdatas)
+{
+    // get vertices in set
+  Range verts;
+  ErrorCode rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
+  ERRORR(rval, "Trouble getting vertices in set.");
+  assert("Should only have a single vertex subrange, since they were read in one shot" &&
+         verts.psize() == 1);
+
+  rval = read_variable_ucd_allocate(vdatas, tstep_nums, verts);
+  ERRORR(rval, "Trouble allocating read variables.");
+
+    // finally, read into that space
+  int success;
+  std::vector<int> requests(vdatas.size()*tstep_nums.size()), statuss(vdatas.size()*tstep_nums.size());
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      void *data = vdatas[i].varDatas[t];
+
+      switch (vdatas[i].varDataType) {
+        case NC_BYTE:
+        case NC_CHAR:
+            success = NCFUNCAG(_vara_text)(fileId, vdatas[i].varId,
+                                           &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+                                           (char*)data NCREQ);
+            ERRORS(success, "Failed to read char data.");
+            break;
+        case NC_DOUBLE:
+            success = NCFUNCAG(_vara_double)(fileId, vdatas[i].varId,
+                                             &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+                                             (double*)data NCREQ);
+            ERRORS(success, "Failed to read double data.");
+            break;
+        case NC_FLOAT:
+            success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId,
+                                            &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+                                            (float*)data NCREQ);
+            ERRORS(success, "Failed to read float data.");
+            break;
+        case NC_INT:
+            success = NCFUNCAG(_vara_int)(fileId, vdatas[i].varId,
+                                          &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+                                          (int*)data NCREQ);
+            ERRORS(success, "Failed to read int data.");
+            break;
+        case NC_SHORT:
+            success = NCFUNCAG(_vara_short)(fileId, vdatas[i].varId,
+                                            &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+                                            (short*)data NCREQ);
+            ERRORS(success, "Failed to read short data.");
+            break;
+        default:
+            success = 1;
+      }
+
+      if (success) ERRORR(MB_FAILURE, "Trouble reading variable.");
+    }
   }
 
-  if (!vdatas.empty()) {
-    rval = read_variable_to_nonset(file_set, vdatas, tstep_nums);
-    ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
+#ifdef NCWAIT
+  int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
+  ERRORS(success, "Failed on wait_all.");
+#endif
+
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+      ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], t);
+      if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+    }
+/*    // debug output, if requested
+  if (1 == dbgOut.get_verbosity()) {
+    dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
+    for (unsigned int i = 1; i < vdatas.size(); i++)
+      dbgOut.printf(1, ", %s ", vdatas[i].varName.c_str());
+    dbgOut.tprintf(1, "\n");
+*/
+  }
+
+  return rval;
+}
+
+ErrorCode ReadNC::read_variable_ucd_allocate(std::vector<VarData> &vdatas,
+                                         std::vector<int> &tstep_nums,
+                                         Range &verts)
+{
+  ErrorCode rval = MB_SUCCESS;
+
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+
+        // get the tag to read into
+      if (!vdatas[i].varTags[t]) {
+        rval = get_tag_ucd(vdatas[i], tstep_nums[t], vdatas[i].varTags[t]);
+        ERRORR(rval, "Trouble getting tag.");
+      }
+
+        // assume point-based values for now?
+      if (-1 == tDim || dimVals[tDim] <= (int)t) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
+      }
+      else if (vdatas[i].varDims[0] != tDim) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Non-default timestep number given for time-independent variable.");
+      }
+
+        // set up the dimensions and counts
+        // first time
+      vdatas[i].readDims[t].push_back(tstep_nums[t]);
+      vdatas[i].readCounts[t].push_back(1);
+
+        // then z/y/x
+      bool have_k = false;
+      if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), kDim) != vdatas[i].varDims.end()) {
+        vdatas[i].readDims[t].push_back(lDims[2]);
+        vdatas[i].readCounts[t].push_back(lDims[5] - lDims[2] + 1);
+        have_k = true;
+      }
+
+      bool have_ij = true;
+#ifdef PNETCDF_FILE
+        // whether we actually read anything depends on parallel and whether there's a k
+      if (!have_k && -1 != kDim && 0 != myPcomm->proc_config().proc_rank())
+        have_ij = false;
+#else
+      if (have_k); // to get rid of compiler warning
+#endif
+
+      vdatas[i].readDims[t].push_back(lDims[1]);
+      vdatas[i].readDims[t].push_back(lDims[0]);
+      vdatas[i].readCounts[t].push_back(have_ij ? lDims[4]-lDims[1]+1 : 0);
+      vdatas[i].readCounts[t].push_back(have_ij ? lDims[3]-lDims[0]+1 : 0);
+
+      assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+
+        // get ptr to tag space
+      void *data;
+      int count;
+      rval = mbImpl->tag_iterate(vdatas[i].varTags[t], verts.begin(), verts.end(), count, data);
+      ERRORR(rval, "Failed to get tag iterator.");
+      assert((unsigned)count == verts.size());
+      vdatas[i].varDatas[t] = data;
+    }
+  }
+
+  return rval;
+}
+
+ErrorCode ReadNC::get_tag_ucd(VarData &var_data, int tstep_num, Tag &tagh)
+{
+  std::ostringstream tag_name;
+  if (!tstep_num) {
+    std::string tmp_name = var_data.varName + "0";
+    tag_name << tmp_name.c_str();
+  }
+  else
+    tag_name << var_data.varName << tstep_num;
+  ErrorCode rval = MB_SUCCESS;
+  tagh = 0;
+  switch (var_data.varDataType) {
+    case NC_BYTE:
+    case NC_CHAR:
+        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_OPAQUE, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
+        break;
+    case NC_DOUBLE:
+    case NC_FLOAT:
+        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_DOUBLE, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
+        break;
+    case NC_INT:
+    case NC_SHORT:
+        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_INTEGER, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
+        break;
+    default:
+        std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;
+        rval = MB_FAILURE;
+  }
+
+  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.str().c_str());
+
+  return rval;
+}
+
+
+ErrorCode ReadNC::read_variable_ucd_setup(std::vector<std::string> &var_names, 
+                                          std::vector<int> &tstep_nums, 
+                                          std::vector<VarData> &vdatas)
+{
+  std::map<std::string,VarData>::iterator mit;
+  if (var_names.empty()) {
+    for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
+      VarData vd = (*mit).second;
+      std::vector<int> tmp_v;
+      if (-1 != tMin &&
+          std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end())
+        tmp_v.push_back(tDim);
+      if (-1 != lDims[2] &&
+          std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end())
+        tmp_v.push_back(kDim);
+      tmp_v.push_back(jDim);
+      tmp_v.push_back(iDim);
+      if (tmp_v == vd.varDims)
+        vdatas.push_back(vd);
+    }
+  }
+  else {
+    for (unsigned int i = 0; i < var_names.size(); i++) {
+      mit = varInfo.find(var_names[i]);
+      if (mit != varInfo.end()) vdatas.push_back((*mit).second);
+      else ERRORR(MB_FAILURE, "Couldn't find variable.");
+    }
+  }
+
+  if (tstep_nums.empty() && -1 != tMin) {
+    // no timesteps input, get them all
+    for (int i = tMin; i <= tMax; i++) tstep_nums.push_back(i);
+  }
+  if (!tstep_nums.empty()) {
+    for (unsigned int i = 0; i < vdatas.size(); i++) {
+      vdatas[i].varTags.resize(tstep_nums.size(), 0);
+      vdatas[i].varDatas.resize(tstep_nums.size());
+      vdatas[i].readDims.resize(tstep_nums.size());
+      vdatas[i].readCounts.resize(tstep_nums.size());
+    }
   }
 
   return MB_SUCCESS;
 }
+
 
 ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, 
 						std::vector<VarData> &vdatas,
@@ -2162,7 +2431,7 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts)
     // set j coordinate to the number of quads
   gDims[1] = gDims[0];
   gDims[4] = gDims[3] - 2;
-  /*
+  
   gDims[2] = gDims[5] = -1;
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end()) {
     idx = vit-dimNames.begin();
@@ -2170,7 +2439,7 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts)
     kDim = idx;
   }
   if (-1 == gDims[2]) return MB_FAILURE;
-  */
+  
     // read coordinate data
   std::map<std::string,VarData>::iterator vmit;
   if (gDims[0] != -1) {
@@ -2230,29 +2499,7 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts)
     ERRORR(MB_FAILURE, "Couldn't find time coordinate.");
   }
 
-    // partition; must use the sqjk method here, others don't make sense
-#ifdef USE_MPI
-  if (isParallel) {
-    for (int i = 0; i < 6; i++) parData.gDims[i] = gDims[i];
-    for (int i = 0; i < 3; i++) parData.gPeriodic[i] = globallyPeriodic[i];
-    parData.partMethod = partMethod;
-    int pdims[3];
-    rval = ScdInterface::compute_partition(myPcomm->proc_config().proc_size(), 
-                                           myPcomm->proc_config().proc_rank(), 
-                                           parData, lDims, locallyPeriodic, pdims);
-    if (MB_SUCCESS != rval) return rval;
-    for (int i = 0; i < 3; i++) parData.pDims[i] = pdims[i];
-
-    dbgOut.tprintf(1, "Partition: %dx%dx%d (out of %dx%dx%d)\n", 
-                   lDims[3]-lDims[0]+1, lDims[4]-lDims[1]+1, lDims[5]-lDims[2]+1,
-                   gDims[3]-gDims[0]+1, gDims[4]-gDims[1]+1, gDims[5]-gDims[2]+1);
-  }
-  else
-    std::copy(gDims, gDims+6, lDims);
-#else
-    // local is same as global
   std::copy(gDims, gDims+6, lDims);
-#endif
 
     // don't read coordinates of columns until we actually create the mesh
   return MB_SUCCESS;

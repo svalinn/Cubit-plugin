@@ -178,7 +178,22 @@ private:
   
   ErrorCode read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas,
 				    std::vector<int> &tstep_nums);
-  
+ 
+  ErrorCode read_variable_to_ucdmesh(EntityHandle file_set, 
+                                           std::vector<std::string> &varnames,
+                                           std::vector<int> &tstep_nums,
+                                           std::vector<VarData> &vdatas);
+
+  ErrorCode read_variable_ucd_allocate(std::vector<VarData> &vdatas,
+                                         std::vector<int> &tstep_nums,
+                                         Range &verts);
+
+  ErrorCode get_tag_ucd(VarData &var_data, int tstep_num, Tag &tagh);
+
+  ErrorCode read_variable_ucd_setup(std::vector<std::string> &var_names, 
+                                          std::vector<int> &tstep_nums, 
+                                          std::vector<VarData> &vdatas);
+
   ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
                            std::vector<int> &tstep_nums);
   
@@ -211,7 +226,7 @@ private:
 
   ErrorCode init_HOMMEucd_vals(const FileOptions &opts);
 
-  ErrorCode create_ucd_verts_hexes(const FileOptions &opts, EntityHandle tmp_set, Range &hexes);
+  ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
   
 //------------member variables ------------//
 
@@ -258,7 +273,7 @@ private:
   std::vector<double> ilCVals, jlCVals;
 
     //! dimension numbers for i, j, t
-  int iDim, jDim, tDim;
+  int iDim, jDim, kDim, tDim;
 
     //! center dimension numbers for i, j
   int iCDim, jCDim;
