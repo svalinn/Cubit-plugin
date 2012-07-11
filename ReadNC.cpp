@@ -263,8 +263,11 @@ ErrorCode ReadNC::load_file(const char *file_name,
     ERRORR(rval, "Couldn't add new quads to partition set.");
 
 #ifndef NDEBUG
-    rval = myPcomm->resolve_shared_ents(0,-1,-1);
-    ERRORR(rval, "Trouble resolving shared entities");
+    if (ucdMesh)
+    {
+      rval = myPcomm->resolve_shared_ents(0,-1,-1);
+      ERRORR(rval, "Trouble resolving shared entities");
+    }
     //TODO print which procs own which verts, check global number of verts
 #endif
 
@@ -343,9 +346,11 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   isParallel = (rval != MB_ENTITY_NOT_FOUND);
   rval = opts.match_option("PARALLEL", "READ_PART");
   isParallel = (rval != MB_ENTITY_NOT_FOUND);
-  rval = opts.get_null_option("TRIVIAL_PARTITION");
-  isParallel = (rval != MB_ENTITY_NOT_FOUND);
-
+  if (ucdMesh)
+  {
+    rval = opts.get_null_option("TRIVIAL_PARTITION");
+    isParallel = (rval != MB_ENTITY_NOT_FOUND);
+  }
 
   if (!isParallel) 
       // return success here, since rval still has _NOT_FOUND from not finding option
