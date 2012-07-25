@@ -224,6 +224,9 @@ private:
 				 std::string& attString,
 				 std::vector<int>& attLen);
 
+  //! create COORDS tag for quads coordinate
+  ErrorCode create_quad_coordinate_tag(EntityHandle file_set);
+
   ErrorCode init_HOMMEucd_vals(const FileOptions &opts);
 
   ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);

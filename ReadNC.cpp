@@ -946,6 +946,10 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
       rval = read_variable_to_nonset(file_set, vdatas, tstep_nums);
       ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
     }
+    
+    // create COORDS tag for quad
+    rval = create_quad_coordinate_tag(file_set);
+    ERRORR(rval, "Trouble creating coordinate tags to entities quads");
   } 
   else {  // unstructured HOMME data
     ErrorCode rval = read_variable_ucd_setup(var_names, tstep_nums, vdatas);
@@ -2963,6 +2967,48 @@ ErrorCode ReadNC::create_attrib_string(const std::map<std::string, AttData>& att
     attLen.push_back(ssAtt.str().size()-1);
   }
   attVal = ssAtt.str();
+  
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::create_quad_coordinate_tag(EntityHandle file_set)
+{
+  Range ents;
+  ErrorCode rval = mbImpl->get_entities_by_type(file_set, moab::MBQUAD, ents);  
+  ERRORR(rval, "Trouble getting QUAD entity.");
+  
+  std::size_t numOwnedEnts = 0;
+#ifdef USE_MPI
+  Range ents_owned;    
+  rval = myPcomm->filter_pstatus(ents, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &ents_owned);  
+  ERRORR(rval, "Trouble getting owned QUAD entity.");
+  numOwnedEnts = ents_owned.size();
+#else
+  numOwnedEnts = ents.size();
+#endif
+
+  if (numOwnedEnts == 0)
+    return MB_SUCCESS;
+
+  assert(numOwnedEnts == ilCVals.size() * jlCVals.size());
+  std::vector<double> coords(numOwnedEnts*3);
+  std::size_t pos = 0;
+  for (std::size_t j = 0; j != jlCVals.size(); ++j) {
+    for (std::size_t i = 0; i != ilCVals.size(); ++i) {
+      pos = j*ilCVals.size()*3 + i*3;
+      coords[pos] = ilCVals[i];
+      coords[pos+1] = jlCVals[j];
+      coords[pos+2] = 0.0;
+    }
+  }
+  std::string tag_name = "COORDS";
+  void * val = &coords[0];
+  int val_len = coords.size();
+  Tag tagh = 0; 
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 3, MB_TYPE_DOUBLE, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
+  ERRORR(rval, "Trouble creating COORDS tag.");
+  rval = mbImpl->tag_set_by_ptr(tagh, &file_set, 1, &val, &val_len);
+  ERRORR(rval, "Trouble setting data for COORDS tag.");
   
   return MB_SUCCESS;
 }
