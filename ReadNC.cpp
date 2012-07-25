@@ -447,11 +447,7 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
   int i, j, k, il, jl, kl, itmp;
-  int dil;
-  if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3])
-    dil = lDims[3] - lDims[0];
-  else
-    dil = lDims[3] - lDims[0] + 1;
+  int dil = lDims[3] - lDims[0] + 1;
   int djl = lDims[4] - lDims[1] + 1;
   int di = gDims[3] - gDims[0] + 1;
   int dj = gDims[4] - gDims[1] + 1;
@@ -1767,7 +1763,7 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   else {
     if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
       // globally periodic and I'm the last proc, get fewer vertex coords than vertices in i
-      ilVals.resize(lDims[3] - lDims[0]);
+      ilVals.resize(lDims[3] - lDims[0]+1);
       ilCVals.resize(lDims[3] - lDims[0]);
       lCDims[3] = lDims[3]-1;
     }
@@ -1817,11 +1813,11 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
       if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
 	std::vector<double> tilVals(ilVals.size()-1, 0.0);
 	rval = read_coordinate(iName.c_str(), lDims[0], lDims[3]-1, tilVals);
-	double dif = (tilVals[1] - tilVals[0])/2;
+	double dif = tilVals[1] - tilVals[0];
 	std::size_t i;
 	for (i = 0; i != tilVals.size(); ++i)
 	  ilVals[i] = tilVals[i];
-	ilVals[i] = tilVals[i-1] + dif;
+	ilVals[i] = ilVals[i-1]+dif;
       }
       else {
 	rval = read_coordinate(iName.c_str(), lDims[0], lDims[3], ilVals);
@@ -2127,7 +2123,7 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
   else {
     if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
       // globally periodic and I'm the last proc, get fewer vertex coords than vertices in i
-      ilVals.resize(lDims[3] - lDims[0]);
+      ilVals.resize(lDims[3] - lDims[0]+1);
       ilCVals.resize(lDims[3] - lDims[0]);
       lCDims[3] = lDims[3]-1;
     }
@@ -2174,14 +2170,11 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
   
   if (lDims[0] != -1) {
     if ((vmit = varInfo.find(iCName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      // last column
-      unsigned int num_vals = lDims[3]-lDims[0]+1;
       double dif = (ilCVals[1] - ilCVals[0])/2;
       std::size_t i;
       for (i = 0; i != ilCVals.size(); ++i)
         ilVals[i] = ilCVals[i] - dif;
-      for (i = tilVals.size(); i < num_vals; i++)
-        ilVals[i] = ilCVals[i-1] + 2*dif;
+      ilVals[i] = ilCVals[i-1] + dif;
     }
     else {
       ERRORR(MB_FAILURE, "Couldn't find x coordinate.");
