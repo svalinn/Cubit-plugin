@@ -3002,14 +3002,21 @@ ErrorCode ReadNC::create_quad_coordinate_tag(EntityHandle file_set)
     }
   }
   std::string tag_name = "COORDS";
-  void * val = &coords[0];
-  int val_len = coords.size();
   Tag tagh = 0; 
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 3, MB_TYPE_DOUBLE, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
   ERRORR(rval, "Trouble creating COORDS tag.");
-  rval = mbImpl->tag_set_by_ptr(tagh, &file_set, 1, &val, &val_len);
-  ERRORR(rval, "Trouble setting data for COORDS tag.");
   
+  void *data;
+  int count;
+#ifdef USE_MPI
+  rval = mbImpl->tag_iterate(tagh, ents_owned.begin(), ents_owned.end(), count, data);
+#else
+  rval = mbImpl->tag_iterate(tagh, ents.begin(), ents.end(), count, data);
+#endif
+  ERRORR(rval, "Failed to get COORDS tag iterator.");
+  assert(count == (int)numOwnedEnts);
+  double* quad_data = (double*)data;
+  std::copy(coords.begin(), coords.end(), quad_data);
   return MB_SUCCESS;
 }
 
