@@ -22,7 +22,7 @@
 #include <vector>
 #include <string>
 
-#include "moab/Forward.hpp"
+#include "moab/Interface.hpp"
 #include "moab/Range.hpp"
 #include "moab/WriterIface.hpp"
 #include "RangeSeqIntersectIter.hpp"
@@ -74,45 +74,29 @@ public:
   
 private:
 
-    //! Write the sets in the model, for the handles in the specified RangeSeqIntersectIter
-    //! \param rsi Range sequence iterator defining range of entities/sets to be written
-  ErrorCode write_sets(RangeSeqIntersectIter &rsi);
-  
+    //! Initialize global information about dense/sparse/conventional tags, once for entire write_file call
+  ErrorCode init_tag_info();
 
-    //! Write the entities in the model, for the handles in the specified RangeSeqIntersectIter
-    //! \param rsi Range sequence iterator defining range of entities/sets to be written
-  ErrorCode write_entities(RangeSeqIntersectIter &rsi);
+    //! write a subrange of entities/sets; just a wrapper to write_[vertices, entities, sets]
+  ErrorCode write_subrange(RangeSeqIntersectIter &rsi);
   
-
     //! Write the vertices in the model, for the handles in the specified RangeSeqIntersectIter
     //! \param rsi Range sequence iterator defining range of entities/sets to be written
   ErrorCode write_vertices(RangeSeqIntersectIter &rsi);
   
-    //! Get the damsel tag ids for the corresponding MOAB coordinates
-    //! This version assumes coordinates are stored in three separate Damsel tags
-    //! \param xcoords_dtag Damsel id for tag used to store x coordinates for blocked storage
-    //! \param ycoords_dtag Damsel id for tag used to store y coordinates for blocked storage
-    //! \param zcoords_dtag Damsel id for tag used to store z coordinates for blocked storage
-    //! \param create_if_missing If true and damsel id for a tag is not yet initialized, make one
-  ErrorCode damsel_coords_tags(damsel_tag &xcoords_dtag, damsel_tag &ycoords_dtag, 
-                               damsel_tag &zcoords_dtag, bool create_if_missing);
+    //! Write the entities in the model, for the handles in the specified RangeSeqIntersectIter
+    //! \param rsi Range sequence iterator defining range of entities/sets to be written
+  ErrorCode write_entities(RangeSeqIntersectIter &rsi);
   
-    //! Get the damsel tag id for the corresponding MOAB coordinates
-    //! This version assumes coordinates are stored in the same Damsel tag
-    //! \param xcoords_dtag Damsel id for tag used to store x coordinates for interleaved storage
-    //! \param ycoords_dtag Damsel id for tag used to store y coordinates for interleaved storage
-    //! \param zcoords_dtag Damsel id for tag used to store z coordinates for interleaved storage
-    //! \param create_if_missing If true and damsel id for a tag is not yet initialized, make one
-  ErrorCode damsel_coords_tags(damsel_tag &coords_dtag, bool create_if_missing);
+    //! Write the sets in the model, for the handles in the specified RangeSeqIntersectIter
+    //! \param rsi Range sequence iterator defining range of entities/sets to be written
+  ErrorCode write_sets(RangeSeqIntersectIter &rsi);
   
-    //! Write dense tags for the specified entities, using the specified damsel entity container
-  ErrorCode write_dense_tags(RangeSeqIntersectIter &rsi, damsel_container &ent_cont);
+    //! Map dense tags for the specified entities, using the specified damsel entity container
+  ErrorCode map_dense_tags(RangeSeqIntersectIter &rsi, damsel_container &ent_cont);
 
-    //! Write dense tags for the specified entities; a new entity container is created if necessary
-  ErrorCode write_dense_tags(RangeSeqIntersectIter &rsi);
-  
-    //! Initialize global information about dense tags, once for entire write_file call
-  ErrorCode init_dense_tag_info();
+    //! Map sparse tags for all entities
+  ErrorCode map_sparse_tags();
 
     //! interface instance
   Interface *mbImpl;
@@ -126,12 +110,6 @@ private:
     //! Used to initialize the RangeSeqIntersectIter
   SequenceManager *sequenceManager;
 
-    //! Used to track file handles
-  Tag mGlobalIdTag;
-  
-    //! Used for set flags
-  Tag mSetFlagsTag;
-  
     //! file name
   std::string fileName;
 
@@ -141,20 +119,32 @@ private:
     //! damsel model id
   damsel_model dmslModel;
   
-    //! damsel coordinates tag ids (only first is used if interleaved)
-  damsel_tag dmslXcoord, dmslYcoord, dmslZcoord;
+    //! other conventional tags
+  std::pair<Tag, damsel_tag> xcoordsTagPair, ycoordsTagPair, zcoordsTagPair, 
+      collFlagsTagPair, parentsTagPair, childrenTagPair;
 
-    //! all dense tag handles in model
-  std::vector<Tag> denseTags;
+    //! MOAB/damsel handles for dense [0], sparse [1], and conventional [2] tags
+  std::map<Tag, damsel_tag> tagMaps[3];
   
-    //! damsel ids for dense tags
-  std::vector<damsel_tag> dmslDenseTags;
-
     //! Damsel handle type used in (this build of) MOAB
   damsel_handle_type moabHandleType;
+};
 
-  damsel_data_type moab_to_damsel_data_type[MB_MAX_DATA_TYPE];}
-;
+inline ErrorCode WriteDamsel::write_subrange(RangeSeqIntersectIter &rsi) 
+{
+  ErrorCode rval = MB_FAILURE;
+
+  if (MBVERTEX == mbImpl->type_from_handle(rsi.get_start_handle())) 
+    rval = write_vertices(rsi);
+
+  else if (MBENTITYSET > mbImpl->type_from_handle(rsi.get_start_handle())) 
+    rval = write_entities(rsi);
+
+  else
+    rval = write_sets(rsi);
+
+  return rval;
+}
 
 } // namespace moab
 

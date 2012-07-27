@@ -17,14 +17,16 @@
 #include <map>
 #include <string>
 
+#include "damsel.h"
 #include "moab/Forward.hpp"
 #include "moab/ReaderIface.hpp"
 #include "moab/Range.hpp"
+#include "moab/RangeMap.hpp"
 #include "DebugOutput.hpp"
 
 #ifdef USE_MPI
-#  include "moab_mpi.h"
-#  include "moab/ParallelComm.hpp"
+// #  include "moab_mpi.h"
+// #  include "moab/ParallelComm.hpp"
 #endif 
 
 #include "damsel.h"
@@ -33,6 +35,7 @@ namespace moab {
 
 class ReadUtilIface;
 class ParallelComm;
+class Error;
 
 class ReadDamsel : public ReaderIface
 {
@@ -59,10 +62,45 @@ public:
                                      const FileOptions& opts,
                                      std::vector<int>& tag_values_out,
                                      const SubsetList* subset_list = 0 );
+
 private:
 
-  //! get contents of the container (containing file-side handles) and put in range
+  //! get contents of the container (containing file-side handles) and translate to moab-side handles
   ErrorCode get_contents(damsel_model m, damsel_container c, Range &ents);
+
+  //! get contents of the container (containing file-side handles) and translate to moab-side handles
+  //! ents argument should point to already-allocated space
+  ErrorCode get_contents(damsel_model m, damsel_container c, EntityHandle *ents);
+
+  ErrorCode init();
+
+  ErrorCode parse_options(const FileOptions &opts,
+                          bool &parallel);
+  
+  ErrorCode process_tags(std::vector<damsel_tag_buf_type> &tag_infos);
+  
+  ErrorCode process_ent_info(const damsel_entity_buf_type &einfo);
+  
+  ErrorCode process_entity_tags(int count, damsel_container tag_container, 
+                                damsel_container app_cont, Range &these_ents);
+  
+  ErrorCode process_coll_infos(std::vector<damsel_collection_buf_type> &coll_infos);
+
+    //! convert handles in a container into handle pairs, one pair per contiguous sequence of handles in the container
+  ErrorCode container_to_handle_pairs(damsel_container &cont, std::vector<damsel_handle> &handle_pairs);
+
+    //! store MOAB handles starting from start_handle, corresponding to store handles in handle_pairs, into the
+    //! entity map
+  ErrorCode insert_into_map(std::vector<damsel_handle> &handle_pairs, EntityHandle start_handle);
+  
+  class subrange
+  {
+   public:
+    subrange(damsel_handle ch, EntityHandle s, int c) : collh(ch), seth(s), count(c) {}
+    damsel_handle collh;
+    EntityHandle seth;
+    int count;
+  };
 
 //------------member variables ------------//
 
@@ -71,6 +109,9 @@ private:
 
     //! utilIface
   ReadUtilIface *readMeshIface;
+  
+    //! Error object used to register errors
+  Error *mError;
   
     //! file name
   std::string fileName;
@@ -84,9 +125,6 @@ private:
     //! Used to track file handles
   Tag mGlobalIdTag;
   
-    //! file name
-  std::string fileName;
-
     //! damsel library id
   damsel_library dmslLib;
   
@@ -108,13 +146,24 @@ private:
     //! translation table for data types
   damsel_data_type moab_to_damsel_data_type[MB_MAX_DATA_TYPE];
 
+    //! tag handles for coords
+  damsel_handle xcoordDtag, ycoordDtag, zcoordDtag;
+
+    //! tag handles for parent/child lists
+  damsel_handle childListTag, parentListTag;
+
     //! damsel to moab tag handles
   std::map<damsel_handle, Tag> tagMap;
 
   //! map from damsel to moab handles
-  RangeMap<damsel_handle, EntityHandle> entityMap;
+  RangeMap<damsel_handle, EntityHandle, 0> dmHandleRMap;
 };
 
+inline const bool operator==(const damsel_err_t &lhs, const damsel_err_t &rhs) 
+{
+  return lhs.id == rhs.id;
+}
+  
 } // namespace moab
 
 #endif

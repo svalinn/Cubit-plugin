@@ -1,10 +1,59 @@
-#ifndef READDAMSEL_HPP
-#define READDAMSEL_HPP
+#ifndef DAMSEL_UTIL_HPP
+#define DAMSEL_UTIL_HPP
 
 #include "moab/Forward.hpp"
 #include "DebugOutput.hpp"
 
 #include "damsel.h"
+
+  // Some macros to handle error checking (cribbed from WriteHDF5).  The
+  // CHK_MB_ERR_* check the value of an ErrorCode.
+  // The *_0 macros accept no other arguments. The *_1
+  // macros accept a single damsel handle to close on error.
+  // All macros contain a "return" statement.  These macros are coded with a do if while
+  // to allow statements calling them to be terminated with a ;
+#define CHK_MB_ERR( A, B )                                    \
+do if (MB_SUCCESS != (A)) { \
+mError->set_last_error(B);\
+return error(A);} while(false)
+
+#define CHK_MB_ERR_NR( A, B )                                    \
+do if (MB_SUCCESS != (A)) { \
+mError->set_last_error(B);\
+std::cerr << B << std::endl;} while(false)
+
+#define CHK_MB_ERR_2( A, B, C )                   \
+do if (MB_SUCCESS != (A   )) { \
+mError->set_last_error(B, C);                 \
+return error(A);} while(false)
+
+#define CHK_MB_ERR_FINALIZE( A, B )       \
+do if (MB_SUCCESS != (A)) {             \
+  DMSLlib_finalize(dmslLib); \
+  dmslLib = 0;          \
+  mError->set_last_error(B);\
+  return error(A);     \
+} while(false)
+
+#define CHK_DMSL_ERR( A, B )                 \
+do if (DMSL_OK.id != A.id) {             \
+mError->set_last_error(B);\
+return error(MB_FAILURE);             \
+} while(false)
+
+#define CHK_DMSL_ERR_2( A, B, C )            \
+do if (DMSL_OK.id != A.id) {             \
+mError->set_last_error(B, C);            \
+return error(MB_FAILURE);             \
+} while(false)
+
+#define CHK_DMSL_ERR_FINALIZE( A, B )        \
+do if (DMSL_OK.id != A.id) {             \
+  DMSLlib_finalize(dmslLib); \
+  dmslLib = 0;          \
+  mError->set_last_error(B);\
+  return error(MB_FAILURE);                    \
+} while(false)
 
 namespace moab {
 
@@ -14,61 +63,19 @@ public:
   //! needs to be a constructor to initialize dtom_data_type
   DamselUtil();
 
-  static damsel_data_type mtod_data_type[MB_MAX_DATA_TYPE];
+  static damsel_data_type mtod_data_type[MB_MAX_DATA_TYPE+1];
 
-  std::map<damsel_data_type,DataType> dtom_data_type;
+  static enum DataType dtom_data_type[DAMSEL_DATA_TYPE_PREDEFINED_WATERMARK+1];
 
-  static enum damsel_entity_type mtod_entity_type[MBMAXTYPE];
+  static enum damsel_entity_type mtod_entity_type[MBMAXTYPE+1];
 
-  static enum EntityType dtom_entity_type[DAMSEL_ENTITY_ALL_TYPES];
+  static enum EntityType dtom_entity_type[DAMSEL_ENTITY_TYPE_ALL_TYPES+1];
 };
 
-damsel_entity_type DamselUtil::mtod_entity_type[] = {
-    DAMSEL_ENTITY_TYPE_VERTEX,      //  MBVERTEX
-    DAMSEL_ENTITY_TYPE_EDGE,  // MBEDGE
-    DAMSEL_ENTITY_TYPE_TRI, // MBTRI
-    DAMSEL_ENTITY_TYPE_QUAD, //   MBQUAD
-    DAMSEL_ENTITY_TYPE_POLYGON, //   MBPOLYGON
-    DAMSEL_ENTITY_TYPE_TET,//  MBTET
-    DAMSEL_ENTITY_TYPE_PYRAMID,  //   MBPYRAMID
-    DAMSEL_ENTITY_TYPE_PRISM,  //   MBPRISM
-    DAMSEL_ENTITY_TYPE_UNDEFINED, // MBKNIFE
-    DAMSEL_ENTITY_TYPE_HEX,  //   MBHEX,
-    DAMSEL_ENTITY_TYPE_POLYHEDRON, //   MBPOLYHEDRON
-    DAMSEL_ENTITY_TYPE_UNDEFINED,   //   MBENTITYSET
-    DAMSEL_ENTITY_TYPE_ALL_TYPES // MBMAXTYPE  /**<
-};
-
-EntityType DamselUtil::dtom_entity_type[] = {
-    MBVERTEX,      //  MBVERTEX
-    MBEDGE,  // MBEDGE
-    MBTRI, // MBTRI
-    MBQUAD, //   MBQUAD
-    MBPOLYGON, //   MBPOLYGON
-    MBTET,//  MBTET
-    MBPRISM,  //   MBPRISM
-    MBPYRAMID,  //   MBPYRAMID
-    MBHEX,  //   MBHEX,
-    MBPOLYHEDRON, //   MBPOLYHEDRON
-    MBMAXTYPE,   //   MBENTITYSET
-    MBMAXTYPE // MBMAXTYPE
-};
-
-inline DamselUtil::DamselUtil() {
-  mtod_data_type[] = {
-    DAMSEL_DATA_TYPE_BYTES, // MB_TYPE_OPAQUE
-    DAMSEL_DATA_TYPE_INTEGER, // MB_TYPE_INTEGER
-    DAMSEL_DATA_TYPE_DOUBLE, // MB_TYPE_DOUBLE
-    DAMSEL_DATA_TYPE_INVALID, // MB_TYPE_BIT
-    DAMSEL_DATA_TYPE_HANDLE // MB_TYPE_HANDLE
-  };
-
-  mtod_data_type[MB_TYPE_OPAQUE] = DAMSEL_DATA_TYPE_BYTES;
-  mtod_data_type[MB_TYPE_INTEGER] = DAMSEL_DATA_TYPE_INTEGER;
-  mtod_data_type[MB_TYPE_DOUBLE] = DAMSEL_DATA_TYPE_DOUBLE;
-  mtod_data_type[MB_TYPE_BIT] = DAMSEL_DATA_TYPE_INVALID;
-  mtod_data_type[MB_TYPE_HANDLE] = DAMSEL_DATA_TYPE_HANDLE;
-}
+// This function doesn't do anything useful.  It's just a nice
+// place to set a break point to determine why the reader fails.
+    static inline ErrorCode error( ErrorCode rval )
+  { return rval; }
 
 }
 

@@ -51,7 +51,7 @@ else
 endif
 
 if DAMSEL_FILE
-  MOAB_DAMSEL_SRCS = WriteDamsel.cpp WriteDamsel.hpp
+  MOAB_DAMSEL_SRCS = WriteDamsel.cpp WriteDamsel.hpp ReadDamsel.cpp ReadDamsel.hpp DamselUtil.cpp
   libmoabio_la_LIBADD += $(DAMSEL_LIBS)
 else
   MOAB_DAMSEL_SRCS =
