@@ -169,8 +169,8 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   }
 
     // write sparse tags
-  rval = map_sparse_tags();
-  CHK_MB_ERR(rval, "Failed to write sparse tags.");
+//  rval = map_sparse_tags();
+//  CHK_MB_ERR(rval, "Failed to write sparse tags.");
 
     // now tell Damsel to actually write it
   MPI_Comm comm = MPI_COMM_WORLD;
@@ -337,39 +337,25 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
 
       // map the data to damsel
     err = DMSLmodel_map_tag(xcoords, vertex_cont, (damsel_handle_ptr)&xcoordsTagPair.first);
-    if (DMSL_OK.id != err.id) {
-      err = DMSLtag_assign(xcoordsTagPair.second, vertex_cont, xcoords);
-    }
     CHK_DMSL_ERR_2(err, "Failed to assign vertex coordinates tag for vertices starting with handle %lu.", 
                  rsi.get_start_handle());
   }
   else {
       // map the data to damsel
     err = DMSLmodel_map_tag(xcoords, vertex_cont, (damsel_handle_ptr)&xcoordsTagPair.first);
-    if (DMSL_OK.id == err.id) {
-      err = DMSLmodel_map_tag(ycoords, vertex_cont, (damsel_handle_ptr)&ycoordsTagPair.first);
-      CHK_DMSL_ERR_2(err, "Failed to assign vertex coordinates tag for vertices starting with handle %lu.", 
-                     rsi.get_start_handle());
-      err = DMSLmodel_map_tag(zcoords, vertex_cont, (damsel_handle_ptr)&zcoordsTagPair.first);
-      CHK_DMSL_ERR_2(err, "Failed to assign vertex coordinates tag for vertices starting with handle %lu.", 
-                     rsi.get_start_handle());
-    }
-    else {
-      err = DMSLtag_assign(xcoordsTagPair.second, vertex_cont, xcoords);
-      CHK_DMSL_ERR_2(err, "Failed to assign vertex coordinates tag for vertices starting with handle %lu.", 
-                     rsi.get_start_handle());
-      err = DMSLtag_assign(ycoordsTagPair.second, vertex_cont, ycoords);
-      CHK_DMSL_ERR_2(err, "Failed to assign vertex coordinates tag for vertices starting with handle %lu.", 
-                     rsi.get_start_handle());
-      err = DMSLtag_assign(zcoordsTagPair.second, vertex_cont, zcoords);
-      CHK_DMSL_ERR_2(err, "Failed to assign vertex coordinates tag for vertices starting with handle %lu.", 
-                     rsi.get_start_handle());
-    }
+    CHK_DMSL_ERR_2(err, "Failed to assign vertex x coordinates tag for vertices starting with handle %lu.", 
+                   rsi.get_start_handle());
+    err = DMSLmodel_map_tag(ycoords, vertex_cont, (damsel_handle_ptr)&ycoordsTagPair.first);
+    CHK_DMSL_ERR_2(err, "Failed to assign vertex y coordinates tag for vertices starting with handle %lu.", 
+                   rsi.get_start_handle());
+    err = DMSLmodel_map_tag(zcoords, vertex_cont, (damsel_handle_ptr)&zcoordsTagPair.first);
+    CHK_DMSL_ERR_2(err, "Failed to assign vertex z coordinates tag for vertices starting with handle %lu.", 
+                   rsi.get_start_handle());
   }
 
     // write/map dense tags
-  rval = map_dense_tags(rsi, vertex_cont);
-  CHK_MB_ERR(rval, NULL);
+//  rval = map_dense_tags(rsi, vertex_cont);
+//  CHK_MB_ERR(rval, NULL);
   
   return MB_SUCCESS;
 }
@@ -410,8 +396,8 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
   CHK_DMSL_ERR_2(err, "DMSLentity_define failed for entities starting with handle %lu.", rsi.get_start_handle());
   
     // write dense tags
-  rval = map_dense_tags(rsi, ent_cont);
-  CHK_MB_ERR(rval, NULL);
+//  rval = map_dense_tags(rsi, ent_cont);
+//  CHK_MB_ERR(rval, NULL);
   
   return MB_SUCCESS;
 }
@@ -437,14 +423,8 @@ ErrorCode WriteDamsel::map_dense_tags(RangeSeqIntersectIter &rsi, damsel_contain
     
       // else, register with damsel
     err = DMSLmodel_map_tag((void*)val_ptr, ent_cont, (damsel_handle_ptr)&dtag);
-
-      // if that didn't work, try going with a direct assign
-    if (DMSL_OK.id != err.id) {
-
-      damsel_err_t err = DMSLtag_assign((*tagit).second, ent_cont, (void*)val_ptr);
-      CHK_DMSL_ERR_2(err, "Failed to write coordinates tag for vertices starting with handle %lu.",
-                     rsi.get_start_handle());
-    }
+    CHK_DMSL_ERR_2(err, "Failed to write coordinates tag for vertices starting with handle %lu.",
+                   rsi.get_start_handle());
   }
   
   return rval;
@@ -486,13 +466,7 @@ ErrorCode WriteDamsel::map_sparse_tags()
 
       // now map it
     err = DMSLmodel_map_tag((void*)&tag_values[0], ent_cont, (damsel_handle_ptr)&stag);
-
-      // if that didn't work, try going with a direct assign
-    if (DMSL_OK.id != err.id) {
-
-      damsel_err_t err = DMSLtag_assign((*tagit).second, ent_cont, (void*)&tag_values[0]);
-      CHK_DMSL_ERR_2(err, "Failed to write tag %s.", stag->get_name().c_str());
-    }
+    CHK_DMSL_ERR_2(err, "Failed to write tag %s.", stag->get_name().c_str());
   }
   
   return rval;
@@ -503,7 +477,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
     // write the sets
   ErrorCode rval = MB_SUCCESS;
   std::vector<EntityHandle> ents;
-  damsel_container dcont;
+  damsel_container dcont, mcont;
   damsel_err_t err;
   unsigned int i, num_sets = rsi.get_end_handle() - rsi.get_start_handle() + 1;
   std::vector<damsel_collection> dcolls(num_sets);
@@ -542,14 +516,19 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
 
     // set the COLL_FLAGS tag, using assign (direct)
     // make a container of set handles...
-  dcont = DMSLcontainer_create_sequence(dmslModel, rsi.get_start_handle(), num_sets, 1);
+  mcont = DMSLcontainer_create_sequence(dmslModel, rsi.get_start_handle(), num_sets, 1);
     // assign the tags on them
-  err = DMSLtag_assign(collFlagsTagPair.second, dcont, &set_flags[0]);
+  err = DMSLmodel_map_tag(&set_flags[0], mcont, (damsel_handle_ptr)&(collFlagsTagPair.first));
   CHK_DMSL_ERR(err, "Failed to assign COLL_FLAGS tag for sets.");
+
+    // need to map the moab to damsel handles
+  dcont = DMSLcontainer_create_vector(dmslModel, (damsel_handle_ptr)&dcolls[0], num_sets);
+  err = DMSLmodel_map_handles(mcont, dcont);
+  CHK_DMSL_ERR(err, "Failed to map set handles.");
   
     // map other dense tags
-  rval = map_dense_tags(rsi, dcont);
-  CHK_MB_ERR(rval, "Failed to map dense tags for sets.");
+//  rval = map_dense_tags(rsi, dcont);
+//  CHK_MB_ERR(rval, "Failed to map dense tags for sets.");
 
   return rval;
 }

@@ -132,16 +132,16 @@ private:
 
 inline ErrorCode WriteDamsel::write_subrange(RangeSeqIntersectIter &rsi) 
 {
-  ErrorCode rval = MB_FAILURE;
+  ErrorCode rval = MB_SUCCESS;
 
   if (MBVERTEX == mbImpl->type_from_handle(rsi.get_start_handle())) 
     rval = write_vertices(rsi);
 
-  else if (MBENTITYSET > mbImpl->type_from_handle(rsi.get_start_handle())) 
-    rval = write_entities(rsi);
+//  else if (MBENTITYSET > mbImpl->type_from_handle(rsi.get_start_handle())) 
+//    rval = write_entities(rsi);
 
-  else
-    rval = write_sets(rsi);
+//  else
+//    rval = write_sets(rsi);
 
   return rval;
 }
