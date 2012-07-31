@@ -5,6 +5,7 @@
 #include "DebugOutput.hpp"
 
 #include "damsel.h"
+#include "damsel-internal.h"
 
   // Some macros to handle error checking (cribbed from WriteHDF5).  The
   // CHK_MB_ERR_* check the value of an ErrorCode.

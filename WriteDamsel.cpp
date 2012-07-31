@@ -49,6 +49,7 @@
 
 #include "DamselUtil.hpp"
 #include "damsel.h"
+#include "damsel-internal.h"
 #include "assert.h"
 #include "moab/Interface.hpp"
 #include "moab/Core.hpp"
@@ -144,6 +145,12 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   dmslModel = DMSLmodel_create(sizeof(EntityHandle) == 8 ? DAMSEL_HANDLE_TYPE_HANDLE64 : 
                                DAMSEL_HANDLE_TYPE_HANDLE32);
   
+    // attach to a file, since we need it for creating containers
+  MPI_Comm comm = MPI_COMM_WORLD;
+  err = DMSLmodel_attach(dmslModel, file_name, comm, NULL);
+  CHK_DMSL_ERR(err, "DMSLmodel_attach failed.");
+  dmslFile = (damsel_model) ((damsel_model_internal *)dmslModel)->attached_file;
+  
   rval = mWriteIface->gather_entities(all_ents, meshset_list, num_sets);
   CHK_MB_ERR(rval, "Gather entities failed in WriteDamsel.");
 
@@ -172,11 +179,6 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
 //  rval = map_sparse_tags();
 //  CHK_MB_ERR(rval, "Failed to write sparse tags.");
 
-    // now tell Damsel to actually write it
-  MPI_Comm comm = MPI_COMM_WORLD;
-  err = DMSLmodel_attach(dmslModel, file_name, comm, NULL);
-  CHK_DMSL_ERR(err, "DMSLmodel_attach failed.");
-  
   damsel_request_t request;
   err = DMSLmodel_transfer_async(dmslModel, DAMSEL_TRANSFER_TYPE_WRITE, &request);
   CHK_DMSL_ERR(err, "DMSLmodel_transfer_asynch failed.");
@@ -293,7 +295,10 @@ ErrorCode WriteDamsel::init_tag_info()
   }
     
   damsel_container mtags = DMSLcontainer_create_vector(dmslModel, (damsel_handle_ptr)&moab_taghs[0], moab_taghs.size()),
-      dtags = DMSLcontainer_create_vector(dmslModel, (damsel_handle_ptr)&damsel_taghs[0], damsel_taghs.size());
+      dtags = DMSLcontainer_create_vector(dmslFile, (damsel_handle_ptr)&damsel_taghs[0], damsel_taghs.size());
+  std::cerr << "MOAB: created model container: mtags = " << mtags <<std::endl;
+  std::cerr << "MOAB: created file container: dtags = " << dtags <<std::endl;
+  
   damsel_err_t err = DMSLmodel_map_handles(mtags, dtags);
   CHK_DMSL_ERR(err, "Failed to map tag handles.");
 
@@ -307,6 +312,7 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
 
     // create a damsel container for these vertex handles
   damsel_container vertex_cont = DMSLcontainer_create_sequence(dmslModel, start_vert, (int)(end_vert-start_vert+1), 1);
+  std::cerr << "MOAB: created model container: vertex_cont = " << vertex_cont <<std::endl;
   if (DAMSEL_CONTAINER_INVALID == vertex_cont) 
     CHK_MB_ERR_2(MB_FAILURE, "Failed to create vertex sequence for vertices starting with handle %lu.", 
                rsi.get_start_handle());
@@ -368,6 +374,7 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
     // create a damsel container for these entity handles
   damsel_container ent_cont;
   ent_cont = DMSLcontainer_create_sequence(dmslModel, start_ent, (int)(end_ent-start_ent+1), 1);
+  std::cerr << "MOAB: created model container: ent_cont = " << ent_cont <<std::endl;
   if (DAMSEL_CONTAINER_INVALID == ent_cont)
     CHK_MB_ERR(MB_FAILURE, "Bad sequence returned by Damsel.");
 
@@ -461,6 +468,7 @@ ErrorCode WriteDamsel::map_sparse_tags()
     tagged_ents.resize(output_ents.size());
     std::copy(output_ents.begin(), output_ents.end(), tagged_ents.begin());
     ent_cont = DMSLcontainer_create_vector(dmslModel, (damsel_handle_ptr)&tagged_ents[0], tagged_ents.size());
+    std::cerr << "MOAB: created model container: sparse_tag_ent_cont = " << ent_cont <<std::endl;
     if (ent_cont == DAMSEL_CONTAINER_INVALID) 
       CHK_MB_ERR_2(MB_FAILURE, "Trouble creating entity handle container for tag %s.", stag->get_name().c_str());
 
@@ -494,6 +502,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
     else {
       dcont = DMSLcontainer_create_vector(dmslModel, (damsel_handle*)NULL, 0);
     }
+    std::cerr << "MOAB: created model container: sets_cont = " << dcont <<std::endl;
 
     // get the set type (range or set)
     unsigned int opts;
@@ -517,12 +526,14 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
     // set the COLL_FLAGS tag, using assign (direct)
     // make a container of set handles...
   mcont = DMSLcontainer_create_sequence(dmslModel, rsi.get_start_handle(), num_sets, 1);
+  std::cerr << "MOAB: created model container: sets_cont = " << mcont <<std::endl;
     // assign the tags on them
   err = DMSLmodel_map_tag(&set_flags[0], mcont, (damsel_handle_ptr)&(collFlagsTagPair.first));
   CHK_DMSL_ERR(err, "Failed to assign COLL_FLAGS tag for sets.");
 
     // need to map the moab to damsel handles
-  dcont = DMSLcontainer_create_vector(dmslModel, (damsel_handle_ptr)&dcolls[0], num_sets);
+  dcont = DMSLcontainer_create_vector(dmslFile, (damsel_handle_ptr)&dcolls[0], num_sets);
+  std::cerr << "MOAB: created file container: coll_cont = " << dcont <<std::endl;
   err = DMSLmodel_map_handles(mcont, dcont);
   CHK_DMSL_ERR(err, "Failed to map set handles.");
   

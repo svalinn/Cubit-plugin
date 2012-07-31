@@ -29,6 +29,7 @@
 #include "FileOptions.hpp"
 
 #include "damsel.h"
+#include "damsel-internal.h"
 
 namespace moab {
 
@@ -118,6 +119,9 @@ private:
   
     //! damsel model id
   damsel_model dmslModel;
+
+    //! the attached file, cast to a model
+  damsel_model dmslFile;
   
     //! other conventional tags
   std::pair<Tag, damsel_tag> xcoordsTagPair, ycoordsTagPair, zcoordsTagPair, 
