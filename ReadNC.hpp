@@ -230,7 +230,12 @@ private:
   ErrorCode init_HOMMEucd_vals(const FileOptions &opts);
 
   ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
-  
+ 
+  ErrorCode load_BIL(const char *file_name,
+                     const EntityHandle* file_set,
+                     const FileOptions& opts,
+                     const Tag* file_id_tag);
+ 
 //------------member variables ------------//
 
     //! interface instance

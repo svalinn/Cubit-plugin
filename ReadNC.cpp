@@ -100,6 +100,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
                             const ReaderIface::SubsetList* /*subset_list*/,
                             const Tag* file_id_tag)
 {
+ 
   ErrorCode rval = MB_SUCCESS;
 
   //See if opts has variable(s) specified
@@ -127,7 +128,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
   dbgOut.tprintf(1, "Opening file %s\n", file_name);
   fileName = std::string(file_name);
   int success;
-  
+
 #ifdef PNETCDF_FILE
   if (isParallel)
     success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), file_name, 0, MPI_INFO_NULL, &fileId);
@@ -138,7 +139,22 @@ ErrorCode ReadNC::load_file(const char *file_name,
 #endif
 
   ERRORS(success, "Trouble opening file.");
+
+
+// BIL data
+
+  std::string file_path = std::string(file_name);
+  int idx = file_path.find_last_of("/");
+  std::string file = file_path.substr(idx+1);
+  if(file == "BIL_DIR.nc") {
+        
+    rval = load_BIL(file_name,file_set,opts,file_id_tag);
+    return rval;
+  }
+
+// end of BIL
   
+
     // Read the header (num dimensions, dimensions, num variables, global attribs)
   rval = read_header();
   ERRORR(rval, " ");
@@ -246,7 +262,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
     rval = read_variables(tmp_set, dimNames, tstep_nums);
     if (MB_FAILURE == rval) return rval;
   }
- 
+
 #ifdef USE_MPI
     // create partition set, and populate with elements
   if (isParallel) {
@@ -265,10 +281,17 @@ ErrorCode ReadNC::load_file(const char *file_name,
 #ifndef NDEBUG
     if (ucdMesh)
     {
+      Range verts_owned;
       rval = myPcomm->resolve_shared_ents(0,-1,-1);
       ERRORR(rval, "Trouble resolving shared entities");
+
+      rval = myPcomm->filter_pstatus(verts, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1,
+                                     &verts_owned);
+      ERRORR(rval, "Trouble getting owned quads in set.");
+
+      dbgOut.tprintf(1,"Processor %d owns %d vertices\n", myPcomm->proc_config().proc_rank(), 
+                                                          verts_owned.size());
     }
-    //TODO print which procs own which verts, check global number of verts
 #endif
 
       //write partition tag name on partition set
@@ -293,10 +316,19 @@ ErrorCode ReadNC::load_file(const char *file_name,
     rval = create_tags(scdi, tmp_set, tstep_nums);
     ERRORR(rval, "Trouble creating nc conventional tags.");
   }
-
     // close the file
   success = NCFUNC(close)(fileId);
   ERRORS(success, "Trouble closing file.");
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::load_BIL(const char *file_name,
+                            const EntityHandle* file_set,
+                            const FileOptions& opts,
+                            const Tag* file_id_tag)
+{
+  
 
   return MB_SUCCESS;
 }
@@ -342,15 +374,17 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts,
   }
   
 #ifdef USE_MPI
+  //TODO handle options better
   rval = opts.get_option("PARTITION", partition_tag_name);
-  isParallel = (rval != MB_ENTITY_NOT_FOUND);
+/*
+  part = (rval != MB_ENTITY_NOT_FOUND);
   rval = opts.match_option("PARALLEL", "READ_PART");
-  isParallel = (rval != MB_ENTITY_NOT_FOUND);
-  if (ucdMesh)
-  {
-    rval = opts.get_null_option("TRIVIAL_PARTITION");
-    isParallel = (rval != MB_ENTITY_NOT_FOUND);
-  }
+  parread = (rval != MB_ENTITY_NOT_FOUND);
+  rval = opts.get_null_option("TRIVIAL_PARTITION");
+  partriv = (rval != MB_ENTITY_NOT_FOUND);
+*/
+  isParallel = ((opts.match_option("PARALLEL","READ_PART") != MB_ENTITY_NOT_FOUND) ||
+                (opts.get_null_option("TRIVIAL_PARTITION") != MB_ENTITY_NOT_FOUND) );
 
   if (!isParallel) 
       // return success here, since rval still has _NOT_FOUND from not finding option
@@ -545,10 +579,12 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
   std::vector<int> conn_vals;
   rval = get_dimensions(connectId, conn_names, conn_vals);
   ERRORR(rval, "Failed to get dimensions for connectivity.");
-  
+
+/*  
     // hardwire for ncenters, ncorners
   if (2 != conn_names.size() || conn_names[0] != std::string("ncenters") || conn_names[1] != std::string("ncorners"))
     ERRORR(MB_FAILURE, "Connectivity file didn't have correct dimension names.");
+*/
 
   if (conn_vals[0] != gDims[3]-gDims[0]+1-2) {
     dbgOut.tprintf(1, "Warning: number of quads from %s and vertices from %s are inconsistent; nverts = %d, nquads = %d.\n",
@@ -556,9 +592,8 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
   }
   
     // read connectivity into temporary variable
-//  NCDF_SIZE tmp_dims[2], tmp_counts[2];
   int num_local_quads, start_idx;
-  int num_quads = conn_vals[0];
+  int num_quads = conn_vals[2];
 
   if (isParallel) {
     if (rank < num_quads%procs) {
@@ -579,8 +614,21 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
   std::vector<int> tmp_conn(4*num_quads), tmp_conn_local(4*num_local_quads);
   std::vector<int> conn_intrlvd(4*num_quads);
 
+  int cornerVarId;
+  success = NCFUNC(inq_varid)(connectId,"element_corners",&cornerVarId);
+
   NCDF_SIZE tmp_dims[2] = {0, 0}, tmp_counts[2] = {4, num_quads};
-  success = NCFUNCAG(_vara_int)(connectId, 0, tmp_dims, tmp_counts, &tmp_conn[0] NCREQ);
+  success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_dims, tmp_counts, &tmp_conn[0] NCREQ);
+
+
+/*
+  std::vector<int> tcl(4*num_quads);
+  NCDF_SIZE tds[1] = {0}, tcs[1] = {4*num_quads};
+//  NCDF_SIZE ss[2] = {1,1};
+//  NCDF_SIZE im[2] = {4*num_quads,1};
+  success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tds,tcs,&tcl[0] NCREQ);
+*/
+
 
   int m = 0;
   for (int i = 0; i < 4*num_quads-3; i+=4) {
@@ -675,27 +723,11 @@ ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names,
 				      std::vector<VarData> &vsetdatas) 
 {      
   std::map<std::string,VarData>::iterator mit;
-  // if empty read them all
-  if (var_names.empty()) {
-    for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
-      VarData vd = (*mit).second;
-      if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) &&
-	  (std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end())) 
-	vdatas.push_back(vd);
-      else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jDim) != vd.varDims.end()) &&
-	       (std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end())) 
-	vdatas.push_back(vd);
-      else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()) &&
-	       (std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end())) 
-	vdatas.push_back(vd);
-      else
-	vsetdatas.push_back(vd);
-    }
-  }
-  else {
-    for (unsigned int i = 0; i < var_names.size(); i++) {
-      mit = varInfo.find(var_names[i]);
-      if (mit != varInfo.end()) {
+
+  if (!ucdMesh) { // scd mesh
+    // if empty read them all
+    if (var_names.empty()) {
+      for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
 	VarData vd = (*mit).second;
 	if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) &&
 	    (std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end())) 
@@ -709,7 +741,54 @@ ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names,
 	else
 	  vsetdatas.push_back(vd);
       }
-      else ERRORR(MB_FAILURE, "Couldn't find variable.");
+    }
+    else {
+      for (unsigned int i = 0; i < var_names.size(); i++) {
+	mit = varInfo.find(var_names[i]);
+	if (mit != varInfo.end()) {
+	  VarData vd = (*mit).second;
+	  if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) &&
+	      (std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end())) 
+	    vdatas.push_back(vd);
+	  else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jDim) != vd.varDims.end()) &&
+		   (std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end())) 
+	    vdatas.push_back(vd);
+	  else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()) &&
+		   (std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end())) 
+	    vdatas.push_back(vd);
+	  else
+	    vsetdatas.push_back(vd);
+	}
+	else ERRORR(MB_FAILURE, "Couldn't find variable.");
+      }
+    }
+  }
+  else { // ucd mesh
+    if(var_names.empty()) {
+      for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
+        VarData vd = (*mit).second;
+        if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) &&
+            (std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end()) && 
+            (std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end()) )
+          vdatas.push_back(vd);  //3d data (time, ncol, ilev) read here
+        else
+          vsetdatas.push_back(vd);
+      }
+    }
+    else {
+      for (unsigned int i = 0; i < var_names.size(); i++) {
+        mit = varInfo.find(var_names[i]);
+	if (mit != varInfo.end()) {
+	  VarData vd = (*mit).second;
+	  if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) &&
+	      (std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end()) &&
+              (std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end()) )
+	    vdatas.push_back(vd); //3d data
+          else
+            vsetdatas.push_back(vd);
+        }
+        else ERRORR(MB_FAILURE, "Couldn't find variable.");
+      }
     }
   }
   
@@ -788,6 +867,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	 quads.psize() == 1);
   //quads_handles.resize(quads.size());
   //std::copy(quads.begin(), quads.end(), quads_handles.begin());
+
 #ifdef USE_MPI
   moab::Range quads_owned;    
   rval = myPcomm->filter_pstatus(quads, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1,
@@ -827,7 +907,9 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
       
       // set up the dimensions and counts
       // first time
-      vdatas[i].readDims[t].push_back(tstep_nums[t]);
+      if(!ucdMesh)
+        vdatas[i].readDims[t].push_back(tstep_nums[t]); //scd meshes take extra dimension
+
       vdatas[i].readCounts[t].push_back(1);
       
       // then z/y/x
@@ -889,6 +971,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	  vdatas[i].readCounts[t].push_back(lCDims[4]-lCDims[1]+1);
 	  vdatas[i].readCounts[t].push_back(lCDims[3]-lCDims[0]+1);
 	  assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+
 #ifdef USE_MPI
 	  range = &quads_owned;
 #else
@@ -933,33 +1016,21 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   std::vector<VarData> vdatas;
   std::vector<VarData> vsetdatas;
 
-  if(!ucdMesh) { //structured data
-    ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
-    ERRORR(rval, "Trouble setting up read variable.");
-  
-    if (!vsetdatas.empty()) {
-      rval = read_variable_to_set(file_set, vsetdatas, tstep_nums);
-      ERRORR(rval, "Trouble read variables to set.");
-    }
-  
-    if (!vdatas.empty()) {
-      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums);
-      ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
-    }
-    
-    // create COORDS tag for quad
-    rval = create_quad_coordinate_tag(file_set);
-    ERRORR(rval, "Trouble creating coordinate tags to entities quads");
-  } 
-  else {  // unstructured HOMME data
-    ErrorCode rval = read_variable_ucd_setup(var_names, tstep_nums, vdatas);
-    ERRORR(rval, "Trouble setting up read variable.");
+  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+  ERRORR(rval, "Trouble setting up read variable.");
 
-    if(!vdatas.empty()) {
+  if (!vsetdatas.empty()) {
+    rval = read_variable_to_set(file_set, vsetdatas, tstep_nums);
+    ERRORR(rval, "Trouble read variables to set.");
+  }
+
+  if (!vdatas.empty()) {
+    if(!ucdMesh)
+      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums);
+    else //ucd data
       rval = read_variable_to_ucdmesh(file_set, var_names, tstep_nums, vdatas);
-      ERRORR(rval, "Trouble read variables to ucd mesh.");      
-    }
-  } 
+    ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
+  }
 
   return MB_SUCCESS;
 }
@@ -1061,7 +1132,7 @@ ErrorCode ReadNC::read_variable_ucd_allocate(std::vector<VarData> &vdatas,
 
         // get the tag to read into
       if (!vdatas[i].varTags[t]) {
-        rval = get_tag_ucd(vdatas[i], tstep_nums[t], vdatas[i].varTags[t]);
+        rval = get_tag(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], 1);
         ERRORR(rval, "Trouble getting tag.");
       }
 
@@ -1078,27 +1149,10 @@ ErrorCode ReadNC::read_variable_ucd_allocate(std::vector<VarData> &vdatas,
       vdatas[i].readDims[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
-        // then z/y/x
-      bool have_k = false;
-      if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), kDim) != vdatas[i].varDims.end()) {
-        vdatas[i].readDims[t].push_back(lDims[2]);
-        vdatas[i].readCounts[t].push_back(lDims[5] - lDims[2] + 1);
-        have_k = true;
-      }
-
-      bool have_ij = true;
-#ifdef PNETCDF_FILE
-        // whether we actually read anything depends on parallel and whether there's a k
-      if (!have_k && -1 != kDim && 0 != myPcomm->proc_config().proc_rank())
-        have_ij = false;
-#else
-      if (have_k); // to get rid of compiler warning
-#endif
-
-      vdatas[i].readDims[t].push_back(lDims[1]);
-      vdatas[i].readDims[t].push_back(lDims[0]);
-      vdatas[i].readCounts[t].push_back(have_ij ? lDims[4]-lDims[1]+1 : 0);
-      vdatas[i].readCounts[t].push_back(have_ij ? lDims[3]-lDims[0]+1 : 0);
+      vdatas[i].readDims[t].push_back(gDims[1]);
+      vdatas[i].readDims[t].push_back(gDims[0]);
+      vdatas[i].readCounts[t].push_back(klVals.size());
+      vdatas[i].readCounts[t].push_back(gDims[3]-gDims[0]+1);
 
       assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
 
@@ -1114,87 +1168,6 @@ ErrorCode ReadNC::read_variable_ucd_allocate(std::vector<VarData> &vdatas,
 
   return rval;
 }
-
-ErrorCode ReadNC::get_tag_ucd(VarData &var_data, int tstep_num, Tag &tagh)
-{
-  std::ostringstream tag_name;
-  if (!tstep_num) {
-    std::string tmp_name = var_data.varName + "0";
-    tag_name << tmp_name.c_str();
-  }
-  else
-    tag_name << var_data.varName << tstep_num;
-  ErrorCode rval = MB_SUCCESS;
-  tagh = 0;
-  switch (var_data.varDataType) {
-    case NC_BYTE:
-    case NC_CHAR:
-        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_OPAQUE, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
-        break;
-    case NC_DOUBLE:
-    case NC_FLOAT:
-        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_DOUBLE, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
-        break;
-    case NC_INT:
-    case NC_SHORT:
-        rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 1, MB_TYPE_INTEGER, tagh, MB_TAG_DENSE|MB_TAG_CREAT);
-        break;
-    default:
-        std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;
-        rval = MB_FAILURE;
-  }
-
-  if (MB_SUCCESS == rval) dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.str().c_str());
-
-  return rval;
-}
-
-
-ErrorCode ReadNC::read_variable_ucd_setup(std::vector<std::string> &var_names, 
-                                          std::vector<int> &tstep_nums, 
-                                          std::vector<VarData> &vdatas)
-{
-  std::map<std::string,VarData>::iterator mit;
-  if (var_names.empty()) {
-    for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
-      VarData vd = (*mit).second;
-      std::vector<int> tmp_v;
-      if (-1 != tMin &&
-          std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end())
-        tmp_v.push_back(tDim);
-      if (-1 != lDims[2] &&
-          std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end())
-        tmp_v.push_back(kDim);
-      tmp_v.push_back(jDim);
-      tmp_v.push_back(iDim);
-      if (tmp_v == vd.varDims)
-        vdatas.push_back(vd);
-    }
-  }
-  else {
-    for (unsigned int i = 0; i < var_names.size(); i++) {
-      mit = varInfo.find(var_names[i]);
-      if (mit != varInfo.end()) vdatas.push_back((*mit).second);
-      else ERRORR(MB_FAILURE, "Couldn't find variable.");
-    }
-  }
-
-  if (tstep_nums.empty() && -1 != tMin) {
-    // no timesteps input, get them all
-    for (int i = tMin; i <= tMax; i++) tstep_nums.push_back(i);
-  }
-  if (!tstep_nums.empty()) {
-    for (unsigned int i = 0; i < vdatas.size(); i++) {
-      vdatas[i].varTags.resize(tstep_nums.size(), 0);
-      vdatas[i].varDatas.resize(tstep_nums.size());
-      vdatas[i].readDims.resize(tstep_nums.size());
-      vdatas[i].readCounts.resize(tstep_nums.size());
-    }
-  }
-
-  return MB_SUCCESS;
-}
-
 
 ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, 
 						std::vector<VarData> &vdatas,
@@ -2435,9 +2408,9 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts)
   gDims[4] = gDims[3] - 2;
   
   gDims[2] = gDims[5] = -1;
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end()) {
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end()) {
     idx = vit-dimNames.begin();
-    gDims[5] = dimVals[idx]-1, gDims[2] = 0, kName = std::string("ilev");
+    gDims[5] = dimVals[idx]-1, gDims[2] = 0, kName = std::string("lev");
     kDim = idx;
   }
   if (-1 == gDims[2]) return MB_FAILURE;
@@ -2466,8 +2439,8 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts)
   }
   
   if (gDims[2] != -1) {
-    if ((vmit = varInfo.find("ilev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("ilev", gDims[2], gDims[5], klVals);
+    if ((vmit = varInfo.find("lev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("lev", gDims[2], gDims[5], klVals);
       ERRORR(rval, "Trouble reading z variable.");
 
         // decide whether down is positive
@@ -2499,6 +2472,16 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts)
   }
   else {
     ERRORR(MB_FAILURE, "Couldn't find time coordinate.");
+  }
+
+    // determine the entity location type of a variable
+  std::map<std::string,VarData>::iterator mit;
+  for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
+    VarData& vd = (*mit).second;
+    if ((std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end()) &&
+        (std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end()) &&
+        (std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end())) 
+      vd.entLoc = ENTLOCNODE;
   }
 
   std::copy(gDims, gDims+6, lDims);
