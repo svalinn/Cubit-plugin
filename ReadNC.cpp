@@ -597,11 +597,11 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
 
   if (isParallel) {
     if (rank < num_quads%procs) {
-      num_local_quads = int(floor(num_quads/procs))+1;
+      num_local_quads = int(floor(1.0*num_quads/procs))+1;
       start_idx = 4*rank*num_local_quads;
     }
     else {
-      num_local_quads = int(floor(num_quads/procs));
+      num_local_quads = int(floor(1.0*num_quads/procs));
       start_idx = 4*(num_quads%procs + rank*num_local_quads);
     }
   }
