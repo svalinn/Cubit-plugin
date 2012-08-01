@@ -141,8 +141,8 @@ inline ErrorCode WriteDamsel::write_subrange(RangeSeqIntersectIter &rsi)
   if (MBVERTEX == mbImpl->type_from_handle(rsi.get_start_handle())) 
     rval = write_vertices(rsi);
 
-//  else if (MBENTITYSET > mbImpl->type_from_handle(rsi.get_start_handle())) 
-//    rval = write_entities(rsi);
+  else if (MBENTITYSET > mbImpl->type_from_handle(rsi.get_start_handle())) 
+    rval = write_entities(rsi);
 
 //  else
 //    rval = write_sets(rsi);

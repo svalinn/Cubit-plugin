@@ -121,7 +121,7 @@ WriteDamsel::WriteDamsel(Interface *impl)
 
 WriteDamsel::~WriteDamsel() 
 {
-  mbImpl->release_interface(mWriteIface);
+  if (mWriteIface) mbImpl->release_interface(mWriteIface);
 }
 
 ErrorCode WriteDamsel::write_file(const char *file_name, 
@@ -147,9 +147,9 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   
     // attach to a file, since we need it for creating containers
   MPI_Comm comm = MPI_COMM_WORLD;
+  unlink(file_name);
   err = DMSLmodel_attach(dmslModel, file_name, comm, NULL);
   CHK_DMSL_ERR(err, "DMSLmodel_attach failed.");
-  dmslFile = (damsel_model) ((damsel_model_internal *)dmslModel)->attached_file;
   
   rval = mWriteIface->gather_entities(all_ents, meshset_list, num_sets);
   CHK_MB_ERR(rval, "Gather entities failed in WriteDamsel.");
@@ -176,15 +176,16 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   }
 
     // write sparse tags
-//  rval = map_sparse_tags();
-//  CHK_MB_ERR(rval, "Failed to write sparse tags.");
+  rval = map_sparse_tags();
+  CHK_MB_ERR(rval, "Failed to write sparse tags.");
 
-  damsel_request_t request;
-  err = DMSLmodel_transfer_async(dmslModel, DAMSEL_TRANSFER_TYPE_WRITE, &request);
+    //damsel_request_t request;
+    //err = DMSLmodel_transfer_async(dmslModel, DAMSEL_TRANSFER_TYPE_WRITE, &request);
+  err = DMSLmodel_transfer_sync(dmslModel, DAMSEL_TRANSFER_TYPE_WRITE);
   CHK_DMSL_ERR(err, "DMSLmodel_transfer_asynch failed.");
   
-  damsel_status_t status;
-  err = DMSLmodel_wait(request, &status);
+    //damsel_status_t status;
+    //err = DMSLmodel_wait(request, &status);
   CHK_DMSL_ERR(err, "DMSLmodel_wait failed.");
 
   DMSLmodel_close(dmslModel);
@@ -207,7 +208,8 @@ ErrorCode WriteDamsel::init_tag_info()
     // define damsel tag handles for all dense/sparse tags
   for (std::vector<Tag>::iterator vit = tmp_mtags.begin(); vit != tmp_mtags.end(); vit++) {
     if (((*vit)->get_storage_type() != MB_TAG_DENSE && (*vit)->get_storage_type() != MB_TAG_SPARSE) ||
-        mbImpl->tag_get_bytes(*vit, dum_size) == MB_VARIABLE_DATA_LENGTH) {
+        mbImpl->tag_get_length(*vit, dum_size) == MB_VARIABLE_DATA_LENGTH ||
+        dum_size != 1) {
       std::cerr << "Warning: tag " << (*vit)->get_name() 
                 << "is not of type dense or sparse, and is not currently supported by the damsel writer." 
                 << std::endl;
@@ -283,25 +285,23 @@ ErrorCode WriteDamsel::init_tag_info()
     // map the tag handles in one big call
   int num_tags = tagMaps[0].size() + tagMaps[1].size() + tagMaps[2].size();
   std::vector<Tag> moab_taghs;
-  std::vector<damsel_tag> damsel_taghs;
   moab_taghs.reserve(num_tags);
-  damsel_taghs.reserve(num_tags);
   for (int i = 0; i < 3; i++) {
     for (std::map<Tag, damsel_tag>::iterator mit = tagMaps[i].begin(); mit != tagMaps[i].end(); mit++) {
       if (!(*mit).first || (*mit).second == DAMSEL_TAG_INVALID) continue;
       moab_taghs.push_back((*mit).first);
-      damsel_taghs.push_back((*mit).second);
     }
   }
     
-  damsel_container mtags = DMSLcontainer_create_vector(dmslModel, (damsel_handle_ptr)&moab_taghs[0], moab_taghs.size()),
-      dtags = DMSLcontainer_create_vector(dmslFile, (damsel_handle_ptr)&damsel_taghs[0], damsel_taghs.size());
+  damsel_container mtags = DMSLcontainer_create_vector(dmslModel, (damsel_handle_ptr)&moab_taghs[0], moab_taghs.size());
   std::cerr << "MOAB: created model container: mtags = " << mtags <<std::endl;
-  std::cerr << "MOAB: created file container: dtags = " << dtags <<std::endl;
   
-  damsel_err_t err = DMSLmodel_map_handles(mtags, dtags);
+  damsel_err_t err = DMSLmodel_map_handles_inventing_file_handles(mtags);
   CHK_DMSL_ERR(err, "Failed to map tag handles.");
 
+  err = DMSLcontainer_release(mtags);
+  CHK_DMSL_ERR(err, "Problem releasing tag handle container.");
+  
   return MB_SUCCESS;
 }
 
@@ -360,9 +360,12 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
   }
 
     // write/map dense tags
-//  rval = map_dense_tags(rsi, vertex_cont);
-//  CHK_MB_ERR(rval, NULL);
+  rval = map_dense_tags(rsi, vertex_cont);
+  CHK_MB_ERR(rval, NULL);
   
+  err = DMSLcontainer_release(vertex_cont);
+  CHK_DMSL_ERR(err, "Problem releasing vertex handle container.");
+
   return MB_SUCCESS;
 }
 
@@ -403,9 +406,12 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
   CHK_DMSL_ERR_2(err, "DMSLentity_define failed for entities starting with handle %lu.", rsi.get_start_handle());
   
     // write dense tags
-//  rval = map_dense_tags(rsi, ent_cont);
-//  CHK_MB_ERR(rval, NULL);
+  rval = map_dense_tags(rsi, ent_cont);
+  CHK_MB_ERR(rval, NULL);
   
+  err = DMSLcontainer_release(ent_cont);
+  CHK_DMSL_ERR(err, "Problem releasing entity handle container.");
+
   return MB_SUCCESS;
 }
 
@@ -475,6 +481,9 @@ ErrorCode WriteDamsel::map_sparse_tags()
       // now map it
     err = DMSLmodel_map_tag((void*)&tag_values[0], ent_cont, (damsel_handle_ptr)&stag);
     CHK_DMSL_ERR_2(err, "Failed to write tag %s.", stag->get_name().c_str());
+
+    err = DMSLcontainer_release(ent_cont);
+    CHK_DMSL_ERR(err, "Problem releasing entity handle container.");
   }
   
   return rval;
@@ -485,10 +494,9 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
     // write the sets
   ErrorCode rval = MB_SUCCESS;
   std::vector<EntityHandle> ents;
-  damsel_container dcont, mcont;
+  damsel_container mcont;
   damsel_err_t err;
   unsigned int i, num_sets = rsi.get_end_handle() - rsi.get_start_handle() + 1;
-  std::vector<damsel_collection> dcolls(num_sets);
   std::vector<unsigned char> set_flags(num_sets);
   EntityHandle seth;
   for (seth = rsi.get_start_handle(), i = 0; seth <= rsi.get_end_handle(); seth++, i++) {
@@ -497,12 +505,12 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
     rval = mbImpl->get_entities_by_handle(seth, ents);
     CHK_MB_ERR_2(rval, "get_entities_by_handle failed for set %lu.", seth);
     if (!ents.empty()) {
-      dcont = DMSLcontainer_create_vector(dmslModel, (damsel_handle*)&ents[0], ents.size());
+      mcont = DMSLcontainer_create_vector(dmslModel, (damsel_handle*)&ents[0], ents.size());
     }
     else {
-      dcont = DMSLcontainer_create_vector(dmslModel, (damsel_handle*)NULL, 0);
+      mcont = DMSLcontainer_create_vector(dmslModel, (damsel_handle*)NULL, 0);
     }
-    std::cerr << "MOAB: created model container: sets_cont = " << dcont <<std::endl;
+    std::cerr << "MOAB: created model container: sets_cont = " << mcont <<std::endl;
 
     // get the set type (range or set)
     unsigned int opts;
@@ -511,9 +519,6 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
     damsel_collection_type coll_type = (opts&MESHSET_SET ? DAMSEL_HANDLE_COLLECTION_TYPE_SET :
                      DAMSEL_HANDLE_COLLECTION_TYPE_VECTOR);
 
-      // make a damsel collection
-    dcolls[i] = DMSLcoll_create(dmslModel, (damsel_handle_ptr)&seth, dcont, coll_type);
-
       // parents/children...
 
       // set flags
@@ -521,6 +526,9 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
       set_flags[i] |= MESHSET_TRACK_OWNER;
     else
       set_flags[i] |= 0;
+
+    err = DMSLcontainer_release(mcont);
+    CHK_DMSL_ERR(err, "Problem releasing set entity handle container.");
   }
 
     // set the COLL_FLAGS tag, using assign (direct)
@@ -531,15 +539,12 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
   err = DMSLmodel_map_tag(&set_flags[0], mcont, (damsel_handle_ptr)&(collFlagsTagPair.first));
   CHK_DMSL_ERR(err, "Failed to assign COLL_FLAGS tag for sets.");
 
-    // need to map the moab to damsel handles
-  dcont = DMSLcontainer_create_vector(dmslFile, (damsel_handle_ptr)&dcolls[0], num_sets);
-  std::cerr << "MOAB: created file container: coll_cont = " << dcont <<std::endl;
-  err = DMSLmodel_map_handles(mcont, dcont);
+  err = DMSLmodel_map_handles_inventing_file_handles(mcont);
   CHK_DMSL_ERR(err, "Failed to map set handles.");
   
     // map other dense tags
-//  rval = map_dense_tags(rsi, dcont);
-//  CHK_MB_ERR(rval, "Failed to map dense tags for sets.");
+  rval = map_dense_tags(rsi, mcont);
+  CHK_MB_ERR(rval, "Failed to map dense tags for sets.");
 
   return rval;
 }
