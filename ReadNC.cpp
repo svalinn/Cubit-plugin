@@ -147,9 +147,13 @@ ErrorCode ReadNC::load_file(const char *file_name,
   int idx = file_path.find_last_of("/");
   std::string file = file_path.substr(idx+1);
   if(file == "BIL_DIR.nc") {
-        
+/*
+    char * dir_name = (char*) malloc(128);
+    success = NCFUNC(get_att_text)(fileId,0,":BIL_DIR",dir_name);
+    printf("ddd: %s %d\n",dir_name,success);
+    ERRORS(success, "Trouble reading attribute");   
     rval = load_BIL(file_name,file_set,opts,file_id_tag);
-    return rval;
+    return rval;*/
   }
 
 // end of BIL
@@ -620,16 +624,6 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
   NCDF_SIZE tmp_dims[2] = {0, 0}, tmp_counts[2] = {4, num_quads};
   success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_dims, tmp_counts, &tmp_conn[0] NCREQ);
 
-
-/*
-  std::vector<int> tcl(4*num_quads);
-  NCDF_SIZE tds[1] = {0}, tcs[1] = {4*num_quads};
-//  NCDF_SIZE ss[2] = {1,1};
-//  NCDF_SIZE im[2] = {4*num_quads,1};
-  success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tds,tcs,&tcl[0] NCREQ);
-*/
-
-
   int m = 0;
   for (int i = 0; i < 4*num_quads-3; i+=4) {
     conn_intrlvd[i]   = tmp_conn[m ];
@@ -1025,16 +1019,14 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   }
 
   if (!vdatas.empty()) {
-    if(!ucdMesh)
-      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums);
-    else //ucd data
-      rval = read_variable_to_ucdmesh(file_set, var_names, tstep_nums, vdatas);
+    rval = read_variable_to_nonset(file_set, vdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
   }
 
   return MB_SUCCESS;
 }
 
+/*
 ErrorCode ReadNC::read_variable_to_ucdmesh(EntityHandle file_set, 
                                            std::vector<std::string> &varnames,
                                            std::vector<int> &tstep_nums,
@@ -1108,18 +1100,19 @@ ErrorCode ReadNC::read_variable_to_ucdmesh(EntityHandle file_set,
       ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], t);
       if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
     }
-/*    // debug output, if requested
+    // debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
     for (unsigned int i = 1; i < vdatas.size(); i++)
       dbgOut.printf(1, ", %s ", vdatas[i].varName.c_str());
     dbgOut.tprintf(1, "\n");
-*/
+
   }
 
   return rval;
-}
+}*/
 
+/*
 ErrorCode ReadNC::read_variable_ucd_allocate(std::vector<VarData> &vdatas,
                                          std::vector<int> &tstep_nums,
                                          Range &verts)
@@ -1167,7 +1160,7 @@ ErrorCode ReadNC::read_variable_ucd_allocate(std::vector<VarData> &vdatas,
   }
 
   return rval;
-}
+}*/
 
 ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, 
 						std::vector<VarData> &vdatas,
@@ -1340,9 +1333,14 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set,
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void *data = vdatas[i].varDatas[t];
+
       std::size_t sz = 1;
-      for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); ++idx)
-	sz *= vdatas[i].readCounts[t][idx];
+      if (!ucdMesh) {
+        for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); ++idx)
+	  sz *= vdatas[i].readCounts[t][idx];
+      }
+      else 
+        sz = vdatas[i].numLev*vdatas[i].readCounts[t][3];
       
       switch (vdatas[i].varDataType) {
       case NC_BYTE:
@@ -1402,12 +1400,17 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set,
 	  std::size_t num_j = vdatas[i].readCounts[t][2];
 	  std::size_t num_i = vdatas[i].readCounts[t][3];
 	  std::size_t num_ij = num_i * num_j;
-	  for (std::size_t tj = 0; tj != num_j; ++tj)
-	    for (std::size_t ti = 0; ti != num_i; ++ti) {
-	      std::size_t pos = (tj * num_i + ti) *num_k;
-	      for (std::size_t l = 0; l != num_k; ++l) 
-		((float*)data)[pos+l] = tmpfloatdata[l*num_ij+tj*num_i+ti];         
-	    }
+          if(!ucdMesh) {
+	    for (std::size_t tj = 0; tj != num_j; ++tj)
+	      for (std::size_t ti = 0; ti != num_i; ++ti) {
+	        std::size_t pos = (tj * num_i + ti) *num_k;
+	        for (std::size_t l = 0; l != num_k; ++l) 
+	 	  ((float*)data)[pos+l] = tmpfloatdata[l*num_ij+tj*num_i+ti];         
+	      }
+          } else {
+              for (std::size_t idx = 0; idx != tmpfloatdata.size(); ++idx)
+                ((float*)data)[idx] = tmpfloatdata[idx];
+          }
 	}
 	else {
 	  for (std::size_t idx = 0; idx != tmpfloatdata.size(); ++idx) 
@@ -1496,10 +1499,14 @@ ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int
 {
     // get ptr to tag space
   void *data = var_data.varDatas[tstep_num];
-  
+
   std::size_t sz = 1;
-  for (std::size_t idx = 0; idx != var_data.readCounts[tstep_num].size(); ++idx)
-    sz *= var_data.readCounts[tstep_num][idx];
+  if (!ucdMesh) {
+    for (std::size_t idx = 0; idx != var_data.readCounts[tstep_num].size(); ++idx)
+      sz *= var_data.readCounts[tstep_num][idx];
+  }
+  else 
+    sz = var_data.numLev * var_data.readCounts[tstep_num][3];
   
     // finally, read into that space
   int success = 0, *idata;
