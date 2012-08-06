@@ -17,6 +17,8 @@
 #include "FileOptions.hpp"
 #include "moab/ScdInterface.hpp"
 
+//#include "bil.h"
+
 #define ERRORR(rval, str) \
     if (MB_SUCCESS != rval) {readMeshIface->report_error("%s", str); return rval;}
     
@@ -143,18 +145,19 @@ ErrorCode ReadNC::load_file(const char *file_name,
 
 // BIL data
 
-  std::string file_path = std::string(file_name);
-  int idx = file_path.find_last_of("/");
-  std::string file = file_path.substr(idx+1);
-  if(file == "BIL_DIR.nc") {
-/*
-    char * dir_name = (char*) malloc(128);
-    success = NCFUNC(get_att_text)(fileId,0,":BIL_DIR",dir_name);
-    printf("ddd: %s %d\n",dir_name,success);
-    ERRORS(success, "Trouble reading attribute");   
-    rval = load_BIL(file_name,file_set,opts,file_id_tag);
-    return rval;*/
+  if( BIL_mode_enabled(file_name) ) {
+
+    rval = get_BIL_dir();
+    ERRORS(rval, "Failed to find directory with BIL data.");
+
+    dbgOut.tprintf(1,"Reading BIL data from directory: %s\n",BIL_dir.c_str());
+
+    rval = load_BIL(BIL_dir,file_set,opts,file_id_tag);
+    ERRORR(rval, "Trouble reading BIL data.");
+
+    return rval;
   }
+
 
 // end of BIL
   
@@ -294,7 +297,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
       ERRORR(rval, "Trouble getting owned quads in set.");
 
       dbgOut.tprintf(1,"Processor %d owns %d vertices\n", myPcomm->proc_config().proc_rank(), 
-                                                          verts_owned.size());
+                                                          (int)verts_owned.size());
     }
 #endif
 
@@ -327,14 +330,47 @@ ErrorCode ReadNC::load_file(const char *file_name,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::load_BIL(const char *file_name,
+ErrorCode ReadNC::load_BIL( std::string dir_name,
                             const EntityHandle* file_set,
                             const FileOptions& opts,
                             const Tag* file_id_tag)
 {
-  
+/*
+  BIL_Init( MPI_COMM_WORLD );
+
+
+  BIL_Finalize();
+*/
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::get_BIL_dir()
+{
+  std::map<std::string,AttData> dirAtt;
+  ErrorCode result = get_attributes(NC_GLOBAL, 1, dirAtt);
+  ERRORR(result, "Failed to get BIL_DIR attribute");
+
+  std::string attname;
+  std::map<std::string,AttData>::iterator attIt = dirAtt.find("BIL_DIR");
+
+  unsigned int sz = attIt->second.attLen;
+  char *att_data = (char *) malloc(sz+1);
+  att_data[sz] ='\000';
+  int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId,
+                                 attIt->second.attName.c_str(), (char*)att_data);
+  ERRORS(success, "Trouble getting BIL data directory.");
+  BIL_dir = std::string(att_data);
 
   return MB_SUCCESS;
+}
+
+bool ReadNC::BIL_mode_enabled(const char * file_name)
+{
+  std::string file_path = std::string(file_name);
+  int idx = file_path.find_last_of("/");
+  std::string file = file_path.substr(idx+1);
+
+  return (file == "BIL_DIR.nc");
 }
 
 ErrorCode ReadNC::parse_options(const FileOptions &opts,
@@ -1013,6 +1049,12 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
+  if(!ucdMesh) {
+      // create COORDS tag for quads
+    rval = create_quad_coordinate_tag(file_set);
+    ERRORR(rval, "Trouble creating coordinate tags to entities quads");
+  }
+
   if (!vsetdatas.empty()) {
     rval = read_variable_to_set(file_set, vsetdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to set.");
@@ -1565,6 +1607,8 @@ ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int
       case NC_BYTE:
       case NC_CHAR:
           break;
+      default: //default case added to remove compiler warnings
+          success = 1;
     }
   }
 

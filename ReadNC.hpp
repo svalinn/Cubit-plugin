@@ -231,10 +231,14 @@ private:
 
   ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
  
-  ErrorCode load_BIL(const char *file_name,
+  ErrorCode load_BIL(std::string dir_name,
                      const EntityHandle* file_set,
                      const FileOptions& opts,
                      const Tag* file_id_tag);
+
+  ErrorCode get_BIL_dir();
+
+  bool BIL_mode_enabled(const char * file_name);
  
 //------------member variables ------------//
 
@@ -326,6 +330,9 @@ private:
 
     //! parallel data object, to be cached with ScdBox
   ScdParData parData;
+
+    //! directory where data is stored for BIL reader
+  std::string BIL_dir;
   
 #ifdef USE_MPI
   ParallelComm *myPcomm;
