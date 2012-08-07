@@ -9,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <map>
+#include <dirent.h>
 
 #include "moab/Core.hpp"
 #include "moab/ReaderIface.hpp"
@@ -286,7 +287,7 @@ ErrorCode ReadNC::load_file(const char *file_name,
     ERRORR(rval, "Couldn't add new quads to partition set.");
 
 #ifndef NDEBUG
-    if (ucdMesh)
+    if (ucdMesh && !novars)
     {
       Range verts_owned;
       rval = myPcomm->resolve_shared_ents(0,-1,-1);
@@ -335,9 +336,38 @@ ErrorCode ReadNC::load_BIL( std::string dir_name,
                             const FileOptions& opts,
                             const Tag* file_id_tag)
 {
+
 /*
   BIL_Init( MPI_COMM_WORLD );
 
+  void ** buffer;
+
+  DIR * dir;
+  struct dirent * ent;
+  dir = opendir(dir_name.c_str());
+  if (dir != NULL) {
+    while ((ent = readdir(dir)) != NULL) {
+      if (strlen(ent->d_name) > 3) { //filter out . and ..
+
+        dbgOut.tprintf(1,"reading block from %s\n",ent->d_name);
+
+        int num_dims = 3;
+        int time_d = 1;
+        int lev_d  = 26;
+        int ncol_d = 3458;
+        int block_start[3] = {0,0,0};
+        int block_size[3]  = {time_d, lev_d, ncol_d};
+        const char * file_name = ent->d_name;
+        const char * var_name = "T";
+
+        BIL_Add_block_nc(num_dims, block_start, block_size, 
+                         file_name, var_name, buffer);
+      }
+    }
+    closedir (dir);
+  }
+
+  BIL_Read();  
 
   BIL_Finalize();
 */
@@ -807,6 +837,9 @@ ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names,
     }
     else {
       for (unsigned int i = 0; i < var_names.size(); i++) {
+
+        if (var_names[i] == "ncol") continue;
+
         mit = varInfo.find(var_names[i]);
 	if (mit != varInfo.end()) {
 	  VarData vd = (*mit).second;
