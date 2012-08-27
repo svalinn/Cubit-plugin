@@ -1,4 +1,5 @@
 #include "DamselUtil.hpp"
+#include "moab/Range.hpp"
 
 #include "damsel.h"
 
@@ -54,5 +55,44 @@ DataType DamselUtil::dtom_data_type[] = {
     MB_TYPE_OPAQUE,  // DAMSEL_DATA_TYPE_SHORTINT = 8,
     MB_TYPE_OPAQUE  // DAMSEL_DATA_TYPE_PREDEFINED_WATERMARK = 9;
 };
+
+DamselUtil::DamselUtil() 
+        : dmslLib(DAMSEL_LIBRARY_INVALID), dmslModel(DAMSEL_MODEL_INVALID),
+          moabHandleType(DAMSEL_HANDLE_TYPE_INVALID) 
+{}
+    
+    //! convert handles in a container to a range; assumes EntityHandle and Damsel
+    //! entity handles are the same size
+ErrorCode DamselUtil::container_to_range(damsel_model m, damsel_container &c, Range &r) 
+{
+  if (DMSLcontainer_get_type(c) == DAMSEL_HANDLE_CONTAINER_TYPE_SEQUENCE) {
+    damsel_handle start;
+    size_t count, stride;
+    damsel_err_t err = DMSLcontainer_sequence_get_contents(m, c, &start, &count, &stride);
+    CHK_DMSL_ERR_NM(err);
+    for (damsel_handle i = start+(count-1)*stride; i >= start; i-=stride)
+      r.insert(i);
+  }
+  else if (DMSLcontainer_get_type(c) == DAMSEL_HANDLE_CONTAINER_TYPE_VECTOR) {
+    damsel_handle *handle_ptr;
+    size_t count;
+    damsel_err_t err = DMSLcontainer_vector_get_contents(m, c, &handle_ptr, &count);
+    CHK_DMSL_ERR_NM(err);
+    for (int i = count-1; i >= 0; i--)
+      r.insert(handle_ptr[i]);
+  }
+  else if (DMSLcontainer_get_type(c) == DAMSEL_HANDLE_CONTAINER_TYPE_TREE) {
+    damsel_handle_ptr node_ptr = NULL;
+    damsel_container cont = NULL;
+    damsel_err_t err = DMSLcontainer_tree_get_contents(m, c, &node_ptr, &cont);
+    while (err.id == DMSL_OK.id && cont) {
+      ErrorCode rval = container_to_range(m, c, r);
+      if (MB_SUCCESS != rval) return rval;
+      err = DMSLcontainer_tree_get_contents(m, c, &node_ptr, &cont);
+    }
+  }
+      
+  return MB_SUCCESS;
+}
 
 }

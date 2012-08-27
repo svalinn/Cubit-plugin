@@ -3,18 +3,16 @@
  *
  */
 
+#include "moab/ParallelComm.hpp"
+
 #include "ReadDamsel.hpp"
 
-#include "DamselUtil.hpp"
 #include "assert.h"
 #include "moab/Interface.hpp"
 #include "moab/Core.hpp"
 #include "moab/Range.hpp"
 #include "moab/Error.hpp"
 #include "moab/ReadUtilIface.hpp"
-#include "moab_mpi.h"
-#include "moab/ProcConfig.hpp"
-#include "moab/ParallelComm.hpp"
 #include "FileOptions.hpp"
 #include "MBTagConventions.hpp"
 #include "EntitySequence.hpp"
@@ -28,8 +26,7 @@ ReaderIface* ReadDamsel::factory( Interface* iface )
 
 ReadDamsel::ReadDamsel(Interface *impl) 
         : mbImpl(impl), readMeshIface(NULL), mError(NULL), nativeParallel(false), myPcomm(NULL), mGlobalIdTag(0), 
-          dmslLib(0), dmslModel(0),  moabHandleType((damsel_handle_type)0), xcoordDtag(0), ycoordDtag(0), zcoordDtag(0), 
-          childListTag(0), parentListTag(0)
+          dU()
 {
   init();
 }
@@ -40,7 +37,7 @@ ReadDamsel::~ReadDamsel()
     return;
 
   mbImpl->release_interface(readMeshIface);
-  DMSLlib_finalize(dmslLib);
+  DMSLlib_finalize(dU.dmslLib);
 }
 
 ErrorCode ReadDamsel::init()
@@ -83,23 +80,16 @@ ErrorCode ReadDamsel::load_file( const char* filename,
     return rval;
 
     // initialize damsel
-  dmslLib = DMSLlib_init();
-  
-    // figure out handle size
-  moab_to_damsel_data_type[MB_TYPE_OPAQUE] = DAMSEL_DATA_TYPE_BYTES;
-  moab_to_damsel_data_type[MB_TYPE_INTEGER] = DAMSEL_DATA_TYPE_INTEGER;
-  moab_to_damsel_data_type[MB_TYPE_DOUBLE] = DAMSEL_DATA_TYPE_DOUBLE;
-  moab_to_damsel_data_type[MB_TYPE_BIT] = DAMSEL_DATA_TYPE_INVALID;
-  moab_to_damsel_data_type[MB_TYPE_HANDLE] = DAMSEL_DATA_TYPE_HANDLE;
+  dU.dmslLib = DMSLlib_init();
   
     // create a damsel model
-  dmslModel = DMSLmodel_create(sizeof(EntityHandle) == 8 ? DAMSEL_HANDLE_TYPE_HANDLE64 : 
-                               DAMSEL_HANDLE_TYPE_HANDLE32);
+  dU.dmslModel = DMSLmodel_create(sizeof(EntityHandle) == 8 ? DAMSEL_HANDLE_TYPE_HANDLE64 : 
+                                  DAMSEL_HANDLE_TYPE_HANDLE32);
   
     // model attach - need model id from make model, filename
   int proc_rank = 0, proc_size = 1;
 #ifdef USE_MPI
-  MPI_Comm comm = 0;
+  MPI_Comm comm = MPI_COMM_WORLD;
   if (nativeParallel) {
     proc_rank = myPcomm->proc_config().proc_rank();
     proc_size = myPcomm->proc_config().proc_size();
@@ -108,32 +98,36 @@ ErrorCode ReadDamsel::load_file( const char* filename,
 #endif
 
   damsel_err_t err;
-  err = DMSLmodel_attach(dmslModel, fileName.c_str(), comm, NULL);
+  err = DMSLmodel_attach(dU.dmslModel, filename, comm, NULL);
   CHK_DMSL_ERR(err, "DMSLmodel_attach failed.");
+  err = DMSLmodel_populate(dU.dmslModel);
+  CHK_DMSL_ERR(err, "DMSLmodel_populate failed.");
   
     // STEP 0: GET COLLECTION, TAG, ENTITY INFOS FOR GLOBAL MODEL
   int num_containers = 0, num_tag_infos = 0, num_ent_infos = 0;
-  DMSLmodel_get_tuple_count(dmslModel, &num_containers, &num_tag_infos);
-  num_ent_infos = DMSLmodel_get_entity_count(dmslModel);
-  int num_coll_infos = DMSLmodel_get_collection_count(dmslModel);
+  DMSLmodel_get_tuple_count(dU.dmslModel, &num_containers, &num_tag_infos);
+  num_ent_infos = DMSLmodel_get_entity_count(dU.dmslModel);
+  int num_coll_infos = DMSLmodel_get_collection_count(dU.dmslModel);
   CHK_DMSL_ERR(err, "DMSLmodel_get_collection_count failed.");
 
   std::vector<damsel_entity_buf_type> ent_infos(num_ent_infos);
   std::vector<damsel_collection_buf_type> coll_infos(num_coll_infos);
   std::vector<damsel_tag_buf_type> tag_infos(num_tag_infos);
   std::vector<damsel_container_buf_type> cont_infos(num_containers);
-  err = DMSLmodel_get_entity_infos(dmslModel, &ent_infos[0]);
+  err = DMSLmodel_get_entity_infos(dU.dmslModel, &ent_infos[0]);
   CHK_DMSL_ERR(err, "Failure getting entity infos.");
-  err = DMSLmodel_get_collection_infos(dmslModel, &coll_infos[0]);
+  err = DMSLmodel_get_collection_infos(dU.dmslModel, &coll_infos[0]);
   CHK_DMSL_ERR(err, "Failure getting collection infos.");
-  err = DMSLmodel_get_tag_infos(dmslModel, &tag_infos[0]);
+  err = DMSLmodel_get_tag_infos(dU.dmslModel, &tag_infos[0]);
   CHK_DMSL_ERR(err, "Failure getting tag infos.");
-  err = DMSLmodel_get_container_infos(dmslModel, &cont_infos[0]);
+  err = DMSLmodel_get_container_infos(dU.dmslModel, &cont_infos[0]);
   CHK_DMSL_ERR(err, "Failure getting container infos.");
 
     // create MOAB-side tags for all damsel tags except pre-defined ones
   rval = process_tags(tag_infos);
   CHK_MB_ERR(rval, "Error processing tags.");
+  
+/*
   
   if (nativeParallel) {
       // STEP 1: GET COLLECTION(S) REPRESENTING PARTITION: 
@@ -142,17 +136,17 @@ ErrorCode ReadDamsel::load_file( const char* filename,
       // - get all handles/values for tag
       // - select handles matching criteria for tag value (will be collection handles)
     std::string partn_tag_name("PARALLEL_PARTITION");
-    damsel_handle partn_tag = DMSLselect_tag_by_name(dmslModel, partn_tag_name.c_str());
+    damsel_handle partn_tag = DMSLselect_tag_by_name(dU.dmslModel, partn_tag_name.c_str());
       // get all the parts with that tag regardless of value
-    damsel_container part_handles = DMSLselect_handles_with_values(dmslModel, partn_tag);
+    damsel_container part_handles = DMSLselect_handles_with_values(dU.dmslModel, partn_tag);
 
       // STEP 2: GET HANDLES FOR TAGS WE NEED FOR THIS READER:
       // - "SET_CHARACTERISTIC"
-    damsel_handle setchar_tag = DMSLselect_tag_by_name(dmslModel, "SET_CHARACTERISTIC");
+    damsel_handle setchar_tag = DMSLselect_tag_by_name(dU.dmslModel, "SET_CHARACTERISTIC");
       // - "PARENT_LIST"
-      //damsel_handle plist_tag = DMSLselect_tag_by_name(dmslModel, "PARENT_LIST");
+      //damsel_handle plist_tag = DMSLselect_tag_by_name(dU.dmslModel, "PARENT_LIST");
       // - "CHILD_LIST"
-      //damsel_handle clist_tag = DMSLselect_tag_by_name(dmslModel, "CHILD_LIST");
+      //damsel_handle clist_tag = DMSLselect_tag_by_name(dU.dmslModel, "CHILD_LIST");
 
       // STEP 3: GET VALUES FOR "SET_CHARACTERISTIC" TAG ON PARTITION COLLECTIONS,
       //         GET VECTOR- OR SET-TYPE FLAGS FOR PARTITION COLLECTIONS
@@ -164,7 +158,7 @@ ErrorCode ReadDamsel::load_file( const char* filename,
     CHK_DMSL_ERR(err, "Problem calling DMSLmodel_map_tag");
     
       // execute the transfer
-    err = DMSLmodel_transfer_sync(dmslModel, DAMSEL_TRANSFER_TYPE_READ);
+    err = DMSLmodel_transfer_sync(dU.dmslModel, DAMSEL_TRANSFER_TYPE_READ);
     CHK_DMSL_ERR(err, "Problem calling DMSLmodel_transfer_sync");
 
       // STEP 4: READ/PROCESS PARTITION COLLECTION(S)
@@ -188,23 +182,37 @@ ErrorCode ReadDamsel::load_file( const char* filename,
     CHK_MB_ERR(rval, "Problem creating entity sets.");
   }
   else {
+
+*/
       // initialize just by entity; each call to process_ent_info will:
       // a. create moab-side representation to read into
       // b. map those handles to damsel handles
       // c. map coords / connectivity storage to damsel equivalent
       // d. for each tag, map moab storage to damsel storage
-    std::vector<damsel_entity_buf_type>::iterator eiit =  ent_infos.begin();
-    for (; eiit != ent_infos.end(); eiit++) {
-      rval = process_ent_info(*eiit);
-      CHK_MB_ERR(rval, " ");
+    std::vector<damsel_entity_buf_type>::iterator eiit;
+
+      // process verts info first    
+    for (eiit =  ent_infos.begin(); eiit != ent_infos.end(); eiit++) {
+      if ((*eiit).entity_type == DAMSEL_ENTITY_TYPE_VERTEX) {
+        rval = process_ent_info(*eiit);
+        CHK_MB_ERR(rval, " ");
+      }
     }
+
+    for (eiit =  ent_infos.begin(); eiit != ent_infos.end(); eiit++) {
+      if ((*eiit).entity_type != DAMSEL_ENTITY_TYPE_VERTEX) {
+        rval = process_ent_info(*eiit);
+        CHK_MB_ERR(rval, " ");
+      }
+    }
+    
+/*
   }
 
     // process collections
   rval = process_coll_infos(coll_infos); 
   CHK_MB_ERR(rval, " ");
   
-
     // STEP 5: process into list of local info structs, each represents file-side struct and
     // portion of that struct
     // ASSUMPTION: each local info struct represents single entity type & # vertices or collection
@@ -237,7 +245,66 @@ ErrorCode ReadDamsel::load_file( const char* filename,
     //   - translate all damsel handles to app handles
     // uninit damsel
 
+    */
+
   return MB_SUCCESS;
+}
+
+ErrorCode ReadDamsel::read_tag_values( const char* file_name,
+                                       const char* tag_name,
+                                       const FileOptions& opts,
+                                       std::vector<int>& tag_values_out,
+                                       const SubsetList* subset_list) 
+{
+  return MB_FAILURE;
+}
+    
+ErrorCode ReadDamsel::process_tags(std::vector<damsel_tag_buf_type> &tag_infos) 
+{
+  Tag tagh;
+  ErrorCode rval = MB_SUCCESS, tmp_rval;
+  for (std::vector<damsel_tag_buf_type>::iterator tit = tag_infos.begin(); tit != tag_infos.end(); tit++) {
+    if (DamselUtil::dtom_data_type[(*tit).tag_datatype] == MB_TYPE_OPAQUE) {
+      std::cout << "Damsel reader encountered opaque tag." << std::endl;
+      continue;
+    }
+      
+    tmp_rval = mbImpl->tag_get_handle((*tit).name, 1, 
+                                      DamselUtil::dtom_data_type[(*tit).tag_datatype],
+                                      tagh, MB_TAG_CREAT | MB_TAG_DENSE);
+    if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+    else {
+      dU.tagMap.push_back(DamselUtil::tinfo(tagh, *(reinterpret_cast<damsel_tag*>((*tit).tag_handle)), 
+                                            MB_TAG_DENSE));
+        // also store predefined tags specially...
+      if (!strncmp((*tit).name, "mbdmsl_", 7)) {
+          // predefined tag name, store the handle
+        if (!strcmp((*tit).name, "mbdmsl_XCOORDS"))
+          dU.xcoordsTag = dU.tagMap.back();
+        else if (!strcmp((*tit).name, "mbdmsl_YCOORDS")) {
+          dU.ycoordsTag = dU.tagMap.back();
+        }
+        else if (!strcmp((*tit).name, "mbdmsl_ZCOORDS")) {
+          dU.zcoordsTag = dU.tagMap.back();
+        }
+        else if (!strcmp((*tit).name, "mbdmsl_COLL_FLAGS")) {
+          dU.collFlagsTag = dU.tagMap.back();
+        }
+        else if (!strcmp((*tit).name, "mbdmsl_PARENTS")) {
+          dU.parentsTag = dU.tagMap.back();
+        }
+        else if (!strcmp((*tit).name, "mbdmsl_CHILDREN")) {
+          dU.childrenTag = dU.tagMap.back();
+        }
+        else {
+          rval = MB_FAILURE;
+          continue;
+        }
+      }
+    }
+  }
+  
+  return rval;
 }
 
 ErrorCode ReadDamsel::process_ent_info(const damsel_entity_buf_type &einfo) 
@@ -252,7 +319,8 @@ ErrorCode ReadDamsel::process_ent_info(const damsel_entity_buf_type &einfo)
     // check that there's only one contiguous run of file-side handles, fail if there isn't
 #ifndef NDEBUG
   Range fside_handles;
-  rval = get_contents(dmslModel, einfo.entity_container, fside_handles);
+  rval = DamselUtil::container_to_range(dU.dmslModel, const_cast<damsel_container&>(einfo.entity_container), 
+                                        fside_handles);
   if (MB_SUCCESS != rval || fside_handles.size() != einfo.count ||
       fside_handles.psize() != 1) 
     return MB_FAILURE;
@@ -267,23 +335,23 @@ ErrorCode ReadDamsel::process_ent_info(const damsel_entity_buf_type &einfo)
     these_ents.insert(start_handle, start_handle+einfo.count-1);
 
       // create an app-side sequence and map to file-side container
-    app_cont = DMSLcontainer_create_sequence(dmslModel, einfo.count, start_handle, 1);
+    app_cont = DMSLcontainer_create_sequence(dU.dmslModel, einfo.count, start_handle, 1);
     err = DMSLmodel_map_handles(app_cont, einfo.entity_container);
     CHK_DMSL_ERR(err, "Error returned mapping entity handles.");
 
       // map connectivity
     assert(DMSLcontainer_count(einfo.vertex_container) == (int)(einfo.vertices_per_entity*einfo.count));
-    rval = get_contents(dmslModel, einfo.vertex_container, connect);
+    rval = get_contents(dU.dmslModel, einfo.vertex_container, connect);
     CHK_MB_ERR(rval, "Error returned mapping connectivity.");
   }
   else {
       // get the number of coordinate arrays
     int num_ctags = 0;
-    damsel_handle xcoord_dtag = DMSLselect_tag_by_name(dmslModel, "XCOORDS");
+    damsel_handle xcoord_dtag = DMSLselect_tag_by_name(dU.dmslModel, "mbdmsl_XCOORDS");
     if (xcoord_dtag) num_ctags++;
-    damsel_handle ycoord_dtag = DMSLselect_tag_by_name(dmslModel, "YCOORDS");
+    damsel_handle ycoord_dtag = DMSLselect_tag_by_name(dU.dmslModel, "mbdmsl_YCOORDS");
     if (ycoord_dtag) num_ctags++;
-    damsel_handle zcoord_dtag = DMSLselect_tag_by_name(dmslModel, "ZCOORDS");
+    damsel_handle zcoord_dtag = DMSLselect_tag_by_name(dU.dmslModel, "mbdmsl_ZCOORDS");
     if (zcoord_dtag) num_ctags++;
     
       // should have one vertex per entity
@@ -295,27 +363,27 @@ ErrorCode ReadDamsel::process_ent_info(const damsel_entity_buf_type &einfo)
     these_ents.insert(start_handle, start_handle+einfo.count-1);
 
       // create an app-side sequence and map to file-side container
-    app_cont = DMSLcontainer_create_sequence(dmslModel, einfo.count, start_handle, 1);
+    app_cont = DMSLcontainer_create_sequence(dU.dmslModel, start_handle, einfo.count, 1);
     err = DMSLmodel_map_handles(app_cont, einfo.entity_container);
     CHK_DMSL_ERR(err, "Trouble mapping entity handles.");
 
       // map the coords storage
     if (xcoord_dtag != 0) {
-      err = DMSLmodel_map_tag(coord_arrays[0], app_cont, &xcoord_dtag); 
+      err = DMSLmodel_map_tag(coord_arrays[0], app_cont, (damsel_handle_ptr)&dU.xcoordsTag.mTagh); 
       CHK_DMSL_ERR(err, "Trouble mapping x coordinate tag.");
     }
     if (ycoord_dtag != 0) {
-      err = DMSLmodel_map_tag(coord_arrays[1], app_cont, &ycoord_dtag); 
+      err = DMSLmodel_map_tag(coord_arrays[1], app_cont, (damsel_handle_ptr)&dU.ycoordsTag.mTagh); 
       CHK_DMSL_ERR(err, "Trouble mapping y coordinate tag.");
     }
     if (zcoord_dtag != 0) {
-      err = DMSLmodel_map_tag(coord_arrays[2], app_cont, &zcoord_dtag); 
+      err = DMSLmodel_map_tag(coord_arrays[2], app_cont, (damsel_handle_ptr)&dU.zcoordsTag.mTagh); 
       CHK_DMSL_ERR(err, "Trouble mapping z coordinate tag.");
     }
   }
 
     // save mapping from moab entity to einfo
-  dmHandleRMap.insert(start_handle, DMSLcontainer_handle_at_position(einfo.entity_container, 0), einfo.count);
+  dmHandleRMap.insert(DMSLcontainer_handle_at_position(einfo.entity_container, 0), start_handle, einfo.count);
 
   rval = process_entity_tags(einfo.tag_count, einfo.tag_handle_container, app_cont, these_ents);
   
@@ -326,108 +394,29 @@ ErrorCode ReadDamsel::process_entity_tags(int count, damsel_container tag_contai
                                           damsel_container app_cont, Range &these_ents) 
 {
     // process tags on these entities
-  ErrorCode rval;
+  ErrorCode rval = MB_SUCCESS;
   for (int i = 0; i < count; i++) {
     damsel_handle dtagh = DMSLcontainer_handle_at_position(tag_container, i);
 
-      // don't do coords tags here, was done earlier
-    if (xcoordDtag == dtagh || ycoordDtag == dtagh || zcoordDtag == dtagh) continue;
-        
-    Tag tagh = tagMap[dtagh];
+      // don't do conventional tags here
+    std::vector<DamselUtil::tinfo>::iterator vit = 
+        std::find_if(dU.tagMap.begin(), dU.tagMap.end(), DamselUtil::DtagP<DamselUtil::tinfo>(dtagh));
+    
+    if ((*vit).tagType == MB_TAG_ANY) continue;
+    else if (vit == dU.tagMap.end())
+      CHK_MB_ERR(MB_FAILURE, "Failed to find tag.");
+      
+    Tag tagh = (*vit).mTagh;
     assert(tagh);
     void *tag_data;
     int ecount = these_ents.size();
     rval = mbImpl->tag_iterate(tagh, these_ents.begin(), these_ents.end(), ecount, tag_data);
     CHK_MB_ERR(rval, "Problem getting tag iterator.");
     assert(ecount == (int)these_ents.size());
-    damsel_err_t err = DMSLmodel_map_tag(tag_data, app_cont, &dtagh);
+    damsel_err_t err = DMSLmodel_map_tag(tag_data, app_cont, (damsel_handle_ptr)&tagh);
     CHK_DMSL_ERR(err, " ");
   }
 
-  return rval;
-}
-  
-ErrorCode ReadDamsel::process_tags(std::vector<damsel_tag_buf_type> &tag_infos) 
-{
-  Tag tagh;
-  ErrorCode rval = MB_SUCCESS, tmp_rval;
-  for (std::vector<damsel_tag_buf_type>::iterator tit = tag_infos.begin(); tit != tag_infos.end(); tit++) {
-    if (!strncmp((*tit).name, "##", 2)) {
-        // predefined tag name, store the handle
-      if (!strcmp((*tit).name, "##child_list")) childListTag = *((damsel_handle_ptr)(*tit).tag_handle);
-      else if (!strcmp((*tit).name, "##parent_list")) parentListTag = *((damsel_handle_ptr)(*tit).tag_handle);
-      else {
-        rval = MB_FAILURE;
-        continue;
-      }
-    }
-    
-    else if (DamselUtil::dtom_data_type[(*tit).tag_datatype] == MB_TYPE_OPAQUE) {
-      rval = MB_FAILURE;
-      tagMap[*((damsel_handle_ptr)(*tit).tag_handle)] = 0;
-      continue;
-    }
-      
-    tmp_rval = mbImpl->tag_get_handle((*tit).name, 1, 
-                                      DamselUtil::dtom_data_type[(*tit).tag_datatype],
-                                      tagh, MB_TAG_CREAT || MB_TAG_DENSE);
-    if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
-    else tagMap[*((damsel_handle_ptr)(*tit).tag_handle)] = tagh;
-  }
-  
-  return rval;
-}
-
-ErrorCode ReadDamsel::process_coll_infos(std::vector<damsel_collection_buf_type> &coll_infos) 
-{
-  ErrorCode rval = MB_SUCCESS, tmp_rval;
-  EntityHandle seth;
-  std::vector<subrange> handle_subranges;
-  for (std::vector<damsel_collection_buf_type>::iterator cit = coll_infos.begin(); cit != coll_infos.end(); cit++) {
-      // make the set
-    tmp_rval = mbImpl->create_meshset(((*cit).type ==  DAMSEL_HANDLE_COLLECTION_TYPE_SET ? MESHSET_SET : MESHSET_ORDERED),
-                                      seth);
-    if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
-      // make datastructures to pass things to process_entity_tags
-    Range tmp_range(seth, seth);
-    damsel_container ch = DMSLcontainer_create_sequence(dmslModel, 1, seth, 1);
-
-      // get the tags on this set
-    tmp_rval = process_entity_tags((*cit).tag_count, (*cit).tag_handle_container, ch, tmp_range);
-    if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
-
-      // process the set contents
-    if ((*cit).type == DAMSEL_HANDLE_COLLECTION_TYPE_SET) {
-      Range ents;
-      tmp_rval = get_contents(dmslModel, (*cit).contents, ents);
-      if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
-      else if (!ents.empty()) {
-	tmp_rval = mbImpl->add_entities(seth, ents);
-	if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
-      }
-    }
-    else {
-      std::vector<EntityHandle> ents(DMSLcontainer_count((*cit).contents));
-      tmp_rval = get_contents(dmslModel, (*cit).contents, &ents[0]);
-      if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
-      else if (!ents.empty()) {
-	tmp_rval = mbImpl->add_entities(seth, &ents[0], ents.size());
-	if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
-      }
-    }
-
-      // get the file handle for this collection, and map it to moab's set handle
-    damsel_handle collh = (damsel_handle)(*((*cit).collection_handle));
-    if (handle_subranges.empty() || seth != (*handle_subranges.rbegin()).seth+1 ||
-        collh != (*handle_subranges.rbegin()).collh+1) {
-      handle_subranges.push_back(subrange(collh, seth, 1));
-    }
-    else (*handle_subranges.rbegin()).count++;
-  }
-  
-  for (std::vector<subrange>::iterator vit = handle_subranges.begin(); vit != handle_subranges.end(); vit++)
-    dmHandleRMap.insert((*vit).collh, (*vit).seth, (*vit).count);
-    
   return rval;
 }
 
@@ -530,13 +519,62 @@ ErrorCode ReadDamsel::get_contents(damsel_model m, damsel_container c, EntityHan
   return MB_SUCCESS;
 }
 
-ErrorCode ReadDamsel::read_tag_values( const char* file_name,
-                                       const char* tag_name,
-                                       const FileOptions& opts,
-                                       std::vector<int>& tag_values_out,
-                                       const SubsetList* subset_list) 
+/*
+  
+ErrorCode ReadDamsel::process_coll_infos(std::vector<damsel_collection_buf_type> &coll_infos) 
 {
-  return MB_FAILURE;
-}
+  ErrorCode rval = MB_SUCCESS, tmp_rval;
+  EntityHandle seth;
+  std::vector<subrange> handle_subranges;
+  for (std::vector<damsel_collection_buf_type>::iterator cit = coll_infos.begin(); cit != coll_infos.end(); cit++) {
+      // make the set
+    tmp_rval = mbImpl->create_meshset(((*cit).type ==  DAMSEL_HANDLE_COLLECTION_TYPE_SET ? MESHSET_SET : MESHSET_ORDERED),
+                                      seth);
+    if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+      // make datastructures to pass things to process_entity_tags
+    Range tmp_range(seth, seth);
+    damsel_container ch = DMSLcontainer_create_sequence(dU.dmslModel, seth, 1, 1);
+
+      // get the tags on this set
+    tmp_rval = process_entity_tags((*cit).tag_count, (*cit).tag_handle_container, ch, tmp_range);
+    if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+
+      // process the set contents
+    if ((*cit).type == DAMSEL_HANDLE_COLLECTION_TYPE_SET) {
+      Range ents;
+      tmp_rval = get_contents(dU.dmslModel, (*cit).contents, ents);
+      if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+      else if (!ents.empty()) {
+	tmp_rval = mbImpl->add_entities(seth, ents);
+	if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+      }
+    }
+    else {
+      std::vector<EntityHandle> ents(DMSLcontainer_count((*cit).contents));
+      tmp_rval = get_contents(dU.dmslModel, (*cit).contents, &ents[0]);
+      if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+      else if (!ents.empty()) {
+	tmp_rval = mbImpl->add_entities(seth, &ents[0], ents.size());
+	if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
+      }
+    }
+
+      // get the file handle for this collection, and map it to moab's set handle
+    damsel_handle collh = (damsel_handle)(*((*cit).collection_handle));
+    if (handle_subranges.empty() || seth != (*handle_subranges.rbegin()).seth+1 ||
+        collh != (*handle_subranges.rbegin()).collh+1) {
+      handle_subranges.push_back(subrange(collh, seth, 1));
+    }
+    else (*handle_subranges.rbegin()).count++;
+  }
+  
+  for (std::vector<subrange>::iterator vit = handle_subranges.begin(); vit != handle_subranges.end(); vit++)
+    dmHandleRMap.insert((*vit).collh, (*vit).seth, (*vit).count);
     
+  return rval;
+}
+
+
+*/
+
 }

@@ -27,9 +27,9 @@
 #include "moab/WriterIface.hpp"
 #include "RangeSeqIntersectIter.hpp"
 #include "FileOptions.hpp"
+#include "DamselUtil.hpp"
 
 #include "damsel.h"
-#include "damsel-internal.h"
 
 namespace moab {
 
@@ -114,24 +114,8 @@ private:
     //! file name
   std::string fileName;
 
-    //! damsel library id
-  damsel_library dmslLib;
-  
-    //! damsel model id
-  damsel_model dmslModel;
-
-    //! the attached file, cast to a model
-  damsel_model dmslFile;
-  
-    //! other conventional tags
-  std::pair<Tag, damsel_tag> xcoordsTagPair, ycoordsTagPair, zcoordsTagPair, 
-      collFlagsTagPair, parentsTagPair, childrenTagPair;
-
-    //! MOAB/damsel handles for dense [0], sparse [1], and conventional [2] tags
-  std::map<Tag, damsel_tag> tagMaps[3];
-  
-    //! Damsel handle type used in (this build of) MOAB
-  damsel_handle_type moabHandleType;
+    //! utility for storing damsel-specific stuff
+  DamselUtil dU;
 };
 
 inline ErrorCode WriteDamsel::write_subrange(RangeSeqIntersectIter &rsi) 

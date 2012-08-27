@@ -17,17 +17,12 @@
 #include <map>
 #include <string>
 
-#include "damsel.h"
 #include "moab/Forward.hpp"
 #include "moab/ReaderIface.hpp"
 #include "moab/Range.hpp"
 #include "moab/RangeMap.hpp"
 #include "DebugOutput.hpp"
-
-#ifdef USE_MPI
-// #  include "moab_mpi.h"
-// #  include "moab/ParallelComm.hpp"
-#endif 
+#include "DamselUtil.hpp"
 
 #include "damsel.h"
 
@@ -125,38 +120,11 @@ private:
     //! Used to track file handles
   Tag mGlobalIdTag;
   
-    //! damsel library id
-  damsel_library dmslLib;
-  
-    //! damsel model id
-  damsel_model dmslModel;
-  
-    //! damsel coordinates tag ids (only first is used if interleaved)
-  damsel_tag dmslXcoord, dmslYcoord, dmslZcoord;
-
-    //! all dense tag handles in model
-  std::vector<Tag> denseTags;
-  
-    //! damsel ids for dense tags
-  std::vector<damsel_tag> dmslDenseTags;
-
-    //! Damsel handle type used in (this build of) MOAB
-  damsel_handle_type moabHandleType;
-
-    //! translation table for data types
-  damsel_data_type moab_to_damsel_data_type[MB_MAX_DATA_TYPE];
-
-    //! tag handles for coords
-  damsel_handle xcoordDtag, ycoordDtag, zcoordDtag;
-
-    //! tag handles for parent/child lists
-  damsel_handle childListTag, parentListTag;
-
-    //! damsel to moab tag handles
-  std::map<damsel_handle, Tag> tagMap;
-
   //! map from damsel to moab handles
   RangeMap<damsel_handle, EntityHandle, 0> dmHandleRMap;
+  
+    //! keep variuos damsel data
+  DamselUtil dU;
 };
 
 inline const bool operator==(const damsel_err_t &lhs, const damsel_err_t &rhs) 
