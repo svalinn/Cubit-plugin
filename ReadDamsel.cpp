@@ -33,16 +33,19 @@ ReadDamsel::ReadDamsel(Interface *impl)
 
 ReadDamsel::~ReadDamsel()
 {
-  if (!readMeshIface) // init() failed.
-    return;
-
-  mbImpl->release_interface(readMeshIface);
+  if (readMeshIface) mbImpl->release_interface(readMeshIface);
+  if (mError) mbImpl->release_interface(mError);
   DMSLlib_finalize(dU.dmslLib);
 }
 
 ErrorCode ReadDamsel::init()
 {
   mbImpl->query_interface(readMeshIface);
+  assert(readMeshIface);
+
+  mbImpl->query_interface(mError);
+  assert(mError);
+  
   return MB_SUCCESS;
 }
 
@@ -109,6 +112,8 @@ ErrorCode ReadDamsel::load_file( const char* filename,
   num_ent_infos = DMSLmodel_get_entity_count(dU.dmslModel);
   int num_coll_infos = DMSLmodel_get_collection_count(dU.dmslModel);
   CHK_DMSL_ERR(err, "DMSLmodel_get_collection_count failed.");
+  if (-1 == num_containers || -1 == num_tag_infos || -1 == num_ent_infos) 
+    CHK_MB_ERR(MB_FAILURE, "Bad count for containers/tags/ents.");
 
   std::vector<damsel_entity_buf_type> ent_infos(num_ent_infos);
   std::vector<damsel_collection_buf_type> coll_infos(num_coll_infos);

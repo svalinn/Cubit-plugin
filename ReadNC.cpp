@@ -690,6 +690,10 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
   NCDF_SIZE tmp_dims[2] = {0, 0}, tmp_counts[2] = {4, num_quads};
   success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_dims, tmp_counts, &tmp_conn[0] NCREQ);
 
+    // don't need the file any longer, close
+  success = NCFUNC(close)(connectId);
+  ERRORS(success, "Failed on close.");
+
   int m = 0;
   for (int i = 0; i < 4*num_quads-3; i+=4) {
     conn_intrlvd[i]   = tmp_conn[m ];

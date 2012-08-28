@@ -367,6 +367,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
 #ifndef HDF5_PARALLEL
     readUtil->report_error("MOAB not configured with parallel HDF5 support");
     free(dataBuffer);
+    dataBuffer = NULL;
     return MB_NOT_IMPLEMENTED;
 #else
 
@@ -427,7 +428,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
         mhdf_closeFile( filePtr, &status );
         if (fileInfo && mhdf_isError(&status)) {
           free(fileInfo);
-          fileInfo = 0;
+          fileInfo = NULL;
         }
       }
 
@@ -466,6 +467,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     {
       readUtil->report_error("%s", mhdf_message( &status ));
       free( dataBuffer );
+      dataBuffer = NULL;
       H5Pclose( indepIO ); 
       if (collIO != indepIO)
         H5Pclose( collIO );
@@ -478,6 +480,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
       if (is_error(status)) {
         readUtil->report_error( "%s", mhdf_message( &status ) );
         free( dataBuffer );
+        dataBuffer = NULL;
         mhdf_closeFile( filePtr, &status );
         return error(MB_FAILURE);
       }
@@ -493,6 +496,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     {
       readUtil->report_error( "%s", mhdf_message( &status ));
       free( dataBuffer );
+      dataBuffer = NULL;
       return error(MB_FAILURE);
     }
 
@@ -500,6 +504,7 @@ ErrorCode ReadHDF5::set_up_read( const char* filename,
     fileInfo = mhdf_getFileSummary( filePtr, handleType, &status );
     if (is_error(status)) {
       free( dataBuffer );
+      dataBuffer = NULL;
       mhdf_closeFile( filePtr, &status );
       return error(MB_FAILURE);
     }
@@ -542,7 +547,9 @@ ErrorCode ReadHDF5::clean_up_read( const FileOptions& )
   }
 
   free( dataBuffer );
+  dataBuffer = NULL;
   free( fileInfo );
+  fileInfo = NULL;
   delete mpiComm;
   mpiComm = 0;
 
@@ -570,8 +577,10 @@ ErrorCode ReadHDF5::load_file( const char* filename,
   ErrorCode rval;
  
   rval = set_up_read( filename, opts );
-  if (MB_SUCCESS != rval)
+  if (MB_SUCCESS != rval) {
+    clean_up_read(opts);
     return rval;
+  }
     
     // We read the entire set description table regarless of partial
     // or complete reads or serial vs parallel reads

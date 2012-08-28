@@ -126,6 +126,7 @@ WriteDamsel::WriteDamsel(Interface *impl)
 WriteDamsel::~WriteDamsel() 
 {
   if (mWriteIface) mbImpl->release_interface(mWriteIface);
+  if (mError) mbImpl->release_interface(mError);
 }
 
 ErrorCode WriteDamsel::write_file(const char *file_name, 
