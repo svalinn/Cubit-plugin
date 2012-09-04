@@ -615,17 +615,20 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
                                          EntityHandle tmp_set, Range &quads) 
 {
     // need to get/read connectivity data before creating elements
-  std::string conn_fname, default_fname;
-
-    // default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
-  default_fname = std::string(fileName);
-  int idx = default_fname.find_last_of("/");
-  default_fname = default_fname.substr(0,idx).append("/HommeMapping.nc");
+  std::string conn_fname;
 
     // try to open the connectivity file through CONN option, if used
   ErrorCode rval = opts.get_str_option("CONN", conn_fname);
-  if (MB_SUCCESS != rval) conn_fname = default_fname;
-
+  if (MB_SUCCESS != rval) {
+      // default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
+    conn_fname = std::string(fileName);
+    size_t idx = conn_fname.find_last_of("/");
+    if (idx != std::string::npos)
+      conn_fname = conn_fname.substr(0,idx).append("/HommeMapping.nc");
+    else
+      conn_fname = "HommeMapping.nc";
+  }
+  
   int success;
   int rank, procs;
 
@@ -728,6 +731,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts,
   Range::iterator rit;
   double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
   for (i = 0, rit = tmp_range.begin(); i < num_local_verts; i++, rit++) {
+    assert(*rit < ilVals.size()+1);
     xptr[i] = ilVals[(*rit)-1];
     yptr[i] = jlVals[(*rit)-1];
     zptr[i] = klVals[lDims[2]];
@@ -2567,7 +2571,6 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts)
   for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
     VarData& vd = (*mit).second;
     if ((std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end()) &&
-        (std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end()) &&
         (std::find(vd.varDims.begin(), vd.varDims.end(), kDim) != vd.varDims.end())) 
       vd.entLoc = ENTLOCNODE;
   }
