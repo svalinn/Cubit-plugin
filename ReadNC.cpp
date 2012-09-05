@@ -2243,7 +2243,9 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
       std::size_t i;
       for (i = 0; i != ilCVals.size(); ++i)
         ilVals[i] = ilCVals[i] - dif;
-      ilVals[i] = ilCVals[i-1] + dif;
+      // the last one is needed only if not periodic
+      if (!locallyPeriodic[0])
+        ilVals[i] = ilCVals[i-1] + dif;
     }
     else {
       ERRORR(MB_FAILURE, "Couldn't find x coordinate.");
