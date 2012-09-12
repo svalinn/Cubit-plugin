@@ -90,12 +90,9 @@ ErrorCode ReadDamsel::load_file( const char* filename,
                                   DAMSEL_HANDLE_TYPE_HANDLE32);
   
     // model attach - need model id from make model, filename
-  int proc_rank = 0, proc_size = 1;
 #ifdef USE_MPI
   MPI_Comm comm = MPI_COMM_WORLD;
   if (nativeParallel) {
-    proc_rank = myPcomm->proc_config().proc_rank();
-    proc_size = myPcomm->proc_config().proc_size();
     comm = myPcomm->proc_config().proc_comm();
   }
 #endif

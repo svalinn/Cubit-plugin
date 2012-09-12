@@ -111,13 +111,14 @@ private:
     int varId;
     int numAtts;
     nc_type varDataType;
-    std::vector<int> varDims;
+    std::vector<int> varDims; // the dimension indices making up this multi-dimensional variable
     std::map<std::string,AttData> varAtts;
     std::string varName;
     bool read;
-    std::vector<Tag> varTags;
+    std::vector<Tag> varTags; // one tag for each timestep, varTags[t]
     std::vector<void*> varDatas;
-    std::vector<std::vector<NCDF_SIZE> > readDims, readCounts;
+    std::vector<std::vector<NCDF_SIZE> > readDims; // start value for this [t][dim]
+    std::vector<std::vector<NCDF_SIZE> > readCounts; // number of data values for this [t][dim]
     int entLoc;
     int numLev;
     int sz;
@@ -240,6 +241,17 @@ private:
 
   bool BIL_mode_enabled(const char * file_name);
  
+  template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void *dest, T *source) 
+      {
+        size_t nik = ni * nk, nij = ni * nj;
+        T *tmp_data = reinterpret_cast<T*>(dest);
+        for (std::size_t j = 0; j != nj; ++j)
+          for (std::size_t i = 0; i != ni; ++i)
+            for (std::size_t k = 0; k != nk; ++k) 
+              tmp_data[j*nik+i*nk+k] = source[k*nij+j*ni+i];         
+        return MB_SUCCESS;
+      }
+  
 //------------member variables ------------//
 
     //! interface instance

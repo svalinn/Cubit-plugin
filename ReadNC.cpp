@@ -978,9 +978,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
       
       // set up the dimensions and counts
       // first time
-      if(!ucdMesh)
-        vdatas[i].readDims[t].push_back(tstep_nums[t]); //scd meshes take extra dimension
-
+      vdatas[i].readDims[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
       
       // then z/y/x
@@ -993,9 +991,12 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set,
 	{
 	case 0:
 	  // vertices
-	  vdatas[i].readDims[t].push_back(lDims[1]);
+              if (!ucdMesh) {
+                // only structured mesh has j parameter that multiplies i to get total # vertices
+                vdatas[i].readDims[t].push_back(lDims[1]);
+                vdatas[i].readCounts[t].push_back(lDims[4]-lDims[1]+1);
+              }
 	  vdatas[i].readDims[t].push_back(lDims[0]);
-	  vdatas[i].readCounts[t].push_back(lDims[4]-lDims[1]+1);
 	  vdatas[i].readCounts[t].push_back(lDims[3]-lDims[0]+1);
 	  assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
 	  range = &verts;
@@ -1416,14 +1417,16 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set,
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void *data = vdatas[i].varDatas[t];
-
       std::size_t sz = 1;
+      size_t ni = vdatas[i].readCounts[t][2], nj = vdatas[i].readCounts[t][3], nk = vdatas[i].readCounts[t][1];
       if (!ucdMesh) {
         for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); ++idx)
 	  sz *= vdatas[i].readCounts[t][idx];
       }
-      else 
-        sz = vdatas[i].numLev*vdatas[i].readCounts[t][3];
+      else {
+        sz = vdatas[i].numLev*vdatas[i].readCounts[t][2];
+        nj = 1; // for ucdMesh, nj holds # quads, so here should reset to 1
+      }
       
       switch (vdatas[i].varDataType) {
       case NC_BYTE:
@@ -1432,18 +1435,9 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set,
 	success = NCFUNCAG(_vara_text)(fileId, vdatas[i].varId, 
 				       &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
 				       &tmpchardata[0] NCREQ); 
-	if (vdatas[i].numLev != 1) {
-	  std::size_t num_k = vdatas[i].numLev;
-	  std::size_t num_j = vdatas[i].readCounts[t][2];
-	  std::size_t num_i = vdatas[i].readCounts[t][3];
-	  std::size_t num_ij = num_i * num_j;
-	  for (std::size_t tj = 0; tj != num_j; ++tj)
-	    for (std::size_t ti = 0; ti != num_i; ++ti) {
-	      std::size_t pos = (tj * num_i + ti) *num_k;
-	      for (std::size_t l = 0; l != num_k; ++l) 
-		((char*)data)[pos+l] = tmpchardata[l*num_ij+tj*num_i+ti];         
-	    }
-	}
+	if (vdatas[i].numLev != 1)
+              // switch from k varying slowest to k varying fastest
+            success = kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
 	else {
 	  for (std::size_t idx = 0; idx != tmpchardata.size(); ++idx) 
 	    ((char*)data)[idx] = tmpchardata[idx];         
@@ -1455,18 +1449,9 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set,
 	success = NCFUNCAG(_vara_double)(fileId, vdatas[i].varId, 
 					&vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
 					&tmpdoubledata[0] NCREQ);
-	if (vdatas[i].numLev != 1 ) {
-	  std::size_t num_k = vdatas[i].numLev;
-	  std::size_t num_j = vdatas[i].readCounts[t][2];
-	  std::size_t num_i = vdatas[i].readCounts[t][3];
-	  std::size_t num_ij = num_i * num_j;
-	  for (std::size_t tj = 0; tj != num_j; ++tj)
-	    for (std::size_t ti = 0; ti != num_i; ++ti) {
-	      std::size_t pos = (tj * num_i + ti) *num_k;
-	      for (std::size_t l = 0; l != num_k; ++l) 
-		((double*)data)[pos+l] = tmpdoubledata[l*num_ij+tj*num_i+ti];         
-	    }
-	}
+	if (vdatas[i].numLev != 1)
+              // switch from k varying slowest to k varying fastest
+            success = kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
 	else {
 	  for (std::size_t idx = 0; idx != tmpdoubledata.size(); ++idx) 
 	    ((double*)data)[idx] = tmpdoubledata[idx];         
@@ -1478,23 +1463,9 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set,
 	success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId, 
 					&vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
 					&tmpfloatdata[0] NCREQ); 
-	if (vdatas[i].numLev != 1 ) {
-	  std::size_t num_k = vdatas[i].numLev;
-	  std::size_t num_j = vdatas[i].readCounts[t][2];
-	  std::size_t num_i = vdatas[i].readCounts[t][3];
-	  std::size_t num_ij = num_i * num_j;
-          if(!ucdMesh) {
-	    for (std::size_t tj = 0; tj != num_j; ++tj)
-	      for (std::size_t ti = 0; ti != num_i; ++ti) {
-	        std::size_t pos = (tj * num_i + ti) *num_k;
-	        for (std::size_t l = 0; l != num_k; ++l) 
-	 	  ((float*)data)[pos+l] = tmpfloatdata[l*num_ij+tj*num_i+ti];         
-	      }
-          } else {
-              for (std::size_t idx = 0; idx != tmpfloatdata.size(); ++idx)
-                ((float*)data)[idx] = tmpfloatdata[idx];
-          }
-	}
+	if (vdatas[i].numLev != 1)
+              // switch from k varying slowest to k varying fastest
+            success = kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
 	else {
 	  for (std::size_t idx = 0; idx != tmpfloatdata.size(); ++idx) 
 	    ((float*)data)[idx] = tmpfloatdata[idx];         
@@ -1506,18 +1477,9 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set,
 	success = NCFUNCAG(_vara_int)(fileId, vdatas[i].varId, 
 					&vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
 					&tmpintdata[0] NCREQ); 
-	if (vdatas[i].numLev != 1 ) {
-	  std::size_t num_k = vdatas[i].numLev;
-	  std::size_t num_j = vdatas[i].readCounts[t][2];
-	  std::size_t num_i = vdatas[i].readCounts[t][3];
-	  std::size_t num_ij = num_i * num_j;
-	  for (std::size_t tj = 0; tj != num_j; ++tj)
-	    for (std::size_t ti = 0; ti != num_i; ++ti) {
-	      std::size_t pos = (tj * num_i + ti) *num_k;
-	      for (std::size_t l = 0; l != num_k; ++l) 
-		((int*)data)[pos+l] = tmpintdata[l*num_ij+tj*num_i+ti];         
-	    }
-	}
+	if (vdatas[i].numLev != 1)
+              // switch from k varying slowest to k varying fastest
+            success = kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
 	else {
 	  for (std::size_t idx = 0; idx != tmpintdata.size(); ++idx) 
 	    ((int*)data)[idx] = tmpintdata[idx];         
@@ -1529,18 +1491,9 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set,
 	success = NCFUNCAG(_vara_short)(fileId, vdatas[i].varId, 
 					&vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0], 
 					&tmpshortdata[0] NCREQ);
-	if (vdatas[i].numLev != 1 ) {
-	  std::size_t num_k = vdatas[i].numLev;
-	  std::size_t num_j = vdatas[i].readCounts[t][2];
-	  std::size_t num_i = vdatas[i].readCounts[t][3];
-	  std::size_t num_ij = num_i * num_j;
-	  for (std::size_t tj = 0; tj != num_j; ++tj)
-	    for (std::size_t ti = 0; ti != num_i; ++ti) {
-	      std::size_t pos = (tj * num_i + ti) *num_k;
-	      for (std::size_t l = 0; l != num_k; ++l) 
-		((short*)data)[pos+l] = tmpshortdata[l*num_ij+tj*num_i+ti];         
-	    }
-	}
+	if (vdatas[i].numLev != 1)
+              // switch from k varying slowest to k varying fastest
+            success = kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
 	else {
 	  for (std::size_t idx = 0; idx != tmpshortdata.size(); ++idx) 
 	    ((short*)data)[idx] = tmpshortdata[idx];         
@@ -1589,7 +1542,7 @@ ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int
       sz *= var_data.readCounts[tstep_num][idx];
   }
   else 
-    sz = var_data.numLev * var_data.readCounts[tstep_num][3];
+    sz = var_data.numLev * var_data.readCounts[tstep_num][2];
   
     // finally, read into that space
   int success = 0, *idata;
