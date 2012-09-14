@@ -638,7 +638,7 @@ ErrorCode ReadCCMIO::construct_cells(TupleList &face_map,
     }
   }
     
-  return MB_SUCCESS;
+  return rval;
 }
 
 ErrorCode ReadCCMIO::ccmio_to_moab_type(int ccm_type, EntityType &moab_type, bool &has_mid_nodes) 
