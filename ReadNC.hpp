@@ -333,6 +333,7 @@ private:
   int partMethod;
 
   bool ucdMesh;
+  Range local_gid;// used only by ucdMesh
 
     //! whether mesh is locally periodic in i or j
   int locallyPeriodic[2];
