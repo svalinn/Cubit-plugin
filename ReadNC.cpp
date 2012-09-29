@@ -1222,8 +1222,7 @@ ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, std::vect
   ErrorCode rval = MB_SUCCESS;
 
   for (unsigned int i = 0; i < vdatas.size(); ++i) {
-    if ((std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), tDim) != vdatas[i].varDims.end())
-        && (vdatas[i].varDims.size() != 1))
+    if ((std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), tDim) != vdatas[i].varDims.end()))
       vdatas[i].has_t = true;
 
     for (unsigned int t = 0; t < tstep_nums.size(); ++t) {
@@ -1240,9 +1239,20 @@ ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, std::vect
         ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
 
       // set up the dimensions and counts
-      // first time
-      vdatas[i].readDims[t].push_back(tstep_nums[t]);
-      vdatas[i].readCounts[t].push_back(1);
+      // first variable dimension is time, if it exists
+      if (vdatas[i].has_t)
+      {
+        if (vdatas[i].varDims.size() != 1)
+        {
+          vdatas[i].readDims[t].push_back(tstep_nums[t]);
+          vdatas[i].readCounts[t].push_back(1);
+        }
+        else
+        {
+          vdatas[i].readDims[t].push_back(0);
+          vdatas[i].readCounts[t].push_back(tstep_nums.size());
+        }
+      }
 
       // set up other dimensions and counts
       if (vdatas[i].varDims.empty()) {
@@ -1251,9 +1261,12 @@ ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, std::vect
         vdatas[i].readCounts[t].push_back(1);
       }
       else {
-        for (unsigned int idx = 0; idx != vdatas[i].varDims.size(); ++idx) {
-          vdatas[i].readDims[t].push_back(0);
-          vdatas[i].readCounts[t].push_back(dimVals[vdatas[i].varDims[idx]]);
+        for (unsigned int idx = 0; idx != vdatas[i].varDims.size(); ++idx){
+          if (tDim != vdatas[i].varDims[idx]){
+            // push other variable dimensions, except time, which was already pushed
+            vdatas[i].readDims[t].push_back(0);
+            vdatas[i].readCounts[t].push_back(dimVals[vdatas[i].varDims[idx]]);
+          }
         }
       }
       std::size_t sz = 1;
@@ -1263,21 +1276,21 @@ ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, std::vect
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR:
-          vdatas[i].varDatas[t] = new char(sz);
+          vdatas[i].varDatas[t] = new char[sz];
           break;
         case NC_DOUBLE:
         case NC_FLOAT:
-          vdatas[i].varDatas[t] = new double(sz);
+          vdatas[i].varDatas[t] = new double[sz];
           break;
         case NC_INT:
         case NC_SHORT:
-          vdatas[i].varDatas[t] = new int(sz);
+          vdatas[i].varDatas[t] = new int[sz];
           break;
         default:
           std::cerr << "Unrecognized data type for tag " << std::endl;
           rval = MB_FAILURE;
       }
-      if (!vdatas[i].has_t)
+      if (vdatas[i].varDims.size() <= 1)
         break;
     }
   }
@@ -1334,7 +1347,7 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
 
       if (success)
         ERRORR(MB_FAILURE, "Trouble reading variable.");
-      if (!vdatas[i].has_t)
+      if (vdatas[i].varDims.size() <= 1)
         break;
     }
   }
@@ -1350,7 +1363,7 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
       ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
-      if (!vdatas[i].has_t)
+      if (vdatas[i].varDims.size() <= 1)
         break;
     }
   }
@@ -1368,7 +1381,7 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
       ErrorCode tmp_rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &file_set, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
-      if (!vdatas[i].has_t)
+      if (vdatas[i].varDims.size() <= 1)
         break;
     }
   }
@@ -1627,7 +1640,7 @@ ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int
 
 ErrorCode ReadNC::get_tag_to_set(VarData &var_data, int tstep_num, Tag &tagh) {
   std::ostringstream tag_name;
-  if (!var_data.has_t)
+  if ((!var_data.has_t)||( var_data.varDims.size()<=1))
     tag_name << var_data.varName;
   else if (!tstep_num) {
     std::string tmp_name = var_data.varName + "0";
