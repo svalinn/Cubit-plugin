@@ -32,12 +32,15 @@
 #  include "pnetcdf.h"
 #  define NCFUNC(func) ncmpi_ ## func
 #  define NCFUNCA(func) ncmpi_ ## func ## _all
+// keep it this way , introduce another macro, used so far only for ucd mesh
 //#  define NCASYNCH
 #  ifdef NCASYNCH
 #    define NCREQ , &requests[j]
 #    define NCFUNCAG(func) ncmpi_iget ## func 
 #    define NCWAIT
 #  else
+#    define NCREQ2 , &requests[idxReq++]
+#    define NCFUNCAG2(func) ncmpi_iget ## func
 #    define NCREQ 
 #    define NCFUNCAG(func) ncmpi_get ## func ## _all
 #  endif
@@ -179,7 +182,12 @@ private:
   
   ErrorCode read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas,
 				    std::vector<int> &tstep_nums);
- 
+
+#if PNETCDF_FILE
+  ErrorCode read_variable_to_nonset_async(EntityHandle file_set, std::vector<VarData> &vdatas,
+              std::vector<int> &tstep_nums);
+#endif
+
   ErrorCode read_variable_to_ucdmesh(EntityHandle file_set, 
                                            std::vector<std::string> &varnames,
                                            std::vector<int> &tstep_nums,
@@ -252,6 +260,31 @@ private:
         return MB_SUCCESS;
       }
   
+  // this version takes as input the moab range, from which we actually need just the
+  // size of each sequence, for a proper transpose of the data
+  // we read one time step, one variable at a time, usually, so we will
+  template <typename T> ErrorCode kji_to_jik_stride(size_t ni, size_t nj, size_t nk, void *dest, T *source)
+      {
+
+        std::size_t idxInSource=0;// position of the start of the stride
+        // for each subrange, we will transpose a matrix of size subrange*nj*nk (subrange takes
+        //                                                                       the role of ni)
+        T *tmp_data = reinterpret_cast<T*>(dest);
+        for (
+          Range::pair_iterator pair_iter = local_gid.pair_begin();
+          pair_iter!=local_gid.pair_end();
+          pair_iter++)
+        {
+          std::size_t size_range= pair_iter->second - pair_iter->first+1;
+          std::size_t nik = size_range * nk, nij = size_range * nj;
+          for (std::size_t j = 0; j != nj; ++j)
+            for (std::size_t i = 0; i != size_range; ++i)
+              for (std::size_t k = 0; k != nk; ++k)
+                tmp_data[idxInSource + j*nik+i*nk+k] = source[idxInSource + k*nij+j*size_range+i];
+          idxInSource+=(size_range*nj*nk);
+        }
+        return MB_SUCCESS;
+      }
 //------------member variables ------------//
 
     //! interface instance
