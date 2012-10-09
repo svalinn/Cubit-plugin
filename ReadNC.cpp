@@ -35,7 +35,7 @@ ReaderIface* ReadNC::factory(Interface* iface) {
 ReadNC::ReadNC(Interface* impl) :
   mbImpl(impl), CPU_WORD_SIZE(-1), IO_WORD_SIZE(-1), fileId(-1), tMin(-1), tMax(-1), iDim(-1), jDim(-1), tDim(-1), iCDim(-1),
       jCDim(-1), numUnLim(-1), mCurrentMeshHandle(0), startVertex(0), startElem(0), mGlobalIdTag(0), max_line_length(-1),
-      max_str_length(-1), vertexOffset(0), dbgOut(stderr), isParallel(false), partMethod(-1), ucdMesh(false)
+      max_str_length(-1), vertexOffset(0), dbgOut(stderr), isParallel(false), partMethod(-1), ucdMesh(false), npMesh(false)
 
 #ifdef USE_MPI
 , myPcomm(NULL)
@@ -81,6 +81,7 @@ void ReadNC::reset() {
   mCurrentMeshHandle = 0;
   vertexOffset = 0;
   ucdMesh = false;
+  npMesh = false;
 
 #ifdef USE_MPI
   myPcomm = NULL;
@@ -217,6 +218,10 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
       rval = init_HOMMEucd_vals(opts);
       if (MB_SUCCESS == rval) {
         ucdMesh = true;
+        if (opts.match_option("PARTITION_METHOD", "NODAL_PARTITION") == MB_SUCCESS)
+        {
+          npMesh=true;
+        }
       }
     }
     // else if dimension names "lon" and "lat' exist then it's the Eulerian Spectral grid
@@ -238,11 +243,13 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
   else if (!nomesh) {
-    if (ucdMesh)
+    if (npMesh)
+      rval = create_np_verts_quads(opts, tmp_set, quads);
+    else if (ucdMesh)
       rval = create_ucd_verts_quads(opts, tmp_set, quads);
     else
       rval = create_verts_quads(scdi, tmp_set, quads);
-    ERRORR(rval, "Trouble creating vertices.");
+    ERRORR(rval, "Trouble creating vertices and quads.");
   }
 
   // Read variables onto grid
@@ -277,12 +284,15 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     if (ucdMesh && !novars)
     {
       Range verts_owned;
-      rval = myPcomm->resolve_shared_ents(0,-1,-1);
-      ERRORR(rval, "Trouble resolving shared entities");
+      if (!npMesh)
+      {
+        rval = myPcomm->resolve_shared_ents(0,-1,-1);
+        ERRORR(rval, "Trouble resolving shared entities");
+      }
 
       rval = myPcomm->filter_pstatus(verts, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1,
           &verts_owned);
-      ERRORR(rval, "Trouble getting owned quads in set.");
+      ERRORR(rval, "Trouble getting owned verts in set.");
 
       dbgOut.tprintf(1,"Processor %d owns %d vertices\n", myPcomm->proc_config().proc_rank(),
           (int)verts_owned.size());
@@ -425,7 +435,7 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
 
 #ifdef USE_MPI
   //TODO handle options better
-  rval = opts.get_option("PARTITION", partition_tag_name);
+  //rval = opts.get_option("PARTITION", partition_tag_name);
   /*
    part = (rval != MB_ENTITY_NOT_FOUND);
    rval = opts.match_option("PARALLEL", "READ_PART");
@@ -433,8 +443,7 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
    rval = opts.get_null_option("TRIVIAL_PARTITION");
    partriv = (rval != MB_ENTITY_NOT_FOUND);
    */
-  isParallel = ((opts.match_option("PARALLEL","READ_PART") != MB_ENTITY_NOT_FOUND) ||
-      (opts.get_null_option("TRIVIAL_PARTITION") != MB_ENTITY_NOT_FOUND) );
+  isParallel = (opts.match_option("PARALLEL","READ_PART") != MB_ENTITY_NOT_FOUND);
 
   if (!isParallel)
   // return success here, since rval still has _NOT_FOUND from not finding option
@@ -453,7 +462,11 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
   const int rank = myPcomm->proc_config().proc_rank();
   dbgOut.set_rank(rank);
 
-  const char *part_options[] = {"alljorkori", "alljkbal", "sqij", "sqjk"};
+  /*ucdMesh = (opts.match_option("PARTITION_METHOD","TRIVIAL_PARTITION") != MB_ENTITY_NOT_FOUND);
+  npMesh = (opts.match_option("PARTITION_METHOD","NODAL_PARTITION") != MB_ENTITY_NOT_FOUND);
+*/
+  const char *part_options[] = {"alljorkori", "alljkbal", "sqij", "sqjk",
+      "TRIVIAL_PARTITION",  "NODAL_PARTITION" };
   int dum;
   rval = opts.match_option("PARTITION_METHOD", part_options, dum);
   if (rval == MB_FAILURE) {
@@ -464,6 +477,10 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
     partMethod = ScdParData::ALLJORKORI;
   else
     partMethod = dum;
+
+  ucdMesh = (4==dum);
+  npMesh = (5==dum);
+
 #endif
 
   return MB_SUCCESS;
@@ -690,11 +707,9 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
   unsigned int num_local_verts = local_gid.size();
 
   // create vertices
-  ReadUtilIface *iface;
-  rval = mbImpl->query_interface(iface);
   std::vector<double*> arrays;
   EntityHandle start_vertex, start_quad;
-  rval = iface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays);
+  rval = readMeshIface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays);
   ERRORR(rval, "Couldn't create vertices in ucd mesh.");
 
   // set vertex coordinates
@@ -749,6 +764,321 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
   tmp_range.insert(start_quad, start_quad + num_local_quads - 1);
   rval = mbImpl->add_entities(tmp_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices and hexes to file set.");
+
+  return MB_SUCCESS;
+}
+
+// a function to decide the owning proc for a global id (value from 1 to iN), in a trivial partition space
+// will also return the index on the owning proc (so we can determine the handle)
+int owning_processor(int iN, int ip, int gid, int & oIndexOnOwningProc)
+{
+  assert (1<=gid);
+  assert(gid<=iN);
+  int num_nodes_per_proc = floor(iN/ip); // but the first iN%ip parts get an extra node
+
+  int proc = -1;// not initialized
+  if (0==num_nodes_per_proc)
+  {
+    oIndexOnOwningProc = 0; // really, it is the only node (extreme case here)
+    return gid-1;// in this case, iN<ip, so the first iN procs get exactly one node, the rest get nothing
+  }
+  int fatProcs = iN%ip;// the first fatProcs procs will get  num_nodes_per_proc+1 nodes
+  if ( gid<= fatProcs*(num_nodes_per_proc+1))
+  {
+
+    proc= floor( (gid-1)/(num_nodes_per_proc+1) );
+    oIndexOnOwningProc = gid-proc*(num_nodes_per_proc+1)-1;//
+    return proc;
+  }
+  int leftover= gid- fatProcs*(num_nodes_per_proc+1);
+  proc = fatProcs+floor((leftover-1)/num_nodes_per_proc);
+  oIndexOnOwningProc = leftover-1-(proc-fatProcs)*num_nodes_per_proc;
+  return proc;
+}
+// almost everything works as regular trivial partition
+ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads)
+{
+  // need to get/read connectivity data before creating elements
+  std::string conn_fname;
+
+  // try to open the connectivity file through CONN option, if used
+  ErrorCode rval = opts.get_str_option("CONN", conn_fname);
+  if (MB_SUCCESS != rval) {
+    // default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
+    conn_fname = std::string(fileName);
+    size_t idx = conn_fname.find_last_of("/");
+    if (idx != std::string::npos)
+      conn_fname = conn_fname.substr(0, idx).append("/HommeMapping.nc");
+    else
+      conn_fname = "HommeMapping.nc";
+  }
+
+  int success;
+  int rank, procs;
+
+#ifdef PNETCDF_FILE
+  if (isParallel) {
+    success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+    rank = myPcomm->proc_config().proc_rank();
+    procs = myPcomm->proc_config().proc_size();
+  }
+  else {
+    success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+    rank = 0; procs = 1;
+  }
+#else
+  success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
+  rank = 0, procs = 1;
+#endif
+  ERRORS(success, "Failed on open.");
+
+  std::vector<std::string> conn_names;
+  std::vector<int> conn_vals;
+  rval = get_dimensions(connectId, conn_names, conn_vals);
+  ERRORR(rval, "Failed to get dimensions for connectivity.");
+
+  /*
+   // hardwire for ncenters, ncorners
+   if (2 != conn_names.size() || conn_names[0] != std::string("ncenters") || conn_names[1] != std::string("ncorners"))
+   ERRORR(MB_FAILURE, "Connectivity file didn't have correct dimension names.");
+   */
+
+  int num_quads = 0;
+  if (conn_names[2]=="ncells")
+    num_quads = conn_vals[2];
+  if (conn_vals[2] != gDims[3] - gDims[0] + 1-2) {
+    dbgOut.tprintf(1, "Warning: number of quads from %s and nodes from %s are inconsistent; nverts = %d, nodes = %d.\n",
+        conn_fname.c_str(), fileName.c_str(), conn_vals[2],  gDims[3] - gDims[0] + 1);
+  }
+
+  int num_total_nodes=gDims[3] - gDims[0] + 1;
+  // read connectivity into temporary variable
+  int num_owned_nodes, start_gid;// start in the global id space for nodes
+
+
+  if (isParallel) {
+    if (rank < num_total_nodes % procs) {
+      num_owned_nodes = int(floor(1.0 * num_total_nodes / procs)) + 1;
+      start_gid = rank * num_owned_nodes + 1; // starts at 1
+    }
+    else {
+      num_owned_nodes = int(floor(1.0 * num_total_nodes / procs));
+      start_gid = num_total_nodes % procs + rank * num_owned_nodes + 1;
+    }
+  }
+  else {
+    num_owned_nodes = num_total_nodes;
+    start_gid = 1;
+  }
+  int end_gid = start_gid+num_owned_nodes-1; // inclusive
+  // local owned nodes have gid >= start_gid and <= end_gid
+
+  std::vector<int> tmp_conn(4 * num_quads);
+
+  int cornerVarId;
+  success = NCFUNC(inq_varid)(connectId, "element_corners", &cornerVarId);
+  ERRORS(success, "Failed to get the corners  var id.");//
+  // get all of them
+  NCDF_SIZE tmp_dims[2] = { 0, 0 }, tmp_counts[2] = { 4, num_quads };
+  success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_dims, tmp_counts, &tmp_conn[0] NCREQ);
+  ERRORS(success, "Failed to get the connectivity.");
+
+  // don't need the file any longer, close
+  success = NCFUNC(close)(connectId);
+  ERRORS(success, "Failed on close.");
+
+  std::vector<char>  flag(num_total_nodes, 0);
+  std::vector<int> local_connec;
+  local_connec.reserve(4*num_owned_nodes);// there are about the same number of nodes as elements
+  std::vector<int> local_elem_gid;
+
+  std::vector<int>  owning_proc(num_quads, 0);
+  // we will decide what quads get in each proc
+  if (procs>1)
+  {
+    // maybe this will be needed sometimes, when we set the gid on elements
+    // lower rank procs will get more elements, though, usually
+    // look at the quads that have the lowest id node in our range; mark their nodes too
+    //int num_nodes_per_proc=num_total_nodes/procs;// some procs will have more nodes
+    for (int ie=0; ie<num_quads; ie++)
+    {
+      int local[4], j;
+      int minNode=num_total_nodes+1;// just to be sure
+      for (j=0; j<4; j++)
+      {
+        local[j] = tmp_conn[ie+j*num_quads];
+        if (local[j]<minNode)
+          minNode = local[j];
+      }
+      // the range of owned local nodes is [start_gid, start_gid+num_owned_nodes-1]
+      if (minNode >= start_gid && minNode < start_gid+num_owned_nodes)
+      {
+        // this is a local quad, push it in
+        for (j=0; j<4; j++)
+        {
+          local_connec.push_back(local[j]);
+          flag[local[j]-1] = 1; // mark the nodes. they will all be created locally
+        }
+        local_elem_gid.push_back(ie+1);// element will get its gid here
+      }
+      int dummy; // not used here, we don't need the index of the node on the owning proc
+      owning_proc[ie]=owning_processor(/*int iN*/ num_total_nodes, /*int ip*/ procs,
+          /*int gid*/ minNode, dummy);
+    }
+  }
+  else // everything on one processor
+  {
+    for (int ie=0; ie<num_quads; ie++)
+    {
+      // transpose first
+      for (int j=0; j<4; j++)
+        local_connec.push_back(tmp_conn[ie+j*num_quads]);
+      local_elem_gid.push_back(ie+1);
+    }
+    // all nodes get mark 1
+    for (int i=0; i<num_total_nodes; i++)
+      flag[i]=1;
+  }
+
+  // create all nodes that have the flag 1; some will be owned by other procs, we can set the PSTATUS flag
+  // just fine; we even know the remote handle of the remote node
+  // in our rule, an extra node is on a proc only if there is an element "on the proc" with that has
+  // that node; this means that the min node on the element is on this proc. So all extra nodes could be
+  // only with gid higher than the current node owned range
+  // as a consequence, the last proc will have exactly only the owned nodes
+
+  Range non_owned_gids; // these are vertices that are not owned by this processor, but by
+  // some other proc, established by the rule owning_processor(iN, ip, gid);
+  int num_local_verts = 0;
+  for (int k=num_total_nodes-1; k>=0; k--)
+    if (flag[k]==1)
+    {
+      num_local_verts++;
+      local_gid.insert(k+1);// this could have nodes with higher gid than the local owned range
+      if (k+1<start_gid || k+1 > end_gid)// k+1 < start_gid cannot really happen !
+        non_owned_gids.insert(k+1);
+      // local owned range
+    }
+
+  dbgOut.tprintf(1, " local quads %ld local nodes %d nodes gid subranges %ld\n",
+      local_elem_gid.size(), num_local_verts, local_gid.psize() );
+  dbgOut.tprintf(1, " start_gid %d end_gid:  %d first gid: %ld last_gid: %ld\n",
+        start_gid, end_gid, local_gid[0], local_gid[ local_gid.size()-1] );
+  // create vertices
+  std::vector<double*> arrays;
+  EntityHandle start_vertex, start_quad;
+  rval = readMeshIface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays);
+  ERRORR(rval, "Couldn't create vertices in ucd mesh.");
+
+  // set vertex coordinates
+  Range::iterator rit;
+  double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
+  int i;
+  for (i = 0, rit = local_gid.begin(); i < num_local_verts; i++, rit++) {
+    assert(*rit < ilVals.size()+1);
+    xptr[i] = ilVals[(*rit) - 1];
+    yptr[i] = jlVals[(*rit) - 1];
+    zptr[i] = klVals[lDims[2]];
+  }
+
+  //xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
+  const double pideg = acos(-1.0) / 180.0;
+  for (i = 0; i < num_local_verts; i++) {
+    double cosphi = cos(pideg * yptr[i]);
+    double zmult = sin(pideg * yptr[i]), xmult = cosphi * cos(xptr[i] * pideg), ymult = cosphi * sin(xptr[i] * pideg);
+    double rad = 8.0e3 + klVals[lDims[2]];
+    xptr[i] = rad * xmult, yptr[i] = rad * ymult, zptr[i] = rad * zmult;
+  }
+
+  // get ptr to gid memory for vertices
+  Range vert_range(start_vertex, start_vertex + num_local_verts - 1);
+  void *data;
+  int count;
+  rval = mbImpl->tag_iterate(mGlobalIdTag, vert_range.begin(), vert_range.end(), count, data);
+  ERRORR(rval, "Failed to get tag iterator.");
+  assert(count == (int) num_local_verts);
+  int *gid_data = (int*) data;
+  std::copy(local_gid.begin(), local_gid.end(), gid_data);
+
+  // create map from file ids to vertex handles, used later to set connectivity
+  std::map<EntityHandle, EntityHandle> vert_handles;
+  for (rit = local_gid.begin(), i = 0; rit != local_gid.end(); rit++, i++) {
+    vert_handles[*rit] = start_vertex + i;// we know that the gid that we give starts from 1!, so it could
+    //  be an entity handle
+  }
+
+  // now create quads
+  EntityHandle *conn_arr;
+  int num_local_quads = (int)local_elem_gid.size();
+  rval = readMeshIface->get_element_connect(num_local_quads, 4, MBQUAD, 0, start_quad, conn_arr);
+  ERRORR(rval, "Failed to create quads.");
+
+  for (int q = 0; q < 4 * num_local_quads; q++) {
+    conn_arr[q] = vert_handles[local_connec[q]];
+  }
+
+  quads.insert(start_quad, start_quad + num_local_quads - 1);
+
+  // set the gid for elements
+  rval = mbImpl->tag_iterate(mGlobalIdTag, quads.begin(), quads.end(), count, data);
+  ERRORR(rval, "Failed to get tag iterator.");
+  assert(count == (int) num_local_quads);
+  gid_data = (int*) data;
+  std::copy(local_elem_gid.begin(), local_elem_gid.end(), gid_data);
+  Range tmp_range;
+  tmp_range.insert(start_vertex, start_vertex + num_local_verts - 1);
+  tmp_range.insert(start_quad, start_quad + num_local_quads - 1);
+  rval = mbImpl->add_entities(tmp_set, tmp_range);
+  ERRORR(rval, "Couldn't add new vertices and quads to file set.");
+
+
+#ifdef USE_MPI
+  bool localdebug=true;
+  if (procs>1)
+  {
+    assert(myPcomm);
+    if (localdebug)
+    {
+      // rank is set int mrk = myPcomm->ge
+      std::ostringstream file_name;
+      file_name << "part";
+      file_name<<rank<<".vtk";
+      this->mbImpl->write_mesh(file_name.str().c_str(), &tmp_set, 1);
+    }
+    Range not_owned_verts;
+    if (num_owned_nodes<num_local_verts)
+      not_owned_verts.insert(start_vertex+num_owned_nodes, start_vertex+num_local_verts-1);
+    assert(not_owned_verts.size()==non_owned_gids.size());
+    // settle the sharing with our new rule
+    std::vector<int> processors;
+    processors.reserve(not_owned_verts.size());
+    // from gid, we can establish right now the remote handle too, on the owning processor...
+    std::vector<EntityHandle> remote_handles;
+    remote_handles.reserve(not_owned_verts.size());
+    std::vector<int> not_owned_gids;
+    if (!not_owned_verts.empty())
+    {
+      int i=0;
+      for (Range::iterator rit=not_owned_verts.begin(); rit!=not_owned_verts.end(); rit++, i++)
+      {
+        int nGid= (int) non_owned_gids[i];
+        int rproc, remoteIndex;
+        rproc = owning_processor(/*int iN*/ num_total_nodes, /*int ip*/ procs,
+            /*int gid*/ nGid, remoteIndex);
+        processors.push_back(rproc);
+        EntityHandle rh=start_vertex+remoteIndex;
+        remote_handles.push_back( rh);
+        not_owned_gids.push_back(nGid);
+      }
+    }
+    Range owned_verts(start_vertex, start_vertex+num_owned_nodes-1);
+                                                   // Range           std::vector<int>
+
+    rval = myPcomm->establish_shared_ents(owned_verts, not_owned_verts, processors, remote_handles, not_owned_gids);// these lists are
+                                                                                          // the base for tuples
+    ERRORR(rval, "Couldn't settle shared entities with other procs.");
+  }
+#endif
 
   return MB_SUCCESS;
 }
@@ -1076,7 +1406,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
 
   if (!vdatas.empty()) {
 #if PNETCDF_FILE
-    if (ucdMesh) // in serial, we will use the old read, everything is contiguous
+    if (ucdMesh && !npMesh) // in serial, we will use the old read, everything is contiguous
       // in parallel, we will use async read in pnetcdf
       // the other mechanism is not working, forget about it
       rval = read_variable_to_nonset_async(file_set, vdatas, tstep_nums);

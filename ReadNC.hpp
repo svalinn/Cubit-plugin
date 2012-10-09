@@ -249,6 +249,11 @@ private:
 
   bool BIL_mode_enabled(const char * file_name);
  
+  /*
+   *  new partition for homme meshes, split nodes equally, and add some quads too, for each proc
+   */
+  ErrorCode create_np_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
+
   template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void *dest, T *source) 
       {
         size_t nik = ni * nk, nij = ni * nj;
@@ -366,6 +371,7 @@ private:
   int partMethod;
 
   bool ucdMesh;
+  bool npMesh; // nodal partition for unstructured Homme mesh
   Range local_gid;// used only by ucdMesh
 
     //! whether mesh is locally periodic in i or j
