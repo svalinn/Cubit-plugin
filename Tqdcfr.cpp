@@ -1855,7 +1855,8 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     if (52 != block_headers[i].blockElemType) {
       int num_verts = cub_elem_num_verts[block_headers[i].blockElemType];
       block_headers[i].blockEntityType = block_type_to_mb_type[block_headers[i].blockElemType];
-      if (num_verts != CN::VerticesPerEntity(block_headers[i].blockEntityType)) {
+      if ((block_headers[i].blockEntityType < MBMAXTYPE) &&
+         ( num_verts != CN::VerticesPerEntity(block_headers[i].blockEntityType)) ) {
           // not a linear element; try to find hasMidNodes values
         for (int j = 0; j < 4; j++) block_headers[i].hasMidNodes[j] = 0;
         if (0 == instance->hasMidNodesTag) {
