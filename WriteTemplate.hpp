@@ -14,7 +14,7 @@
  */
 
 //-------------------------------------------------------------------------
-// Filename      : WriteTEMPLATE.hpp
+// Filename      : WriteTemplate.hpp
 //
 // Purpose       : ExodusII writer
 //
@@ -27,11 +27,11 @@
 // Owner         : Corey Ernst 
 //-------------------------------------------------------------------------
 
-#ifndef WRITETEMPLATE_HPP
-#define WRITETEMPLATE_HPP
+#ifndef WRITETemplate_HPP
+#define WRITETemplate_HPP
 
 #ifndef IS_BUILDING_MB
-#error "WriteTEMPLATE.hpp isn't supposed to be included into an application"
+#error "WriteTemplate.hpp isn't supposed to be included into an application"
 #endif
 
 #include <vector>
@@ -46,16 +46,16 @@ namespace moab {
 
 class WriteUtilIface;
 
-class WriteTEMPLATE : public WriterIface
+class WriteTemplate : public WriterIface
 {
  
 public:
 
    //! Constructor
-   WriteTEMPLATE(Interface *impl);
+   WriteTemplate(Interface *impl);
 
    //! Destructor
-  virtual ~WriteTEMPLATE();
+  virtual ~WriteTemplate();
   
   static WriterIface* factory( Interface* );
 
@@ -172,7 +172,7 @@ private:
                             std::vector<NeumannSetData> &neuset_data);
   
   ErrorCode get_valid_sides(Range &elems, const int sense,
-                              WriteTEMPLATE::NeumannSetData &neuset_data);
+                              WriteTemplate::NeumannSetData &neuset_data);
   
   void reset_matset(std::vector<MaterialSetData> &matset_info);
   

@@ -48,10 +48,10 @@ namespace moab {
 #define INS_ID(stringvar, prefix, id) \
           sprintf(stringvar, prefix, id)
 
-WriterIface* WriteTEMPLATE::factory( Interface* iface )
-  { return new WriteTEMPLATE( iface ); }
+WriterIface* WriteTemplate::factory( Interface* iface )
+  { return new WriteTemplate( iface ); }
 
-WriteTEMPLATE::WriteTEMPLATE(Interface *impl) 
+WriteTemplate::WriteTemplate(Interface *impl) 
     : mbImpl(impl), mCurrentMeshHandle(0)
 {
   assert(impl != NULL);
@@ -72,11 +72,11 @@ WriteTEMPLATE::WriteTEMPLATE(Interface *impl)
   impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
                        mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT);
 
-  impl->tag_get_handle("WriteTEMPLATE element mark", 1, MB_TYPE_BIT, mEntityMark, MB_TAG_CREAT);
+  impl->tag_get_handle("WriteTemplate element mark", 1, MB_TYPE_BIT, mEntityMark, MB_TAG_CREAT);
 
 }
 
-WriteTEMPLATE::~WriteTEMPLATE() 
+WriteTemplate::~WriteTemplate() 
 {
   mbImpl->release_interface(mWriteIface);
 
@@ -84,9 +84,9 @@ WriteTEMPLATE::~WriteTEMPLATE()
 
 }
 
-void WriteTEMPLATE::reset_matset(std::vector<WriteTEMPLATE::MaterialSetData> &matset_info)
+void WriteTemplate::reset_matset(std::vector<WriteTemplate::MaterialSetData> &matset_info)
 {
-  std::vector<WriteTEMPLATE::MaterialSetData>::iterator iter;
+  std::vector<WriteTemplate::MaterialSetData>::iterator iter;
   
   for (iter = matset_info.begin(); iter != matset_info.end(); iter++)
   {
@@ -94,7 +94,7 @@ void WriteTEMPLATE::reset_matset(std::vector<WriteTEMPLATE::MaterialSetData> &ma
   }
 }
 
-ErrorCode WriteTEMPLATE::write_file(const char *file_name, 
+ErrorCode WriteTemplate::write_file(const char *file_name, 
                                       const bool /* overwrite (commented out to remove warning) */,
                                       const FileOptions& /*opts*/,
                                       const EntityHandle *ent_handles,
@@ -147,9 +147,9 @@ ErrorCode WriteTEMPLATE::write_file(const char *file_name,
   if (matsets.empty() && dirsets.empty() && neusets.empty())
     return MB_FILE_WRITE_ERROR;
 
-  std::vector<WriteTEMPLATE::MaterialSetData> matset_info;
-  std::vector<WriteTEMPLATE::DirichletSetData> dirset_info;
-  std::vector<WriteTEMPLATE::NeumannSetData> neuset_info;
+  std::vector<WriteTemplate::MaterialSetData> matset_info;
+  std::vector<WriteTemplate::DirichletSetData> dirset_info;
+  std::vector<WriteTemplate::NeumannSetData> neuset_info;
 
   MeshInfo mesh_info;
   
@@ -189,10 +189,10 @@ ErrorCode WriteTEMPLATE::write_file(const char *file_name,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteTEMPLATE::gather_mesh_information(MeshInfo &mesh_info,
-                                                   std::vector<WriteTEMPLATE::MaterialSetData> &matset_info,
-                                                   std::vector<WriteTEMPLATE::NeumannSetData> &neuset_info,
-                                                   std::vector<WriteTEMPLATE::DirichletSetData> &dirset_info,
+ErrorCode WriteTemplate::gather_mesh_information(MeshInfo &mesh_info,
+                                                   std::vector<WriteTemplate::MaterialSetData> &matset_info,
+                                                   std::vector<WriteTemplate::NeumannSetData> &neuset_info,
+                                                   std::vector<WriteTemplate::DirichletSetData> &dirset_info,
                                                    std::vector<EntityHandle> &matsets,
                                                    std::vector<EntityHandle> &neusets,
                                                    std::vector<EntityHandle> &dirsets)
@@ -215,14 +215,14 @@ ErrorCode WriteTEMPLATE::gather_mesh_information(MeshInfo &mesh_info,
 
   // clean out the bits for the element mark
   mbImpl->tag_delete(mEntityMark);
-  mbImpl->tag_get_handle("WriteTEMPLATE element mark", 1, MB_TYPE_BIT, mEntityMark, MB_TAG_CREAT);
+  mbImpl->tag_get_handle("WriteTemplate element mark", 1, MB_TYPE_BIT, mEntityMark, MB_TAG_CREAT);
 
   int highest_dimension_of_element_matsets = 0;
 
   for(vector_iter = matsets.begin(); vector_iter != matsets.end(); vector_iter++)
   {
        
-    WriteTEMPLATE::MaterialSetData matset_data;
+    WriteTemplate::MaterialSetData matset_data;
     matset_data.elements = new Range;
 
     //for the purpose of qa records, get the parents of these matsets 
@@ -341,7 +341,7 @@ ErrorCode WriteTEMPLATE::gather_mesh_information(MeshInfo &mesh_info,
   for(; vector_iter != end_vector_iter; vector_iter++)
   {
     
-    WriteTEMPLATE::DirichletSetData dirset_data;
+    WriteTemplate::DirichletSetData dirset_data;
     dirset_data.id = 0;
     dirset_data.number_nodes = 0;
 
@@ -390,7 +390,7 @@ ErrorCode WriteTEMPLATE::gather_mesh_information(MeshInfo &mesh_info,
 
   for(; vector_iter != end_vector_iter; vector_iter++)
   {
-    WriteTEMPLATE::NeumannSetData neuset_data;
+    WriteTemplate::NeumannSetData neuset_data;
 
     // get the neuset's id
     if(mbImpl->tag_get_data(mNeumannSetTag,&(*vector_iter), 1,&id) != MB_SUCCESS)
@@ -423,8 +423,8 @@ ErrorCode WriteTEMPLATE::gather_mesh_information(MeshInfo &mesh_info,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteTEMPLATE::get_valid_sides(Range &elems, const int sense,
-                                           WriteTEMPLATE::NeumannSetData &neuset_data) 
+ErrorCode WriteTemplate::get_valid_sides(Range &elems, const int sense,
+                                           WriteTemplate::NeumannSetData &neuset_data) 
 {
     // this is where we see if underlying element of side set element is included in output 
 
@@ -490,7 +490,7 @@ ErrorCode WriteTEMPLATE::get_valid_sides(Range &elems, const int sense,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteTEMPLATE::write_nodes(const int num_nodes, const Range& nodes, const int dimension)
+ErrorCode WriteTemplate::write_nodes(const int num_nodes, const Range& nodes, const int dimension)
 {
   //see if should transform coordinates
   ErrorCode result;
@@ -571,9 +571,9 @@ ErrorCode WriteTEMPLATE::write_nodes(const int num_nodes, const Range& nodes, co
 
 }
 
-ErrorCode WriteTEMPLATE::write_matsets(MeshInfo & /* mesh_info (commented out to remove warning) */,
-                                         std::vector<WriteTEMPLATE::MaterialSetData> &matset_data,
-                                         std::vector<WriteTEMPLATE::NeumannSetData> &/* neuset_data (commented out to remove warning) */)
+ErrorCode WriteTemplate::write_matsets(MeshInfo & /* mesh_info (commented out to remove warning) */,
+                                         std::vector<WriteTemplate::MaterialSetData> &matset_data,
+                                         std::vector<WriteTemplate::NeumannSetData> &/* neuset_data (commented out to remove warning) */)
 {
 
   unsigned int i;
@@ -586,7 +586,7 @@ ErrorCode WriteTEMPLATE::write_matsets(MeshInfo & /* mesh_info (commented out to
   connect.reserve(31);
   Range::iterator rit;
 
-  WriteTEMPLATE::MaterialSetData matset;
+  WriteTemplate::MaterialSetData matset;
   for (i = 0; i < matset_data.size(); i++) {
     matset = matset_data[i];
     
@@ -611,7 +611,7 @@ ErrorCode WriteTEMPLATE::write_matsets(MeshInfo & /* mesh_info (commented out to
   return MB_SUCCESS;
 }
 
-ErrorCode WriteTEMPLATE::initialize_file(MeshInfo &mesh_info)
+ErrorCode WriteTemplate::initialize_file(MeshInfo &mesh_info)
 {
     // perform the initializations
 
@@ -635,7 +635,7 @@ ErrorCode WriteTEMPLATE::initialize_file(MeshInfo &mesh_info)
 }
 
 
-ErrorCode WriteTEMPLATE::open_file(const char* filename)
+ErrorCode WriteTemplate::open_file(const char* filename)
 {
    // not a valid filname
    if(strlen((const char*)filename) == 0)
@@ -655,7 +655,7 @@ ErrorCode WriteTEMPLATE::open_file(const char* filename)
    return MB_SUCCESS;
 }
 
-ErrorCode WriteTEMPLATE::get_neuset_elems(EntityHandle neuset, int current_sense,
+ErrorCode WriteTemplate::get_neuset_elems(EntityHandle neuset, int current_sense,
                                         Range &forward_elems, Range &reverse_elems) 
 {
   Range neuset_elems, neuset_meshsets;

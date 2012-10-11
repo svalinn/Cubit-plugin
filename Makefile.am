@@ -93,6 +93,8 @@ libmoabio_la_SOURCES = \
   ReadSms.cpp \
   ReadSTL.cpp \
   ReadSTL.hpp \
+  ReadTemplate.cpp \
+  ReadTemplate.hpp \
   ReadTetGen.cpp \
   ReadTetGen.hpp \
   ReadTxt.cpp \
