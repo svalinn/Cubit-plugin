@@ -280,7 +280,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     rval = mbImpl->add_entities(partn_set, quads);
     ERRORR(rval, "Couldn't add new quads to partition set.");
 
-#ifndef NDEBUG
+#if  0
     if (ucdMesh && !novars)
     {
       Range verts_owned;
