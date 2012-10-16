@@ -1036,7 +1036,7 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
 
 
 #ifdef USE_MPI
-  bool localdebug=true;
+  bool localdebug=false;
   if (procs>1)
   {
     assert(myPcomm);
