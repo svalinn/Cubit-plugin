@@ -254,9 +254,12 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
 
   // Read variables onto grid
   if (!novars) {
-    rval = read_variables(tmp_set, var_names, tstep_nums);
-    if (MB_FAILURE == rval)
-      return rval;
+    if (!npMesh) {
+      rval = read_variables(tmp_set, var_names, tstep_nums);
+      if (MB_FAILURE == rval)
+        return rval;
+    }
+
   }
   else {
     // read dimension variable by default
@@ -768,7 +771,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
   return MB_SUCCESS;
 }
 
-// a function to decide the owning proc for a global id (value from 1 to iN), in a trivial partition space
+// a function to decide the owning proc for a global id (value from 1 to iN), in a nodal partition space
 // will also return the index on the owning proc (so we can determine the handle)
 int owning_processor(int iN, int ip, int gid, int & oIndexOnOwningProc)
 {
@@ -955,7 +958,7 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
     {
       num_local_verts++;
       local_gid.insert(k+1);// this could have nodes with higher gid than the local owned range
-      if (k+1<start_gid || k+1 > end_gid)// k+1 < start_gid cannot really happen !
+      if (k+1<start_gid || k+1 > end_gid)// k+1 < start_gid cannot really happen in our case !
         non_owned_gids.insert(k+1);
       // local owned range
     }
@@ -1074,7 +1077,7 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
     Range owned_verts(start_vertex, start_vertex+num_owned_nodes-1);
                                                    // Range           std::vector<int>
 
-    rval = myPcomm->establish_shared_ents(owned_verts, not_owned_verts, processors, remote_handles, not_owned_gids);// these lists are
+    rval = myPcomm->resolve_shared_verts(owned_verts, not_owned_verts, processors, remote_handles, not_owned_gids);// these lists are
                                                                                           // the base for tuples
     ERRORR(rval, "Couldn't settle shared entities with other procs.");
   }
