@@ -49,7 +49,7 @@ public:
                          const std::vector<std::string>& qa_list,
                          const Tag* tag_list,
                          int num_tags,
-                         int export_dimension);
+                         int export_dimension = 0);
 
 private:
 
