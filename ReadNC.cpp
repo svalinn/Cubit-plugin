@@ -254,12 +254,9 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
 
   // Read variables onto grid
   if (!novars) {
-    if (!npMesh) {
-      rval = read_variables(tmp_set, var_names, tstep_nums);
-      if (MB_FAILURE == rval)
-        return rval;
-    }
-
+    rval = read_variables(tmp_set, var_names, tstep_nums);
+    if (MB_FAILURE == rval)
+      return rval;
   }
   else {
     // read dimension variable by default
@@ -891,6 +888,11 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
   ERRORS(success, "Failed on close.");
 
   std::vector<char>  flag(num_total_nodes, 0);
+  // all the nodes from start id to end id will automatically get flag 1, because
+  // they will be on this processor
+  for (int ii=start_gid-1; ii<end_gid; ii++)
+    flag[ii]=1;
+
   std::vector<int> local_connec;
   local_connec.reserve(4*num_owned_nodes);// there are about the same number of nodes as elements
   std::vector<int> local_elem_gid;
@@ -939,8 +941,9 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
       local_elem_gid.push_back(ie+1);
     }
     // all nodes get mark 1
-    for (int i=0; i<num_total_nodes; i++)
-      flag[i]=1;
+    // not needed anymore, all nodes got flag 1 in serial
+   /* for (int i = 0; i < num_total_nodes; i++)
+      flag[i] = 1;*/
   }
 
   // create all nodes that have the flag 1; some will be owned by other procs, we can set the PSTATUS flag
@@ -1042,6 +1045,9 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
     assert(myPcomm);
     if (localdebug)
     {
+      std::cout<<" local quads" <<local_elem_gid.size()<<
+          " local nodes"<<  num_local_verts << "\n";
+     std::cout<< " start_gid " <<    start_gid << " end_gid" << end_gid<< "\n";
       // rank is set int mrk = myPcomm->ge
       std::ostringstream file_name;
       file_name << "part";
@@ -1077,12 +1083,20 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
     Range owned_verts(start_vertex, start_vertex+num_owned_nodes-1);
                                                    // Range           std::vector<int>
 
+    //myPcomm->set_debug_verbosity(1);
     rval = myPcomm->resolve_shared_verts(owned_verts, not_owned_verts, processors, remote_handles, not_owned_gids);// these lists are
                                                                                           // the base for tuples
     ERRORR(rval, "Couldn't settle shared entities with other procs.");
   }
 #endif
 
+  // we are done with mesh generation;
+  // now reset local_gid, because from now on, it should be used for var reading only
+  // and var reading is really easier, because we should read only owned nodes on
+  // each processor;
+  local_gid.clear();
+  local_gid.insert(start_gid, end_gid);// so it is now only the range we own, contiguous
+  //  Yeah, this is what we want
   return MB_SUCCESS;
 }
 
@@ -1409,7 +1423,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
 
   if (!vdatas.empty()) {
 #if PNETCDF_FILE
-    if (ucdMesh && !npMesh) // in serial, we will use the old read, everything is contiguous
+    if (ucdMesh) // in serial, we will use the old read, everything is contiguous
       // in parallel, we will use async read in pnetcdf
       // the other mechanism is not working, forget about it
       rval = read_variable_to_nonset_async(file_set, vdatas, tstep_nums);
