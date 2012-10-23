@@ -659,11 +659,11 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
 
   if (isParallel) {
     if (rank < num_quads % procs) {
-      num_local_quads = int(floor(1.0 * num_quads / procs)) + 1;
+      num_local_quads = int(std::floor(1.0 * num_quads / procs)) + 1;
       start_idx = 4 * rank * num_local_quads;
     }
     else {
-      num_local_quads = int(floor(1.0 * num_quads / procs));
+      num_local_quads = int(std::floor(1.0 * num_quads / procs));
       start_idx = 4 * (num_quads % procs + rank * num_local_quads);
     }
   }
@@ -774,7 +774,7 @@ int owning_processor(int iN, int ip, int gid, int & oIndexOnOwningProc)
 {
   assert (1<=gid);
   assert(gid<=iN);
-  int num_nodes_per_proc = floor(iN/ip); // but the first iN%ip parts get an extra node
+  int num_nodes_per_proc = std::floor(((double)iN)/(double)ip); // but the first iN%ip parts get an extra node
 
   int proc = -1;// not initialized
   if (0==num_nodes_per_proc)
@@ -786,12 +786,12 @@ int owning_processor(int iN, int ip, int gid, int & oIndexOnOwningProc)
   if ( gid<= fatProcs*(num_nodes_per_proc+1))
   {
 
-    proc= floor( (gid-1)/(num_nodes_per_proc+1) );
+    proc= floor( ((double)(gid-1))/(double)(num_nodes_per_proc+1) );
     oIndexOnOwningProc = gid-proc*(num_nodes_per_proc+1)-1;//
     return proc;
   }
   int leftover= gid- fatProcs*(num_nodes_per_proc+1);
-  proc = fatProcs+floor((leftover-1)/num_nodes_per_proc);
+  proc = fatProcs+floor(((double)(leftover-1))/(double)num_nodes_per_proc);
   oIndexOnOwningProc = leftover-1-(proc-fatProcs)*num_nodes_per_proc;
   return proc;
 }
@@ -858,11 +858,11 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
 
   if (isParallel) {
     if (rank < num_total_nodes % procs) {
-      num_owned_nodes = int(floor(1.0 * num_total_nodes / procs)) + 1;
+      num_owned_nodes = int(floor(((double)1.0 * num_total_nodes) / (double)procs)) + 1;
       start_gid = rank * num_owned_nodes + 1; // starts at 1
     }
     else {
-      num_owned_nodes = int(floor(1.0 * num_total_nodes / procs));
+      num_owned_nodes = int(floor(((double)1.0 * num_total_nodes) / (double)procs));
       start_gid = num_total_nodes % procs + rank * num_owned_nodes + 1;
     }
   }
