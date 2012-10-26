@@ -16,14 +16,16 @@ if NETCDF_FILE
   MOAB_NETCDF_SRCS = ReadNCDF.cpp  ReadNCDF.hpp \
                      WriteNCDF.cpp WriteNCDF.hpp \
                      WriteSLAC.cpp WriteSLAC.hpp \
-		     ReadNC.cpp ReadNC.hpp
+		     ReadNC.cpp ReadNC.hpp \
+	  	     ReadGCRM.cpp ReadGCRM.hpp
 else
   MOAB_NETCDF_SRCS =
 endif
 
 if PNETCDF_FILE
 if !NETCDF_FILE
-     MOAB_NETCDF_SRCS += ReadNC.cpp ReadNC.hpp
+     MOAB_NETCDF_SRCS += ReadNC.cpp ReadNC.hpp \
+	  	     ReadGCRM.cpp ReadGCRM.hpp
 endif
 endif
 
