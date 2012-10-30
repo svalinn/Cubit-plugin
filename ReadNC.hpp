@@ -94,6 +94,8 @@ public:
   // ENTLOCWEEDGE for west/east edge
   enum EntityLocation {ENTLOCNODE=0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCQUAD, ENTLOCSET};
 
+  enum CamType {CAM_EUL=0, CAM_FV, CAM_SE, CAM_UNKNOWN, NOT_CAM};
+
 private:
 
   class AttData 
@@ -172,6 +174,7 @@ private:
                           std::vector<double> &tstep_vals,
                           bool &nomesh,
                           bool &novars,
+                          bool &spectral_mesh,
                           std::string &partition_tag_name);
 
   ErrorCode read_variable_to_set_allocate(EntityHandle file_set, std::vector<VarData> &vdatas,
@@ -238,7 +241,7 @@ private:
 
   ErrorCode init_HOMMEucd_vals(const FileOptions &opts);
 
-  ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
+  ErrorCode create_ucd_verts_quads(bool spectral_mesh, const FileOptions &opts, EntityHandle tmp_set, Range &quads);
  
   ErrorCode load_BIL(std::string dir_name,
                      const EntityHandle* file_set,
@@ -254,6 +257,9 @@ private:
    */
   ErrorCode create_np_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
 
+    //! parse various options and variables and attributes to infer CAM file type
+  ErrorCode get_nc_type(const FileOptions &opts);
+  
   template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void *dest, T *source) 
       {
         size_t nik = ni * nk, nij = ni * nj;
@@ -370,9 +376,16 @@ private:
     //! partitioning method
   int partMethod;
 
-  bool ucdMesh;
-  bool npMesh; // nodal partition for unstructured Homme mesh
-  Range local_gid;// used only by ucdMesh
+    //! if a CAM file, which type
+  CamType camType;
+
+    //! true if file is marked as following CF metadata conventions
+  bool isCf;
+  
+  int spectralOrder; // read from variable 'np'
+  Range local_gid;// used only by camType=CAM_SE
+
+  bool npMesh; // used only when PARTITION_METHOD=NODAL_PARTITION
 
     //! whether mesh is locally periodic in i or j
   int locallyPeriodic[2];
