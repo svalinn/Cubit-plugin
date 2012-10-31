@@ -86,11 +86,11 @@ public:
   class tinfo
   {
     public:
-    tinfo(Tag mt, damsel_tag dt, TagType tt) : mTagh(mt), dTagh(dt), tagType(tt) {};
-    tinfo()  : mTagh(0), dTagh(DAMSEL_TAG_INVALID), tagType(MB_TAG_ANY) {};
+    tinfo(Tag mt, damsel_handle dt, TagType tt) : mTagh(mt), dTagh(dt), tagType(tt) {};
+    tinfo()  : mTagh(0), dTagh(0), tagType(MB_TAG_ANY) {};
           
     Tag mTagh;
-    damsel_tag dTagh;
+    damsel_handle dTagh;
     TagType tagType;
   };
   template<class T> struct MtagP : std::unary_function<T, bool> {
@@ -103,15 +103,9 @@ public:
   template<class T> struct DtagP : std::unary_function<T, bool> {
     public:
     DtagP(const damsel_handle &th) {tH = th;};
-    bool operator() (const T &tclass) {return tclass.dTagh == (damsel_tag)tH;};
+    bool operator() (const T &tclass) {return tclass.dTagh == tH;};
     damsel_handle tH;
   };
-  
-      
-    
-      
-          
-    
 
 private:
     //! damsel library id

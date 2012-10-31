@@ -276,8 +276,7 @@ ErrorCode ReadDamsel::process_tags(std::vector<damsel_tag_buf_type> &tag_infos)
                                       tagh, MB_TAG_CREAT | MB_TAG_DENSE);
     if (MB_SUCCESS != tmp_rval) rval = tmp_rval;
     else {
-      dU.tagMap.push_back(DamselUtil::tinfo(tagh, *(reinterpret_cast<damsel_tag*>((*tit).tag_handle)), 
-                                            MB_TAG_DENSE));
+      dU.tagMap.push_back(DamselUtil::tinfo(tagh, 0, MB_TAG_DENSE));
         // also store predefined tags specially...
       if (!strncmp((*tit).name, "mbdmsl_", 7)) {
           // predefined tag name, store the handle

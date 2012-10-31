@@ -207,8 +207,8 @@ ErrorCode WriteDamsel::init_tag_info()
   std::vector<Tag> tmp_mtags;
   ErrorCode rval = mbImpl->tag_get_tags(tmp_mtags);
   CHK_MB_ERR(rval, "Failed to get all tag handles.");
-  damsel_tag dtag;
   int dum_size;
+  damsel_err_t err;
   
     // define damsel tag handles for all dense/sparse tags
   for (std::vector<Tag>::iterator vit = tmp_mtags.begin(); vit != tmp_mtags.end(); vit++) {
@@ -231,13 +231,11 @@ ErrorCode WriteDamsel::init_tag_info()
     else if (vit2 == dU.tagMap.end()) {
         // create a damsel counterpart for this tag
       Tag thandle = *vit;
-      dtag = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&thandle, 
-                            DamselUtil::mtod_data_type[(*vit)->get_data_type()],
+      err = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&thandle, 
+                                        DamselUtil::mtod_data_type[(*vit)->get_data_type()],
                             (*vit)->get_name().c_str());
-      if (DAMSEL_TAG_INVALID == dtag) CHK_MB_ERR_2(MB_FAILURE, "Failure to get Damsel tag for MOAB tag %s.", 
-                                                   (*vit)->get_name().c_str());
-
-      dU.tagMap.push_back(DamselUtil::tinfo(thandle, dtag, (*vit)->get_storage_type()));
+      CHK_DMSL_ERR(err, "Failure to get Damsel tag for MOAB tag .");
+      dU.tagMap.push_back(DamselUtil::tinfo(thandle, 0, (*vit)->get_storage_type()));
     }
     else {
         // assert there's a corresponding moab tag handle
@@ -247,40 +245,32 @@ ErrorCode WriteDamsel::init_tag_info()
   
     // do the same for conventional tags: 
     // XCOORDS
-  dU.xcoordsTag.dTagh = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.xcoordsTag.mTagh), 
+  err = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.xcoordsTag.mTagh), 
                                        DamselUtil::mtod_data_type[MB_TYPE_DOUBLE],
                                        dU.xcoordsTag.mTagh->get_name().c_str());
   dU.tagMap.push_back(dU.xcoordsTag);
-  if (DAMSEL_TAG_INVALID == dU.xcoordsTag.dTagh) 
-    CHK_MB_ERR_2(MB_FAILURE, "Failure to get Damsel tag for MOAB tag %s.", 
-                 dU.xcoordsTag.mTagh->get_name().c_str());
+  CHK_DMSL_ERR(err, "Failure to get Damsel tag for MOAB tag.");
 
     // YCOORDS
-  dU.ycoordsTag.dTagh = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.ycoordsTag.mTagh), 
+  err = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.ycoordsTag.mTagh), 
                                        DamselUtil::mtod_data_type[MB_TYPE_DOUBLE],
                                        dU.ycoordsTag.mTagh->get_name().c_str());
   dU.tagMap.push_back(dU.ycoordsTag);
-  if (DAMSEL_TAG_INVALID == dU.ycoordsTag.dTagh) 
-    CHK_MB_ERR_2(MB_FAILURE, "Failure to get Damsel tag for MOAB tag %s.", 
-                 dU.ycoordsTag.mTagh->get_name().c_str());
+  CHK_DMSL_ERR(err, "Failure to get Damsel tag for MOAB tag.");
 
     // ZCOORDS
-  dU.zcoordsTag.dTagh = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.zcoordsTag.mTagh), 
+  err = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.zcoordsTag.mTagh), 
                                        DamselUtil::mtod_data_type[MB_TYPE_DOUBLE],
                                        dU.zcoordsTag.mTagh->get_name().c_str());
   dU.tagMap.push_back(dU.zcoordsTag);
-  if (DAMSEL_TAG_INVALID == dU.zcoordsTag.dTagh) 
-    CHK_MB_ERR_2(MB_FAILURE, "Failure to get Damsel tag for MOAB tag %s.", 
-                 dU.zcoordsTag.mTagh->get_name().c_str());
+  CHK_DMSL_ERR(err, "Failure to get Damsel tag for MOAB tag.");
 
     // COLL_FLAGS
-  dU.collFlagsTag.dTagh = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.collFlagsTag.mTagh), 
+  err = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.collFlagsTag.mTagh), 
                                        DamselUtil::mtod_data_type[MB_TYPE_INTEGER],
                                        dU.collFlagsTag.mTagh->get_name().c_str());
   dU.tagMap.push_back(dU.collFlagsTag);
-  if (DAMSEL_TAG_INVALID == dU.collFlagsTag.dTagh) 
-    CHK_MB_ERR_2(MB_FAILURE, "Failure to get Damsel tag for MOAB tag %s.", 
-                 dU.collFlagsTag.mTagh->get_name().c_str());
+  CHK_DMSL_ERR(err, "Failure to get Damsel tag for MOAB tag.");
 
     /*
       SKIP PARENTS/CHILDREN FOR NOW, UNTIL WE HAVE VAR LENGTH TAGS IN DAMSEL
@@ -312,7 +302,7 @@ ErrorCode WriteDamsel::init_tag_info()
   damsel_container mtags = DMSLcontainer_create_vector(dU.dmslModel, (damsel_handle_ptr)&moab_taghs[0], moab_taghs.size());
   std::cerr << "MOAB: created model container: mtags = " << mtags <<std::endl;
   
-  damsel_err_t err = DMSLmodel_map_handles_inventing_file_handles(mtags);
+  err = DMSLmodel_map_handles_inventing_file_handles(mtags);
   CHK_DMSL_ERR(err, "Failed to map tag handles.");
 
   err = DMSLcontainer_release(mtags);
