@@ -713,32 +713,54 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     // now create num_coarse_quads
   EntityHandle *conn_arr;
   EntityHandle start_vertex, start_quad;
-  int verts_per_quad = (spectral_mesh ? (spectralOrder+1)*(spectralOrder+1) : 4);
-  rval = readMeshIface->get_element_connect(num_coarse_quads, verts_per_quad,
+  rval = readMeshIface->get_element_connect(num_coarse_quads, 4,
                                             MBQUAD, 0, start_quad, conn_arr);
   ERRORR(rval, "Failed to create quads.");
+  
+  Range tmp_range;
+  tmp_range.insert(start_quad, start_quad + num_coarse_quads - 1);
 
     // read connectivity into that space
-  if (!spectral_mesh)
+  EntityHandle *sv_ptr = NULL;
+  if (!spectral_mesh) {
     std::copy(&tmp_conn[start_idx], &tmp_conn[start_idx+4*num_fine_quads], conn_arr);
+    std::copy(conn_arr, conn_arr+4*num_fine_quads, range_inserter(local_gid));
+  }
   else {
-    const unsigned int permute_array[] =
-        {0, 25, 34, 11, // corner nodes
-         1, 13, 26, 30, 22, 23, 8, 4, // edge nodes
-         15, 17, 18, 19 // interior nodes
-        };
-    int f = start_idx;
+      // permute_array takes a 36-long vector of integers, representing the connectivity of 3x3
+      // quads (fine quads in a coarse quad), and picks out the ids of the vertices necessary
+      // to get a lexicographically-ordered array of vertices in a 3rd-order spectral element
+    const unsigned int permute_array[] = 
+        {0, 1, 13, 25, 3, 2, 14, 26, 7, 6, 18, 30, 11, 10, 22, 34};
+      // lin_permute_array does the same to get the linear vertices of the coarse quad
+    const unsigned int lin_permute_array[] = {0, 25, 34, 11};
+    
+    int verts_per_quad = (spectralOrder+1)*(spectralOrder+1);
+    assert(verts_per_quad == (sizeof(permute_array)/sizeof(unsigned int)));
+    Tag sv_tag;
+      // create the SPECTRAL_VERTICES tag and get a ptr to the tag storage
+    rval = mbImpl->tag_get_handle("SPECTRAL_VERTICES", verts_per_quad, MB_TYPE_HANDLE, sv_tag,
+                                  MB_TAG_CREAT | MB_TAG_DENSE);
+    ERRORR(rval, "Failed to create SPECTRAL_VERTICES tag.");
+      // we're assuming here that quads was empty on input
+    int count;
+    rval = mbImpl->tag_iterate(sv_tag, tmp_range.begin(), tmp_range.end(), count, (void*&)sv_ptr);
+    ERRORR(rval, "Failed to get SPECTRAL_VERTICES ptr.");
+    assert(count == num_coarse_quads);
+    int f = start_idx, fs = 0, fl = 0;
     for (int c = 0; c < num_coarse_quads; c++) {
+      for (int i = 0; i < 4; i++)
+        conn_arr[fl+i] = tmp_conn[f+lin_permute_array[i]];
+      fl += 4;
       for (int i = 0; i < verts_per_quad; i++) 
-        conn_arr[i] = tmp_conn[f+permute_array[i]];
+        sv_ptr[fs+i] = tmp_conn[f+permute_array[i]];
       f += 4*spectral_unit;
-      conn_arr += verts_per_quad;
+      fs += verts_per_quad;
     }
-    conn_arr -= 4*spectral_unit*num_coarse_quads;
+    std::copy(sv_ptr, sv_ptr+verts_per_quad*num_coarse_quads, range_inserter(local_gid));
   }
     
   // on this proc, I get columns ldims[1]..ldims[4], inclusive; need to find which vertices those correpond to
-  std::copy(conn_arr, conn_arr+4*spectral_unit*num_coarse_quads, range_inserter(local_gid));
   unsigned int num_local_verts = local_gid.size();
 
   // create vertices
@@ -782,18 +804,22 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     vert_handles[*rit] = start_vertex + i;
   }
 
-  for (int q = 0; q < 4 * spectral_unit * num_coarse_quads; q++) {
+    // compute proper handles in connectivity using offset
+  for (int q = 0; q < 4 * num_coarse_quads; q++) {
     conn_arr[q] = vert_handles[conn_arr[q]];
     assert(conn_arr[q]);
   }
+  if (spectral_mesh) {
+    for (int q = 0; q < 4 * num_coarse_quads; q++) {
+      sv_ptr[q] = vert_handles[sv_ptr[q]];
+      assert(sv_ptr[q]);
+    }
+  }
 
-  quads.insert(start_quad, start_quad + num_coarse_quads - 1);
-
-  Range tmp_range;
+  quads.merge(tmp_range);
   tmp_range.insert(start_vertex, start_vertex + num_local_verts - 1);
-  tmp_range.insert(start_quad, start_quad + num_coarse_quads - 1);
   rval = mbImpl->add_entities(tmp_set, tmp_range);
-  ERRORR(rval, "Couldn't add new vertices and hexes to file set.");
+  ERRORR(rval, "Couldn't add new vertices and quads/hexes to file set.");
 
   return MB_SUCCESS;
 }
