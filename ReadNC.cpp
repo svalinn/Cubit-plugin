@@ -810,7 +810,8 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     assert(conn_arr[q]);
   }
   if (spectral_mesh) {
-    for (int q = 0; q < 4 * num_coarse_quads; q++) {
+	int verts_per_quad=(spectralOrder+1)*(spectralOrder+1);
+    for (int q = 0; q < verts_per_quad * num_coarse_quads; q++) {
       sv_ptr[q] = vert_handles[sv_ptr[q]];
       assert(sv_ptr[q]);
     }
