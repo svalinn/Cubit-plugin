@@ -17,6 +17,7 @@
 #include "MBTagConventions.hpp"
 #include "FileOptions.hpp"
 #include "moab/ScdInterface.hpp"
+#include "moab/SpectralMeshTool.hpp"
 
 //#include "bil.h"
 
@@ -36,11 +37,11 @@ ReadNC::ReadNC(Interface* impl) :
   mbImpl(impl), CPU_WORD_SIZE(-1), IO_WORD_SIZE(-1), fileId(-1), tMin(-1), tMax(-1), iDim(-1), jDim(-1), tDim(-1), iCDim(-1),
   jCDim(-1), numUnLim(-1), mCurrentMeshHandle(0), startVertex(0), startElem(0), mGlobalIdTag(0), max_line_length(-1),
   max_str_length(-1), vertexOffset(0), dbgOut(stderr), isParallel(false), partMethod(-1), camType(NOT_CAM), isCf(false),
-  spectralOrder(-1), npMesh(false)
-
+  spectralOrder(-1), npMesh(false), 
 #ifdef USE_MPI
-, myPcomm(NULL)
+  myPcomm(NULL), 
 #endif
+  noMesh(false), noVars(false), spectralMesh(false)
 {
   assert(impl != NULL);
 
@@ -111,9 +112,8 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
       return rval;
   }
 
-  bool nomesh = false, novars = false, spectral_mesh = false;
   std::string partition_tag_name;
-  rval = parse_options(opts, var_names, tstep_nums, tstep_vals, nomesh, novars, spectral_mesh, partition_tag_name);
+  rval = parse_options(opts, var_names, tstep_nums, tstep_vals);
   ERRORR(rval, "Trouble parsing option string.");
 
   // Open the file
@@ -156,7 +156,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
 
   // make sure there's a file set to put things in
   EntityHandle tmp_set;
-  if (nomesh && !file_set) {
+  if (noMesh && !file_set) {
     ERRORR(MB_FAILURE, "NOMESH option requires non-NULL file set on input.\n");
   }
   else if (!file_set || (file_set && *file_set == 0)) {
@@ -194,18 +194,18 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
 
   // Create mesh vertex/quads sequences
   Range quads;
-  if (nomesh && !novars) {
+  if (noMesh && !noVars) {
     rval = check_verts_quads(tmp_set);
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
-  else if (!nomesh) {
+  else if (!noMesh) {
     if (-1 == partMethod && false) // not sure what to do with this...
       rval = create_np_verts_quads(opts, tmp_set, quads);
     else if (CAM_SE == camType) {
       if (npMesh)
         rval = create_np_verts_quads(opts, tmp_set, quads);
       else
-        rval = create_ucd_verts_quads(spectral_mesh, opts, tmp_set, quads);
+        rval = create_ucd_verts_quads(spectralMesh, opts, tmp_set, quads);
     }
     else
       rval = create_verts_quads(scdi, tmp_set, quads);
@@ -213,7 +213,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   }
 
   // Read variables onto grid
-  if (!novars) {
+  if (!noVars) {
     rval = read_variables(tmp_set, var_names, tstep_nums);
     if (MB_FAILURE == rval)
       return rval;
@@ -241,7 +241,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     ERRORR(rval, "Couldn't add new quads to partition set.");
 
 #if  0
-    if (ucdMesh && !novars)
+    if (ucdMesh && !noVars)
     {
       Range verts_owned;
       if (!npMesh)
@@ -261,7 +261,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
 
     //write partition tag name on partition set
     Tag part_tag;
-    rval = mbImpl->tag_get_handle( partition_tag_name.c_str(), 1, MB_TYPE_INTEGER, part_tag );
+    rval = mbImpl->tag_get_handle( partitionTagName.c_str(), 1, MB_TYPE_INTEGER, part_tag );
     if (MB_SUCCESS != rval) {
       // fall back to the partition tag
       part_tag = myPcomm->partition_tag();
@@ -277,7 +277,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   ERRORR(rval, "Trouble creating scd element sequence.");
 
   // create nc conventional tags when loading header info only
-  if (nomesh && novars) {
+  if (noMesh && noVars) {
     rval = create_tags(scdi, tmp_set, tstep_nums);
     ERRORR(rval, "Trouble creating nc conventional tags.");
   }
@@ -421,7 +421,7 @@ bool ReadNC::BIL_mode_enabled(const char * file_name) {
 }
 
 ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string> &var_names, std::vector<int> &tstep_nums,
-    std::vector<double> &tstep_vals, bool &nomesh, bool &novars, bool &spectral_mesh, std::string &partition_tag_name) {
+                                std::vector<double> &tstep_vals) {
   int tmpval;
   if (MB_SUCCESS == opts.get_int_option("DEBUG_IO", 1, tmpval)) {
     dbgOut.set_verbosity(tmpval);
@@ -430,18 +430,18 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
 
   ErrorCode rval = opts.get_strs_option("VARIABLE", var_names);
   if (MB_TYPE_OUT_OF_RANGE == rval)
-    novars = true;
+    noVars = true;
   else
-    novars = false;
+    noVars = false;
   opts.get_ints_option("TIMESTEP", tstep_nums);
   opts.get_reals_option("TIMEVAL", tstep_vals);
   rval = opts.get_null_option("NOMESH");
   if (MB_SUCCESS == rval)
-    nomesh = true;
+    noMesh = true;
 
   rval = opts.get_null_option("SPECTRAL_MESH");
   if (MB_SUCCESS == rval)
-    spectral_mesh = true;
+    spectralMesh = true;
 
   if (2 <= dbgOut.get_verbosity()) {
     if (!var_names.empty()) {
@@ -466,7 +466,7 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
 
 #ifdef USE_MPI
   //TODO handle options better
-  //rval = opts.get_option("PARTITION", partition_tag_name);
+  //rval = opts.get_option("PARTITION", partitionTagName);
   /*
    part = (rval != MB_ENTITY_NOT_FOUND);
    rval = opts.match_option("PARALLEL", "READ_PART");
@@ -698,8 +698,8 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
 
     // compute the number of local quads, accounting for coarse or fine representation
     // spectral_unit is the # fine quads per coarse quad, or spectralOrder^2
-  int spectral_unit = (spectral_mesh ? spectralOrder*spectralOrder : 1);
-    // num_coarse_quads is the number of quads instantiated in MOAB; if !spectral_mesh, num_coarse_quads = num_fine_quads
+  int spectral_unit = (spectralMesh ? spectralOrder*spectralOrder : 1);
+    // num_coarse_quads is the number of quads instantiated in MOAB; if !spectralMesh, num_coarse_quads = num_fine_quads
   num_coarse_quads = int(std::floor(1.0 * num_quads / (spectral_unit*procs)));
     // start_idx is the starting index in the HommeMapping connectivity list for this proc, before converting to coarse quad representation
   start_idx = 4 * rank * num_coarse_quads * spectral_unit;
@@ -712,56 +712,33 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
 
     // now create num_coarse_quads
   EntityHandle *conn_arr;
-  EntityHandle start_vertex, start_quad;
-  rval = readMeshIface->get_element_connect(num_coarse_quads, 4,
-                                            MBQUAD, 0, start_quad, conn_arr);
-  ERRORR(rval, "Failed to create quads.");
-  
+  EntityHandle start_vertex;
   Range tmp_range;
-  tmp_range.insert(start_quad, start_quad + num_coarse_quads - 1);
 
     // read connectivity into that space
-  EntityHandle *sv_ptr = NULL;
-  if (!spectral_mesh) {
+  EntityHandle *sv_ptr = NULL, start_quad;
+  SpectralMeshTool smt(mbImpl, spectralOrder);
+  if (!spectralMesh) {
+    rval = readMeshIface->get_element_connect(num_coarse_quads, 4,
+                                              MBQUAD, 0, start_quad, conn_arr);
+    ERRORR(rval, "Failed to create quads.");
+    tmp_range.insert(start_quad, start_quad + num_coarse_quads - 1);
     std::copy(&tmp_conn[start_idx], &tmp_conn[start_idx+4*num_fine_quads], conn_arr);
-    std::copy(conn_arr, conn_arr+4*num_fine_quads, range_inserter(local_gid));
+    std::copy(conn_arr, conn_arr+4*num_fine_quads, range_inserter(localGid));
   }
   else {
-      // permute_array takes a 36-long vector of integers, representing the connectivity of 3x3
-      // quads (fine quads in a coarse quad), and picks out the ids of the vertices necessary
-      // to get a lexicographically-ordered array of vertices in a 3rd-order spectral element
-    const unsigned int permute_array[] = 
-        {0, 1, 13, 25, 3, 2, 14, 26, 7, 6, 18, 30, 11, 10, 22, 34};
-      // lin_permute_array does the same to get the linear vertices of the coarse quad
-    const unsigned int lin_permute_array[] = {0, 25, 34, 11};
-    
-    int verts_per_quad = (spectralOrder+1)*(spectralOrder+1);
-    assert(verts_per_quad == (sizeof(permute_array)/sizeof(unsigned int)));
-    Tag sv_tag;
-      // create the SPECTRAL_VERTICES tag and get a ptr to the tag storage
-    rval = mbImpl->tag_get_handle("SPECTRAL_VERTICES", verts_per_quad, MB_TYPE_HANDLE, sv_tag,
-                                  MB_TAG_CREAT | MB_TAG_DENSE);
-    ERRORR(rval, "Failed to create SPECTRAL_VERTICES tag.");
-      // we're assuming here that quads was empty on input
-    int count;
-    rval = mbImpl->tag_iterate(sv_tag, tmp_range.begin(), tmp_range.end(), count, (void*&)sv_ptr);
-    ERRORR(rval, "Failed to get SPECTRAL_VERTICES ptr.");
-    assert(count == num_coarse_quads);
-    int f = start_idx, fs = 0, fl = 0;
-    for (int c = 0; c < num_coarse_quads; c++) {
-      for (int i = 0; i < 4; i++)
-        conn_arr[fl+i] = tmp_conn[f+lin_permute_array[i]];
-      fl += 4;
-      for (int i = 0; i < verts_per_quad; i++) 
-        sv_ptr[fs+i] = tmp_conn[f+permute_array[i]];
-      f += 4*spectral_unit;
-      fs += verts_per_quad;
-    }
-    std::copy(sv_ptr, sv_ptr+verts_per_quad*num_coarse_quads, range_inserter(local_gid));
+    rval = smt.create_spectral_elems(&tmp_conn[0], num_fine_quads, 2, tmp_range, start_idx, &localGid);
+    ERRORR(rval, "Failed to create spectral elements.");
+    int count, v_per_e;
+    rval = mbImpl->connect_iterate(tmp_range.begin(), tmp_range.end(), conn_arr, v_per_e, count);
+    ERRORR(rval, "Failed to get connectivity of spectral elements.");
+    rval = mbImpl->tag_iterate(smt.spectral_vertices_tag(true), tmp_range.begin(), tmp_range.end(), 
+                               count, (void*&)sv_ptr);
+    ERRORR(rval, "Failed to get fine connectivity of spectral elements.");
   }
     
   // on this proc, I get columns ldims[1]..ldims[4], inclusive; need to find which vertices those correpond to
-  unsigned int num_local_verts = local_gid.size();
+  unsigned int num_local_verts = localGid.size();
 
   // create vertices
   std::vector<double*> arrays;
@@ -772,7 +749,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
   unsigned int i;
   Range::iterator rit;
   double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
-  for (i = 0, rit = local_gid.begin(); i < num_local_verts; i++, rit++) {
+  for (i = 0, rit = localGid.begin(); i < num_local_verts; i++, rit++) {
     assert(*rit < ilVals.size()+1);
     xptr[i] = ilVals[(*rit) - 1];
     yptr[i] = jlVals[(*rit) - 1];
@@ -796,11 +773,11 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
   ERRORR(rval, "Failed to get tag iterator.");
   assert(count == (int) num_local_verts);
   int *gid_data = (int*) data;
-  std::copy(local_gid.begin(), local_gid.end(), gid_data);
+  std::copy(localGid.begin(), localGid.end(), gid_data);
 
   // create map from file ids to vertex handles, used later to set connectivity
   std::map<EntityHandle, EntityHandle> vert_handles;
-  for (rit = local_gid.begin(), i = 0; rit != local_gid.end(); rit++, i++) {
+  for (rit = localGid.begin(), i = 0; rit != localGid.end(); rit++, i++) {
     vert_handles[*rit] = start_vertex + i;
   }
 
@@ -809,19 +786,27 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     conn_arr[q] = vert_handles[conn_arr[q]];
     assert(conn_arr[q]);
   }
-  if (spectral_mesh) {
-	int verts_per_quad=(spectralOrder+1)*(spectralOrder+1);
+  if (spectralMesh) {
+    int verts_per_quad=(spectralOrder+1)*(spectralOrder+1);
     for (int q = 0; q < verts_per_quad * num_coarse_quads; q++) {
       sv_ptr[q] = vert_handles[sv_ptr[q]];
       assert(sv_ptr[q]);
     }
   }
 
+    // add new vertices and elements to the set
   quads.merge(tmp_range);
   tmp_range.insert(start_vertex, start_vertex + num_local_verts - 1);
   rval = mbImpl->add_entities(tmp_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices and quads/hexes to file set.");
 
+    // mark the set with the spectral order
+  Tag sporder;
+  rval = mbImpl->tag_get_handle("SPECTRAL_ORDER", 1, MB_TYPE_INTEGER, sporder, MB_TAG_CREAT | MB_TAG_SPARSE);
+  ERRORR(rval, "Couldn't create spectral order tag.");
+  rval = mbImpl->tag_set_data(sporder, &tmp_set, 1, &spectralOrder);
+  ERRORR(rval, "Couldn't set value for spectral order tag.");
+  
   return MB_SUCCESS;
 }
 
@@ -1017,16 +1002,16 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
     if (flag[k]==1)
     {
       num_local_verts++;
-      local_gid.insert(k+1);// this could have nodes with higher gid than the local owned range
+      localGid.insert(k+1);// this could have nodes with higher gid than the local owned range
       if (k+1<start_gid || k+1 > end_gid)// k+1 < start_gid cannot really happen in our case !
         non_owned_gids.insert(k+1);
       // local owned range
     }
 
   dbgOut.tprintf(1, " local quads %ld local nodes %d nodes gid subranges %ld\n",
-      local_elem_gid.size(), num_local_verts, local_gid.psize() );
+      local_elem_gid.size(), num_local_verts, localGid.psize() );
   dbgOut.tprintf(1, " start_gid %d end_gid:  %d first gid: %ld last_gid: %ld\n",
-        start_gid, end_gid, local_gid[0], local_gid[ local_gid.size()-1] );
+        start_gid, end_gid, localGid[0], localGid[ localGid.size()-1] );
   // create vertices
   std::vector<double*> arrays;
   EntityHandle start_vertex, start_quad;
@@ -1037,7 +1022,7 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
   Range::iterator rit;
   double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
   int i;
-  for (i = 0, rit = local_gid.begin(); i < num_local_verts; i++, rit++) {
+  for (i = 0, rit = localGid.begin(); i < num_local_verts; i++, rit++) {
     assert(*rit < ilVals.size()+1);
     xptr[i] = ilVals[(*rit) - 1];
     yptr[i] = jlVals[(*rit) - 1];
@@ -1061,11 +1046,11 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
   ERRORR(rval, "Failed to get tag iterator.");
   assert(count == (int) num_local_verts);
   int *gid_data = (int*) data;
-  std::copy(local_gid.begin(), local_gid.end(), gid_data);
+  std::copy(localGid.begin(), localGid.end(), gid_data);
 
   // create map from file ids to vertex handles, used later to set connectivity
   std::map<EntityHandle, EntityHandle> vert_handles;
-  for (rit = local_gid.begin(), i = 0; rit != local_gid.end(); rit++, i++) {
+  for (rit = localGid.begin(), i = 0; rit != localGid.end(); rit++, i++) {
     vert_handles[*rit] = start_vertex + i;// we know that the gid that we give starts from 1!, so it could
     //  be an entity handle
   }
@@ -1148,11 +1133,11 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
 #endif
 
   // we are done with mesh generation;
-  // now reset local_gid, because from now on, it should be used for var reading only
+  // now reset localGid, because from now on, it should be used for var reading only
   // and var reading is really easier, because we should read only owned nodes on
   // each processor;
-  local_gid.clear();
-  local_gid.insert(start_gid, end_gid);// so it is now only the range we own, contiguous
+  localGid.clear();
+  localGid.insert(start_gid, end_gid);// so it is now only the range we own, contiguous
   //  Yeah, this is what we want
   return MB_SUCCESS;
 }
@@ -1367,10 +1352,10 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
           }
           else
           {
-            // we will start from the first local_gid, actually; we will reset that
+            // we will start from the first localGid, actually; we will reset that
             // later on, anyway, in a loop
-            vdatas[i].readDims[t].push_back(local_gid[0]-1);
-            vdatas[i].readCounts[t].push_back(local_gid.size());
+            vdatas[i].readDims[t].push_back(localGid[0]-1);
+            vdatas[i].readCounts[t].push_back(localGid.size());
           }
 
           assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
@@ -1729,18 +1714,18 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
           {
             // in the case of ucd mesh, and on multiple proc,
             // we need to read as many times as subranges we have in the
-            // local_gid range;
+            // localGid range;
             // basically, we have to give a different point
             // for data to start, for every subrange :(
             size_t nbDims=vdatas[i].readDims[t].size();
             // assume that the last dimension is for the ncol,
             // node varying variable
-            size_t mbReads = local_gid.psize();
+            size_t mbReads = localGid.psize();
             size_t indexInFloatArray= 0;
             size_t ic=0;
             for (
-                Range::pair_iterator pair_iter = local_gid.pair_begin();
-                pair_iter!=local_gid.pair_end();
+                Range::pair_iterator pair_iter = localGid.pair_begin();
+                pair_iter!=localGid.pair_end();
                 pair_iter++, ic++)
             {
               EntityHandle starth = pair_iter->first;
@@ -1847,7 +1832,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       // we will synchronize all these reads with the other processors,
       // so the wait will be inside this double loop; is it too much?
-      size_t mbReads = local_gid.psize();
+      size_t mbReads = localGid.psize();
       std::vector<int> requests(mbReads), statuss(mbReads);
       size_t idxReq=0;
       void *data = vdatas[i].varDatas[t];
@@ -1877,18 +1862,18 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
 
           // in the case of ucd mesh, and on multiple proc,
           // we need to read as many times as subranges we have in the
-          // local_gid range;
+          // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
           size_t nbDims=vdatas[i].readDims[t].size();
           // assume that the last dimension is for the ncol,
           // node varying variable
-          size_t mbReads = local_gid.psize();
+          size_t mbReads = localGid.psize();
           size_t indexInFloatArray= 0;
           size_t ic=0;
           for (
-              Range::pair_iterator pair_iter = local_gid.pair_begin();
-              pair_iter!=local_gid.pair_end();
+              Range::pair_iterator pair_iter = localGid.pair_begin();
+              pair_iter!=localGid.pair_end();
               pair_iter++, ic++)
           {
             EntityHandle starth = pair_iter->first;
@@ -1969,7 +1954,7 @@ ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int
       sz *= var_data.readCounts[tstep_num][idx];
   }
   else
-    sz = var_data.numLev * local_gid.size();// how many nodes are we reading?
+    sz = var_data.numLev * localGid.size();// how many nodes are we reading?
 
   // finally, read into that space
   int success = 0, *idata;
@@ -2915,7 +2900,7 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts) {
     }
   }
 
-  // store lon values in jlVals parameterized by i
+  // store lat values in jlVals parameterized by j
   if (gDims[1] != -1) {
     if ((vmit = varInfo.find("lat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       rval = read_coordinate("lat", gDims[0], gDims[3], jlVals);

@@ -171,11 +171,7 @@ private:
   ErrorCode parse_options(const FileOptions &opts,
                           std::vector<std::string> &var_names, 
                           std::vector<int> &tstep_nums,
-                          std::vector<double> &tstep_vals,
-                          bool &nomesh,
-                          bool &novars,
-                          bool &spectral_mesh,
-                          std::string &partition_tag_name);
+                          std::vector<double> &tstep_vals);
 
   ErrorCode read_variable_to_set_allocate(EntityHandle file_set, std::vector<VarData> &vdatas,
 					  std::vector<int> &tstep_nums);
@@ -282,8 +278,8 @@ private:
         //                                                                       the role of ni)
         T *tmp_data = reinterpret_cast<T*>(dest);
         for (
-          Range::pair_iterator pair_iter = local_gid.pair_begin();
-          pair_iter!=local_gid.pair_end();
+          Range::pair_iterator pair_iter = localGid.pair_begin();
+          pair_iter!=localGid.pair_end();
           pair_iter++)
         {
           std::size_t size_range= pair_iter->second - pair_iter->first+1;
@@ -383,7 +379,7 @@ private:
   bool isCf;
   
   int spectralOrder; // read from variable 'np'
-  Range local_gid;// used only by camType=CAM_SE
+  Range localGid;// used only by camType=CAM_SE
 
   bool npMesh; // used only when PARTITION_METHOD=NODAL_PARTITION
 
@@ -402,7 +398,18 @@ private:
 #ifdef USE_MPI
   ParallelComm *myPcomm;
 #endif
+
+    // read option
+  bool noMesh;
   
+    // read option
+  bool noVars;
+  
+    // read option
+  bool spectralMesh;
+  
+    // read option
+  std::string partitionTagName;
 };
 
 // inline functions
