@@ -3365,6 +3365,30 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set, const s
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
 
+  // <__MESH_TYPE>
+  Tag meshTypeTag = 0;
+  tag_name = "__MESH_TYPE";
+  std::string meshTypeName;
+  switch(camType)
+  {
+  case CAM_EUL: meshTypeName="CAM_EUL"; break;
+  case CAM_FV: meshTypeName="CAM_FV"; break;
+  case CAM_SE: meshTypeName="CAM_SE"; break;
+  case CAM_UNKNOWN: meshTypeName="CAM_UNKNOWN"; break;
+  case NOT_CAM: meshTypeName="NOT_CAM"; break;
+  default: meshTypeName="NOT_CAM"; break;
+
+  }
+
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, meshTypeTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
+  ERRORR(rval, "Trouble creating __MESH_TYPE tag.");
+  ptr = meshTypeName.c_str();
+  int leng= meshTypeName.size();
+  rval = mbImpl->tag_set_by_ptr(meshTypeTag, &file_set, 1, &ptr, &leng);
+  ERRORR(rval, "Trouble setting data for __MESH_TYPE tag.");
+  if (MB_SUCCESS == rval)
+    dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
+
   return MB_SUCCESS;
 }
 
