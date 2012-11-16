@@ -1889,7 +1889,54 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
           break;
         }
         case NC_DOUBLE: {
-          ERRORR(MB_FAILURE, "not implemented");
+          // copy from float case
+          std::vector<double> tmpdoubledata(sz);
+
+          // in the case of ucd mesh, and on multiple proc,
+          // we need to read as many times as subranges we have in the
+          // localGid range;
+          // basically, we have to give a different point
+          // for data to start, for every subrange :(
+          size_t nbDims=vdatas[i].readDims[t].size();
+          // assume that the last dimension is for the ncol,
+          // node varying variable
+          size_t mbReads = localGid.psize();
+          size_t indexInDoubleArray= 0;
+          size_t ic=0;
+          for (
+              Range::pair_iterator pair_iter = localGid.pair_begin();
+              pair_iter!=localGid.pair_end();
+              pair_iter++, ic++)
+          {
+            EntityHandle starth = pair_iter->first;
+            EntityHandle endh = pair_iter->second;// inclusive
+            vdatas[i].readDims[t][nbDims-1] = (NCDF_SIZE) (starth-1);
+            vdatas[i].readCounts[t][nbDims-1] = (NCDF_SIZE) (endh-starth+1);
+
+            // do a partial read, in each subrange
+            // wait outside this loop
+            success = NCFUNCAG2(_vara_double)(fileId, vdatas[i].varId,
+                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(tmpdoubledata[indexInDoubleArray]) NCREQ2);
+            ERRORS(success, "Failed to read double data in loop");
+            // we need to increment the index in float array for the
+            // next subrange
+            indexInDoubleArray+= (endh-starth+1)*1*vdatas[i].numLev; //
+          }
+          assert(ic==mbReads);
+          //
+          int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
+          ERRORS(success, "Failed on wait_all.");
+
+
+          if (vdatas[i].numLev != 1)
+            // switch from k varying slowest to k varying fastest
+            success = kji_to_jik_stride(ni, nj, nk, data, &tmpdoubledata[0]);
+          else {
+            for (std::size_t idx = 0; idx != tmpdoubledata.size(); ++idx)
+              ((double*) data)[idx] = tmpdoubledata[idx];
+          }
+          ERRORS(success, "Failed to read double data.");
           break;
         }
         case NC_FLOAT: {
