@@ -682,7 +682,21 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
 
   // read connectivity into temporary variable
   int num_fine_quads, num_coarse_quads, start_idx;
-  int num_quads = conn_vals[2];
+  std::vector<std::string>::iterator vit;
+  int idx;
+  if ( (vit = std::find(conn_names.begin(), conn_names.end(), "ncells")) != conn_names.end())
+  {
+    idx = vit - conn_names.begin();
+  }
+  else if ( (vit = std::find(conn_names.begin(), conn_names.end(), "ncenters")) != conn_names.end())
+  {
+    idx=vit - conn_names.begin();
+  }
+  else
+  {
+    ERRORR(MB_FAILURE, "Failed to get number of quads.");
+  }
+  int num_quads=conn_vals[idx];
 
     // get the connectivity into tmp_conn2 and permute into tmp_conn
   int cornerVarId;
@@ -891,10 +905,23 @@ ErrorCode ReadNC::create_np_verts_quads(const FileOptions &opts, EntityHandle tm
    ERRORR(MB_FAILURE, "Connectivity file didn't have correct dimension names.");
    */
 
-  int num_quads = 0;
-  if (conn_names[2]=="ncells")
-    num_quads = conn_vals[2];
-  if (conn_vals[2] != gDims[3] - gDims[0] + 1-2) {
+  std::vector<std::string>::iterator vit;
+  int idx;
+  if ((vit = std::find(conn_names.begin(), conn_names.end(), "ncells")) != conn_names.end())
+  {
+    idx = vit - conn_names.begin();
+  }
+  else if ((vit = std::find(conn_names.begin(), conn_names.end(), "ncenters")) != conn_names.end())
+  {
+    idx=vit - conn_names.begin();
+  }
+  else
+  {
+    ERRORR(MB_FAILURE, "Failed to get number of quads.");
+  }
+  int num_quads=conn_vals[idx];
+
+  if (num_quads != gDims[3] - gDims[0] + 1-2) {
     dbgOut.tprintf(1, "Warning: number of quads from %s and nodes from %s are inconsistent; nverts = %d, nodes = %d.\n",
         conn_fname.c_str(), fileName.c_str(), conn_vals[2],  gDims[3] - gDims[0] + 1);
   }
