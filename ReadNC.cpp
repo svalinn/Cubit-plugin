@@ -219,8 +219,14 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
       return rval;
   }
   else {
-    // read dimension variable by default
-    rval = read_variables(tmp_set, dimNames, tstep_nums);
+    // read dimension variable by default, the ones that are also variables
+    std::vector<std::string> filteredDimNames;
+    for (unsigned int i = 0; i < dimNames.size(); i++) {
+      std::map<std::string, VarData>::iterator mit = varInfo.find(dimNames[i]);
+      if (mit != varInfo.end())
+        filteredDimNames.push_back(dimNames[i]);
+    }
+    rval = read_variables(tmp_set, filteredDimNames, tstep_nums);
     if (MB_FAILURE == rval)
       return rval;
   }
@@ -3199,6 +3205,20 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set, const s
   const void* ptr = dimnames.c_str();
   rval = mbImpl->tag_set_by_ptr(dimNamesTag, &file_set, 1, &ptr, &dimnamesSz);
   ERRORR(rval, "Trouble setting data for __DIM_NAMES tag.");
+  if (MB_SUCCESS == rval)
+    dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
+
+  // <__DIM_VALUES>
+  Tag dimValsTag = 0;
+  tag_name = "__DIM_VALUES";
+  //std::vector<int> dim;
+  int dimValsSz = (int)dimVals.size();
+
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, dimValsTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
+  ERRORR(rval, "Trouble creating __DIM_VALUES tag.");
+  ptr = &(dimVals[0]);
+  rval = mbImpl->tag_set_by_ptr(dimValsTag, &file_set, 1, &ptr, &dimValsSz);
+  ERRORR(rval, "Trouble setting data for __DIM_VALUES tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
 
