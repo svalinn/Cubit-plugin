@@ -1291,9 +1291,14 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
 
 #ifdef USE_MPI
   moab::Range quads_owned;
-  rval = myPcomm->filter_pstatus(quads, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1,
+  if (isParallel)
+  {
+    rval = myPcomm->filter_pstatus(quads, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1,
       &quads_owned);
-  ERRORR(rval, "Trouble getting owned quads in set.");
+    ERRORR(rval, "Trouble getting owned quads in set.");
+  }
+  else
+    quads_owned=quads;// not running in parallel, but still with MPI
 #endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
