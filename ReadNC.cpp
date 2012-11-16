@@ -1576,8 +1576,6 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
   int success;
   std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
-	  if (vdatas[i].varName=="ncol" )
-		  continue;// this is a dummy one, we don't have it; we created it for the dummy tag
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void *data = vdatas[i].varDatas[t];
 
@@ -2968,24 +2966,6 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts) {
 
   std::copy(gDims, gDims + 6, lDims);
 
-  // create a dummy tag called ncol, filled with completely dummy data;
-  // we will need just the name of the tag, in the end; need to fix this in the client
-  {
-    int sizeTotalVar = varInfo.size();
-    std::string var_name("ncol");
-    VarData &data = varInfo[var_name];
-    data.varName = std::string(var_name);
-    data.varId =sizeTotalVar;
-    data.varTags.resize(1, 0);
-    data.varDataType = NC_DOUBLE;
-    data.varDims.resize(1);
-    std::vector<std::string>::iterator vit = std::find(dimNames.begin(), dimNames.end(), "ncol");
-    if (vit == dimNames.end())
-      ERRORR(MB_FAILURE, "Trouble hacking ncol.");
-    data.varDims[0]= (int)(vit - dimNames.begin());
-    data.numAtts=0;
-
-  }
   // don't read coordinates of columns until we actually create the mesh
   return MB_SUCCESS;
 }
