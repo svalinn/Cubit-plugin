@@ -308,6 +308,8 @@ private:
   
     //! dimensions
   std::vector<std::string> dimNames;
+  // these should be taken out when we fix the dummy var info things
+  std::set<std::string> dummyVarNames;
   std::vector<int> dimVals;
   std::string iName, jName, kName,tName;
   std::string iCName, jCName;

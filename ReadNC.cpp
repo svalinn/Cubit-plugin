@@ -1603,7 +1603,7 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
   int success;
   std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
-    if (vdatas[i].varName=="ncol" || vdatas[i].varName=="nbnd")
+    if (dummyVarNames.find(vdatas[i].varName)!= dummyVarNames.end() )
        continue;// this is a dummy one, we don't have it; we created it for the dummy tag
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void *data = vdatas[i].varDatas[t];
@@ -3065,6 +3065,7 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts) {
     data.numAtts=0;
     dbgOut.tprintf(2, "Dummy varInfo created for dimension %s\n", dimNames[i].c_str());
     std::cout<<"dummy varInfo created for dimension "<< dimNames[i] << "\n";
+    dummyVarNames.insert(dimNames[i]);
   }
   return MB_SUCCESS;
 }
