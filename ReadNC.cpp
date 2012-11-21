@@ -1603,6 +1603,8 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
   int success;
   std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    if (vdatas[i].varName=="ncol" || vdatas[i].varName=="nbnd")
+       continue;// this is a dummy one, we don't have it; we created it for the dummy tag
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void *data = vdatas[i].varDatas[t];
 
@@ -3041,6 +3043,29 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts) {
   std::copy(gDims, gDims + 6, lDims);
 
   // don't read coordinates of columns until we actually create the mesh
+
+  // hack: look at all dimensions, and see if we have one that does not appear in the list of varInfo names
+  // right now, candidates are ncol and nbnd
+  // for them, create dummy tags
+  for (unsigned int i=0; i<dimNames.size(); i++)
+  {
+    // if there is a var with this name, skip, we are fine; if not, create a varInfo...
+    if ( varInfo.find(dimNames[i])!=varInfo.end())
+      continue; // we already have a variable with this dimension name
+
+    int sizeTotalVar = varInfo.size();
+    std::string var_name(dimNames[i]);
+    VarData &data = varInfo[var_name];
+    data.varName = std::string(var_name);
+    data.varId =sizeTotalVar;
+    data.varTags.resize(1, 0);
+    data.varDataType = NC_DOUBLE; // could be int, actually, but we do not really need the type
+    data.varDims.resize(1);
+    data.varDims[0]= (int)i;
+    data.numAtts=0;
+    dbgOut.tprintf(2, "Dummy varInfo created for dimension %s\n", dimNames[i].c_str());
+    std::cout<<"dummy varInfo created for dimension "<< dimNames[i] << "\n";
+  }
   return MB_SUCCESS;
 }
 
