@@ -3063,6 +3063,7 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts) {
     data.varDims.resize(1);
     data.varDims[0]= (int)i;
     data.numAtts=0;
+    data.entLoc = ENTLOCSET;
     dbgOut.tprintf(2, "Dummy varInfo created for dimension %s\n", dimNames[i].c_str());
     std::cout<<"dummy varInfo created for dimension "<< dimNames[i] << "\n";
     dummyVarNames.insert(dimNames[i]);
