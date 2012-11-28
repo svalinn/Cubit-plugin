@@ -238,13 +238,17 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     rval = mbImpl->create_meshset(MESHSET_SET, partn_set);
     ERRORR(rval, "Trouble creating partition set.");
 
-    Range verts;
-    mbImpl->get_entities_by_type(0, MBVERTEX, verts);
-    mbImpl->add_entities(partn_set,quads);
-    mbImpl->add_entities(partn_set,verts);
-    myPcomm->partition_sets().insert(partn_set);
-    rval = mbImpl->add_entities(partn_set, quads);
+    rval = mbImpl->add_entities(partn_set,quads);
     ERRORR(rval, "Couldn't add new quads to partition set.");
+
+    Range verts;
+    rval = mbImpl->get_connectivity(quads, verts);
+    ERRORR(rval, "Couldn't get verts of quads");
+
+    rval = mbImpl->add_entities(partn_set,verts);
+    ERRORR(rval, "Couldn't add new verts to partition set.");
+
+    myPcomm->partition_sets().insert(partn_set);
 
 #if  0
     if (ucdMesh && !noVars)
