@@ -1761,7 +1761,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
             size_t nbDims=vdatas[i].readDims[t].size();
             // assume that the last dimension is for the ncol,
             // node varying variable
-            size_t mbReads = localGid.psize();
+
             size_t indexInFloatArray= 0;
             size_t ic=0;
             for (
@@ -1782,7 +1782,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
               // next subrange
               indexInFloatArray+= (endh-starth+1)*1*vdatas[i].numLev; //
             }
-            assert(ic==mbReads);
+            assert(ic==localGid.psize());
             //
 
 
@@ -1906,7 +1906,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
           size_t nbDims=vdatas[i].readDims[t].size();
           // assume that the last dimension is for the ncol,
           // node varying variable
-          size_t mbReads = localGid.psize();
+
           size_t indexInDoubleArray= 0;
           size_t ic=0;
           for (
@@ -1929,7 +1929,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
             // next subrange
             indexInDoubleArray+= (endh-starth+1)*1*vdatas[i].numLev; //
           }
-          assert(ic==mbReads);
+          assert(ic==localGid.psize());
           //
           int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
           ERRORS(success, "Failed on wait_all.");
@@ -1956,7 +1956,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
           size_t nbDims=vdatas[i].readDims[t].size();
           // assume that the last dimension is for the ncol,
           // node varying variable
-          size_t mbReads = localGid.psize();
+
           size_t indexInFloatArray= 0;
           size_t ic=0;
           for (
@@ -1979,7 +1979,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
             // next subrange
             indexInFloatArray+= (endh-starth+1)*1*vdatas[i].numLev; //
           }
-          assert(ic==mbReads);
+          assert(ic==localGid.psize());
           //
           int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
           ERRORS(success, "Failed on wait_all.");
@@ -3069,7 +3069,6 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts) {
     data.numAtts=0;
     data.entLoc = ENTLOCSET;
     dbgOut.tprintf(2, "Dummy varInfo created for dimension %s\n", dimNames[i].c_str());
-    std::cout<<"dummy varInfo created for dimension "<< dimNames[i] << "\n";
     dummyVarNames.insert(dimNames[i]);
   }
   return MB_SUCCESS;
