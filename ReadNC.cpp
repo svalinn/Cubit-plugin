@@ -1873,8 +1873,8 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       // we will synchronize all these reads with the other processors,
       // so the wait will be inside this double loop; is it too much?
-      size_t mbReads = localGid.psize();
-      std::vector<int> requests(mbReads), statuss(mbReads);
+      size_t nb_reads = localGid.psize();
+      std::vector<int> requests(nb_reads), statuss(nb_reads);
       size_t idxReq=0;
       void *data = vdatas[i].varDatas[t];
       std::size_t sz = 1;
