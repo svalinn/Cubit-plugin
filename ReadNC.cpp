@@ -211,6 +211,38 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
       rval = create_verts_quads(scdi, tmp_set, quads);
     ERRORR(rval, "Trouble creating vertices and quads.");
   }
+  if (noMesh && CAM_SE==camType)
+  {
+    // we need to populate localGid range with the gids of vertices from the tmp_set
+    // localGid is important in reading the variable data into the nodes
+    // also, for our purposes, localGid is truly the GLOBAL_ID tag data, not other
+    // file_id tags that could get passed around in other scenarios for parallel reading
+    // for nodal_partition, this local gid is easier, should be initialized with only
+    // the owned nodes
+
+    // we need to get all vertices from tmp_set (it is the input set in no_mesh scenario)
+    Range local_verts;
+    rval = mbImpl->get_entities_by_dimension(tmp_set, 0, local_verts);
+    if (MB_FAILURE == rval)
+      return rval;
+
+#ifdef USE_MPI
+    if (npMesh && isParallel)
+    {
+      // in parallel, for npMesh, we really need only owned vertices, which are contiguous!
+      // this is the whole point of nodal partition :)
+      rval = myPcomm->filter_pstatus(local_verts, PSTATUS_NOT_OWNED, PSTATUS_NOT);
+      ERRORR(rval, "Trouble getting owned verts in set.");
+    }
+#endif
+    std::vector<int> gids(local_verts.size());
+    // !IMPORTANT : this has to be the GLOBAL_ID tag
+    rval=mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
+    if (MB_FAILURE == rval)
+      return rval;
+    // this will do a smart copy
+    std::copy(gids.begin(), gids.end(), range_inserter(localGid));
+  }
 
   // Read variables onto grid
   if (!noVars) {
