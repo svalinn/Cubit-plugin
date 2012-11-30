@@ -101,16 +101,17 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   std::vector<std::string> var_names;
   std::vector<int> tstep_nums;
   std::vector<double> tstep_vals;
-
+  /*
   if (file_id_tag)
     mGlobalIdTag = *file_id_tag;
   else {
+    */
     //! get and cache predefined tag handles
     int dum_val = 0;
     rval = mbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, mGlobalIdTag, MB_TAG_DENSE | MB_TAG_CREAT, &dum_val);
     if (MB_SUCCESS != rval)
       return rval;
-  }
+    //}
 
   std::string partition_tag_name;
   rval = parse_options(opts, var_names, tstep_nums, tstep_vals);
@@ -862,7 +863,81 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
   ERRORR(rval, "Couldn't create spectral order tag.");
   rval = mbImpl->tag_set_data(sporder, &tmp_set, 1, &spectralOrder);
   ERRORR(rval, "Couldn't set value for spectral order tag.");
-  
+  /*
+  bool gatherOpt = false;
+  if (opts.get_null_option("GATHER_SET") == MB_SUCCESS)
+    gatherOpt = true;
+  */
+  /*
+    - if (root) 
+    . create vertices for all vertex positions in 2D grid
+    . create quads for all vertex positions
+    . create new entity set & insert these vertices/quads into it
+    . mark new entity set with <choose tag - maybe "GATHER_SET"?>
+  */
+  //  if (gatherOpt) {
+
+#ifdef USE_MPI
+  if (myPcomm->proc_config().proc_rank() == 0) {
+#endif
+    unsigned int num_total_verts = gDims[3] - gDims[0] + 1;
+    EntityHandle gather_set;    
+    rval = mbImpl->create_meshset(MESHSET_SET, gather_set);
+    ERRORR(rval, "Trouble creating gather set.");
+
+    // create vertices
+    arrays.clear();
+    rval = readMeshIface->get_node_coords(3, num_total_verts, 0, start_vertex, arrays);
+    ERRORR(rval, "Couldn't create vertices in ucd mesh for gather set.");
+    
+    // set vertex coordinates
+    double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
+    for (unsigned int i = 0; i < num_total_verts; ++i) {
+      double cosphi = cos(pideg * jlVals[i]);
+      double zmult = sin(pideg * jlVals[i]);
+      double xmult = cosphi * cos(ilVals[i] * pideg);
+      double ymult = cosphi * sin(ilVals[i] * pideg);
+      double rad = 8.0e3 + klVals[lDims[2]];
+      xptr[i] = rad * xmult;
+      yptr[i] = rad * ymult;
+      zptr[i] = rad * zmult;
+    }
+    
+    // get ptr to gid memory for vertices
+    Range gather_verts(start_vertex, start_vertex + num_total_verts - 1);    
+    rval = mbImpl->tag_iterate(mGlobalIdTag, gather_verts.begin(), gather_verts.end(), count, data);
+    ERRORR(rval, "Failed to get tag iterator.");
+    assert(count == (int) num_total_verts);
+    gid_data = (int*) data;
+    for (int j = 1; j <= (int) num_total_verts; ++j)
+      gid_data[j-1] = j;
+    rval = mbImpl->add_entities(gather_set, gather_verts);
+    ERRORR(rval, "Couldn't add vertices to gather set.");
+
+    // create quads
+    Range gather_quads;
+    rval = readMeshIface->get_element_connect(num_quads, 4,
+                                              MBQUAD, 0, start_quad, conn_arr);
+    ERRORR(rval, "Failed to create quads.");
+    gather_quads.insert(start_quad, start_quad + num_quads - 1);
+    std::copy(&tmp_conn[0], &tmp_conn[4*num_quads], conn_arr);
+    for (int i = 0; i != 4*num_quads; ++i)
+      conn_arr[i] += num_total_verts;
+    rval = mbImpl->add_entities(gather_set, gather_quads);
+    ERRORR(rval, "Couldn't add quads to gather set.");
+
+    Tag gathersettag;
+    rval = mbImpl->tag_get_handle("GATHER_SET", 1, MB_TYPE_INTEGER, gathersettag, 
+				  MB_TAG_CREAT | MB_TAG_SPARSE);
+    ERRORR(rval, "Couldn't create gather set tag.");
+    int gatherval = 1;
+    rval = mbImpl->tag_set_data(gathersettag, &gather_set, 1, &gatherval);
+    ERRORR(rval, "Couldn't set value for gather set tag.");
+      
+#ifdef USE_MPI
+  }
+#endif
+  //}
   return MB_SUCCESS;
 }
 
