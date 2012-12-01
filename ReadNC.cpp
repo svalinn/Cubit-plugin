@@ -891,7 +891,10 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     ERRORR(rval, "Couldn't create vertices in ucd mesh for gather set.");
     
     // set vertex coordinates
-    double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
+#ifdef USE_MPI
+    double *xptr = NULL, *yptr = NULL, *zptr = NULL;
+#endif
+    xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
     for (unsigned int i = 0; i < num_total_verts; ++i) {
       double cosphi = cos(pideg * jlVals[i]);
       double zmult = sin(pideg * jlVals[i]);
