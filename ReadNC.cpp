@@ -35,7 +35,7 @@ ReaderIface* ReadNC::factory(Interface* iface) {
 
 ReadNC::ReadNC(Interface* impl) :
   mbImpl(impl), CPU_WORD_SIZE(-1), IO_WORD_SIZE(-1), fileId(-1), tMin(-1), tMax(-1), iDim(-1), jDim(-1), tDim(-1), iCDim(-1),
-  jCDim(-1), numUnLim(-1), mCurrentMeshHandle(0), startVertex(0), startElem(0), mGlobalIdTag(0), max_line_length(-1),
+  jCDim(-1), numUnLim(-1), mCurrentMeshHandle(0), startVertex(0), startElem(0), mGlobalIdTag(0), mpFileIdTag(NULL), max_line_length(-1),
   max_str_length(-1), vertexOffset(0), dbgOut(stderr), isParallel(false), partMethod(-1), camType(NOT_CAM), isCf(false),
   spectralOrder(-1), npMesh(false), 
 #ifdef USE_MPI
@@ -107,11 +107,13 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   else {
     */
     //! get and cache predefined tag handles
-    int dum_val = 0;
-    rval = mbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, mGlobalIdTag, MB_TAG_DENSE | MB_TAG_CREAT, &dum_val);
-    if (MB_SUCCESS != rval)
-      return rval;
-    //}
+  int dum_val = 0;
+  rval = mbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, mGlobalIdTag, MB_TAG_DENSE | MB_TAG_CREAT, &dum_val);
+  if (MB_SUCCESS != rval)
+    return rval;
+  mpFileIdTag = file_id_tag; // store the pointer to the tag ; if not null, set when global id tag
+  // is set too, with the same data , duplicated
+
 
   std::string partition_tag_name;
   rval = parse_options(opts, var_names, tstep_nums, tstep_vals);
@@ -831,6 +833,15 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
   assert(count == (int) num_local_verts);
   int *gid_data = (int*) data;
   std::copy(localGid.begin(), localGid.end(), gid_data);
+  // duplicate global id data, which will be used to resolve sharing
+  if (mpFileIdTag)
+  {
+    rval = mbImpl->tag_iterate(*mpFileIdTag, vert_range.begin(), vert_range.end(), count, data);
+    ERRORR(rval, "Failed to get tag iterator on file id tag.");
+    assert(count == (int) num_local_verts);
+    gid_data = (int*) data;
+    std::copy(localGid.begin(), localGid.end(), gid_data);
+  }
 
   // create map from file ids to vertex handles, used later to set connectivity
   std::map<EntityHandle, EntityHandle> vert_handles;
@@ -914,6 +925,16 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     gid_data = (int*) data;
     for (int j = 1; j <= (int) num_total_verts; ++j)
       gid_data[j-1] = j;
+    // set the file id tag too, it should be bigger something not interfering with global id
+    if (mpFileIdTag){
+      rval = mbImpl->tag_iterate(*mpFileIdTag, gather_verts.begin(), gather_verts.end(), count, data);
+      ERRORR(rval, "Failed to get tag iterator in file id tag.");
+      assert(count == (int) num_total_verts);
+      gid_data = (int*) data;
+      for (int j = 1; j <= (int) num_total_verts; ++j)
+        gid_data[j-1] = num_total_verts+j;// bigger than global id tag
+    }
+
     rval = mbImpl->add_entities(gather_set, gather_verts);
     ERRORR(rval, "Couldn't add vertices to gather set.");
 
@@ -925,7 +946,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     gather_quads.insert(start_quad, start_quad + num_quads - 1);
     std::copy(&tmp_conn[0], &tmp_conn[4*num_quads], conn_arr);
     for (int i = 0; i != 4*num_quads; ++i)
-      conn_arr[i] += num_total_verts;
+      conn_arr[i] += start_vertex-1; // connectivity array is shifted by where the gather verts start
     rval = mbImpl->add_entities(gather_set, gather_quads);
     ERRORR(rval, "Couldn't add quads to gather set.");
 

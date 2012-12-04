@@ -358,6 +358,12 @@ private:
   //! core is initialized.
   Tag mGlobalIdTag;
 
+  // this is a pointer to the file id tag that is passed from ReadParallel
+  // it gets deleted at the end of resolve sharing, but it will have same data
+  // as the global id tag
+  // global id tag is preserved, and is needed later on.
+  const Tag * mpFileIdTag;
+
   int max_line_length, max_str_length;
 
     //! range of entities in initial mesh, before this read
