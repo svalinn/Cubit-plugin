@@ -249,11 +249,6 @@ private:
 
   bool BIL_mode_enabled(const char * file_name);
  
-  /*
-   *  new partition for homme meshes, split nodes equally, and add some quads too, for each proc
-   */
-  ErrorCode create_np_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
-
     //! parse various options and variables and attributes to infer CAM file type
   ErrorCode get_nc_type(const FileOptions &opts);
   
@@ -389,8 +384,6 @@ private:
   
   int spectralOrder; // read from variable 'np'
   Range localGid;// used only by camType=CAM_SE
-
-  bool npMesh; // used only when PARTITION_METHOD=NODAL_PARTITION
 
     //! whether mesh is locally periodic in i or j
   int locallyPeriodic[2];
