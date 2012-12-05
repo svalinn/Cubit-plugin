@@ -160,6 +160,9 @@ ErrorCode ReadGCRM::read_vertices(int num_verts, EntityHandle &start_vertex, Ran
          *y = coord_arrays[1],
          *z = coord_arrays[2];
   for(long i = 0; i < num_verts; ++i) {
+    if (x);
+    if (y);
+    if (z);
       // read x/y/z
   }
 

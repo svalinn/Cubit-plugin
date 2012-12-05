@@ -26,6 +26,7 @@
 #ifndef TEST_TQDCFR
 
 #include "moab/ReadUtilIface.hpp"
+#include "SequenceManager.hpp"
 #include "moab/GeomTopoTool.hpp"
 #include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
@@ -1202,7 +1203,8 @@ ErrorCode Tqdcfr::read_nodes(const unsigned int gindex,
   std::vector<double*> arrays;
   readUtilIface->get_node_coords(3, entity->nodeCt,
                                  uint_buf[0], 
-                                 vhandle, arrays);
+                                 vhandle, arrays, 
+                                 SequenceManager::DEFAULT_VERTEX_SEQUENCE_SIZE);
 
     // get node x's in arrays[0]
   FREADDA(entity->nodeCt, arrays[0]);
@@ -1394,7 +1396,8 @@ ErrorCode Tqdcfr::read_elements(Tqdcfr::ModelEntry *model,
     
     result = readUtilIface->get_element_connect(num_elem, nodes_per_elem,
                                      elem_type, int_buf[0], 
-                                     start_handle, conn);
+                                     start_handle, conn, 
+                                 SequenceManager::DEFAULT_ELEMENT_SEQUENCE_SIZE);
     if (MB_SUCCESS != result)
       return result;
     
@@ -2834,9 +2837,9 @@ int main(int argc, char* argv[])
     std::cout << "Success." << std::endl;
   else {
     std::cout << "load_file returned error:" << std::endl;
-    std::string err;
-    result = my_impl->get_last_error(err);
-    if (MB_SUCCESS == result) std::cout << err << std::endl;
+    std::string errstr;
+    result = my_impl->get_last_error(errstr);
+    if (MB_SUCCESS == result) std::cout << errstr << std::endl;
     else std::cout << "(no message)" << std::endl;
   }
 
@@ -2845,8 +2848,8 @@ int main(int argc, char* argv[])
 
 #ifdef USE_MPI
   int nprocs, rank;
-  err = MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-  err = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // create MOAB instance based on that
   my_impl = new Core ;//(rank, nprocs);
@@ -2862,9 +2865,9 @@ int main(int argc, char* argv[])
     std::cout << "Success." << std::endl;
   else {
     std::cout << "load_file returned error:" << std::endl;
-    std::string err;
-    result = my_impl->get_last_error(err);
-    if (MB_SUCCESS == result) std::cout << err << std::endl;
+    std::string errstr;
+    result = my_impl->get_last_error(errstr);
+    if (MB_SUCCESS == result) std::cout << errstr << std::endl;
     else std::cout << "(no message)" << std::endl;
   }
 

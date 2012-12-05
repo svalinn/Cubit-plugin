@@ -128,7 +128,10 @@ ErrorCode ReadTemplate::read_vertices(int num_verts, EntityHandle &start_vertex,
          *y = coord_arrays[1],
          *z = coord_arrays[2];
   for(long i = 0; i < num_verts; ++i) {
-      // read x/y/z
+      // read x/y/z; do something with them for now to avoid warning
+    if (x);
+    if (y);
+    if (z);
   }
 
   if (num_verts) read_ents.insert(start_vertex, start_vertex + num_verts - 1);

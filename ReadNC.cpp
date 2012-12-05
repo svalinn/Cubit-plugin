@@ -720,6 +720,13 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     tmp_conn[4*i + 3] = tmp_conn2[i + 3 * num_quads];
   }
 
+    // need to know whether we'll be creating gather mesh later, to make sure we allocate enough space
+    // in one shot
+  bool create_gathers = true;
+#ifdef USE_MPI
+  if (myPcomm->proc_config().proc_rank() != 0) create_gathers = false;
+#endif
+
     // compute the number of local quads, accounting for coarse or fine representation
     // spectral_unit is the # fine quads per coarse quad, or spectralOrder^2
   int spectral_unit = (spectralMesh ? spectralOrder*spectralOrder : 1);
@@ -744,7 +751,9 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
   SpectralMeshTool smt(mbImpl, spectralOrder);
   if (!spectralMesh) {
     rval = readMeshIface->get_element_connect(num_coarse_quads, 4,
-                                              MBQUAD, 0, start_quad, conn_arr);
+                                              MBQUAD, 0, start_quad, conn_arr, 
+                                                // might have to create gather mesh later
+                                              (create_gathers ? num_coarse_quads + num_quads : num_coarse_quads));
     ERRORR(rval, "Failed to create quads.");
     tmp_range.insert(start_quad, start_quad + num_coarse_quads - 1);
     std::copy(&tmp_conn[start_idx], &tmp_conn[start_idx+4*num_fine_quads], conn_arr);
@@ -763,10 +772,13 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     
   // on this proc, I get columns ldims[1]..ldims[4], inclusive; need to find which vertices those correpond to
   unsigned int num_local_verts = localGid.size();
+  unsigned int num_total_verts = gDims[3] - gDims[0] + 1;
 
   // create vertices
   std::vector<double*> arrays;
-  rval = readMeshIface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays);
+  rval = readMeshIface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays, 
+                                          // might have to create gather mesh later
+                                        (create_gathers ? num_local_verts+num_total_verts : num_local_verts));
   ERRORR(rval, "Couldn't create vertices in ucd mesh.");
 
   // set vertex coordinates
@@ -856,14 +868,14 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
 #ifdef USE_MPI
   if (myPcomm->proc_config().proc_rank() == 0) {
 #endif
-    unsigned int num_total_verts = gDims[3] - gDims[0] + 1;
     EntityHandle gather_set;    
     rval = mbImpl->create_meshset(MESHSET_SET, gather_set);
     ERRORR(rval, "Trouble creating gather set.");
 
     // create vertices
     arrays.clear();
-    rval = readMeshIface->get_node_coords(3, num_total_verts, 0, start_vertex, arrays);
+      // don't need to specify allocation number here, because we know enough verts were created before
+    rval = readMeshIface->get_node_coords(3, num_total_verts, 0, start_vertex, arrays); 
     ERRORR(rval, "Couldn't create vertices in ucd mesh for gather set.");
     
     // set vertex coordinates
@@ -905,6 +917,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
 
     // create quads
     Range gather_quads;
+      // don't need to specify allocation number here, because we know enough quads were created before
     rval = readMeshIface->get_element_connect(num_quads, 4,
                                               MBQUAD, 0, start_quad, conn_arr);
     ERRORR(rval, "Failed to create quads.");

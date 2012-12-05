@@ -133,7 +133,9 @@ namespace moab {
                          mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT);
 
 #ifdef USE_MPI  
-    impl->tag_get_handle(PARALLEL_PARTITION_TAG_NAME, mPartitionSetTag);
+    impl->tag_get_handle(PARALLEL_PARTITION_TAG_NAME, 
+                         1, MB_TYPE_INTEGER, mPartitionSetTag,
+                         MB_TAG_SPARSE);
     // no need to check result, if it's not there, we don't create one
 #endif
   
