@@ -2772,7 +2772,7 @@ ErrorCode ReadNC::init_HOMMEucd_vals() {
       char posval[10];
       int success = NCFUNC(get_att_text)(fileId, (*vmit).second.varId, "positive", posval);
       if (0 == success && !strcmp(posval, "down")) {
-        for (std::vector<double>::iterator dvit = klVals.begin(); dvit != klVals.end(); vit++)
+        for (std::vector<double>::iterator dvit = klVals.begin(); dvit != klVals.end(); dvit++)
           (*dvit) *= -1.0;
       }
     }
