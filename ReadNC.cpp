@@ -878,10 +878,6 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
     rval = readMeshIface->get_node_coords(3, num_total_verts, 0, start_vertex, arrays); 
     ERRORR(rval, "Couldn't create vertices in ucd mesh for gather set.");
     
-    // set vertex coordinates
-#ifdef USE_MPI
-    *xptr = NULL, *yptr = NULL, *zptr = NULL;
-#endif
     xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
     for (i = 0; i < (int)num_total_verts; ++i) {
       double cosphi = cos(pideg * jlVals[i]);
