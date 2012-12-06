@@ -278,23 +278,23 @@ ErrorCode ReadSmf::annotation(char *cmd,  std::vector<std::string> & argv)
     
 }
 
-ErrorCode ReadSmf::parse_line(char *line)
+ErrorCode ReadSmf::parse_line(char *ln)
 {
     char *cmd,*s;
     std::vector<std::string>  argv;
     ErrorCode err;
 
-    while( *line==' ' || *line=='\t' ) line++;  // skip initial white space
+    while( *ln==' ' || *ln=='\t' ) ln++;  // skip initial white space
 
     // Ignore empty lines
-    if( line[0]=='\n' || line[0]=='\0' ) return MB_SUCCESS;
+    if( ln[0]=='\n' || ln[0]=='\0' ) return MB_SUCCESS;
 
     // Ignore comments
-    if( line[0]=='#' && line[1]!='$' ) return MB_SUCCESS;
+    if( ln[0]=='#' && ln[1]!='$' ) return MB_SUCCESS;
 
     //
     // First, split the line into tokens
-    cmd = strtok(line, " \t\n");
+    cmd = strtok(ln, " \t\n");
 
     while( (s=strtok(NULL, " \t\n")) )
     {

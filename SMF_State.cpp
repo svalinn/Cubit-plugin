@@ -30,9 +30,9 @@ void SMF_State::vertex(double v[3])
     xform.xform_point(v);
 }
 
-void SMF_State::normal(double normal[3])
+void SMF_State::normal(double nrm[3])
 {
-    xform.xform_vector(normal);
+    xform.xform_vector(nrm);
 }
 
 void SMF_State::face( int * verts, const SMF_ivars& ivar)

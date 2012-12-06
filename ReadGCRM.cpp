@@ -76,7 +76,7 @@ ErrorCode ReadGCRM::load_file( const char* file_name,
                                const EntityHandle* file_set,
                                const FileOptions& opts,
                                const SubsetList* subset_list,
-                               const Tag* file_id_tag) 
+                               const Tag* /*file_id_tag*/) 
 {
     // guarantee failure for now
   return MB_FAILURE;
@@ -160,9 +160,8 @@ ErrorCode ReadGCRM::read_vertices(int num_verts, EntityHandle &start_vertex, Ran
          *y = coord_arrays[1],
          *z = coord_arrays[2];
   for(long i = 0; i < num_verts; ++i) {
-    if (x);
-    if (y);
-    if (z);
+      // empty statement to avoid compiler warning
+    if (x || y || z) {}
       // read x/y/z
   }
 
@@ -222,8 +221,8 @@ ErrorCode ReadGCRM::read_elements(int num_elems, EntityHandle start_vertex,
 }
 
 //! read/create sets
-ErrorCode ReadGCRM::create_sets(int num_sets, EntityHandle start_vertex, int num_verts, 
-                                    EntityHandle start_elem, int num_elems, Range &read_ents)
+    ErrorCode ReadGCRM::create_sets(int num_sets, EntityHandle /*start_vertex*/, int /*num_verts*/, 
+                                    EntityHandle /*start_elem*/, int /*num_elems*/, Range &read_ents)
 { 
   ErrorCode result = MB_SUCCESS;
   EntityHandle this_set;
@@ -497,8 +496,8 @@ ErrorCode ReadGCRM::create_tags(ScdInterface *scdi, EntityHandle file_set, const
       val = tstep_nums;
     else {
       val.resize(tVals.size());
-      for (unsigned int i = 0; i != tVals.size(); ++i)
-        val[i] = i;
+      for (unsigned int j = 0; j != tVals.size(); ++j)
+        val[j] = j;
     }
     Tag tagh = 0;
     std::stringstream ss_tag_name;

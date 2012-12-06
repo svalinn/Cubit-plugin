@@ -166,6 +166,8 @@ void ReadHDF5::debug_barrier_line(int lineno)
       MPI_Barrier( *mpiComm );
     }
   }
+#else
+  if (lineno) {}
 #endif
 }
 

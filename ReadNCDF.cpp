@@ -179,7 +179,7 @@ ReadNCDF::~ReadNCDF()
 
 ErrorCode ReadNCDF::read_tag_values(const char* file_name,
                                     const char* tag_name,
-                                    const FileOptions& opts,
+                                    const FileOptions& ,
                                     std::vector<int>& id_array,
                                     const SubsetList* subset_list )
 {
@@ -1975,7 +1975,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     // the element type is an attribute of the connectivity variable
     nc_type att_type;
     size_t att_len;
-    int fail = nc_inq_att(ncFile, nc_var, "elem_type", &att_type, &att_len);
+    fail = nc_inq_att(ncFile, nc_var, "elem_type", &att_type, &att_len);
     if (NC_NOERR != fail) {
       readMeshIface->report_error("ReadNCDF:: Problem getting elem type attribute.");
       return MB_FAILURE;

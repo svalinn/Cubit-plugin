@@ -67,7 +67,7 @@ mhdf_getNativeType( hid_t input_type,
         return sgn == H5T_SGN_NONE ? H5T_NATIVE_UINT   : H5T_NATIVE_INT;
       else if (sizeof(      long ) == size)
         return sgn == H5T_SGN_NONE ? H5T_NATIVE_ULONG  : H5T_NATIVE_LONG;
-      else if (H5Tget_size(H5T_NATIVE_LLONG) == size)
+      else if ((int)H5Tget_size(H5T_NATIVE_LLONG) == size)
         return sgn == H5T_SGN_NONE ? H5T_NATIVE_ULLONG : H5T_NATIVE_LLONG;
       
       mhdf_setFail( status, "Invalid size for integer type: %d", size );
@@ -703,7 +703,7 @@ mhdf_getTagNames( mhdf_FileHandle file_handle,
 {
   hid_t group_id;
   FileHandle* file_ptr;
-  hsize_t count, index;
+  hsize_t count, idx;
   char* name;
   char** result;
   ssize_t size;
@@ -759,27 +759,27 @@ mhdf_getTagNames( mhdf_FileHandle file_handle,
   
     /* Get names */
   
-  for (index = 0; index < count; ++index)
+  for (idx = 0; idx < count; ++idx)
   {
-    size = H5Gget_objname_by_idx( group_id, index, NULL, 0 );
+    size = H5Gget_objname_by_idx( group_id, idx, NULL, 0 );
     if (size < 1 || NULL == (name = (char*)mhdf_malloc( size+1, status )))
     {
-      while ((--index) > 0)
-        free( result[index] );
+      while ((--idx) > 0)
+        free( result[idx] );
       free ( result );
       H5Gclose( group_id );
       mhdf_setFail( status, "Internal failure calling H5Gget_objname_by_idx.");
       return NULL;
     }
     
-    H5Gget_objname_by_idx( group_id, index, name, size + 1 );
+    H5Gget_objname_by_idx( group_id, idx, name, size + 1 );
     if (!mhdf_path_to_name( name, name ))
     {
       mhdf_setFail( status, "Invalid character string in internal file path: \"%s\"\n",
         name );
       return NULL;
     }
-    result[index] = name;
+    result[idx] = name;
   }
   
   H5Gclose( group_id );
@@ -869,7 +869,7 @@ mhdf_getTagInfo( mhdf_FileHandle file_handle,
   hid_t tag_id, type_id, super_id;
   int i, rval, is_handle;
   hsize_t size, sup_size;
-  unsigned int index;
+  unsigned int idx;
   int rank, var_data;
   hsize_t dims[H5S_MAX_RANK];
   int perm[H5S_MAX_RANK];
@@ -906,7 +906,7 @@ mhdf_getTagInfo( mhdf_FileHandle file_handle,
   *have_sparse_out = rval ? 1 : 0;
   
     /* Check for variable-length tag data */
-  rval = mhdf_find_attribute( tag_id, TAG_VARLEN_ATTRIB, &index, status );
+  rval = mhdf_find_attribute( tag_id, TAG_VARLEN_ATTRIB, &idx, status );
   if (rval < 0)
   {
     H5Gclose( tag_id );
@@ -915,7 +915,7 @@ mhdf_getTagInfo( mhdf_FileHandle file_handle,
   var_data = rval ? 1 : 0;
 
     /* Check if have default value for tag */
-  rval = mhdf_find_attribute( tag_id, TAG_DEFAULT_ATTRIB, &index, status );
+  rval = mhdf_find_attribute( tag_id, TAG_DEFAULT_ATTRIB, &idx, status );
   if (rval < 0)
   {
     H5Gclose( tag_id );
@@ -936,7 +936,7 @@ mhdf_getTagInfo( mhdf_FileHandle file_handle,
   }
 
     /* Check if have global value for tag */
-  rval = mhdf_find_attribute( tag_id, TAG_GLOBAL_ATTRIB, &index, status );
+  rval = mhdf_find_attribute( tag_id, TAG_GLOBAL_ATTRIB, &idx, status );
   if (rval < 0)
   {
     H5Gclose( tag_id );
@@ -967,7 +967,7 @@ mhdf_getTagInfo( mhdf_FileHandle file_handle,
   }
   
     /* Check if tag is storing entity handles */
-  rval = mhdf_find_attribute( tag_id, TAG_HANDLE_TYPE_ATTRIB, &index, status );
+  rval = mhdf_find_attribute( tag_id, TAG_HANDLE_TYPE_ATTRIB, &idx, status );
   if (rval < 0)
   {
     H5Gclose( tag_id );
@@ -1143,12 +1143,12 @@ read_tag_attrib_data( hid_t tag_id,
                       mhdf_Status* status )
 {
   int rval, ilen;
-  unsigned index;
+  unsigned idx;
   hid_t read_type = type_id;
   hsize_t len;
  
     /* Check if tag has attribute */
-  rval = mhdf_find_attribute( tag_id, attrib_name, &index, status );
+  rval = mhdf_find_attribute( tag_id, attrib_name, &idx, status );
   if (rval < 0)
     return 0;
   else if (0 == rval)
@@ -1205,7 +1205,7 @@ mhdf_getTagValues( mhdf_FileHandle file_handle,
 {
   hid_t tag_id;
   int rval, var_data;
-  unsigned int index;
+  unsigned int idx;
   API_BEGIN;
   
     /* check args */
@@ -1221,7 +1221,7 @@ mhdf_getTagValues( mhdf_FileHandle file_handle,
     return;
    
     /* Check for variable-length tag data */
-  rval = mhdf_find_attribute( tag_id, TAG_VARLEN_ATTRIB, &index, status );
+  rval = mhdf_find_attribute( tag_id, TAG_VARLEN_ATTRIB, &idx, status );
   if (rval < 0)
   {
     H5Gclose( tag_id );

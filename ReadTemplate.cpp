@@ -47,7 +47,7 @@ ErrorCode ReadTemplate::load_file( const char* filename,
                                const EntityHandle *file_set,
                                const FileOptions& opts,
                                const ReaderIface::SubsetList* subset_list,
-                               const Tag* file_id_tag )
+                                   const Tag* /*file_id_tag*/ )
 {
   if (subset_list) {
       // see src/moab/ReaderIface.hpp, definition of SubsetList struct; this basically specifies
@@ -129,9 +129,8 @@ ErrorCode ReadTemplate::read_vertices(int num_verts, EntityHandle &start_vertex,
          *z = coord_arrays[2];
   for(long i = 0; i < num_verts; ++i) {
       // read x/y/z; do something with them for now to avoid warning
-    if (x);
-    if (y);
-    if (z);
+    if (x || y || z) {}
+    
   }
 
   if (num_verts) read_ents.insert(start_vertex, start_vertex + num_verts - 1);
@@ -190,8 +189,8 @@ ErrorCode ReadTemplate::read_elements(int num_elems, EntityHandle start_vertex,
 }
 
 //! read/create sets
-ErrorCode ReadTemplate::create_sets(int num_sets, EntityHandle start_vertex, int num_verts, 
-                                    EntityHandle start_elem, int num_elems, Range &read_ents)
+    ErrorCode ReadTemplate::create_sets(int num_sets, EntityHandle /*start_vertex*/, int /*num_verts*/, 
+                                        EntityHandle /*start_elem*/, int /*num_elems*/, Range &read_ents)
 { 
   ErrorCode result = MB_SUCCESS;
   EntityHandle this_set;

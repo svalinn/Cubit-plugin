@@ -151,8 +151,8 @@ private:
   ErrorCode get_variables();
   
     //! parse min/max i/j/k in options, if any
-  ErrorCode init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scdi, EntityHandle file_set);
-  ErrorCode init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi, EntityHandle file_set);
+  ErrorCode init_EulSpcscd_vals(const FileOptions &opts, EntityHandle file_set);
+  ErrorCode init_FVCDscd_vals(const FileOptions &opts, EntityHandle file_set);
 
   ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
                             std::vector<double> &cvals);
@@ -174,8 +174,8 @@ private:
                           std::vector<int> &tstep_nums,
                           std::vector<double> &tstep_vals);
 
-  ErrorCode read_variable_to_set_allocate(EntityHandle file_set, std::vector<VarData> &vdatas,
-					  std::vector<int> &tstep_nums);
+  ErrorCode read_variable_to_set_allocate(std::vector<VarData> &vdatas,
+                                          std::vector<int> &tstep_nums);
   
   ErrorCode read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas,
 				 std::vector<int> &tstep_nums); 
@@ -214,7 +214,7 @@ private:
                                 std::vector<VarData> &vdatas,
                                 std::vector<VarData> &vsetdatas);
   
-  ErrorCode convert_variable(EntityHandle file_set, VarData &var_data, int tstep_num);
+  ErrorCode convert_variable(VarData &var_data, int tstep_num);
     
   ErrorCode get_tag_to_set(VarData &var_data, int tstep_num, Tag &tagh);
  
@@ -236,9 +236,9 @@ private:
   //! create COORDS tag for quads coordinate
   ErrorCode create_quad_coordinate_tag(EntityHandle file_set);
 
-  ErrorCode init_HOMMEucd_vals(const FileOptions &opts);
+  ErrorCode init_HOMMEucd_vals();
 
-  ErrorCode create_ucd_verts_quads(bool spectral_mesh, const FileOptions &opts, EntityHandle tmp_set, Range &quads);
+  ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
  
   ErrorCode load_BIL(std::string dir_name,
                      const EntityHandle* file_set,
@@ -266,7 +266,7 @@ private:
   // this version takes as input the moab range, from which we actually need just the
   // size of each sequence, for a proper transpose of the data
   // we read one time step, one variable at a time, usually, so we will
-  template <typename T> ErrorCode kji_to_jik_stride(size_t ni, size_t nj, size_t nk, void *dest, T *source)
+  template <typename T> ErrorCode kji_to_jik_stride(size_t , size_t nj, size_t nk, void *dest, T *source)
       {
 
         std::size_t idxInSource=0;// position of the start of the stride

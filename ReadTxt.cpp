@@ -56,11 +56,11 @@ ReadTxt::~ReadTxt()
   }
 }
 
-ErrorCode ReadTxt::load_file( const char* filename, 
+ErrorCode ReadTxt::load_file( const char* , 
                                const EntityHandle*,
                                const FileOptions& ,
-                               const ReaderIface::SubsetList* subset_list,
-                               const Tag* file_id_tag )
+                               const ReaderIface::SubsetList* ,
+                               const Tag* )
 {
   return MB_NOT_IMPLEMENTED;
 }

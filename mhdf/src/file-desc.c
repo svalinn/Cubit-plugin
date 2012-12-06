@@ -100,7 +100,7 @@ struct mhdf_FileDesc*
 get_elem_desc( mhdf_FileHandle file_handle,
                struct mhdf_FileDesc* result,
                const char* elem_handle,
-               int index,
+               int idx,
                mhdf_Status* status )
 {
   hid_t id_pair[2];
@@ -111,7 +111,7 @@ get_elem_desc( mhdf_FileHandle file_handle,
   ptr = realloc_data( &result, strlen(elem_handle)+1, status );
   if (!ptr) return NULL;
   strcpy( ptr, elem_handle );
-  result->elems[index].handle = ptr;
+  result->elems[idx].handle = ptr;
 
   mhdf_getElemTypeName( file_handle, elem_handle,
                         buffer, sizeof(buffer), status );
@@ -123,7 +123,7 @@ get_elem_desc( mhdf_FileHandle file_handle,
   ptr = realloc_data( &result, strlen(buffer)+1, status );
   if (!ptr) return NULL;
   strcpy( ptr, buffer );
-  result->elems[index].type = ptr;
+  result->elems[idx].type = ptr;
 
   poly = mhdf_isPolyElement( file_handle, elem_handle, status );
   if (mhdf_isError(status)) {
@@ -134,9 +134,9 @@ get_elem_desc( mhdf_FileHandle file_handle,
   if (!poly) {
     id_pair[0] = mhdf_openConnectivity( file_handle, 
                                       elem_handle,
-                                      &result->elems[index].desc.vals_per_ent,
-                                      &result->elems[index].desc.count,
-                                      &result->elems[index].desc.start_id,
+                                      &result->elems[idx].desc.vals_per_ent,
+                                      &result->elems[idx].desc.count,
+                                      &result->elems[idx].desc.start_id,
                                       status );
     if (id_pair[0] < 0) {
       free( result );
@@ -145,12 +145,12 @@ get_elem_desc( mhdf_FileHandle file_handle,
     mhdf_closeData( file_handle, id_pair[0], status );
   }
   else {
-    result->elems[index].desc.vals_per_ent = -1;
+    result->elems[idx].desc.vals_per_ent = -1;
     mhdf_openPolyConnectivity( file_handle,
                                elem_handle,
-                               &result->elems[index].desc.count,
+                               &result->elems[idx].desc.count,
                                &junk,
-                               &result->elems[index].desc.start_id,
+                               &result->elems[idx].desc.start_id,
                                id_pair, 
                                status );
     if (id_pair[0] < 0) {
@@ -161,10 +161,10 @@ get_elem_desc( mhdf_FileHandle file_handle,
     mhdf_closeData( file_handle, id_pair[1], status );
   }
 
-  result->elems[index].desc.dense_tag_indices = NULL;
-  result->elems[index].desc.num_dense_tags = 0;
-  result->elems[index].have_adj = mhdf_haveAdjacency( file_handle, 
-                                      result->elems[index].handle,
+  result->elems[idx].desc.dense_tag_indices = NULL;
+  result->elems[idx].desc.num_dense_tags = 0;
+  result->elems[idx].have_adj = mhdf_haveAdjacency( file_handle, 
+                                      result->elems[idx].handle,
                                       status );
   if (mhdf_isError(status)) {
     free( result );
@@ -190,7 +190,7 @@ struct mhdf_FileDesc*
 get_tag_desc( mhdf_FileHandle file_handle,
               struct mhdf_FileDesc* result,
               const char* name,
-              int index,
+              int idx,
               hid_t type,
               mhdf_Status* status )
 {
@@ -202,16 +202,16 @@ get_tag_desc( mhdf_FileHandle file_handle,
   ptr = realloc_data( &result, strlen(name)+1, status );
   if (NULL == ptr) return NULL;
   strcpy( ptr, name );
-  result->tags[index].name = ptr;
+  result->tags[idx].name = ptr;
   
   mhdf_getTagInfo( file_handle, 
                    name,
-                   &result->tags[index].type,
-                   &result->tags[index].size,
-                   &result->tags[index].storage,
+                   &result->tags[idx].type,
+                   &result->tags[idx].size,
+                   &result->tags[idx].storage,
                    &have_default,
                    &have_global,
-                   &result->tags[index].have_sparse,
+                   &result->tags[idx].have_sparse,
                    status );
   if (mhdf_isError(status)) {
     free( result );
@@ -222,20 +222,20 @@ get_tag_desc( mhdf_FileHandle file_handle,
      contain the size of the respective values.  For fixed-length
      tags, they are either zero or one.  Simplify later code by
      making them contain the size for both cases. */
-  valsize = result->tags[index].size;
-  if (result->tags[index].size >= 0) { 
+  valsize = result->tags[idx].size;
+  if (result->tags[idx].size >= 0) { 
     if (have_default)
       have_default = valsize;
     if (have_global)
       have_global = valsize;
   }
   
-  result->tags[index].default_value = NULL;
-  result->tags[index].default_value_size = have_default;
-  result->tags[index].global_value  = NULL;
-  result->tags[index].global_value_size = have_global;
+  result->tags[idx].default_value = NULL;
+  result->tags[idx].default_value_size = have_default;
+  result->tags[idx].global_value  = NULL;
+  result->tags[idx].global_value_size = have_global;
 
-  switch (result->tags[index].type) {
+  switch (result->tags[idx].type) {
     case mhdf_OPAQUE:  
       type = 0;
       break;
@@ -300,17 +300,17 @@ get_tag_desc( mhdf_FileHandle file_handle,
       break;
     default:
       mhdf_setFail( status, "Unknown mhdf_TagDataType value (%d) for tag (\"%s\")", 
-                    (int)result->tags[index].type, name );
+                    (int)result->tags[idx].type, name );
       free( result );
       return NULL;
   }
-  result->tags[index].bytes = valsize;
+  result->tags[idx].bytes = valsize;
   
-  if (result->tags[index].type != mhdf_OPAQUE &&
-      result->tags[index].type != mhdf_BITFIELD &&
-      result->tags[index].size > 1) {
+  if (result->tags[idx].type != mhdf_OPAQUE &&
+      result->tags[idx].type != mhdf_BITFIELD &&
+      result->tags[idx].size > 1) {
     close_type = 1;
-    array_len = result->tags[index].size;
+    array_len = result->tags[idx].size;
 #if defined(H5Tarray_create_vers) && H5Tarray_create_vers > 1  
     type = H5Tarray_create2( type, 1, &array_len );
 #else
@@ -332,7 +332,7 @@ get_tag_desc( mhdf_FileHandle file_handle,
         }
         return NULL;
       }
-      result->tags[index].default_value = ptr;
+      result->tags[idx].default_value = ptr;
     }
     if (have_global) {
       ptr = realloc_data( &result, have_global, status );
@@ -342,13 +342,13 @@ get_tag_desc( mhdf_FileHandle file_handle,
         }
         return NULL;
       }
-      result->tags[index].global_value = ptr;
+      result->tags[idx].global_value = ptr;
     }
     mhdf_getTagValues( file_handle,
                        name,
                        type,
-                       result->tags[index].default_value,
-                       result->tags[index].global_value,
+                       result->tags[idx].default_value,
+                       result->tags[idx].global_value,
                        status );
     if (close_type) {
       H5Tclose( type );

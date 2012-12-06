@@ -45,7 +45,7 @@ mhdf_createFile( const char* filename,
 {
   FileHandle* file_ptr;
   unsigned int flags;
-  unsigned char index;
+  unsigned char idx;
   size_t i;
   hid_t enum_id, group_id;
   int rval;
@@ -120,8 +120,8 @@ mhdf_createFile( const char* filename,
     if (!elem_type_list[i] || !*elem_type_list[i])
       continue;
       
-    index = (unsigned char)i;
-    if ( H5Tenum_insert( enum_id, elem_type_list[i], &index ) < 0)
+    idx = (unsigned char)i;
+    if ( H5Tenum_insert( enum_id, elem_type_list[i], &idx ) < 0)
     {
       mhdf_setFail( status, "Failed to store elem type list." );
       H5Fclose( file_ptr->hdf_handle );
@@ -739,12 +739,14 @@ mhdf_getElemTypeName( mhdf_FileHandle file_handle,
 
 
 static int
-make_hdf_group( const char* path, hid_t file, size_t size, mhdf_Status* status )
+make_hdf_group( const char* path, hid_t file, size_t sz, mhdf_Status* status )
 {
 #if defined(H5Gcreate_vers) && H5Gcreate_vers > 1
   hid_t handle = H5Gcreate2( file, path, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+    /* empty statement to avoid compiler warning */
+  if (sz) {}
 #else
-  hid_t handle = H5Gcreate( file, path, size );
+  hid_t handle = H5Gcreate( file, path, sz );
 #endif
   if (handle < 0)
   {

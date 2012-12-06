@@ -258,11 +258,16 @@ int mhdf_read_scalar_attrib( hid_t object,
 }
 
 #if defined(H5Aiterate_vers) && H5Aiterate_vers > 1
-static herr_t find_attr_by_name( hid_t handle, const char* name, const H5A_info_t* info, void* mydata )
+static herr_t find_attr_by_name( hid_t handle, const char* name, const H5A_info_t* info, void* mydata ) {
+    /* empty statement to remove compiler warning */
+  if (info) {}
 #else
-static herr_t find_attr_by_name( hid_t handle, const char* name, void* mydata )
+static herr_t find_attr_by_name( hid_t handle, const char* name, void* mydata ) 
+{
 #endif
-  { return !strcmp( name, (const char*)mydata ); } 
+    /* empty statement to remove compiler warning */
+  if (handle) {}
+  return !strcmp( name, (const char*)mydata ); } 
 
 int mhdf_find_attribute ( hid_t object, 
                           const char* attrib_name,
@@ -285,7 +290,10 @@ int mhdf_find_attribute ( hid_t object,
   
 
 static herr_t find_link_by_name( hid_t handle, const char* name, void* mydata )
-  { return !strcmp( name, (const char*)mydata ); } 
+{ 
+    /* empty statement to remove compiler warning */
+  if (handle) {}
+  return !strcmp( name, (const char*)mydata ); } 
 
 int mhdf_is_in_group( hid_t group, const char* name, mhdf_Status* status )
 {

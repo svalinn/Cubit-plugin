@@ -85,11 +85,11 @@ public:
 class Modulator : public std::map<Hash,EntityHandle>
 {
 public:
-  Modulator( Interface* iface, std::string tag_name, DataType mb_type, size_t size, size_t per_elem )
+  Modulator( Interface* iface, std::string tag_name, DataType mb_type, size_t sz, size_t per_elem )
     {
     this->mesh = iface;
     std::vector<unsigned char> default_val;
-    default_val.resize( size * per_elem );
+    default_val.resize( sz * per_elem );
     this->mesh->tag_get_handle( tag_name.c_str(), per_elem, mb_type, this->tag,
                             MB_TAG_SPARSE|MB_TAG_BYTES|MB_TAG_CREAT, 
                             &default_val[0] );

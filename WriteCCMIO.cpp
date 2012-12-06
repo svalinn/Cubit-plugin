@@ -159,7 +159,7 @@ namespace moab {
 
   ErrorCode WriteCCMIO::write_file(const char *file_name, 
 				   const bool overwrite,
-				   const FileOptions& opts,
+				   const FileOptions& ,
 				   const EntityHandle *ent_handles,
 				   const int num_sets,
 				   const std::vector<std::string>&,
@@ -298,7 +298,7 @@ namespace moab {
     return MB_SUCCESS;
   }
 
-  ErrorCode WriteCCMIO::close_and_compress(const char *filename, CCMIOID rootID)
+  ErrorCode WriteCCMIO::close_and_compress(const char *, CCMIOID rootID)
   {
     CCMIOError error = kCCMIONoErr;
     CCMIOCloseFile(&error, rootID);
@@ -316,7 +316,7 @@ namespace moab {
     return MB_SUCCESS;
   }
 
-  ErrorCode WriteCCMIO::open_file(const char *filename, bool overwrite, CCMIOID &rootID) 
+  ErrorCode WriteCCMIO::open_file(const char *filename, bool , CCMIOID &rootID) 
   {
     CCMIOError error = kCCMIONoErr;
     CCMIOOpenFile(&error, filename, kCCMIOWrite, &rootID);
@@ -954,7 +954,7 @@ namespace moab {
 
     // remove neumann set facets from skin facets, we have to output these
     // separately
-    for (unsigned int i = 0; i < neuset_data.size(); i++)
+    for (i = 0; i < neuset_data.size(); i++)
       neuset_facets.merge(neuset_data[i].elems);
     
     skin_facets -= neuset_facets;
@@ -967,15 +967,15 @@ namespace moab {
     //================================================
     // write external faces
     //================================================
-    for (unsigned int i = 0; i < neuset_data.size(); i++) {
-      Range::reverse_iterator rit;
+    for (i = 0; i < neuset_data.size(); i++) {
+      Range::reverse_iterator rrit;
       unsigned char cmarks[2];
       Range ext_faces;
       std::vector<EntityHandle> cells;
       // removing the faces connected to two regions
-      for (rit = neuset_data[i].elems.rbegin(); rit != neuset_data[i].elems.rend(); ++rit) {
+      for (rrit = neuset_data[i].elems.rbegin(); rrit != neuset_data[i].elems.rend(); ++rrit) {
 	cells.clear();
-	result = mbImpl->get_adjacencies(&(*rit), 1, mDimension, false, cells);
+	result = mbImpl->get_adjacencies(&(*rrit), 1, mDimension, false, cells);
 	CHKERR(result, "Trouble getting bounding cells.");
       
 	result = mbImpl->tag_get_data(mEntityMark, &cells[0], cells.size(), cmarks);
@@ -985,7 +985,7 @@ namespace moab {
 	}
 	else{
 	  // external face
-	  ext_faces.insert(*rit);
+	  ext_faces.insert(*rrit);
 	}
       }
       if (ext_faces.size() != 0 && neuset_data[i].neusetId != 0)

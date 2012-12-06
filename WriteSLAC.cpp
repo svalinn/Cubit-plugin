@@ -743,7 +743,6 @@ ErrorCode WriteSLAC::write_matsets(MeshInfo &mesh_info,
     int id = matset.id;
     connect[0] = id;
     elem_num = 0;
-    int fail;
     for (rit = matset.elements->begin(); rit != matset.elements->end(); rit++) {
         // skip if it's on the bdy
       if (mesh_info.bdy_tets.find(*rit) != mesh_info.bdy_tets.end()) continue;

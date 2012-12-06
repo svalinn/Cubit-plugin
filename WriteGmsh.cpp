@@ -33,10 +33,10 @@ WriteGmsh::~WriteGmsh()
 
   // A structure to store per-element information.
 struct ElemInfo { 
-  void set( int set, int id ) {
-    while (count < set)
+  void set( int st, int idt ) {
+    while (count < st)
       sets[count++] = 0;
-    sets[count++] = id;
+    sets[count++] = idt;
   }
   int count;   // number of valid entries in sets[]
   int sets[3]; // ids of owning block, geom, and partition; respectively

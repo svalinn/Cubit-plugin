@@ -179,15 +179,15 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   rval = get_nc_type(opts);
   
   if (CAM_FV == camType) {
-      rval = init_FVCDscd_vals(opts, scdi, tmp_set);
+      rval = init_FVCDscd_vals(opts, tmp_set);
       ERRORR(rval, "Trouble initializing FV grid.");
   }
   else if (CAM_SE == camType) {
-    rval = init_HOMMEucd_vals(opts);
+    rval = init_HOMMEucd_vals();
     ERRORR(rval, "Failed to read HOMME data.");
   }
   else if (CAM_EUL == camType) {
-    rval = init_EulSpcscd_vals(opts, scdi, tmp_set);
+    rval = init_EulSpcscd_vals(opts, tmp_set);
     ERRORR(rval, "Failure reading Euler grid.");
   }
   else {
@@ -203,7 +203,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   }
   else if (!noMesh) {
     if (CAM_SE == camType)
-      rval = create_ucd_verts_quads(spectralMesh, opts, tmp_set, quads);
+      rval = create_ucd_verts_quads(opts, tmp_set, quads);
     else
       rval = create_verts_quads(scdi, tmp_set, quads);
     ERRORR(rval, "Trouble creating vertices and quads.");
@@ -328,12 +328,12 @@ ErrorCode ReadNC::get_nc_type(const FileOptions &opts)
   attIt = globalAtts.find("source");
   bool is_cam = false;
   if (attIt != globalAtts.end()) {
-    unsigned int sz = attIt->second.attLen;
-    char* att_data = (char *) malloc(sz + 1);
-    att_data[sz] = '\000';
-    success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), att_data);
+    sz = attIt->second.attLen;
+    char* tmp_str = (char *) malloc(sz + 1);
+    tmp_str[sz] = '\000';
+    success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), tmp_str);
     ERRORS(success, "Failed to read attribute char data.");
-    std::string tmpstr(att_data);
+    std::string tmpstr(tmp_str);
     std::string cf("CAM");
     if (tmpstr.find(cf) != std::string::npos)
       is_cam = true;
@@ -365,7 +365,7 @@ ErrorCode ReadNC::get_nc_type(const FileOptions &opts)
   return MB_SUCCESS;
 }
     
-ErrorCode ReadNC::load_BIL(std::string dir_name, const EntityHandle* file_set, const FileOptions& opts, const Tag* file_id_tag) {
+ErrorCode ReadNC::load_BIL(std::string , const EntityHandle* , const FileOptions& , const Tag* ) {
 
   /*
    BIL_Init( MPI_COMM_WORLD );
@@ -639,7 +639,7 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &opts, EntityHandle tmp_set, Range &quads) {
+ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads) {
   // need to get/read connectivity data before creating elements
   std::string conn_fname;
 
@@ -782,10 +782,10 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
   ERRORR(rval, "Couldn't create vertices in ucd mesh.");
 
   // set vertex coordinates
-  unsigned int i;
   Range::iterator rit;
   double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
-  for (i = 0, rit = localGid.begin(); i < num_local_verts; i++, rit++) {
+  int i;
+  for (i = 0, rit = localGid.begin(); i < (int)num_local_verts; i++, rit++) {
     assert(*rit < ilVals.size()+1);
     xptr[i] = ilVals[(*rit) - 1];
     yptr[i] = jlVals[(*rit) - 1];
@@ -794,7 +794,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
 
   //xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
   const double pideg = acos(-1.0) / 180.0;
-  for (i = 0; i < num_local_verts; i++) {
+  for (i = 0; i < (int)num_local_verts; i++) {
     double cosphi = cos(pideg * yptr[i]);
     double zmult = sin(pideg * yptr[i]), xmult = cosphi * cos(xptr[i] * pideg), ymult = cosphi * sin(xptr[i] * pideg);
     double rad = 8.0e3 + klVals[lDims[2]];
@@ -880,10 +880,10 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     
     // set vertex coordinates
 #ifdef USE_MPI
-    double *xptr = NULL, *yptr = NULL, *zptr = NULL;
+    *xptr = NULL, *yptr = NULL, *zptr = NULL;
 #endif
     xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
-    for (unsigned int i = 0; i < num_total_verts; ++i) {
+    for (i = 0; i < (int)num_total_verts; ++i) {
       double cosphi = cos(pideg * jlVals[i]);
       double zmult = sin(pideg * jlVals[i]);
       double xmult = cosphi * cos(ilVals[i] * pideg);
@@ -923,7 +923,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(bool spectral_mesh, const FileOptions &
     ERRORR(rval, "Failed to create quads.");
     gather_quads.insert(start_quad, start_quad + num_quads - 1);
     std::copy(&tmp_conn[0], &tmp_conn[4*num_quads], conn_arr);
-    for (int i = 0; i != 4*num_quads; ++i)
+    for (i = 0; i != 4*num_quads; ++i)
       conn_arr[i] += start_vertex-1; // connectivity array is shifted by where the gather verts start
     rval = mbImpl->add_entities(gather_set, gather_quads);
     ERRORR(rval, "Couldn't add quads to gather set.");
@@ -1283,7 +1283,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
 }
 
 
-ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums) {
+ErrorCode ReadNC::read_variable_to_set_allocate(std::vector<VarData> &vdatas, std::vector<int> &tstep_nums) {
   ErrorCode rval = MB_SUCCESS;
 
   for (unsigned int i = 0; i < vdatas.size(); ++i) {
@@ -1364,7 +1364,7 @@ ErrorCode ReadNC::read_variable_to_set_allocate(EntityHandle file_set, std::vect
 }
 
 ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums) {
-  ErrorCode rval = read_variable_to_set_allocate(file_set, vdatas, tstep_nums);
+  ErrorCode rval = read_variable_to_set_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables to set.");
 
   // finally, read into that space
@@ -1427,7 +1427,7 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], t);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
       if (vdatas[i].varDims.size() <= 1)
@@ -1606,7 +1606,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], t);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
     }
@@ -1695,7 +1695,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
           }
           assert(ic==localGid.psize());
           //
-          int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
+          success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
           ERRORS(success, "Failed on wait_all.");
 
 
@@ -1745,7 +1745,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
           }
           assert(ic==localGid.psize());
           //
-          int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
+          success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
           ERRORS(success, "Failed on wait_all.");
 
 
@@ -1779,7 +1779,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(file_set, vdatas[i], t);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
     }
@@ -1796,7 +1796,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
 }
 #endif
 
-ErrorCode ReadNC::convert_variable(EntityHandle file_set, VarData &var_data, int tstep_num) {
+ErrorCode ReadNC::convert_variable(VarData &var_data, int tstep_num) {
   // get ptr to tag space
   void *data = var_data.varDatas[tstep_num];
 
@@ -1949,7 +1949,7 @@ ErrorCode ReadNC::get_tag(VarData &var_data, int tstep_num, Tag &tagh, int num_l
   return rval;
 }
 
-ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi, EntityHandle file_set) {
+ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, EntityHandle file_set) {
   std::vector<std::string>::iterator vit;
   unsigned int idx;
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "slon")) != dimNames.end())
@@ -1978,10 +1978,10 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   iCName = dimNames[idx];
 
   // check and set globallyPeriodic[0]
-  std::vector<double> tilVals(2);
-  ErrorCode rval = read_coordinate(iCName.c_str(), dimVals[idx] - 2, dimVals[idx] - 1, tilVals);
+  std::vector<double> til_vals(2);
+  ErrorCode rval = read_coordinate(iCName.c_str(), dimVals[idx] - 2, dimVals[idx] - 1, til_vals);
   ERRORR(rval, "Trouble reading slon variable.");
-  if (std::fabs(2 * tilVals[1] - tilVals[0] - 360) < 0.001)
+  if (std::fabs(2 * til_vals[1] - til_vals[0] - 360) < 0.001)
     globallyPeriodic[0] = 1;
   if (globallyPeriodic[0])
     assert("Number of vertices and edges should be same" && gDims[3] == gCDims[3]);
@@ -2104,12 +2104,12 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
     if ((vmit = varInfo.find(iName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       // last column
       if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
-        std::vector<double> tilVals(ilVals.size() - 1, 0.0);
-        rval = read_coordinate(iName.c_str(), lDims[0], lDims[3] - 1, tilVals);
-        double dif = tilVals[1] - tilVals[0];
+        til_vals.resize(ilVals.size() - 1, 0.0);
+        rval = read_coordinate(iName.c_str(), lDims[0], lDims[3] - 1, til_vals);
+        double dif = til_vals[1] - til_vals[0];
         std::size_t i;
-        for (i = 0; i != tilVals.size(); ++i)
-          ilVals[i] = tilVals[i];
+        for (i = 0; i != til_vals.size(); ++i)
+          ilVals[i] = til_vals[i];
         ilVals[i] = ilVals[i - 1] + dif;
       }
       else {
@@ -2324,7 +2324,7 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, ScdInterface *scdi,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scdi, EntityHandle file_set) {
+ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, EntityHandle file_set) {
   // look for names of center i/j dimensions
   std::vector<std::string>::iterator vit;
   unsigned int idx;
@@ -2702,7 +2702,7 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, ScdInterface *scd
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts) {
+ErrorCode ReadNC::init_HOMMEucd_vals() {
   ErrorCode rval;
   unsigned int idx;
   std::vector<std::string>::iterator vit;
@@ -2772,8 +2772,8 @@ ErrorCode ReadNC::init_HOMMEucd_vals(const FileOptions &opts) {
       char posval[10];
       int success = NCFUNC(get_att_text)(fileId, (*vmit).second.varId, "positive", posval);
       if (0 == success && !strcmp(posval, "down")) {
-        for (std::vector<double>::iterator vit = klVals.begin(); vit != klVals.end(); vit++)
-          (*vit) *= -1.0;
+        for (std::vector<double>::iterator dvit = klVals.begin(); dvit != klVals.end(); vit++)
+          (*dvit) *= -1.0;
       }
     }
     else {
@@ -3116,8 +3116,8 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set, const s
       val = tstep_nums;
     else {
       val.resize(tVals.size());
-      for (unsigned int i = 0; i != tVals.size(); ++i)
-        val[i] = i;
+      for (unsigned int j = 0; j != tVals.size(); ++j)
+        val[j] = j;
     }
     Tag tagh = 0;
     std::stringstream ss_tag_name;

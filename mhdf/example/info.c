@@ -49,9 +49,9 @@ static void print_ent_desc( const char* name,
 {
   int i, len = 10;
   
-  if (vals_label && strlen(vals_label) > len)
+  if (vals_label && (int)strlen(vals_label) > len)
     len = strlen(vals_label);
-  if (extra_label && strlen(extra_label) > len)
+  if (extra_label && (int)strlen(extra_label) > len)
     len = strlen(extra_label);
   
   if (subname) 
@@ -201,15 +201,15 @@ static const char* string_tag_value( const void* value,
   return buffer;
 }
 
-static const char* ent_desc_name( struct mhdf_FileDesc* all, int index )
+static const char* ent_desc_name( struct mhdf_FileDesc* all, int idx )
 {
   static const char nodes[] = "Nodes";
   static const char sets[] = "Sets";
   static const char invalid[] = "<INVALID INDEX!>";
-  if (index == -2) return sets;
-  if (index == -1) return nodes;
-  if (index >= all->num_elem_desc || index < -2) return invalid;
-  return all->elems[index].handle;
+  if (idx == -2) return sets;
+  if (idx == -1) return nodes;
+  if (idx >= all->num_elem_desc || idx < -2) return invalid;
+  return all->elems[idx].handle;
 }
 
 static void print_tag_desc( struct mhdf_TagDesc* data, struct mhdf_FileDesc* all )

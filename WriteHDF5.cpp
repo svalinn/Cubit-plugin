@@ -2042,7 +2042,7 @@ ErrorCode WriteHDF5::write_var_len_indices( const TagDesc& tag_data,
                                             const Range& range,
                                             hid_t idx_table,
                                             size_t table_size,
-                                            int type_size,
+                                            int /*type_size*/,
                                             const char* name )
 {
   ErrorCode rval;
