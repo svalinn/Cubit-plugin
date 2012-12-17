@@ -76,6 +76,7 @@ ErrorCode ReadGmsh::load_file( const char* filename,
 {
   int num_material_sets = 0;
   const int* material_set_list = 0;
+  int zero = 0;
   if (subset_list) {
     if (subset_list->tag_list_length > 1 && 
         !strcmp( subset_list->tag_list[0].tag_name, MATERIAL_SET_TAG_NAME) ) {
@@ -88,7 +89,7 @@ ErrorCode ReadGmsh::load_file( const char* filename,
 
   geomSets.clear();
   ErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, 
-                                              globalId, MB_TAG_DENSE|MB_TAG_CREAT );
+                                              globalId, MB_TAG_DENSE|MB_TAG_CREAT, &zero);
   if (MB_SUCCESS != result)
     return result;
     

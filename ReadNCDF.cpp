@@ -123,24 +123,25 @@ ReadNCDF::ReadNCDF(Interface* impl)
 
   //! get and cache predefined tag handles
   ErrorCode result;
+  const int zero = 0, negone = -1;
   result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                                mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
   assert(MB_SUCCESS == result);
   result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                                mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
   assert(MB_SUCCESS == result);
   result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                                mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
   assert(MB_SUCCESS == result);
+  const int mids[] = {-1, -1, -1, -1};
   result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
-                                mHasMidNodesTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                                mHasMidNodesTag, MB_TAG_SPARSE|MB_TAG_CREAT, mids);
   assert(MB_SUCCESS == result);
   result = impl->tag_get_handle("distFactor", 0, MB_TYPE_DOUBLE, mDistFactorTag,
                                 MB_TAG_SPARSE|MB_TAG_VARLEN|MB_TAG_CREAT);
   assert(MB_SUCCESS == result);
   result = impl->tag_get_handle("qaRecord", 0, MB_TYPE_OPAQUE, mQaRecordTag,
                                 MB_TAG_SPARSE|MB_TAG_VARLEN|MB_TAG_CREAT);
-  const int zero = 0;
   result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
                                 mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT, &zero);
   assert(MB_SUCCESS == result);

@@ -103,16 +103,18 @@ ErrorCode ReadSms::load_file_impl( FILE* file_ptr, const Tag* file_id_tag )
   bool warned = false;
   double dum_params[] = {0.0, 0.0, 0.0};
   
+  int zero = 0;
   ErrorCode result = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                              globalId, MB_TAG_DENSE|MB_TAG_CREAT );
+                                              globalId, MB_TAG_DENSE|MB_TAG_CREAT, &zero);
   CHECK("Failed to create gid tag.");
     
   result = mdbImpl->tag_get_handle("PARAMETER_COORDS", 3, MB_TYPE_DOUBLE,
                                    paramCoords, MB_TAG_DENSE|MB_TAG_CREAT );
   CHECK("Failed to create param coords tag.");
     
+  int negone = -1;
   result = mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                   geomDimension, MB_TAG_SPARSE|MB_TAG_CREAT );
+                                   geomDimension, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
   CHECK("Failed to create geom dim tag.");
 
   int n;

@@ -180,8 +180,9 @@ ErrorCode ReadIDEAS::create_vertices(EntityHandle& first_vertex,
 
   // For now, assume ids are sequential and begin with 1
   Tag id_tag;
+  int zero = 0;
   rval = MBI->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, id_tag,
-                              MB_TAG_DENSE|MB_TAG_CREAT); 
+                              MB_TAG_DENSE|MB_TAG_CREAT, &zero); 
   if (MB_SUCCESS != rval && MB_ALREADY_ALLOCATED != rval) 
     return rval;
   const int beginning_node_id = 1;
@@ -241,7 +242,8 @@ ErrorCode ReadIDEAS::create_elements(EntityHandle vstart,
   if (MB_SUCCESS != rval && MB_ALREADY_ALLOCATED != rval) return rval;
   rval = MBI->tag_get_handle( PHYS_PROP_TABLE_TAG, 1, MB_TYPE_INTEGER, phys_tag, MB_TAG_DENSE|MB_TAG_CREAT); 
   if (MB_SUCCESS != rval && MB_ALREADY_ALLOCATED != rval) return rval;
-  rval = MBI->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, id_tag, MB_TAG_DENSE|MB_TAG_CREAT); 
+  const int zero = 0;
+  rval = MBI->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, id_tag, MB_TAG_DENSE|MB_TAG_CREAT, &zero); 
   if (MB_SUCCESS != rval && MB_ALREADY_ALLOCATED != rval) return rval;
  
   for (;;) {

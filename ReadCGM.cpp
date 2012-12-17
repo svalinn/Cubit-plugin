@@ -77,11 +77,12 @@ ReadCGM::ReadCGM(Interface *impl)
   ErrorCode rval;
 
   // get some tag handles
+  int negone = -1, zero = 0, negonearr[] = {-1, -1, -1, -1};
   rval = mdbImpl->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                  geom_tag, MB_TAG_SPARSE|MB_TAG_CREAT ); 
+                                  geom_tag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone); 
   assert(!rval);
   rval = mdbImpl->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                  id_tag, MB_TAG_DENSE|MB_TAG_CREAT ); 
+                                  id_tag, MB_TAG_DENSE|MB_TAG_CREAT, &zero); 
   assert(!rval);
   rval = mdbImpl->tag_get_handle( NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
                                   name_tag, MB_TAG_SPARSE|MB_TAG_CREAT );

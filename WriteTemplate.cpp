@@ -60,17 +60,18 @@ WriteTemplate::WriteTemplate(Interface *impl)
 
   // initialize in case tag_get_handle fails below
   //! get and cache predefined tag handles
+  int zero = 0, negone = -1;
   impl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                       mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                       mMaterialSetTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
 
   impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                       mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                       mDirichletSetTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
 
   impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                       mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                       mNeumannSetTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
 
   impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-                       mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                       mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT, &zero);
 
   impl->tag_get_handle("WriteTemplate element mark", 1, MB_TYPE_BIT, mEntityMark, MB_TAG_CREAT);
 

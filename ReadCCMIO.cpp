@@ -93,23 +93,26 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
   mGlobalIdTag     = 0;
 
   //! get and cache predefined tag handles
+  const int negone = -1;
   ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  1, MB_TYPE_INTEGER,
-                                          mMaterialSetTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+                                          mMaterialSetTag, MB_TAG_CREAT|MB_TAG_SPARSE, &negone);
   assert(MB_SUCCESS == result);
   
   result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mDirichletSetTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+                                mDirichletSetTag, MB_TAG_CREAT|MB_TAG_SPARSE, &negone);
   assert(MB_SUCCESS == result); 
   
   result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mNeumannSetTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+                                mNeumannSetTag, MB_TAG_CREAT|MB_TAG_SPARSE, &negone);
 
+  const int negonearr[] = {-1, -1, -1, -1};
   result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
-                                mHasMidNodesTag, MB_TAG_CREAT|MB_TAG_SPARSE );
+                                mHasMidNodesTag, MB_TAG_CREAT|MB_TAG_SPARSE, negonearr);
   assert(MB_SUCCESS == result);
   
+  const int zero = 0;
   result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mGlobalIdTag, MB_TAG_CREAT|MB_TAG_SPARSE);
+                                mGlobalIdTag, MB_TAG_CREAT|MB_TAG_SPARSE, &zero);
   assert(MB_SUCCESS == result);
 
   result = impl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,

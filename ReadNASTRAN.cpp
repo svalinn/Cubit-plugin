@@ -389,8 +389,9 @@ ErrorCode ReadNASTRAN::create_materials( const std::vector<Range>& materials )
 {
   ErrorCode result;
   Tag material_tag;
+  int negone = -1;
   result = MBI->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                           material_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                               material_tag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
   if(MB_SUCCESS!=result) return result;
   
   for (size_t i = 0; i < materials.size(); ++i) {
@@ -425,8 +426,9 @@ ErrorCode ReadNASTRAN::assign_ids( const Tag* file_id_tag )
   // create tag
   ErrorCode result;
   Tag id_tag;
+  int zero = 0;
   result = MBI->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-                           id_tag, MB_TAG_DENSE|MB_TAG_CREAT);
+                               id_tag, MB_TAG_DENSE|MB_TAG_CREAT, &zero);
   if(MB_SUCCESS!=result && MB_ALREADY_ALLOCATED!=result) return result;
 
   RangeMap<int,EntityHandle>::iterator i;

@@ -407,8 +407,9 @@ ErrorCode ReadTetGen::read_elem_file( EntityType type,
   rval = mbIface->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, id_tag );
   if (MB_SUCCESS != rval)
     return rval;
+  const int negone = -1;
   rval = mbIface->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                  dim_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
+                                  dim_tag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
   if (MB_SUCCESS != rval)
     return rval;
     

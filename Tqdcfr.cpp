@@ -2041,21 +2041,22 @@ void Tqdcfr::ModelEntry::print_sideset_headers(const char *prefix,
 ErrorCode Tqdcfr::ModelEntry::read_header_info( Tqdcfr* instance, const double data_version)
 {
   feModelHeader.init(modelOffset, instance);
-  int default_val = -1;
+  int negone = -1;
   ErrorCode result;
 
+  int zero = 0;
   result = instance->mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                            instance->globalIdTag, MB_TAG_DENSE|MB_TAG_CREAT);
+                                             instance->globalIdTag, MB_TAG_DENSE|MB_TAG_CREAT, &zero);
   if (MB_SUCCESS != result) return result;
 
   if (feModelHeader.geomArray.numEntities > 0) {
     result = instance->mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER, 
-                                           instance->geomTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                                               instance->geomTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
     if (MB_SUCCESS != result) return result;
     
     result = instance->mdbImpl->tag_get_handle("UNIQUE_ID", 1, MB_TYPE_INTEGER,
                                            instance->uniqueIdTag, 
-                                           MB_TAG_SPARSE|MB_TAG_CREAT, &default_val);
+                                           MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
     if (MB_SUCCESS != result) return result;
     
     result = Tqdcfr::GeomHeader::read_info_header(modelOffset, 
@@ -2077,7 +2078,7 @@ ErrorCode Tqdcfr::ModelEntry::read_header_info( Tqdcfr* instance, const double d
 
   if (feModelHeader.blockArray.numEntities > 0) {
     result = instance->mdbImpl->tag_get_handle(MATERIAL_SET_TAG_NAME, 1, MB_TYPE_INTEGER, 
-                                               instance->blockTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                                               instance->blockTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
     if (MB_SUCCESS != result) return result;
     
     result = Tqdcfr::BlockHeader::read_info_header(data_version, modelOffset, 
@@ -2089,7 +2090,7 @@ ErrorCode Tqdcfr::ModelEntry::read_header_info( Tqdcfr* instance, const double d
   }
   if (feModelHeader.nodesetArray.numEntities > 0) {
     result = instance->mdbImpl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER, 
-                                               instance->nsTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                                               instance->nsTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
     if (MB_SUCCESS != result) return result;
     
     result = Tqdcfr::NodesetHeader::read_info_header(modelOffset, 
@@ -2101,7 +2102,7 @@ ErrorCode Tqdcfr::ModelEntry::read_header_info( Tqdcfr* instance, const double d
   }
   if (feModelHeader.sidesetArray.numEntities > 0) {
     result = instance->mdbImpl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER, 
-                                               instance->ssTag, MB_TAG_SPARSE|MB_TAG_CREAT);
+                                               instance->ssTag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
     if (MB_SUCCESS != result) return result;
     
     result = Tqdcfr::SidesetHeader::read_info_header(modelOffset, 

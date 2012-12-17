@@ -78,17 +78,18 @@ ReadABAQUS::ReadABAQUS(Interface* impl)
   mat_id             = 0;
 
   //! get and cache predefined tag handles
-  mMaterialSetTag  = get_tag(MATERIAL_SET_TAG_NAME, 1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mDirichletSetTag = get_tag(DIRICHLET_SET_TAG_NAME,1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mNeumannSetTag   = get_tag(NEUMANN_SET_TAG_NAME,  1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mHasMidNodesTag  = get_tag(HAS_MID_NODES_TAG_NAME,4,MB_TAG_SPARSE,MB_TYPE_INTEGER);
+  int zero = 0, negone = -1, negonearr[] = {-1, -1, -1, -1};
+  mMaterialSetTag  = get_tag(MATERIAL_SET_TAG_NAME, 1,MB_TAG_SPARSE,MB_TYPE_INTEGER, &negone);
+  mDirichletSetTag = get_tag(DIRICHLET_SET_TAG_NAME,1,MB_TAG_SPARSE,MB_TYPE_INTEGER, &negone);
+  mNeumannSetTag   = get_tag(NEUMANN_SET_TAG_NAME,  1,MB_TAG_SPARSE,MB_TYPE_INTEGER, &negone);
+  mHasMidNodesTag  = get_tag(HAS_MID_NODES_TAG_NAME,4,MB_TAG_SPARSE,MB_TYPE_INTEGER, negonearr);
 
   mSetTypeTag        = get_tag(ABAQUS_SET_TYPE_TAG_NAME,          1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
   mPartHandleTag     = get_tag(ABAQUS_PART_HANDLE_TAG_NAME,       1,MB_TAG_SPARSE,MB_TYPE_HANDLE);
   mInstanceHandleTag = get_tag(ABAQUS_INSTANCE_HANDLE_TAG_NAME,   1,MB_TAG_DENSE, MB_TYPE_HANDLE);
   mAssemblyHandleTag = get_tag(ABAQUS_ASSEMBLY_HANDLE_TAG_NAME,   1,MB_TAG_DENSE, MB_TYPE_HANDLE);
   mInstancePIDTag    = get_tag(ABAQUS_INSTANCE_PART_ID_TAG_NAME,  1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
-  mInstanceGIDTag    = get_tag(ABAQUS_INSTANCE_GLOBAL_ID_TAG_NAME,1,MB_TAG_SPARSE,MB_TYPE_INTEGER);
+  mInstanceGIDTag    = get_tag(ABAQUS_INSTANCE_GLOBAL_ID_TAG_NAME,1,MB_TAG_SPARSE,MB_TYPE_INTEGER, &zero);
   mLocalIDTag        = get_tag(ABAQUS_LOCAL_ID_TAG_NAME,          1,MB_TAG_DENSE, MB_TYPE_INTEGER);
   mSetNameTag        = get_tag(ABAQUS_SET_NAME_TAG_NAME,         ABAQUS_SET_NAME_LENGTH, MB_TAG_SPARSE,MB_TYPE_OPAQUE,0);
   mMatNameTag        = get_tag(ABAQUS_MAT_NAME_TAG_NAME,         ABAQUS_MAT_NAME_LENGTH, MB_TAG_SPARSE,MB_TYPE_OPAQUE,0);
