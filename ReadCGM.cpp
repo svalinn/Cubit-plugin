@@ -77,7 +77,7 @@ ReadCGM::ReadCGM(Interface *impl)
   ErrorCode rval;
 
   // get some tag handles
-  int negone = -1, zero = 0, negonearr[] = {-1, -1, -1, -1};
+  int negone = -1, zero = 0 /*, negonearr[] = {-1, -1, -1, -1}*/;
   rval = mdbImpl->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
                                   geom_tag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone); 
   assert(!rval);
@@ -122,7 +122,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
                       const EntityHandle* file_set,
                       const FileOptions& opts,
                       const ReaderIface::SubsetList* subset_list,
-                      const Tag* file_id_tag)
+                      const Tag* /*file_id_tag*/)
 {
   // blocks_to_load and num_blocks are ignored.
   ErrorCode rval;
@@ -331,7 +331,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     if (name_list.size() == 0)
       continue;
     name_list.reset();
-    CubitString name = *name_list.get();
+    CubitString name1 = *name_list.get();
     
     EntityHandle h;
     rval = mdbImpl->create_meshset( MESHSET_SET, h );
@@ -340,9 +340,9 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     
     char namebuf[NAME_TAG_SIZE];
     memset( namebuf, '\0', NAME_TAG_SIZE );
-    strncpy( namebuf, name.c_str(), NAME_TAG_SIZE - 1 );
-    if (name.length() >= (unsigned)NAME_TAG_SIZE) 
-      std::cout << "WARNING: group name '" << name.c_str() 
+    strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
+    if (name1.length() >= (unsigned)NAME_TAG_SIZE)
+      std::cout << "WARNING: group name '" << name1.c_str()
                 << "' truncated to '" << namebuf << "'" << std::endl;
     rval = mdbImpl->tag_set_data( name_tag, &h, 1, namebuf );
     if (MB_SUCCESS != rval)
@@ -367,11 +367,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       }
         
       for (int j = 0; j < name_list.size(); ++j) {
-        name = *name_list.get_and_step();
+        name1 = *name_list.get_and_step();
         memset( namebuf, '\0', NAME_TAG_SIZE );
-        strncpy( namebuf, name.c_str(), NAME_TAG_SIZE - 1 );
-        if (name.length() >= (unsigned)NAME_TAG_SIZE) 
-          std::cout << "WARNING: group name '" << name.c_str() 
+        strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
+        if (name1.length() >= (unsigned)NAME_TAG_SIZE)
+          std::cout << "WARNING: group name '" << name1.c_str()
                     << "' truncated to '" << namebuf << "'" << std::endl;
         rval = mdbImpl->tag_set_data( extra_name_tags[j], &h, 1, namebuf );
         if (MB_SUCCESS != rval)
@@ -564,7 +564,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     RefFace* face = dynamic_cast<RefFace*>(ci->first);
 
     data.clean_out();
-    CubitStatus s = face->get_graphics( data, norm_tol, faceting_tol, len_tol );
+    s = face->get_graphics( data, norm_tol, faceting_tol, len_tol );
 
     if (CUBIT_SUCCESS != s)
       return MB_FAILURE;
