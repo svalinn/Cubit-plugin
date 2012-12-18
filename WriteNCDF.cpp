@@ -1674,10 +1674,8 @@ ErrorCode WriteNCDF::initialize_exodus_file(ExodusMeshInfo &mesh_info,
 
       /* store element type as attribute of connectivity variable */
 
-    char element_type_string[ExoIIInterface::MAX_STR_LENGTH+1];
-    strcpy(element_type_string, ExoIIUtil::ElementTypeNames[ block.element_type ]);
-
-    if (NC_NOERR != nc_put_att_text(ncFile, connect, "elem_type", strlen(element_type_string), element_type_string))
+    std::string element_type_string(ExoIIUtil::ElementTypeNames[ block.element_type ]);
+    if (NC_NOERR != nc_put_att_text(ncFile, connect, "elem_type", element_type_string.length(), element_type_string.c_str()))
     {
       mWriteIface->report_error("WriteNCDF: failed to store element type name %d", (int)block.element_type);
       return (MB_FAILURE);
