@@ -146,7 +146,7 @@ ReadNCDF::ReadNCDF(Interface* impl)
                                 mGlobalIdTag, MB_TAG_SPARSE|MB_TAG_CREAT, &zero);
   assert(MB_SUCCESS == result);
 #ifdef NDEBUG
-  if (MB_SUCCESS == result); // line to avoid compiler warning about unused variable
+  if (MB_SUCCESS == result) {}; // line to avoid compiler warning about unused variable
 #endif
   ncFile = 0;
 }

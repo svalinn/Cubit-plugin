@@ -3352,22 +3352,22 @@ ErrorCode ReadHDF5::read_var_len_tag( Tag tag_handle,
     public:
       ErrorCode store_data( EntityHandle file_id, void* data, long count, bool )
       {
-        ErrorCode rval;
+        ErrorCode rval1;
         if (isHandle) {
           assert(readSize == sizeof(EntityHandle));
-          rval = readHDF5->convert_id_to_handle( (EntityHandle*)data, count );
-          if (MB_SUCCESS != rval)
-            return error(rval);
+          rval1 = readHDF5->convert_id_to_handle( (EntityHandle*)data, count );
+          if (MB_SUCCESS != rval1)
+            return error(rval1);
         }
         int n = count;
         return readHDF5->moab()->tag_set_by_ptr( tagHandle, &file_id, 1, &data, &n );
       }
       VTReader( DebugOutput& debug_output, void* buffer, size_t buffer_size,
-                Tag tag, bool is_handle_tag, size_t read_size, ReadHDF5* owner )
+                Tag tag, bool is_handle_tag, size_t read_size1, ReadHDF5* owner )
         : ReadHDF5VarLen( debug_output, buffer, buffer_size ),
           tagHandle(tag),
           isHandle(is_handle_tag),
-          readSize(read_size),
+          readSize(read_size1),
           readHDF5(owner)
       {}
   };
