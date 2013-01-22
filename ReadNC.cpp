@@ -1263,7 +1263,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   }
 
   if (!vdatas.empty()) {
-#if PNETCDF_FILE
+#ifdef PNETCDF_FILE
     if (camType == CAM_SE) // in serial, we will use the old read, everything is contiguous
       // in parallel, we will use async read in pnetcdf
       // the other mechanism is not working, forget about it
@@ -1618,7 +1618,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
   return rval;
 }
 
-#if PNETCDF_FILE
+#ifdef PNETCDF_FILE
 // here we know all variables are on vertices, ncol dimension, and nlevel
 ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vector<VarData> &vdatas,
               std::vector<int> &tstep_nums)

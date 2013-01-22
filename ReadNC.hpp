@@ -183,7 +183,7 @@ private:
   ErrorCode read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas,
 				    std::vector<int> &tstep_nums);
 
-#if PNETCDF_FILE
+#ifdef PNETCDF_FILE
   ErrorCode read_variable_to_nonset_async(EntityHandle file_set, std::vector<VarData> &vdatas,
               std::vector<int> &tstep_nums);
 #endif

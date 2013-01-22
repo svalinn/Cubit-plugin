@@ -85,6 +85,9 @@ public:
     EntityType type;
       //! The number of nodes per entity - not used for nodes and sets
     int num_nodes;
+
+    virtual ~ExportType()
+    { }
     
     bool operator==(ExportType t) const
       { return t.type == type && t.num_nodes == num_nodes; }

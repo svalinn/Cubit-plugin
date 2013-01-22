@@ -72,15 +72,17 @@ void ReadGCRM::reset() {
 #endif
 }
 
-ErrorCode ReadGCRM::load_file( const char* file_name,
-                               const EntityHandle* file_set,
-                               const FileOptions& opts,
-                               const SubsetList* subset_list,
+ErrorCode ReadGCRM::load_file( const char* /* file_name */,
+                               const EntityHandle* /* file_set*/,
+                               const FileOptions& /* opts */,
+                               const SubsetList* /* subset_list */,
                                const Tag* /*file_id_tag*/) 
 {
     // guarantee failure for now
   return MB_FAILURE;
-  
+ 
+  /* VSM: Temporarily commenting out all the relevant code until the above guaranteed failure is fixed */
+  /*  
   if (subset_list) {
       // see src/moab/ReaderIface.hpp, definition of SubsetList struct; this basically specifies
       // an integer tag and tag values for sets to read on this proc, or a part number and total # parts
@@ -141,6 +143,7 @@ ErrorCode ReadGCRM::load_file( const char* file_name,
   }
   
   return result;
+  */
 }
 
 ErrorCode ReadGCRM::read_vertices(int num_verts, EntityHandle &start_vertex, Range &read_ents) 
