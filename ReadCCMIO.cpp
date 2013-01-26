@@ -97,10 +97,12 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
   ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  1, MB_TYPE_INTEGER,
                                           mMaterialSetTag, MB_TAG_CREAT|MB_TAG_SPARSE, &negone);
   assert(MB_SUCCESS == result);
+  if (result) {}
   
   result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
                                 mDirichletSetTag, MB_TAG_CREAT|MB_TAG_SPARSE, &negone);
   assert(MB_SUCCESS == result); 
+  if (result) {}
   
   result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
                                 mNeumannSetTag, MB_TAG_CREAT|MB_TAG_SPARSE, &negone);
@@ -109,15 +111,18 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
   result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
                                 mHasMidNodesTag, MB_TAG_CREAT|MB_TAG_SPARSE, negonearr);
   assert(MB_SUCCESS == result);
+  if (result) {}
   
   const int zero = 0;
   result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
                                 mGlobalIdTag, MB_TAG_CREAT|MB_TAG_SPARSE, &zero);
   assert(MB_SUCCESS == result);
+  if (result) {}
 
   result = impl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
                                 mNameTag, MB_TAG_CREAT|MB_TAG_SPARSE);
   assert(MB_SUCCESS == result);
+  if (result) {}
 }
 
 ReadCCMIO::~ReadCCMIO() 
@@ -127,9 +132,9 @@ ReadCCMIO::~ReadCCMIO()
 
 ErrorCode ReadCCMIO::load_file(const char *file_name,
                                  const EntityHandle* file_set,
-                                 const FileOptions& opts,
+                               const FileOptions& /* opts */,
                                  const ReaderIface::SubsetList* subset_list,
-                                 const Tag* file_id_tag)
+                               const Tag* /* file_id_tag */)
 {
   CCMIOID rootID, problemID, stateID, processorID,
       verticesID, topologyID, solutionID;
@@ -197,7 +202,7 @@ ErrorCode ReadCCMIO::get_state(CCMIOID rootID, CCMIOID &problemID, CCMIOID &stat
 }
 
 ErrorCode ReadCCMIO::load_metadata(CCMIOID rootID, CCMIOID problemID,
-                                   CCMIOID stateID, CCMIOID processorID,
+                                   CCMIOID /* stateID */, CCMIOID processorID,
                                    const EntityHandle *file_set) 
 {
     // Read the simulation title.
@@ -264,11 +269,11 @@ ErrorCode ReadCCMIO::load_matset_data(CCMIOID problemID)
       // set name
     CCMIOSize_t len;
     CCMIOEntityLabel(&error, next, &len, NULL);
-    std::vector<char> opt_string(GETINT32(len)+1, '\0');
-    CCMIOEntityLabel(&error, next, NULL, &opt_string[0]);
-    if (opt_string.size() >= NAME_TAG_SIZE) opt_string[NAME_TAG_SIZE-1] = '\0';
-    else (opt_string.resize(NAME_TAG_SIZE, '\0'));
-    rval = mbImpl->tag_set_data(mNameTag, &dum_ent, 1, &opt_string[0]);
+    std::vector<char> opt_string2(GETINT32(len)+1, '\0');
+    CCMIOEntityLabel(&error, next, NULL, &opt_string2[0]);
+    if (opt_string2.size() >= NAME_TAG_SIZE) opt_string2[NAME_TAG_SIZE-1] = '\0';
+    else (opt_string2.resize(NAME_TAG_SIZE, '\0'));
+    rval = mbImpl->tag_set_data(mNameTag, &dum_ent, 1, &opt_string2[0]);
     CHKERR(rval, "Trouble setting name tag for material set.");
 
       // material id
@@ -415,7 +420,7 @@ ErrorCode ReadCCMIO::load_neuset_data(CCMIOID problemID)
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCCMIO::read_processor(CCMIOID stateID, CCMIOID problemID,
+ErrorCode ReadCCMIO::read_processor(CCMIOID /* stateID */, CCMIOID problemID,
                                     CCMIOID processorID, CCMIOID verticesID, CCMIOID topologyID, 
                                     CCMIOSize_t proc, Range *new_ents) 
 {
@@ -435,8 +440,8 @@ ErrorCode ReadCCMIO::read_processor(CCMIOID stateID, CCMIOID problemID,
   return rval;
 }
 
-ErrorCode ReadCCMIO::read_cells(CCMIOSize_t proc, CCMIOID problemID,
-                                  CCMIOID verticesID, CCMIOID topologyID,
+ErrorCode ReadCCMIO::read_cells(CCMIOSize_t /* proc */, CCMIOID problemID,
+                                CCMIOID /* verticesID */, CCMIOID topologyID,
                                   TupleList &vert_map, Range *new_ents) 
 {
 
@@ -527,7 +532,7 @@ ErrorCode ReadCCMIO::read_topology_types(CCMIOID &topologyID,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCCMIO::read_gids_and_types(CCMIOID problemID,
+ErrorCode ReadCCMIO::read_gids_and_types(CCMIOID /* problemID */,
                                            CCMIOID topologyID,
                                            std::vector<EntityHandle> &cells) 
 {
@@ -584,7 +589,7 @@ ErrorCode ReadCCMIO::construct_cells(TupleList &face_map,
 #ifndef TUPLE_LIST
                                      SenseList &sense_map, 
 #endif
-                                     TupleList &vert_map,
+                                     TupleList & /* vert_map */,
                                      std::map<int,int> &cell_topo_types,
                                      std::vector<EntityHandle> &new_cells) 
 {
@@ -703,7 +708,7 @@ ErrorCode ReadCCMIO::ccmio_to_moab_type(int ccm_type, EntityType &moab_type, boo
 ErrorCode ReadCCMIO::create_cell_from_faces(std::vector<EntityHandle> &facehs,
                                             std::vector<int> &senses,
                                             EntityType this_type,
-                                            bool has_mid_nodes,
+                                            bool /* has_mid_nodes */,
                                             EntityHandle &cell) 
 {
   ErrorCode rval;
@@ -1109,8 +1114,8 @@ ErrorCode ReadCCMIO::make_faces(int *farray,
   return rval;
 }
 
-ErrorCode ReadCCMIO::read_vertices(CCMIOSize_t proc, CCMIOID processorID, CCMIOID verticesID,
-                                   CCMIOID topologyID, 
+ErrorCode ReadCCMIO::read_vertices(CCMIOSize_t /* proc */, CCMIOID /* processorID */, CCMIOID verticesID,
+                                   CCMIOID /* topologyID */, 
                                    Range *verts, TupleList &vert_map) 
 {
   CCMIOError error = kCCMIONoErr;
@@ -1187,7 +1192,7 @@ ErrorCode ReadCCMIO::get_processors(CCMIOID stateID,
                                     CCMIOID &processorID, CCMIOID &verticesID,
                                     CCMIOID &topologyID, CCMIOID &solutionID,
                                     std::vector<CCMIOSize_t> &procs,
-                                    bool &has_solution) 
+                                    bool & /* has_solution */) 
 {
   CCMIOSize_t proc = CCMIOSIZEC(0);
   CCMIOError error = kCCMIONoErr;
@@ -1208,11 +1213,11 @@ ErrorCode ReadCCMIO::get_processors(CCMIOID stateID,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCCMIO::read_tag_values( const char* file_name,
-                                      const char* tag_name,
-                                      const FileOptions& opts,
-                                      std::vector<int>& tag_values_out,
-                                      const SubsetList* subset_list ) 
+ErrorCode ReadCCMIO::read_tag_values( const char* ,
+                                      const char* ,
+                                      const FileOptions& ,
+                                      std::vector<int>& ,
+                                      const SubsetList* ) 
 {
   return MB_FAILURE;
 }

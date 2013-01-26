@@ -850,7 +850,7 @@ namespace moab {
   ErrorCode WriteCCMIO::write_cells_and_faces(CCMIOID rootID,
 					      std::vector<MaterialSetData> &matset_data,
 					      std::vector<NeumannSetData> &neuset_data,
-					      Range &verts,
+					      Range &,
 					      CCMIOID &topologyID)
   {
     std::vector<int> connect;
@@ -972,17 +972,17 @@ namespace moab {
       Range::reverse_iterator rrit;
       unsigned char cmarks[2];
       Range ext_faces;
-      std::vector<EntityHandle> cells;
+      std::vector<EntityHandle> mcells;
       // removing the faces connected to two regions
       for (rrit = neuset_data[i].elems.rbegin(); rrit != neuset_data[i].elems.rend(); ++rrit) {
-	cells.clear();
-	result = mbImpl->get_adjacencies(&(*rrit), 1, mDimension, false, cells);
+	mcells.clear();
+	result = mbImpl->get_adjacencies(&(*rrit), 1, mDimension, false, mcells);
 	CHKERR(result, "Trouble getting bounding cells.");
       
-	result = mbImpl->tag_get_data(mEntityMark, &cells[0], cells.size(), cmarks);
+	result = mbImpl->tag_get_data(mEntityMark, &mcells[0], mcells.size(), cmarks);
 	CHKERR(result, "Trouble getting mark tags on cells bounding facets.");
 
-	if( cells.size() == 2 && (mWholeMesh || (cmarks[0] && cmarks[1]))) {
+	if( mcells.size() == 2 && (mWholeMesh || (cmarks[0] && cmarks[1]))) {
 	}
 	else{
 	  // external face
