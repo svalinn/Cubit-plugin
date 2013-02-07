@@ -706,7 +706,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
   int cornerVarId;
   success = NCFUNC(inq_varid)(connectId, "element_corners", &cornerVarId);
   ERRORS(success, "Failed to get variable id.");
-  NCDF_SIZE tmp_dims[2] = { 0, 0 }, tmp_counts[2] = { 4, num_quads };
+  NCDF_SIZE tmp_dims[2] = { 0, 0 }, tmp_counts[2] = { 4, static_cast<size_t>(num_quads) };
   std::vector<int> tmp_conn(4*num_quads), tmp_conn2(4*num_quads);
   success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_dims, tmp_counts, &tmp_conn2[0] NCREQ);
   ERRORS(success, "Failed to get temporary connectivity.");

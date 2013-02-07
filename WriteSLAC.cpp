@@ -597,7 +597,7 @@ ErrorCode WriteSLAC::write_nodes(const int num_nodes, const Range& nodes, const 
   std::vector<int> dims;
   GET_VAR("coords", nc_var, dims);
   if (-1 == nc_var) return MB_FAILURE;
-  size_t start[2] = {0, 0}, count[2] = {num_nodes, 1};
+  size_t start[2] = {0, 0}, count[2] = {static_cast<size_t>(num_nodes), 1};
   int fail = nc_put_vara_double(ncFile, nc_var, start, count, coord_arrays[0]) != 0;
   if (NC_NOERR != fail) 
     return MB_FAILURE;

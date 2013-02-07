@@ -440,7 +440,7 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
   nc_inq_varid(ncFile, "coord", &coord );
   
   // single var for all coords
-  size_t start[2] = {0, 0}, count[2] = {1, numberNodes_loading};
+  size_t start[2] = {0, 0}, count[2] = {1, static_cast<size_t>(numberNodes_loading)};
   if (coord) {
     
     for (int d = 0; d < numberDimensions_loading; ++d) {
@@ -1665,7 +1665,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   orig_coords[0].reserve(numberNodes_loading);
   orig_coords[1].reserve(numberNodes_loading);
   orig_coords[2].reserve(numberNodes_loading);
-  size_t start[2] = {time_step-1,0}, count[2] = {1, numberNodes_loading};
+  size_t start[2] = {static_cast<size_t>(time_step-1),0}, count[2] = {1, static_cast<size_t>(numberNodes_loading)};
   std::vector<int> dims;
   int coordx = -1, coordy = -1, coordz = -1;
   GET_VAR("vals_nod_var1", coordx, dims);

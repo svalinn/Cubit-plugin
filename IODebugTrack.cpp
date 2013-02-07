@@ -104,7 +104,7 @@ IODebugTrack::~IODebugTrack()
 void IODebugTrack::record_io( unsigned long begin, unsigned long count )
 {
   if (enableOutput && count) {
-    DRange ins = { begin, begin+count-1, mpiRank };
+    DRange ins = { begin, begin+count-1, static_cast<long unsigned>(mpiRank) };
     record_io( ins );
   }
 }
