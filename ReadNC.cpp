@@ -488,7 +488,10 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
 
   if (!isParallel)
   // return success here, since rval still has _NOT_FOUND from not finding option
+  // in this case, myPcomm will be NULL, so it can never be used; always check for isParallel 
+  // before any use for myPcomm
     return MB_SUCCESS;
+  
 
   int pcomm_no = 0;
   rval = opts.get_int_option("PARALLEL_COMM", pcomm_no);
@@ -724,7 +727,8 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
     // in one shot
   bool create_gathers = true;
 #ifdef USE_MPI
-  if (myPcomm->proc_config().proc_rank() != 0) create_gathers = false;
+  if (isParallel)
+    if (myPcomm->proc_config().proc_rank() != 0) create_gathers = false;
 #endif
 
     // compute the number of local quads, accounting for coarse or fine representation
@@ -866,7 +870,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
   //  if (gatherOpt) {
 
 #ifdef USE_MPI
-  if (myPcomm->proc_config().proc_rank() == 0) {
+  if (isParallel && myPcomm->proc_config().proc_rank() == 0) {
 #endif
     EntityHandle gather_set;    
     rval = mbImpl->create_meshset(MESHSET_SET, gather_set);
@@ -1986,7 +1990,7 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, EntityHandle file_s
 
 #ifdef USE_MPI
   // if serial, use a locally-periodic representation only if local mesh is periodic, otherwise don't
-  if ((myPcomm->proc_config().proc_size() == 1) && globallyPeriodic[0])
+  if ((isParallel && myPcomm->proc_config().proc_size() == 1) && globallyPeriodic[0])
   locallyPeriodic[0] = 1;
 #else
   if (globallyPeriodic[0])
@@ -3335,9 +3339,16 @@ ErrorCode ReadNC::create_quad_coordinate_tag(EntityHandle file_set) {
   std::size_t numOwnedEnts = 0;
 #ifdef USE_MPI
   Range ents_owned;
-  rval = myPcomm->filter_pstatus(ents, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &ents_owned);
-  ERRORR(rval, "Trouble getting owned QUAD entity.");
-  numOwnedEnts = ents_owned.size();
+  if (isParallel){
+    rval = myPcomm->filter_pstatus(ents, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &ents_owned);
+    ERRORR(rval, "Trouble getting owned QUAD entity.");
+    numOwnedEnts = ents_owned.size();
+  }
+  else
+  {
+    numOwnedEnts = ents.size();
+    ents_owned = ents;
+  }
 #else
   numOwnedEnts = ents.size();
 #endif
