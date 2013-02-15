@@ -66,9 +66,9 @@ public:
                        const EntityHandle *meshset_list,
                        const int num_sets,
                        const std::vector<std::string>& /* qa_records */,
-                       const Tag* /* tag_list */,
-                       int /* num_tags */,
-                       int /* requested_output_dimension */);
+                       const Tag* /* tag_list */ = NULL,
+                       int /* num_tags */ = 0,
+                       int /* requested_output_dimension */ = 3);
 
   enum {DAMSEL_IS_TRACKING = 0x1
   } DAMSEL_FLAGS;

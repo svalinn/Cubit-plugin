@@ -58,9 +58,9 @@ public:
                          const EntityHandle *output_list,
                          const int num_sets,
                          const std::vector<std::string>& qa_list,
-                         const Tag* tag_list,
-                         int num_tags,
-                         int export_dimension);  
+                         const Tag* tag_list = NULL,
+                         int num_tags = 0,
+                         int export_dimension = 3);  
 
 private:
                                        

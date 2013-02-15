@@ -56,9 +56,9 @@ public:
                           const EntityHandle* output_sets,
                           const int num_output_sets,
                           const std::vector<std::string>& qa_list,
-                          const Tag* tag_list,
-                          int num_tags,
-                          int requested_dimension );
+                          const Tag* tag_list = NULL,
+                          int num_tags = 0,
+                          int requested_dimension = 3);
 
     //! writes out a mesh file
   ErrorCode write_file(const char *file_name,
