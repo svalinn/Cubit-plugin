@@ -608,7 +608,7 @@ ErrorCode ReadHDF5::load_file( const char* filename,
   }
   
   
-  dbgOut.tprint( 1, "Cleaining up\n" );
+  dbgOut.tprint( 1, "Cleaning up\n" );
   ErrorCode rval2 = clean_up_read( opts );
   if (rval == MB_SUCCESS && rval2 != MB_SUCCESS)
     rval = rval2;
@@ -3449,11 +3449,20 @@ void ReadHDF5::convert_range_to_handle( const EntityHandle* ranges,
       if (id < it->begin) id = it->begin;
       const long off = id - it->begin;
       long count = std::min( it->count - off,  end - id );
+      // it is possible that this new subrange is starting after the end
+      // it will result in negative count, which does not make sense
+      // we are done with this range, go to the next one
+      if (count <= 0)
+        break;
       hint = merge.insert( hint, it->value + off, it->value + off + count - 1 );
       id += count;
       if (id < end)
+      {
         if (++it == id_map.end())
           break;
+        if (it->begin > end)
+          break; //
+      }
     }
   }
 }
