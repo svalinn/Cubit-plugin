@@ -1743,7 +1743,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   int found = 0;
   int lost = 0;
   std::map<int,EntityHandle> cub_verts_id_map;
-  AdaptiveKDTree kdtree( mdbImpl, true );
+  AdaptiveKDTree kdtree( mdbImpl);
   EntityHandle root;
 
   // Should not use cub verts unless they have been matched. Place in a map
@@ -1761,11 +1761,8 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
 
   // Place cub verts in a kdtree for searching by proximity
   } else {
-    AdaptiveKDTree::Settings settings;
-    settings.maxEntPerLeaf = 1;                                   
-    settings.candidateSplitsPerDir = 1;                
-    settings.candidatePlaneSet = AdaptiveKDTree::SUBDIVISION;
-    rval = kdtree.build_tree( cub_verts, root, &settings );      
+    FileOptions tree_opts("MAX_PER_LEAF=1;SPLITS_PER_DIR=1;CANDIDATE_PLANE_SET=0");
+    rval = kdtree.build_tree( cub_verts, &root, &tree_opts);
     if(MB_SUCCESS != rval) return rval;
     AdaptiveKDTreeIter tree_iter;                                                     
     rval = kdtree.get_tree_iterator( root, tree_iter );
@@ -1797,7 +1794,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
 
       std::vector<EntityHandle> leaves;
       double min_dist = MAX_NODE_DIST;
-      rval = kdtree.leaves_within_distance( root, exo_coords.array(), MAX_NODE_DIST, leaves );    
+      rval = kdtree.distance_search(exo_coords.array(), MAX_NODE_DIST, leaves, NULL, &root);
       if(MB_SUCCESS != rval) return rval;
       for(std::vector<EntityHandle>::const_iterator j=leaves.begin(); j!=leaves.end(); ++j) {
 	std::vector<EntityHandle> leaf_verts;
