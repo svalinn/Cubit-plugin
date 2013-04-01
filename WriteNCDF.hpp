@@ -103,9 +103,9 @@ public:
                           const EntityHandle *output_list,
                           const int num_sets,
                           const std::vector<std::string> &qa_records, 
-                          const Tag*,
-                          int,
-                          int user_dimension);
+                          const Tag* = NULL,
+                          int = 0,
+                          int user_dimension = 3);
   
 protected:
 
