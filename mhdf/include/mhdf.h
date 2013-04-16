@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-/** \mainpage H5M File Format API 
+/** \page h5mmain H5M File Format API
  *
  *\section Intro   Introduction
  *
@@ -60,7 +60,7 @@ extern "C" {
  * hexahedral topology) and the number of nodes in the element.  
  *
  *
- *\section Root   The \c tstt Group
+ *\section Root   The tstt Group
  *
  * All file data is stored in the \c tstt group in the HDF5 root group.
  * The \c tstt group may have an optional scalar integer attribute 
@@ -87,12 +87,12 @@ extern "C" {
  * - \c Polyhedron
  * 
  *
- *\section History   The \c history DataSet
+ *\section History   The history DataSet
  *
  * The \c history DataSet is a list of variable-length strings with
- * appliation-defined meaning.  
+ * application-defined meaning.  
  *
- *\section Nodes   The \c nodes Group
+ *\section Nodes   The nodes Group
  *
  *
  * The \c nodes group contains a single DataSet and an optional
@@ -111,7 +111,7 @@ extern "C" {
  * \c coordinates table.
  *
  *
- *\section Elements   The \c elements Group 
+ *\section Elements   The elements Group
  *
  * The \c elements group contains an application-defined number of 
  * subgroups.  Each subgroup defines one or more mesh elements that
@@ -141,7 +141,7 @@ extern "C" {
  * sequentially in the order that they are defined in the table.
  *
  *
- *\section Sets   The \c sets Group
+ *\section Sets   The sets Group
  *
  * The \c sets group contains the definitions of any entity sets stored
  * in the file.  It contains 1 to 4 DataSets and the optional \c tags 
@@ -199,7 +199,7 @@ extern "C" {
  * subgroup is described in the \ref Dense "section on dense tag storage". 
  *
  * 
- * \section Tags   The \c tags Group
+ * \section Tags   The tags Group
  *
  * The \c tags group contains a sub-group for each tag defined
  * in the file.  These sub-groups contain the definition of the
@@ -283,7 +283,7 @@ extern "C" {
  * dataset.  
  *
  *
- * \section Dense   The \c tags Sub-Groups
+ * \section Dense   The tags Sub-Groups
  *
  * Data for fixed-length tags may also be stored in the \c tags sub-group
  * of the \c nodes, \c sets, and subgroups of the \c elements group.  
