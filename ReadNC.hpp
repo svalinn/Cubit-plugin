@@ -236,6 +236,10 @@ private:
   //! create COORDS tag for quads coordinate
   ErrorCode create_quad_coordinate_tag(EntityHandle file_set);
 
+  //! Init info for dimensions that don't have corresponding 
+  //! coordinate variables - this info is used for creating tags
+  void init_dims_with_no_cvars_info();
+
   ErrorCode init_HOMMEucd_vals();
 
   ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);

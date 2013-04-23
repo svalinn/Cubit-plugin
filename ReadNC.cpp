@@ -2321,6 +2321,10 @@ ErrorCode ReadNC::init_FVCDscd_vals(const FileOptions &opts, EntityHandle file_s
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
   }
 
+  // hack: create dummy tags, if needed, for dimensions like nbnd
+  // with no corresponding variables
+  init_dims_with_no_cvars_info();
+
   return MB_SUCCESS;
 }
 
@@ -2699,7 +2703,37 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, EntityHandle file
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
   }
 
+  // hack: create dummy tags, if needed, for variables like nbnd
+  // with no corresponding variables
+  init_dims_with_no_cvars_info();
+
   return MB_SUCCESS;
+}
+
+void ReadNC::init_dims_with_no_cvars_info() {
+  // hack: look at all dimensions, and see if we have one that does not appear in the list of varInfo names
+  // right now, candidates are ncol and nbnd
+  // for them, create dummy tags
+  for (unsigned int i=0; i<dimNames.size(); i++)
+  {
+    // if there is a var with this name, skip, we are fine; if not, create a varInfo...
+    if ( varInfo.find(dimNames[i])!=varInfo.end())
+      continue; // we already have a variable with this dimension name
+
+    int sizeTotalVar = varInfo.size();
+    std::string var_name(dimNames[i]);
+    VarData &data = varInfo[var_name];
+    data.varName = std::string(var_name);
+    data.varId =sizeTotalVar;
+    data.varTags.resize(1, 0);
+    data.varDataType = NC_DOUBLE; // could be int, actually, but we do not really need the type
+    data.varDims.resize(1);
+    data.varDims[0]= (int)i;
+    data.numAtts=0;
+    data.entLoc = ENTLOCSET;
+    dbgOut.tprintf(2, "Dummy varInfo created for dimension %s\n", dimNames[i].c_str());
+    dummyVarNames.insert(dimNames[i]);
+  }
 }
 
 ErrorCode ReadNC::init_HOMMEucd_vals() {
@@ -2812,29 +2846,10 @@ ErrorCode ReadNC::init_HOMMEucd_vals() {
 
   // don't read coordinates of columns until we actually create the mesh
 
-  // hack: look at all dimensions, and see if we have one that does not appear in the list of varInfo names
-  // right now, candidates are ncol and nbnd
-  // for them, create dummy tags
-  for (unsigned int i=0; i<dimNames.size(); i++)
-  {
-    // if there is a var with this name, skip, we are fine; if not, create a varInfo...
-    if ( varInfo.find(dimNames[i])!=varInfo.end())
-      continue; // we already have a variable with this dimension name
+  // hack: create dummy tags, if needed, for variables like ncol and nbnd
+  // with no corresponding variables
+  init_dims_with_no_cvars_info();
 
-    int sizeTotalVar = varInfo.size();
-    std::string var_name(dimNames[i]);
-    VarData &data = varInfo[var_name];
-    data.varName = std::string(var_name);
-    data.varId =sizeTotalVar;
-    data.varTags.resize(1, 0);
-    data.varDataType = NC_DOUBLE; // could be int, actually, but we do not really need the type
-    data.varDims.resize(1);
-    data.varDims[0]= (int)i;
-    data.numAtts=0;
-    data.entLoc = ENTLOCSET;
-    dbgOut.tprintf(2, "Dummy varInfo created for dimension %s\n", dimNames[i].c_str());
-    dummyVarNames.insert(dimNames[i]);
-  }
   return MB_SUCCESS;
 }
 
