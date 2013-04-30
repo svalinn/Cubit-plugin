@@ -65,7 +65,7 @@ public:
                           const EntityHandle* export_sets,
                           const int export_set_count,
                           const std::vector<std::string>& qa_records,
-                          const Tag* tag_list = 0,
+                          const Tag* tag_list = NULL,
                           int num_tags = 0,
                           int user_dimension = 3 );
 
