@@ -41,7 +41,7 @@ ReadNC::ReadNC(Interface* impl) :
 #ifdef USE_MPI
   myPcomm(NULL), 
 #endif
-  noMesh(false), noVars(false), spectralMesh(false)
+  noMesh(false), noVars(false), spectralMesh(false), helper(NULL)
 {
   assert(impl != NULL);
 
@@ -175,25 +175,16 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   if (!scdi)
     return MB_FAILURE;
 
-    // get the type of CAM file
-  rval = get_nc_type(opts);
-  
-  if (CAM_FV == camType) {
-      rval = init_FVCDscd_vals(opts, tmp_set);
-      ERRORR(rval, "Trouble initializing FV grid.");
+  if (helper != NULL)
+  {
+    delete helper;
+    helper = NULL;
   }
-  else if (CAM_SE == camType) {
-    rval = init_HOMMEucd_vals();
-    ERRORR(rval, "Failed to read HOMME data.");
-  }
-  else if (CAM_EUL == camType) {
-    rval = init_EulSpcscd_vals(opts, tmp_set);
-    ERRORR(rval, "Failure reading Euler grid.");
-  }
-  else {
-    //will fill this in later for POP, CICE and CLM
-    ERRORR(MB_FAILURE, "Unknown grid");
-  }
+
+  helper = NCHelper::get_nc_helper(fileId, this, opts);
+  rval = helper->init_nc_vals(opts, tmp_set);
+  if (MB_SUCCESS != rval)
+    return rval;
 
   // Create mesh vertex/quads sequences
   Range quads;
@@ -359,7 +350,10 @@ ErrorCode ReadNC::get_nc_type(const FileOptions &opts)
     else if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
         dimNames.end(), std::string("lat")) != dimNames.end()))
       camType = CAM_EUL;
-    else ERRORR(MB_FAILURE, "Unknown CAM grid");
+    else {
+      camType = CAM_UNKNOWN;
+      ERRORR(MB_FAILURE, "Unknown CAM grid");
+    }
   }
 
   return MB_SUCCESS;
@@ -3399,6 +3393,65 @@ ErrorCode ReadNC::create_quad_coordinate_tag(EntityHandle file_set) {
   double* quad_data = (double*) data;
   std::copy(coords.begin(), coords.end(), quad_data);
   return MB_SUCCESS;
+}
+
+NCHelper* NCHelper::get_nc_helper(int fileId, ReadNC* readNC, const FileOptions& opts)
+{
+  readNC->camType = ReadNC::NOT_CAM;
+  readNC->get_nc_type(opts);
+
+  if (ReadNC::CAM_EUL == readNC->camType)
+    return new NCHEuler(fileId, readNC);
+  else if (ReadNC::CAM_FV == readNC->camType)
+    return new NCHFV(fileId, readNC);
+  else if (ReadNC::CAM_SE == readNC->camType)
+    return new NCHHomme(fileId, readNC);
+  // will fill this in later for POP, CICE and CLM
+  else if (ReadNC::CAM_UNKNOWN == readNC->camType)
+    return new NCHUnknown(fileId, readNC);
+
+  return new NCHNotCam(fileId, readNC);
+}
+
+ErrorCode NCHEuler::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+{
+  ErrorCode rval = _readNC->init_EulSpcscd_vals(opts, file_set);
+  if (MB_SUCCESS != rval)
+    _readNC->readMeshIface->report_error("%s", "Trouble initializing Euler grid.");
+
+  return rval;
+}
+
+ErrorCode NCHFV::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+{
+  ErrorCode rval = _readNC->init_FVCDscd_vals(opts, file_set);
+  if (MB_SUCCESS != rval)
+    _readNC->readMeshIface->report_error("%s", "Trouble initializing FV grid.");
+
+  return rval;
+}
+
+ErrorCode NCHHomme::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+{
+  ErrorCode rval = _readNC->init_HOMMEucd_vals();
+  if (MB_SUCCESS != rval)
+    _readNC->readMeshIface->report_error("%s", "Trouble initializing Homme grid.");
+
+  return rval;
+}
+
+ErrorCode NCHUnknown::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+{
+  _readNC->readMeshIface->report_error("%s", "Trouble initializing unknown cam grid.");
+
+  return MB_FAILURE;
+}
+
+ErrorCode NCHNotCam::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+{
+  _readNC->readMeshIface->report_error("%s", "Trouble initializing non-cam grid.");
+
+  return MB_FAILURE;
 }
 
 } // namespace moab

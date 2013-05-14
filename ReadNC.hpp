@@ -62,12 +62,19 @@ namespace moab {
 
 class ReadUtilIface;
 class ScdInterface;
+class NCHelper;
 
 
 //! Output Exodus File for VERDE
 class ReadNC : public ReaderIface
 {
-   
+  friend class NCHelper;
+  friend class NCHEuler;
+  friend class NCHFV;
+  friend class NCHHomme;
+  friend class NCHUnknown;
+  friend class NCHNotCam;
+
 public:
   
   static ReaderIface* factory( Interface* );
@@ -416,6 +423,8 @@ private:
   
     // read option
   std::string partitionTagName;
+
+  NCHelper* helper;
 };
 
 // inline functions
@@ -423,6 +432,67 @@ inline unsigned int ReadNC::number_dimensions()
 {
   return dimVals.size();
 }
+
+class NCHelper
+{
+public:
+  NCHelper(int fileId, ReadNC* readNC) : _fileId(fileId), _readNC(readNC) {}
+
+  static NCHelper* get_nc_helper(int fileId, ReadNC* readNC, const FileOptions& opts);
+
+  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set) = 0;
+
+  bool is_same_file(int fileId) { return _fileId == fileId; }
+
+protected:
+  int _fileId;
+  ReadNC* _readNC;
+};
+
+class NCHEuler : public NCHelper
+{
+public:
+  NCHEuler(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+
+private:
+  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+};
+
+class NCHFV : public NCHelper
+{
+public:
+  NCHFV(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+
+private:
+  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+};
+
+class NCHHomme : public NCHelper
+{
+public:
+  NCHHomme(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+
+private:
+  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+};
+
+class NCHUnknown : public NCHelper
+{
+public:
+  NCHUnknown(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+
+private:
+  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+};
+
+class NCHNotCam : public NCHelper
+{
+public:
+  NCHNotCam(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+
+private:
+  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+};
 
 } // namespace moab
 
