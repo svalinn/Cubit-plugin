@@ -72,7 +72,7 @@ class ReadNC : public ReaderIface
   friend class NCHEuler;
   friend class NCHFV;
   friend class NCHHomme;
-  friend class NCHUnknown;
+  friend class NCHUnknownCam;
   friend class NCHNotCam;
 
 public:
@@ -259,10 +259,13 @@ private:
   ErrorCode get_BIL_dir();
 
   bool BIL_mode_enabled(const char * file_name);
- 
-    //! parse various options and variables and attributes to infer CAM file type
-  ErrorCode get_nc_type(const FileOptions &opts);
-  
+
+  ErrorCode check_conventions_attribute();
+
+  ErrorCode check_source_attribute();
+
+  ErrorCode check_np_attribute();
+
   template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void *dest, T *source) 
       {
         size_t nik = ni * nk, nij = ni * nj;
@@ -387,8 +390,8 @@ private:
     //! partitioning method
   int partMethod;
 
-    //! if a CAM file, which type
-  CamType camType;
+    //! true if a CAM file
+  bool isCam;
 
     //! true if file is marked as following CF metadata conventions
   bool isCf;
@@ -433,65 +436,81 @@ inline unsigned int ReadNC::number_dimensions()
   return dimVals.size();
 }
 
+// Helper class to isolate reading of several different nc file formats
 class NCHelper
 {
 public:
-  NCHelper(int fileId, ReadNC* readNC) : _fileId(fileId), _readNC(readNC) {}
+  NCHelper(ReadNC* readNC, int fileId) : _readNC(readNC), _fileId(fileId) {}
 
-  static NCHelper* get_nc_helper(int fileId, ReadNC* readNC, const FileOptions& opts);
+  static NCHelper* get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts);
 
-  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set) = 0;
-
-  bool is_same_file(int fileId) { return _fileId == fileId; }
+  virtual ReadNC::CamType get_cam_type() = 0;
+  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set) = 0;
 
 protected:
-  int _fileId;
   ReadNC* _readNC;
+  int _fileId;
 };
 
+// Child helper class for Eulerian Spectral grid (CAM_EUL)
 class NCHEuler : public NCHelper
 {
 public:
-  NCHEuler(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+  NCHEuler(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
+
+  static bool can_read_file(ReadNC* readNC);
 
 private:
-  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+  virtual ReadNC::CamType get_cam_type() { return ReadNC::CAM_EUL; }
+  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
 };
 
+// Child helper class for Finite Volume grid (CAM_FV)
 class NCHFV : public NCHelper
 {
 public:
-  NCHFV(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+  NCHFV(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
+
+  static bool can_read_file(ReadNC* readNC);
 
 private:
-  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+  virtual ReadNC::CamType get_cam_type() { return ReadNC::CAM_FV; }
+  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
 };
 
+// Child helper class for HOMME grid (CAM_SE)
 class NCHHomme : public NCHelper
 {
 public:
-  NCHHomme(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+  NCHHomme(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
+
+  static bool can_read_file(ReadNC* readNC, const FileOptions& opts);
 
 private:
-  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+  virtual ReadNC::CamType get_cam_type() { return ReadNC::CAM_SE; }
+  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
 };
 
-class NCHUnknown : public NCHelper
+// Child helper class for unknown CAM grid (CAM_UNKNOWN)
+class NCHUnknownCam : public NCHelper
 {
 public:
-  NCHUnknown(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+  NCHUnknownCam(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
 
 private:
-  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+  virtual ReadNC::CamType get_cam_type() { return ReadNC::CAM_UNKNOWN; }
+  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
 };
 
+// Child helper class for unkown grid (NOT_CAM)
 class NCHNotCam : public NCHelper
 {
 public:
-  NCHNotCam(int fileId, ReadNC* readNC) : NCHelper(fileId, readNC) {}
+  NCHNotCam(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
 
 private:
-  virtual ErrorCode init_nc_vals(const FileOptions& opts, EntityHandle file_set);
+  virtual ReadNC::CamType get_cam_type() { return ReadNC::NOT_CAM; }
+  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
 };
 
 } // namespace moab

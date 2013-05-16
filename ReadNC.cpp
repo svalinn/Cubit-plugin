@@ -36,7 +36,7 @@ ReaderIface* ReadNC::factory(Interface* iface) {
 ReadNC::ReadNC(Interface* impl) :
   mbImpl(impl), CPU_WORD_SIZE(-1), IO_WORD_SIZE(-1), fileId(-1), tMin(-1), tMax(-1), iDim(-1), jDim(-1), tDim(-1), iCDim(-1),
   jCDim(-1), numUnLim(-1), mCurrentMeshHandle(0), startVertex(0), startElem(0), mGlobalIdTag(0), mpFileIdTag(NULL), max_line_length(-1),
-  max_str_length(-1), vertexOffset(0), dbgOut(stderr), isParallel(false), partMethod(-1), camType(NOT_CAM), isCf(false),
+  max_str_length(-1), vertexOffset(0), dbgOut(stderr), isParallel(false), partMethod(-1), isCam(false), isCf(false),
   spectralOrder(-1),
 #ifdef USE_MPI
   myPcomm(NULL), 
@@ -175,14 +175,22 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   if (!scdi)
     return MB_FAILURE;
 
-  if (helper != NULL)
-  {
-    delete helper;
-    helper = NULL;
-  }
+  // Check if CF convention is being followed
+  rval = check_conventions_attribute();
+  if (MB_SUCCESS != rval)
+    return rval;
 
-  helper = NCHelper::get_nc_helper(fileId, this, opts);
-  rval = helper->init_nc_vals(opts, tmp_set);
+  // Check if it is a CAM file
+  rval = check_source_attribute();
+  if (MB_SUCCESS != rval)
+    return rval;
+
+  if (helper != NULL)
+    delete helper;
+
+  helper = NCHelper::get_nc_helper(this, fileId, opts);
+
+  rval = helper->init_vals(opts, tmp_set);
   if (MB_SUCCESS != rval)
     return rval;
 
@@ -193,13 +201,13 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
   else if (!noMesh) {
-    if (CAM_SE == camType)
+    if (CAM_SE == helper->get_cam_type())
       rval = create_ucd_verts_quads(opts, tmp_set, quads);
     else
       rval = create_verts_quads(scdi, tmp_set, quads);
     ERRORR(rval, "Trouble creating vertices and quads.");
   }
-  if (noMesh && CAM_SE==camType)
+  if (noMesh && CAM_SE == helper->get_cam_type())
   {
     // we need to populate localGid range with the gids of vertices from the tmp_set
     // localGid is important in reading the variable data into the nodes
@@ -289,76 +297,70 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   return MB_SUCCESS;
 }
 
-  
-ErrorCode ReadNC::get_nc_type(const FileOptions &opts) 
+ErrorCode ReadNC::check_conventions_attribute()
 {
-  // check if CF convention is being followed
-  std::string attname;
-  std::map<std::string, AttData>::iterator attIt = globalAtts.find("conventions");
-  if (attIt == globalAtts.end()) {
-    attIt = globalAtts.find("Conventions");
-    attname = std::string("Conventions");
-  }
-  else
-    attname = std::string("conventions");
+  isCf = false;
 
+  std::map<std::string, AttData>::iterator attIt = globalAtts.find("conventions");
   if (attIt == globalAtts.end())
+    attIt = globalAtts.find("Conventions");
+
+  if (attIt == globalAtts.end()) {
     ERRORR(MB_FAILURE, "File does not have conventions global attribute.\n");
+  }
 
   unsigned int sz = attIt->second.attLen;
   std::string att_data;
   att_data.resize(sz + 1);
   att_data[sz] = '\000';
   int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
-  ERRORS(success, "Failed to read attribute char data.");
+  ERRORS(success, "Failed to read conventions global attribute char data.");
   if (att_data.find("CF") == std::string::npos) {
     ERRORR(MB_FAILURE, "File not following known conventions.\n");
   }
-  else isCf = true;
-
-  attIt = globalAtts.find("source");
-  bool is_cam = false;
-  if (attIt != globalAtts.end()) {
-    sz = attIt->second.attLen;
-    char* tmp_str = (char *) malloc(sz + 1);
-    tmp_str[sz] = '\000';
-    success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), tmp_str);
-    ERRORS(success, "Failed to read attribute char data.");
-    std::string tmpstr(tmp_str);
-    std::string cf("CAM");
-    if (tmpstr.find(cf) != std::string::npos)
-      is_cam = true;
-  }
-  if (is_cam) {
-    attIt = globalAtts.find("np");
-
-    // if dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it's the FV grid
-    if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
-        dimNames.end(), std::string("lat")) != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slon"))
-        != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slat")) != dimNames.end()))
-      camType = CAM_FV;
-    // else if global attribute "np" exists then it's the HOMME grid
-    else if (attIt != globalAtts.end()) {
-      camType = CAM_SE;
-      success = NCFUNC(get_att_int)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &spectralOrder);
-      spectralOrder--; // spectral order is one less than np
-      ERRORS(success, "Failed to read attribute int data.");
-      if (opts.match_option("PARTITION_METHOD", "NODAL_PARTITION") == MB_SUCCESS)
-        partMethod = -1;
-    }
-    // else if dimension names "lon" and "lat' exist then it's the Eulerian Spectral grid
-    else if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
-        dimNames.end(), std::string("lat")) != dimNames.end()))
-      camType = CAM_EUL;
-    else {
-      camType = CAM_UNKNOWN;
-      ERRORR(MB_FAILURE, "Unknown CAM grid");
-    }
-  }
+  else
+    isCf = true;
 
   return MB_SUCCESS;
 }
-    
+
+ErrorCode ReadNC::check_source_attribute()
+{
+  isCam = false;
+
+  std::map<std::string, AttData>::iterator attIt = globalAtts.find("source");
+
+  if (attIt == globalAtts.end()) {
+    ERRORR(MB_FAILURE, "File does not have source global attribute.\n");
+  }
+
+  unsigned int sz = attIt->second.attLen;
+  std::string att_data;
+  att_data.resize(sz + 1);
+  att_data[sz] = '\000';
+  int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
+  ERRORS(success, "Failed to read source global attribute char data.");
+  if (att_data.find("CAM") != std::string::npos)
+    isCam = true;
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::check_np_attribute()
+{
+  std::map<std::string, AttData>::iterator attIt = globalAtts.find("np");
+  if (attIt != globalAtts.end())
+  {
+    int success = NCFUNC(get_att_int)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &spectralOrder);
+    ERRORS(success, "Failed to read np global attribute int data.");
+    spectralOrder--; // Spectral order is one less than np
+
+    return MB_SUCCESS;
+  }
+
+  return MB_FAILURE;
+}
+
 ErrorCode ReadNC::load_BIL(std::string , const EntityHandle* , const FileOptions& , const Tag* ) {
 
   /*
@@ -512,8 +514,6 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
     partMethod = ScdParData::ALLJORKORI;
   else
     partMethod = dum;
-
-  if (4==dum) camType = CAM_SE;
 
 #endif
 
@@ -941,7 +941,7 @@ ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names, std::
     std::vector<VarData> &vdatas, std::vector<VarData> &vsetdatas) {
   std::map<std::string, VarData>::iterator mit;
 
-  if (camType != CAM_SE) { // scd mesh
+  if (helper->get_cam_type() != CAM_SE) { // scd mesh
     // if empty read them all
     if (var_names.empty()) {
       for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
@@ -1140,7 +1140,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
       switch (vdatas[i].entLoc) {
         case 0:
           // vertices
-          if (camType != CAM_SE) {
+          if (helper->get_cam_type() != CAM_SE) {
             // only structured mesh has j parameter that multiplies i to get total # vertices
             vdatas[i].readDims[t].push_back(lDims[1]);
             vdatas[i].readCounts[t].push_back(lDims[4] - lDims[1] + 1);
@@ -1249,7 +1249,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
   ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
-  if (camType != CAM_SE) {
+  if (helper->get_cam_type() != CAM_SE) {
     // create COORDS tag for quads
     rval = create_quad_coordinate_tag(file_set);
     ERRORR(rval, "Trouble creating coordinate tags to entities quads");
@@ -1262,7 +1262,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
 
   if (!vdatas.empty()) {
 #ifdef PNETCDF_FILE
-    if (camType == CAM_SE) // in serial, we will use the old read, everything is contiguous
+    if (helper->get_cam_type() == CAM_SE) // in serial, we will use the old read, everything is contiguous
       // in parallel, we will use async read in pnetcdf
       // the other mechanism is not working, forget about it
       rval = read_variable_to_nonset_async(file_set, vdatas, tstep_nums);
@@ -1462,7 +1462,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
       void *data = vdatas[i].varDatas[t];
       std::size_t sz = 1;
       size_t ni = vdatas[i].readCounts[t][2], nj = vdatas[i].readCounts[t][3], nk = vdatas[i].readCounts[t][1];
-      if (camType != CAM_SE) {
+      if (helper->get_cam_type() != CAM_SE) {
         for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); ++idx)
           sz *= vdatas[i].readCounts[t][idx];
       }
@@ -1504,7 +1504,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
         case NC_FLOAT: {
           std::vector<float> tmpfloatdata(sz);
 
-          if (camType != CAM_SE)
+          if (helper->get_cam_type() != CAM_SE)
           {
             success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
                 &tmpfloatdata[0] NCREQ);
@@ -1795,7 +1795,7 @@ ErrorCode ReadNC::convert_variable(VarData &var_data, int tstep_num) {
   void *data = var_data.varDatas[tstep_num];
 
   std::size_t sz = 1;
-  if (camType != CAM_SE) {
+  if (helper->get_cam_type() != CAM_SE) {
     for (std::size_t idx = 0; idx != var_data.readCounts[tstep_num].size(); ++idx)
       sz *= var_data.readCounts[tstep_num][idx];
   }
@@ -3251,7 +3251,7 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set, const s
   Tag meshTypeTag = 0;
   tag_name = "__MESH_TYPE";
   std::string meshTypeName;
-  switch(camType)
+  switch (helper->get_cam_type())
   {
   case CAM_EUL: meshTypeName="CAM_EUL"; break;
   case CAM_FV: meshTypeName="CAM_FV"; break;
@@ -3395,25 +3395,44 @@ ErrorCode ReadNC::create_quad_coordinate_tag(EntityHandle file_set) {
   return MB_SUCCESS;
 }
 
-NCHelper* NCHelper::get_nc_helper(int fileId, ReadNC* readNC, const FileOptions& opts)
+NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts)
 {
-  readNC->camType = ReadNC::NOT_CAM;
-  readNC->get_nc_type(opts);
+  // Unknown grid, will fill this in later for POP, CICE and CLM
+  if (!readNC->isCam)
+    return new NCHNotCam(readNC, fileId);
 
-  if (ReadNC::CAM_EUL == readNC->camType)
-    return new NCHEuler(fileId, readNC);
-  else if (ReadNC::CAM_FV == readNC->camType)
-    return new NCHFV(fileId, readNC);
-  else if (ReadNC::CAM_SE == readNC->camType)
-    return new NCHHomme(fileId, readNC);
-  // will fill this in later for POP, CICE and CLM
-  else if (ReadNC::CAM_UNKNOWN == readNC->camType)
-    return new NCHUnknown(fileId, readNC);
+  // If a CAM file, which type?
+  if (NCHEuler::can_read_file(readNC))
+    return new NCHEuler(readNC, fileId);
+  else if (NCHFV::can_read_file(readNC))
+    return new NCHFV(readNC, fileId);
+  else if (NCHHomme::can_read_file(readNC, opts))
+    return new NCHHomme(readNC, fileId);
 
-  return new NCHNotCam(fileId, readNC);
+  // Unknown CAM grid
+  return new NCHUnknownCam(readNC, fileId);
 }
 
-ErrorCode NCHEuler::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+bool NCHEuler::can_read_file(ReadNC* readNC)
+{
+  std::vector<std::string>& dimNames = readNC->dimNames;
+
+  // If dimension names "lon" AND "lat' exist then it's the Eulerian Spectral grid or the FV grid
+  if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
+    dimNames.end(), std::string("lat")) != dimNames.end()))
+  {
+    // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it's the FV grid
+    if ((std::find(dimNames.begin(), dimNames.end(), std::string("slon")) != dimNames.end()) && (std::find(dimNames.begin(),
+        dimNames.end(), std::string("slat")) != dimNames.end()))
+      return false;
+    else
+      return true;
+  }
+
+  return false;
+}
+
+ErrorCode NCHEuler::init_vals(const FileOptions& opts, EntityHandle file_set)
 {
   ErrorCode rval = _readNC->init_EulSpcscd_vals(opts, file_set);
   if (MB_SUCCESS != rval)
@@ -3422,7 +3441,20 @@ ErrorCode NCHEuler::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
   return rval;
 }
 
-ErrorCode NCHFV::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+bool NCHFV::can_read_file(ReadNC* readNC)
+{
+  std::vector<std::string>& dimNames = readNC->dimNames;
+
+  // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it's the FV grid
+  if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
+      dimNames.end(), std::string("lat")) != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slon"))
+      != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slat")) != dimNames.end()))
+    return true;
+
+  return false;
+}
+
+ErrorCode NCHFV::init_vals(const FileOptions& opts, EntityHandle file_set)
 {
   ErrorCode rval = _readNC->init_FVCDscd_vals(opts, file_set);
   if (MB_SUCCESS != rval)
@@ -3431,7 +3463,21 @@ ErrorCode NCHFV::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
   return rval;
 }
 
-ErrorCode NCHHomme::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+bool NCHHomme::can_read_file(ReadNC* readNC, const FileOptions& opts)
+{
+  // If global attribute "np" exists then it's the HOMME grid
+  ErrorCode rval = readNC->check_np_attribute();
+  if (MB_SUCCESS == rval) {
+    if (MB_SUCCESS == opts.match_option("PARTITION_METHOD", "NODAL_PARTITION"))
+      readNC->partMethod = -1;
+
+    return true;
+  }
+
+  return false;
+}
+
+ErrorCode NCHHomme::init_vals(const FileOptions& opts, EntityHandle file_set)
 {
   ErrorCode rval = _readNC->init_HOMMEucd_vals();
   if (MB_SUCCESS != rval)
@@ -3440,16 +3486,16 @@ ErrorCode NCHHomme::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
   return rval;
 }
 
-ErrorCode NCHUnknown::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+ErrorCode NCHUnknownCam::init_vals(const FileOptions& opts, EntityHandle file_set)
 {
-  _readNC->readMeshIface->report_error("%s", "Trouble initializing unknown cam grid.");
+  _readNC->readMeshIface->report_error("%s", "Unknown CAM grid.");
 
   return MB_FAILURE;
 }
 
-ErrorCode NCHNotCam::init_nc_vals(const FileOptions& opts, EntityHandle file_set)
+ErrorCode NCHNotCam::init_vals(const FileOptions& opts, EntityHandle file_set)
 {
-  _readNC->readMeshIface->report_error("%s", "Trouble initializing non-cam grid.");
+  _readNC->readMeshIface->report_error("%s", "Unknown grid.");
 
   return MB_FAILURE;
 }
