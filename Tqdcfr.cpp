@@ -42,7 +42,7 @@
 
 namespace moab {
 
-static bool debug = true;
+static bool debug = false;
 //const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
 const char Tqdcfr::geom_categories[][CATEGORY_TAG_SIZE] = 
 {"Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
@@ -2841,7 +2841,7 @@ using namespace moab;
 int main(int argc, char* argv[])
 {
 #ifdef USE_MPI
-  int err = MPI_Init(&argc, &argv);
+  MPI_Init(&argc, &argv);
 #endif
     // Check command line arg
   const char* file = STRINGIFY(SRCDIR) "/brick_cubit10.2.cub";
@@ -2863,9 +2863,9 @@ int main(int argc, char* argv[])
     std::cout << "Success." << std::endl;
   else {
     std::cout << "load_file returned error:" << std::endl;
-    std::string err;
-    result = my_impl->get_last_error(err);
-    if (MB_SUCCESS == result) std::cout << err << std::endl;
+    std::string errs;
+    result = my_impl->get_last_error(errs);
+    if (MB_SUCCESS == result) std::cout << errs << std::endl;
     else std::cout << "(no message)" << std::endl;
   }
 
