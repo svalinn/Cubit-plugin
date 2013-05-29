@@ -1,4 +1,5 @@
 #include "ReadNC.hpp"
+#include "NCHelper.hpp"
 
 #include <algorithm>
 #include <assert.h>
@@ -90,6 +91,8 @@ void ReadNC::reset() {
 
 ReadNC::~ReadNC() {
   mbImpl->release_interface(readMeshIface);
+  if (helper != NULL)
+    delete helper;
 }
 
 ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set, const FileOptions& opts,
@@ -113,7 +116,6 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     return rval;
   mpFileIdTag = file_id_tag; // store the pointer to the tag ; if not null, set when global id tag
   // is set too, with the same data , duplicated
-
 
   std::string partition_tag_name;
   rval = parse_options(opts, var_names, tstep_nums, tstep_vals);
@@ -152,7 +154,6 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
 
   // end of BIL
 
-
   // Read the header (num dimensions, dimensions, num variables, global attribs)
   rval = read_header();
   ERRORR(rval, " ");
@@ -189,8 +190,11 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     delete helper;
 
   helper = NCHelper::get_nc_helper(this, fileId, opts);
+  if (helper == NULL) {
+    ERRORR(MB_FAILURE, "Failed to get NCHelper class instance.");
+  }
 
-  rval = helper->init_vals(opts, tmp_set);
+  rval = helper->init_mesh_vals(opts, tmp_set);
   if (MB_SUCCESS != rval)
     return rval;
 
@@ -201,38 +205,21 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
   else if (!noMesh) {
-    if (CAM_SE == helper->get_cam_type())
-      rval = create_ucd_verts_quads(opts, tmp_set, quads);
-    else
-      rval = create_verts_quads(scdi, tmp_set, quads);
+    rval = helper->create_verts_quads(scdi, opts, tmp_set, quads);
     ERRORR(rval, "Trouble creating vertices and quads.");
   }
-  if (noMesh && CAM_SE == helper->get_cam_type())
-  {
-    // we need to populate localGid range with the gids of vertices from the tmp_set
-    // localGid is important in reading the variable data into the nodes
-    // also, for our purposes, localGid is truly the GLOBAL_ID tag data, not other
-    // file_id tags that could get passed around in other scenarios for parallel reading
-    // for nodal_partition, this local gid is easier, should be initialized with only
-    // the owned nodes
 
-    // we need to get all vertices from tmp_set (it is the input set in no_mesh scenario)
-    Range local_verts;
-    rval = mbImpl->get_entities_by_dimension(tmp_set, 0, local_verts);
-    if (MB_FAILURE == rval)
+  if (noMesh)
+  {
+    // Initialize local gid for HOMME
+    rval = helper->init_local_gid(tmp_set);
+    if (MB_SUCCESS != rval)
       return rval;
-    std::vector<int> gids(local_verts.size());
-    // !IMPORTANT : this has to be the GLOBAL_ID tag
-    rval=mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
-    if (MB_FAILURE == rval)
-      return rval;
-    // this will do a smart copy
-    std::copy(gids.begin(), gids.end(), range_inserter(localGid));
   }
 
   // Read variables onto grid
   if (!noVars) {
-    rval = read_variables(tmp_set, var_names, tstep_nums);
+    rval = helper->read_variables(tmp_set, var_names, tstep_nums);
     if (MB_FAILURE == rval)
       return rval;
   }
@@ -244,7 +231,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
       if (mit != varInfo.end())
         filteredDimNames.push_back(dimNames[i]);
     }
-    rval = read_variables(tmp_set, filteredDimNames, tstep_nums);
+    rval = helper->read_variables(tmp_set, filteredDimNames, tstep_nums);
     if (MB_FAILURE == rval)
       return rval;
   }
@@ -297,72 +284,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::check_conventions_attribute()
-{
-  isCf = false;
-
-  std::map<std::string, AttData>::iterator attIt = globalAtts.find("conventions");
-  if (attIt == globalAtts.end())
-    attIt = globalAtts.find("Conventions");
-
-  if (attIt == globalAtts.end()) {
-    ERRORR(MB_FAILURE, "File does not have conventions global attribute.\n");
-  }
-
-  unsigned int sz = attIt->second.attLen;
-  std::string att_data;
-  att_data.resize(sz + 1);
-  att_data[sz] = '\000';
-  int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
-  ERRORS(success, "Failed to read conventions global attribute char data.");
-  if (att_data.find("CF") == std::string::npos) {
-    ERRORR(MB_FAILURE, "File not following known conventions.\n");
-  }
-  else
-    isCf = true;
-
-  return MB_SUCCESS;
-}
-
-ErrorCode ReadNC::check_source_attribute()
-{
-  isCam = false;
-
-  std::map<std::string, AttData>::iterator attIt = globalAtts.find("source");
-
-  if (attIt == globalAtts.end()) {
-    ERRORR(MB_FAILURE, "File does not have source global attribute.\n");
-  }
-
-  unsigned int sz = attIt->second.attLen;
-  std::string att_data;
-  att_data.resize(sz + 1);
-  att_data[sz] = '\000';
-  int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
-  ERRORS(success, "Failed to read source global attribute char data.");
-  if (att_data.find("CAM") != std::string::npos)
-    isCam = true;
-
-  return MB_SUCCESS;
-}
-
-ErrorCode ReadNC::check_np_attribute()
-{
-  std::map<std::string, AttData>::iterator attIt = globalAtts.find("np");
-  if (attIt != globalAtts.end())
-  {
-    int success = NCFUNC(get_att_int)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &spectralOrder);
-    ERRORS(success, "Failed to read np global attribute int data.");
-    spectralOrder--; // Spectral order is one less than np
-
-    return MB_SUCCESS;
-  }
-
-  return MB_FAILURE;
-}
-
 ErrorCode ReadNC::load_BIL(std::string , const EntityHandle* , const FileOptions& , const Tag* ) {
-
   /*
    BIL_Init( MPI_COMM_WORLD );
 
@@ -514,7 +436,6 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
     partMethod = ScdParData::ALLJORKORI;
   else
     partMethod = dum;
-
 #endif
 
   return MB_SUCCESS;
@@ -545,7 +466,7 @@ ErrorCode ReadNC::check_verts_quads(EntityHandle file_set) {
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, Range &quads) {
+ErrorCode ReadNC::create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &quads) {
   Range tmp_range;
   ScdBox *scd_box;
 
@@ -557,7 +478,7 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
   tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex() + scd_box->num_vertices() - 1);
   tmp_range.insert(scd_box->start_element(), scd_box->start_element() + scd_box->num_elements() - 1);
   tmp_range.insert(scd_box->box_set());
-  rval = mbImpl->add_entities(tmp_set, tmp_range);
+  rval = mbImpl->add_entities(file_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices to file set.");
 
   dbgOut.tprintf(1, "scdbox %d quads, %d vertices\n", scd_box->num_elements(), scd_box->num_vertices());
@@ -636,7 +557,7 @@ ErrorCode ReadNC::create_verts_quads(ScdInterface *scdi, EntityHandle tmp_set, R
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads) {
+ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle file_set, Range &quads) {
   // need to get/read connectivity data before creating elements
   std::string conn_fname;
 
@@ -733,7 +654,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
     // start_idx is the starting index in the HommeMapping connectivity list for this proc, before converting to coarse quad representation
   start_idx = 4 * rank * num_coarse_quads * spectral_unit;
     // iextra = # coarse quads extra after equal split over procs
-  int iextra = num_quads % (procs*spectral_unit); 
+  int iextra = num_quads % (procs*spectral_unit);
   if (rank < iextra) num_coarse_quads++;
   start_idx += 4 * spectral_unit * std::min(rank, iextra);
     // num_fine_quads is the number of quads in the connectivity list in HommeMapping file assigned to this proc
@@ -749,7 +670,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
   SpectralMeshTool smt(mbImpl, spectralOrder);
   if (!spectralMesh) {
     rval = readMeshIface->get_element_connect(num_coarse_quads, 4,
-                                              MBQUAD, 0, start_quad, conn_arr, 
+                                              MBQUAD, 0, start_quad, conn_arr,
                                                 // might have to create gather mesh later
                                               (create_gathers ? num_coarse_quads + num_quads : num_coarse_quads));
     ERRORR(rval, "Failed to create quads.");
@@ -763,18 +684,18 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
     int count, v_per_e;
     rval = mbImpl->connect_iterate(tmp_range.begin(), tmp_range.end(), conn_arr, v_per_e, count);
     ERRORR(rval, "Failed to get connectivity of spectral elements.");
-    rval = mbImpl->tag_iterate(smt.spectral_vertices_tag(true), tmp_range.begin(), tmp_range.end(), 
+    rval = mbImpl->tag_iterate(smt.spectral_vertices_tag(true), tmp_range.begin(), tmp_range.end(),
                                count, (void*&)sv_ptr);
     ERRORR(rval, "Failed to get fine connectivity of spectral elements.");
   }
-    
+
   // on this proc, I get columns ldims[1]..ldims[4], inclusive; need to find which vertices those correpond to
   unsigned int num_local_verts = localGid.size();
   unsigned int num_total_verts = gDims[3] - gDims[0] + 1;
 
   // create vertices
   std::vector<double*> arrays;
-  rval = readMeshIface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays, 
+  rval = readMeshIface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays,
                                           // might have to create gather mesh later
                                         (create_gathers ? num_local_verts+num_total_verts : num_local_verts));
   ERRORR(rval, "Couldn't create vertices in ucd mesh.");
@@ -840,14 +761,14 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
     // add new vertices and elements to the set
   quads.merge(tmp_range);
   tmp_range.insert(start_vertex, start_vertex + num_local_verts - 1);
-  rval = mbImpl->add_entities(tmp_set, tmp_range);
+  rval = mbImpl->add_entities(file_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices and quads/hexes to file set.");
 
     // mark the set with the spectral order
   Tag sporder;
   rval = mbImpl->tag_get_handle("SPECTRAL_ORDER", 1, MB_TYPE_INTEGER, sporder, MB_TAG_CREAT | MB_TAG_SPARSE);
   ERRORR(rval, "Couldn't create spectral order tag.");
-  rval = mbImpl->tag_set_data(sporder, &tmp_set, 1, &spectralOrder);
+  rval = mbImpl->tag_set_data(sporder, &file_set, 1, &spectralOrder);
   ERRORR(rval, "Couldn't set value for spectral order tag.");
   /*
   bool gatherOpt = false;
@@ -855,7 +776,7 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
     gatherOpt = true;
   */
   /*
-    - if (root) 
+    - if (root)
     . create vertices for all vertex positions in 2D grid
     . create quads for all vertex positions
     . create new entity set & insert these vertices/quads into it
@@ -866,16 +787,16 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
 #ifdef USE_MPI
   if (isParallel && myPcomm->proc_config().proc_rank() == 0) {
 #endif
-    EntityHandle gather_set;    
+    EntityHandle gather_set;
     rval = mbImpl->create_meshset(MESHSET_SET, gather_set);
     ERRORR(rval, "Trouble creating gather set.");
 
     // create vertices
     arrays.clear();
       // don't need to specify allocation number here, because we know enough verts were created before
-    rval = readMeshIface->get_node_coords(3, num_total_verts, 0, start_vertex, arrays); 
+    rval = readMeshIface->get_node_coords(3, num_total_verts, 0, start_vertex, arrays);
     ERRORR(rval, "Couldn't create vertices in ucd mesh for gather set.");
-    
+
     xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
     for (i = 0; i < (int)num_total_verts; ++i) {
       double cosphi = cos(pideg * jlVals[i]);
@@ -887,9 +808,9 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
       yptr[i] = rad * ymult;
       zptr[i] = rad * zmult;
     }
-    
+
     // get ptr to gid memory for vertices
-    Range gather_verts(start_vertex, start_vertex + num_total_verts - 1);    
+    Range gather_verts(start_vertex, start_vertex + num_total_verts - 1);
     rval = mbImpl->tag_iterate(mGlobalIdTag, gather_verts.begin(), gather_verts.end(), count, data);
     ERRORR(rval, "Failed to get tag iterator.");
     assert(count == (int) num_total_verts);
@@ -923,13 +844,13 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
     ERRORR(rval, "Couldn't add quads to gather set.");
 
     Tag gathersettag;
-    rval = mbImpl->tag_get_handle("GATHER_SET", 1, MB_TYPE_INTEGER, gathersettag, 
+    rval = mbImpl->tag_get_handle("GATHER_SET", 1, MB_TYPE_INTEGER, gathersettag,
 				  MB_TAG_CREAT | MB_TAG_SPARSE);
     ERRORR(rval, "Couldn't create gather set tag.");
     int gatherval = 1;
     rval = mbImpl->tag_set_data(gathersettag, &gather_set, 1, &gatherval);
     ERRORR(rval, "Couldn't set value for gather set tag.");
-      
+
 #ifdef USE_MPI
   }
 #endif
@@ -938,10 +859,10 @@ ErrorCode ReadNC::create_ucd_verts_quads(const FileOptions &opts, EntityHandle t
 }
 
 ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names, std::vector<int> &tstep_nums,
-    std::vector<VarData> &vdatas, std::vector<VarData> &vsetdatas) {
+    std::vector<VarData> &vdatas, std::vector<VarData> &vsetdatas, bool is_scd_mesh) {
   std::map<std::string, VarData>::iterator mit;
 
-  if (helper->get_cam_type() != CAM_SE) { // scd mesh
+  if (is_scd_mesh) { // scd mesh
     // if empty read them all
     if (var_names.empty()) {
       for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
@@ -1042,7 +963,7 @@ ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names, std::
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums) {
+ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool is_scd_mesh) {
   ErrorCode rval = MB_SUCCESS;
 
   std::vector<EntityHandle>* ehandles = NULL;
@@ -1140,7 +1061,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
       switch (vdatas[i].entLoc) {
         case 0:
           // vertices
-          if (helper->get_cam_type() != CAM_SE) {
+          if (is_scd_mesh) {
             // only structured mesh has j parameter that multiplies i to get total # vertices
             vdatas[i].readDims[t].push_back(lDims[1]);
             vdatas[i].readCounts[t].push_back(lDims[4] - lDims[1] + 1);
@@ -1242,40 +1163,41 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
   return rval;
 }
 
-ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string> &var_names, std::vector<int> &tstep_nums) {
+ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string> &var_names, std::vector<int> &tstep_nums, bool is_scd_mesh) {
   std::vector<VarData> vdatas;
   std::vector<VarData> vsetdatas;
 
-  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas, is_scd_mesh);
   ERRORR(rval, "Trouble setting up read variable.");
 
-  if (helper->get_cam_type() != CAM_SE) {
+  if (is_scd_mesh) {
     // create COORDS tag for quads
     rval = create_quad_coordinate_tag(file_set);
     ERRORR(rval, "Trouble creating coordinate tags to entities quads");
   }
 
   if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(file_set, vsetdatas, tstep_nums);
+    rval = read_variable_to_set(file_set, vsetdatas, tstep_nums, is_scd_mesh);
     ERRORR(rval, "Trouble read variables to set.");
   }
 
   if (!vdatas.empty()) {
 #ifdef PNETCDF_FILE
-    if (helper->get_cam_type() == CAM_SE) // in serial, we will use the old read, everything is contiguous
+    if (!is_scd_mesh) // in serial, we will use the old read, everything is contiguous
       // in parallel, we will use async read in pnetcdf
       // the other mechanism is not working, forget about it
       rval = read_variable_to_nonset_async(file_set, vdatas, tstep_nums);
     else
+      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums, is_scd_mesh);
+#else
+      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums, is_scd_mesh);
 #endif
-      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums);
 
     ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
   }
 
   return MB_SUCCESS;
 }
-
 
 ErrorCode ReadNC::read_variable_to_set_allocate(std::vector<VarData> &vdatas, std::vector<int> &tstep_nums) {
   ErrorCode rval = MB_SUCCESS;
@@ -1357,7 +1279,7 @@ ErrorCode ReadNC::read_variable_to_set_allocate(std::vector<VarData> &vdatas, st
   return rval;
 }
 
-ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums) {
+ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool is_scd_mesh) {
   ErrorCode rval = read_variable_to_set_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables to set.");
 
@@ -1421,7 +1343,7 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t, is_scd_mesh);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
       if (vdatas[i].varDims.size() <= 1)
@@ -1450,8 +1372,8 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
   return rval;
 }
 
-ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums) {
-  ErrorCode rval = read_variable_allocate(file_set, vdatas, tstep_nums);
+ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool is_scd_mesh) {
+  ErrorCode rval = read_variable_allocate(file_set, vdatas, tstep_nums, is_scd_mesh);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // finally, read into that space
@@ -1462,7 +1384,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
       void *data = vdatas[i].varDatas[t];
       std::size_t sz = 1;
       size_t ni = vdatas[i].readCounts[t][2], nj = vdatas[i].readCounts[t][3], nk = vdatas[i].readCounts[t][1];
-      if (helper->get_cam_type() != CAM_SE) {
+      if (is_scd_mesh) {
         for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); ++idx)
           sz *= vdatas[i].readCounts[t][idx];
       }
@@ -1504,7 +1426,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
         case NC_FLOAT: {
           std::vector<float> tmpfloatdata(sz);
 
-          if (helper->get_cam_type() != CAM_SE)
+          if (is_scd_mesh)
           {
             success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
                 &tmpfloatdata[0] NCREQ);
@@ -1600,7 +1522,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t, is_scd_mesh);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
     }
@@ -1621,7 +1543,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
 ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vector<VarData> &vdatas,
               std::vector<int> &tstep_nums)
 {
-  ErrorCode rval = read_variable_allocate(file_set, vdatas, tstep_nums);
+  ErrorCode rval = read_variable_allocate(file_set, vdatas, tstep_nums, false);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // finally, read into that space
@@ -1691,7 +1613,6 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
           //
           success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
           ERRORS(success, "Failed on wait_all.");
-
 
           if (vdatas[i].numLev != 1)
             // switch from k varying slowest to k varying fastest
@@ -1773,7 +1694,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t, false);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
     }
@@ -1790,12 +1711,12 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
 }
 #endif
 
-ErrorCode ReadNC::convert_variable(VarData &var_data, int tstep_num) {
+ErrorCode ReadNC::convert_variable(VarData &var_data, int tstep_num, bool is_scd_mesh) {
   // get ptr to tag space
   void *data = var_data.varDatas[tstep_num];
 
   std::size_t sz = 1;
-  if (helper->get_cam_type() != CAM_SE) {
+  if (is_scd_mesh) {
     for (std::size_t idx = 0; idx != var_data.readCounts[tstep_num].size(); ++idx)
       sz *= var_data.readCounts[tstep_num][idx];
   }
@@ -2364,7 +2285,7 @@ ErrorCode ReadNC::init_EulSpcscd_vals(const FileOptions &opts, EntityHandle file
   gDims[2] = -1;
   gDims[5] = -1;
 
-  // look for time dimensions 
+  // look for time dimensions
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end())
     idx = vit - dimNames.begin();
   else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
@@ -3250,17 +3171,7 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set, const s
   // <__MESH_TYPE>
   Tag meshTypeTag = 0;
   tag_name = "__MESH_TYPE";
-  std::string meshTypeName;
-  switch (helper->get_cam_type())
-  {
-  case CAM_EUL: meshTypeName="CAM_EUL"; break;
-  case CAM_FV: meshTypeName="CAM_FV"; break;
-  case CAM_SE: meshTypeName="CAM_SE"; break;
-  case CAM_UNKNOWN: meshTypeName="CAM_UNKNOWN"; break;
-  case NOT_CAM: meshTypeName="NOT_CAM"; break;
-  default: meshTypeName="NOT_CAM"; break;
-
-  }
+  std::string meshTypeName = helper->get_mesh_type_name();
 
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, meshTypeTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
   ERRORR(rval, "Trouble creating __MESH_TYPE tag.");
@@ -3395,107 +3306,93 @@ ErrorCode ReadNC::create_quad_coordinate_tag(EntityHandle file_set) {
   return MB_SUCCESS;
 }
 
-NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts)
+ErrorCode ReadNC::check_conventions_attribute()
 {
-  // Unknown grid, will fill this in later for POP, CICE and CLM
-  if (!readNC->isCam)
-    return new NCHNotCam(readNC, fileId);
+  isCf = false;
 
-  // If a CAM file, which type?
-  if (NCHEuler::can_read_file(readNC))
-    return new NCHEuler(readNC, fileId);
-  else if (NCHFV::can_read_file(readNC))
-    return new NCHFV(readNC, fileId);
-  else if (NCHHomme::can_read_file(readNC, opts))
-    return new NCHHomme(readNC, fileId);
+  std::map<std::string, AttData>::iterator attIt = globalAtts.find("conventions");
+  if (attIt == globalAtts.end())
+    attIt = globalAtts.find("Conventions");
 
-  // Unknown CAM grid
-  return new NCHUnknownCam(readNC, fileId);
+  if (attIt == globalAtts.end()) {
+    ERRORR(MB_FAILURE, "File does not have conventions global attribute.\n");
+  }
+
+  unsigned int sz = attIt->second.attLen;
+  std::string att_data;
+  att_data.resize(sz + 1);
+  att_data[sz] = '\000';
+  int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
+  ERRORS(success, "Failed to read conventions global attribute char data.");
+  if (att_data.find("CF") == std::string::npos) {
+    ERRORR(MB_FAILURE, "File not following known conventions.\n");
+  }
+  else
+    isCf = true;
+
+  return MB_SUCCESS;
 }
 
-bool NCHEuler::can_read_file(ReadNC* readNC)
+ErrorCode ReadNC::check_source_attribute()
 {
-  std::vector<std::string>& dimNames = readNC->dimNames;
+  isCam = false;
 
-  // If dimension names "lon" AND "lat' exist then it's the Eulerian Spectral grid or the FV grid
-  if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
-    dimNames.end(), std::string("lat")) != dimNames.end()))
+  std::map<std::string, AttData>::iterator attIt = globalAtts.find("source");
+
+  if (attIt == globalAtts.end()) {
+    ERRORR(MB_FAILURE, "File does not have source global attribute.\n");
+  }
+
+  unsigned int sz = attIt->second.attLen;
+  std::string att_data;
+  att_data.resize(sz + 1);
+  att_data[sz] = '\000';
+  int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
+  ERRORS(success, "Failed to read source global attribute char data.");
+  if (att_data.find("CAM") != std::string::npos)
+    isCam = true;
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::init_local_gid(EntityHandle file_set)
+{
+  // we need to populate localGid range with the gids of vertices from the file_set
+  // localGid is important in reading the variable data into the nodes
+  // also, for our purposes, localGid is truly the GLOBAL_ID tag data, not other
+  // file_id tags that could get passed around in other scenarios for parallel reading
+  // for nodal_partition, this local gid is easier, should be initialized with only
+  // the owned nodes
+
+  // we need to get all vertices from file_set (it is the input set in no_mesh scenario)
+  Range local_verts;
+  ErrorCode rval = mbImpl->get_entities_by_dimension(file_set, 0, local_verts);
+  if (MB_FAILURE == rval)
+    return rval;
+
+  std::vector<int> gids(local_verts.size());
+  // !IMPORTANT : this has to be the GLOBAL_ID tag
+  rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
+  if (MB_FAILURE == rval)
+    return rval;
+
+  // this will do a smart copy
+  std::copy(gids.begin(), gids.end(), range_inserter(localGid));
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadNC::check_np_attribute()
+{
+  std::map<std::string, AttData>::iterator attIt = globalAtts.find("np");
+  if (attIt != globalAtts.end())
   {
-    // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it's the FV grid
-    if ((std::find(dimNames.begin(), dimNames.end(), std::string("slon")) != dimNames.end()) && (std::find(dimNames.begin(),
-        dimNames.end(), std::string("slat")) != dimNames.end()))
-      return false;
-    else
-      return true;
+    int success = NCFUNC(get_att_int)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &spectralOrder);
+    ERRORS(success, "Failed to read np global attribute int data.");
+    spectralOrder--; // Spectral order is one less than np
+
+    return MB_SUCCESS;
   }
-
-  return false;
-}
-
-ErrorCode NCHEuler::init_vals(const FileOptions& opts, EntityHandle file_set)
-{
-  ErrorCode rval = _readNC->init_EulSpcscd_vals(opts, file_set);
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble initializing Euler grid.");
-
-  return rval;
-}
-
-bool NCHFV::can_read_file(ReadNC* readNC)
-{
-  std::vector<std::string>& dimNames = readNC->dimNames;
-
-  // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it's the FV grid
-  if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
-      dimNames.end(), std::string("lat")) != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slon"))
-      != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slat")) != dimNames.end()))
-    return true;
-
-  return false;
-}
-
-ErrorCode NCHFV::init_vals(const FileOptions& opts, EntityHandle file_set)
-{
-  ErrorCode rval = _readNC->init_FVCDscd_vals(opts, file_set);
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble initializing FV grid.");
-
-  return rval;
-}
-
-bool NCHHomme::can_read_file(ReadNC* readNC, const FileOptions& opts)
-{
-  // If global attribute "np" exists then it's the HOMME grid
-  ErrorCode rval = readNC->check_np_attribute();
-  if (MB_SUCCESS == rval) {
-    if (MB_SUCCESS == opts.match_option("PARTITION_METHOD", "NODAL_PARTITION"))
-      readNC->partMethod = -1;
-
-    return true;
-  }
-
-  return false;
-}
-
-ErrorCode NCHHomme::init_vals(const FileOptions& opts, EntityHandle file_set)
-{
-  ErrorCode rval = _readNC->init_HOMMEucd_vals();
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble initializing Homme grid.");
-
-  return rval;
-}
-
-ErrorCode NCHUnknownCam::init_vals(const FileOptions& opts, EntityHandle file_set)
-{
-  _readNC->readMeshIface->report_error("%s", "Unknown CAM grid.");
-
-  return MB_FAILURE;
-}
-
-ErrorCode NCHNotCam::init_vals(const FileOptions& opts, EntityHandle file_set)
-{
-  _readNC->readMeshIface->report_error("%s", "Unknown grid.");
 
   return MB_FAILURE;
 }

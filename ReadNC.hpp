@@ -64,7 +64,6 @@ class ReadUtilIface;
 class ScdInterface;
 class NCHelper;
 
-
 //! Output Exodus File for VERDE
 class ReadNC : public ReaderIface
 {
@@ -76,9 +75,9 @@ class ReadNC : public ReaderIface
   friend class NCHNotCam;
 
 public:
-  
+
   static ReaderIface* factory( Interface* );
-  
+
     //! load an NC file
   ErrorCode load_file( const char* file_name,
                        const EntityHandle* file_set,
@@ -86,8 +85,8 @@ public:
                        const SubsetList* subset_list = 0,
                        const Tag* file_id_tag = 0 );
 
-   //! Constructor
-   ReadNC(Interface* impl = NULL);
+  //! Constructor
+  ReadNC(Interface* impl = NULL);
 
    //! Destructor
   virtual ~ReadNC();
@@ -97,12 +96,10 @@ public:
                                      const FileOptions& opts,
                                      std::vector<int>& tag_values_out,
                                      const SubsetList* subset_list = 0 );
-  
+
   // ENTLOCNSEDGE for north/south edge
   // ENTLOCWEEDGE for west/east edge
-  enum EntityLocation {ENTLOCNODE=0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCQUAD, ENTLOCSET};
-
-  enum CamType {CAM_EUL=0, CAM_FV, CAM_SE, CAM_UNKNOWN, NOT_CAM};
+  enum EntityLocation {ENTLOCNODE = 0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCQUAD, ENTLOCSET};
 
 private:
 
@@ -141,7 +138,7 @@ private:
   ReadUtilIface* readMeshIface;
 
   bool dimension_exists(const char *attrib_name);
-  
+
   void reset();
 
     //! read the header information
@@ -150,28 +147,25 @@ private:
     //! get all global attributes in the file
   ErrorCode get_attributes(int var_id, int num_atts, std::map<std::string,AttData> &atts,
                            const char *prefix="");
-  
+
     //! get all dimensions in the file
   ErrorCode get_dimensions(int file_id, std::vector<std::string> &dim_names, std::vector<int> &dim_vals);
 
     //! get the variable names and other info defined for this file
   ErrorCode get_variables();
-  
+
     //! parse min/max i/j/k in options, if any
   ErrorCode init_EulSpcscd_vals(const FileOptions &opts, EntityHandle file_set);
   ErrorCode init_FVCDscd_vals(const FileOptions &opts, EntityHandle file_set);
 
   ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
                             std::vector<double> &cvals);
-  
-  ErrorCode read_coordinate_nc(const char *var_name, int lmin, int lmax,
-			       std::vector<double> &cvals);
-  
+
     //! number of dimensions in this nc file
   unsigned int number_dimensions();
 
     //! create vertices for the file
-  ErrorCode create_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &quads);
+  ErrorCode create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &quads);
 
     //! check number of vertices and elements against what's already in file_set
   ErrorCode check_verts_quads(EntityHandle file_set);
@@ -183,54 +177,40 @@ private:
 
   ErrorCode read_variable_to_set_allocate(std::vector<VarData> &vdatas,
                                           std::vector<int> &tstep_nums);
-  
+
   ErrorCode read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas,
-				 std::vector<int> &tstep_nums); 
-  
+				 std::vector<int> &tstep_nums, bool is_scd_mesh);
+
   ErrorCode read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas,
-				    std::vector<int> &tstep_nums);
+				    std::vector<int> &tstep_nums, bool is_scd_mesh);
 
 #ifdef PNETCDF_FILE
   ErrorCode read_variable_to_nonset_async(EntityHandle file_set, std::vector<VarData> &vdatas,
               std::vector<int> &tstep_nums);
 #endif
 
-  ErrorCode read_variable_to_ucdmesh(EntityHandle file_set, 
-                                           std::vector<std::string> &varnames,
-                                           std::vector<int> &tstep_nums,
-                                           std::vector<VarData> &vdatas);
-
-  ErrorCode read_variable_ucd_allocate(std::vector<VarData> &vdatas,
-                                         std::vector<int> &tstep_nums,
-                                         Range &verts);
-
-  ErrorCode get_tag_ucd(VarData &var_data, int tstep_num, Tag &tagh);
-
-  ErrorCode read_variable_ucd_setup(std::vector<std::string> &var_names, 
-                                          std::vector<int> &tstep_nums, 
-                                          std::vector<VarData> &vdatas);
-
   ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
-                           std::vector<int> &tstep_nums);
-  
+                           std::vector<int> &tstep_nums, bool is_scd_mesh);
+
   ErrorCode read_variable_allocate(EntityHandle file_set, std::vector<VarData> &vdatas,
-                                   std::vector<int> &tstep_nums);
-  
+                                   std::vector<int> &tstep_nums, bool is_scd_mesh);
+
   ErrorCode read_variable_setup(std::vector<std::string> &var_names,
                                 std::vector<int> &tstep_nums, 
                                 std::vector<VarData> &vdatas,
-                                std::vector<VarData> &vsetdatas);
-  
-  ErrorCode convert_variable(VarData &var_data, int tstep_num);
-    
+                                std::vector<VarData> &vsetdatas,
+                                bool is_scd_mesh);
+
+  ErrorCode convert_variable(VarData &var_data, int tstep_num, bool is_scd_mesh);
+
   ErrorCode get_tag_to_set(VarData &var_data, int tstep_num, Tag &tagh);
- 
+
   ErrorCode get_tag(VarData &var_data, int tstep_num, Tag &tagh, int num_lev);
-  
+
     //! create nc conventional tags
   ErrorCode create_tags(ScdInterface *scdi, EntityHandle file_set, 
                         const std::vector<int> &tstep_nums);
-  
+
     //! create a character string attString of attMap.  with '\0'
     //! terminating each attribute name, ';' separating the data type
     //! and value, and ';' separating one name/data type/value from
@@ -249,8 +229,8 @@ private:
 
   ErrorCode init_HOMMEucd_vals();
 
-  ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle tmp_set, Range &quads);
- 
+  ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle file_set, Range &quads);
+
   ErrorCode load_BIL(std::string dir_name,
                      const EntityHandle* file_set,
                      const FileOptions& opts,
@@ -259,12 +239,6 @@ private:
   ErrorCode get_BIL_dir();
 
   bool BIL_mode_enabled(const char * file_name);
-
-  ErrorCode check_conventions_attribute();
-
-  ErrorCode check_source_attribute();
-
-  ErrorCode check_np_attribute();
 
   template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void *dest, T *source) 
       {
@@ -276,13 +250,12 @@ private:
               tmp_data[j*nik+i*nk+k] = source[k*nij+j*ni+i];         
         return MB_SUCCESS;
       }
-  
+
   // this version takes as input the moab range, from which we actually need just the
   // size of each sequence, for a proper transpose of the data
   // we read one time step, one variable at a time, usually, so we will
   template <typename T> ErrorCode kji_to_jik_stride(size_t , size_t nj, size_t nk, void *dest, T *source)
       {
-
         std::size_t idxInSource=0;// position of the start of the stride
         // for each subrange, we will transpose a matrix of size subrange*nj*nk (subrange takes
         //                                                                       the role of ni)
@@ -302,11 +275,19 @@ private:
         }
         return MB_SUCCESS;
       }
+
+  ErrorCode check_conventions_attribute();
+
+  ErrorCode check_source_attribute();
+
+  ErrorCode check_np_attribute();
+
+  ErrorCode init_local_gid(EntityHandle file_set);
 //------------member variables ------------//
 
     //! interface instance
   Interface* mbImpl;
-  
+
   int CPU_WORD_SIZE;
   int IO_WORD_SIZE;
 
@@ -315,7 +296,7 @@ private:
 
     //! file numbers assigned by netcdf
   int fileId, connectId;
-  
+
     //! dimensions
   std::vector<std::string> dimNames;
   // these should be taken out when we fix the dummy var info things
@@ -326,13 +307,13 @@ private:
 
     //! global attribs
   std::map<std::string,AttData> globalAtts;
-  
+
     //! variable info
   std::map<std::string,VarData> varInfo;
-  
+
     //! dimensions of grid in file
   int gDims[6], tMin, tMax;
-  
+
     //! dimensions of my part of grid
   int lDims[6];
 
@@ -353,7 +334,7 @@ private:
 
     //! center dimension numbers for i, j
   int iCDim, jCDim;
-  
+
     //! number of the dimension of unlimited dimension, if any
   int numUnLim;
 
@@ -390,14 +371,14 @@ private:
     //! partitioning method
   int partMethod;
 
-    //! true if a CAM file
+  //! true if a CAM file
   bool isCam;
 
     //! true if file is marked as following CF metadata conventions
   bool isCf;
-  
+
   int spectralOrder; // read from variable 'np'
-  Range localGid;// used only by camType=CAM_SE
+  Range localGid; // used only by camType = CAM_SE
 
     //! whether mesh is locally periodic in i or j
   int locallyPeriodic[2];
@@ -410,23 +391,24 @@ private:
 
     //! directory where data is stored for BIL reader
   std::string BIL_dir;
-  
+
 #ifdef USE_MPI
   ParallelComm *myPcomm;
 #endif
 
     // read option
   bool noMesh;
-  
+
     // read option
   bool noVars;
-  
+
     // read option
   bool spectralMesh;
-  
+
     // read option
   std::string partitionTagName;
 
+    //! Helper class instance
   NCHelper* helper;
 };
 
@@ -436,87 +418,6 @@ inline unsigned int ReadNC::number_dimensions()
   return dimVals.size();
 }
 
-// Helper class to isolate reading of several different nc file formats
-class NCHelper
-{
-public:
-  NCHelper(ReadNC* readNC, int fileId) : _readNC(readNC), _fileId(fileId) {}
-
-  static NCHelper* get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts);
-
-  virtual ReadNC::CamType get_cam_type() = 0;
-  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set) = 0;
-
-protected:
-  ReadNC* _readNC;
-  int _fileId;
-};
-
-// Child helper class for Eulerian Spectral grid (CAM_EUL)
-class NCHEuler : public NCHelper
-{
-public:
-  NCHEuler(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
-
-  static bool can_read_file(ReadNC* readNC);
-
-private:
-  virtual ReadNC::CamType get_cam_type() { return ReadNC::CAM_EUL; }
-  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
-};
-
-// Child helper class for Finite Volume grid (CAM_FV)
-class NCHFV : public NCHelper
-{
-public:
-  NCHFV(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
-
-  static bool can_read_file(ReadNC* readNC);
-
-private:
-  virtual ReadNC::CamType get_cam_type() { return ReadNC::CAM_FV; }
-  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
-};
-
-// Child helper class for HOMME grid (CAM_SE)
-class NCHHomme : public NCHelper
-{
-public:
-  NCHHomme(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
-
-  static bool can_read_file(ReadNC* readNC, const FileOptions& opts);
-
-private:
-  virtual ReadNC::CamType get_cam_type() { return ReadNC::CAM_SE; }
-  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
-};
-
-// Child helper class for unknown CAM grid (CAM_UNKNOWN)
-class NCHUnknownCam : public NCHelper
-{
-public:
-  NCHUnknownCam(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
-
-private:
-  virtual ReadNC::CamType get_cam_type() { return ReadNC::CAM_UNKNOWN; }
-  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
-};
-
-// Child helper class for unkown grid (NOT_CAM)
-class NCHNotCam : public NCHelper
-{
-public:
-  NCHNotCam(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
-
-private:
-  virtual ReadNC::CamType get_cam_type() { return ReadNC::NOT_CAM; }
-  virtual ErrorCode init_vals(const FileOptions& opts, EntityHandle file_set);
-};
-
 } // namespace moab
 
 #endif
-
-
-
-
