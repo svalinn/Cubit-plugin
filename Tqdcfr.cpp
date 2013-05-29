@@ -39,10 +39,13 @@
 #include <sstream>
 #include <assert.h>
 #include <string.h>
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 namespace moab {
 
-static bool debug = true;
+static bool debug = false;
 //const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
 const char Tqdcfr::geom_categories[][CATEGORY_TAG_SIZE] = 
 {"Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
