@@ -42,7 +42,7 @@
 
 namespace moab {
 
-static bool debug = false;
+static bool debug = true;
 //const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
 const char Tqdcfr::geom_categories[][CATEGORY_TAG_SIZE] = 
 {"Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
@@ -145,14 +145,54 @@ void Tqdcfr::FREADC( unsigned num_ents ) {
   FREADCA( num_ents, &char_buf[0] );
 }
 
+// used for swapping
+static void swap8_voff(long *data)
+{
+  unsigned char tmp, *cdat = (unsigned char *) data;
+  tmp = cdat[0]; cdat[0] = cdat[7], cdat[7] = tmp;
+  tmp = cdat[1]; cdat[1] = cdat[6], cdat[6] = tmp;
+  tmp = cdat[2]; cdat[2] = cdat[5], cdat[5] = tmp;
+  tmp = cdat[3]; cdat[3] = cdat[4], cdat[4] = tmp;
+}
+static void swap4_uint(unsigned int *data)
+{
+  unsigned char tmp, *cdat = (unsigned char *) data;
+  tmp = cdat[0]; cdat[0] = cdat[3], cdat[3] = tmp;
+  tmp = cdat[1]; cdat[1] = cdat[2], cdat[2] = tmp;
+}
+/*static void swap2_ushort(unsigned short *data)
+{
+  unsigned char tmp, *cdat = (unsigned char *) data;
+  tmp = cdat[0]; cdat[0] = cdat[1], cdat[1] = tmp;
+}*/
+
 void Tqdcfr::FREADIA( unsigned num_ents, unsigned int* array ) {
   unsigned rval = fread( array, sizeof(unsigned int), num_ents, cubFile );
   IO_ASSERT( rval == num_ents );
+  if (swapForEndianness)
+  {
+    unsigned int  * pt=array;
+    for (unsigned int i=0; i<num_ents; i++ )
+    {
+      swap4_uint((unsigned int *)pt);
+      pt++;
+    }
+  }
+
 }
 
 void Tqdcfr::FREADDA( unsigned num_ents, double* array ) {
   unsigned rval = fread( array, sizeof(double), num_ents, cubFile );
   IO_ASSERT( rval == num_ents );
+  if (swapForEndianness)
+  {
+    double  * pt=array;
+    for (unsigned int i=0; i<num_ents; i++ )
+    {
+      swap8_voff((long *)pt);
+      pt++;
+    }
+  }
 }
 
 void Tqdcfr::FREADCA( unsigned num_ents, char* array ) {
@@ -172,7 +212,7 @@ ReaderIface* Tqdcfr::factory( Interface* iface )
 Tqdcfr::Tqdcfr(Interface *impl) 
     : cubFile(NULL), globalIdTag(0), geomTag(0), uniqueIdTag(0), 
       blockTag(0), nsTag(0), ssTag(0), attribVectorTag(0), entityNameTag(0),
-      categoryTag(0), hasMidNodesTag(0), printedSeqWarning(false), printedElemWarning(false)
+      categoryTag(0), hasMidNodesTag(0), swapForEndianness(false), printedSeqWarning(false), printedElemWarning(false)
 {
   assert(NULL != impl);
   mdbImpl = impl;
@@ -1576,13 +1616,26 @@ ErrorCode Tqdcfr::read_file_header()
 {
     // read file header
   FSEEK(4);
-  FREADI(6);
-  fileTOC.fileEndian = uint_buf[0];
-  fileTOC.fileSchema = uint_buf[1];
-  fileTOC.numModels = uint_buf[2];
-  fileTOC.modelTableOffset = uint_buf[3];
-  fileTOC.modelMetaDataOffset = uint_buf[4];
-  fileTOC.activeFEModel = uint_buf[5];
+  // read tthe first int from the file
+  // if it is 0, it is littleEndian
+  unsigned rval = fread( &fileTOC.fileEndian, sizeof(unsigned int), 1, cubFile );
+  IO_ASSERT( rval == 1 );
+#ifdef WORDS_BIGENDIAN
+  if (fileTOC.fileEndian==0)
+    swapForEndianness=true;
+#else
+  if (fileTOC.fileEndian!=0)
+    swapForEndianness=true;
+#endif
+  if (debug)
+    std::cout << " swapping ? " << swapForEndianness << "\n";
+  FREADI(5);
+  //fileTOC.fileEndian = uint_buf[0];
+  fileTOC.fileSchema = uint_buf[0];
+  fileTOC.numModels = uint_buf[1];
+  fileTOC.modelTableOffset = uint_buf[2];
+  fileTOC.modelMetaDataOffset = uint_buf[3];
+  fileTOC.activeFEModel = uint_buf[4];
   if (debug) fileTOC.print();
 
   return MB_SUCCESS;

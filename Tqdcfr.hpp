@@ -287,6 +287,7 @@ public:
     attribVectorTag, entityNameTag, categoryTag, hasMidNodesTag;
   std::map<int, EntityHandle> uidSetMap;
   std::map<int, EntityHandle> gidSetMap[6];
+  bool swapForEndianness;
 
   std::vector<unsigned int> uint_buf;
   int *int_buf;
