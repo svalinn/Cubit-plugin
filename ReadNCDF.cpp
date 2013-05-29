@@ -1794,7 +1794,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
 
       std::vector<EntityHandle> leaves;
       double min_dist = MAX_NODE_DIST;
-      rval = kdtree.distance_search(exo_coords.array(), MAX_NODE_DIST, leaves, NULL, &root);
+      rval = kdtree.distance_search(exo_coords.array(), MAX_NODE_DIST, leaves);
       if(MB_SUCCESS != rval) return rval;
       for(std::vector<EntityHandle>::const_iterator j=leaves.begin(); j!=leaves.end(); ++j) {
 	std::vector<EntityHandle> leaf_verts;
