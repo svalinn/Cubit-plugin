@@ -68,11 +68,9 @@ class NCHelper;
 class ReadNC : public ReaderIface
 {
   friend class NCHelper;
-  friend class NCHEuler;
-  friend class NCHFV;
-  friend class NCHHomme;
-  friend class NCHUnknownCam;
-  friend class NCHNotCam;
+  friend class NCHelperEuler;
+  friend class NCHelperFV;
+  friend class NCHelperHOMME;
 
 public:
 
@@ -85,8 +83,8 @@ public:
                        const SubsetList* subset_list = 0,
                        const Tag* file_id_tag = 0 );
 
-  //! Constructor
-  ReadNC(Interface* impl = NULL);
+   //! Constructor
+   ReadNC(Interface* impl = NULL);
 
    //! Destructor
   virtual ~ReadNC();
@@ -99,11 +97,11 @@ public:
 
   // ENTLOCNSEDGE for north/south edge
   // ENTLOCWEEDGE for west/east edge
-  enum EntityLocation {ENTLOCNODE = 0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCQUAD, ENTLOCSET};
+  enum EntityLocation {ENTLOCNODE=0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCQUAD, ENTLOCSET};
 
 private:
 
-  class AttData 
+  class AttData
   {
     public:
     AttData() : attId(-1), attLen(0), attVarId(-2) {}
@@ -114,7 +112,7 @@ private:
     std::string attName;
   };
 
-  class VarData 
+  class VarData
   {
     public:
     VarData() : varId(-1), numAtts(-1), read(false), entLoc(ENTLOCSET), numLev(1), sz(0), has_t(false) {}
@@ -154,22 +152,18 @@ private:
     //! get the variable names and other info defined for this file
   ErrorCode get_variables();
 
-    //! parse min/max i/j/k in options, if any
-  ErrorCode init_EulSpcscd_vals(const FileOptions &opts, EntityHandle file_set);
-  ErrorCode init_FVCDscd_vals(const FileOptions &opts, EntityHandle file_set);
-
   ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
                             std::vector<double> &cvals);
 
     //! number of dimensions in this nc file
   unsigned int number_dimensions();
 
-    //! create vertices for the file
+    //! create vertices for scd mesh
   ErrorCode create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &quads);
 
     //! check number of vertices and elements against what's already in file_set
   ErrorCode check_verts_quads(EntityHandle file_set);
-  
+
   ErrorCode parse_options(const FileOptions &opts,
                           std::vector<std::string> &var_names, 
                           std::vector<int> &tstep_nums,
@@ -179,10 +173,10 @@ private:
                                           std::vector<int> &tstep_nums);
 
   ErrorCode read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas,
-				 std::vector<int> &tstep_nums, bool is_scd_mesh);
+				 std::vector<int> &tstep_nums, bool scdMesh); 
 
   ErrorCode read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas,
-				    std::vector<int> &tstep_nums, bool is_scd_mesh);
+				    std::vector<int> &tstep_nums, bool scdMesh);
 
 #ifdef PNETCDF_FILE
   ErrorCode read_variable_to_nonset_async(EntityHandle file_set, std::vector<VarData> &vdatas,
@@ -190,18 +184,18 @@ private:
 #endif
 
   ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
-                           std::vector<int> &tstep_nums, bool is_scd_mesh);
+                           std::vector<int> &tstep_nums, bool scdMesh);
 
   ErrorCode read_variable_allocate(EntityHandle file_set, std::vector<VarData> &vdatas,
-                                   std::vector<int> &tstep_nums, bool is_scd_mesh);
+                                   std::vector<int> &tstep_nums, bool scdMesh);
 
   ErrorCode read_variable_setup(std::vector<std::string> &var_names,
                                 std::vector<int> &tstep_nums, 
                                 std::vector<VarData> &vdatas,
                                 std::vector<VarData> &vsetdatas,
-                                bool is_scd_mesh);
+                                bool scdMesh);
 
-  ErrorCode convert_variable(VarData &var_data, int tstep_num, bool is_scd_mesh);
+  ErrorCode convert_variable(VarData &var_data, int tstep_num, bool scdMesh);
 
   ErrorCode get_tag_to_set(VarData &var_data, int tstep_num, Tag &tagh);
 
@@ -226,10 +220,6 @@ private:
   //! Init info for dimensions that don't have corresponding 
   //! coordinate variables - this info is used for creating tags
   void init_dims_with_no_cvars_info();
-
-  ErrorCode init_HOMMEucd_vals();
-
-  ErrorCode create_ucd_verts_quads(const FileOptions &opts, EntityHandle file_set, Range &quads);
 
   ErrorCode load_BIL(std::string dir_name,
                      const EntityHandle* file_set,
@@ -275,14 +265,6 @@ private:
         }
         return MB_SUCCESS;
       }
-
-  ErrorCode check_conventions_attribute();
-
-  ErrorCode check_source_attribute();
-
-  ErrorCode check_np_attribute();
-
-  ErrorCode init_local_gid(EntityHandle file_set);
 //------------member variables ------------//
 
     //! interface instance
@@ -371,14 +353,7 @@ private:
     //! partitioning method
   int partMethod;
 
-  //! true if a CAM file
-  bool isCam;
-
-    //! true if file is marked as following CF metadata conventions
-  bool isCf;
-
-  int spectralOrder; // read from variable 'np'
-  Range localGid; // used only by camType = CAM_SE
+  Range localGid; // used only by ucd mesh, e.g. HOMME grid
 
     //! whether mesh is locally periodic in i or j
   int locallyPeriodic[2];
