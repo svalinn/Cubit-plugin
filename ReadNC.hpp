@@ -176,10 +176,10 @@ private:
                                           std::vector<int> &tstep_nums);
 
   ErrorCode read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas,
-				 std::vector<int> &tstep_nums, bool scdMesh); 
+				 std::vector<int> &tstep_nums, bool scd_mesh);
 
   ErrorCode read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas,
-				    std::vector<int> &tstep_nums, bool scdMesh);
+				    std::vector<int> &tstep_nums, bool scd_mesh);
 
 #ifdef PNETCDF_FILE
   ErrorCode read_variable_to_nonset_async(EntityHandle file_set, std::vector<VarData> &vdatas,
@@ -187,18 +187,18 @@ private:
 #endif
 
   ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
-                           std::vector<int> &tstep_nums, bool scdMesh);
+                           std::vector<int> &tstep_nums, bool scd_mesh);
 
   ErrorCode read_variable_allocate(EntityHandle file_set, std::vector<VarData> &vdatas,
-                                   std::vector<int> &tstep_nums, bool scdMesh);
+                                   std::vector<int> &tstep_nums, bool scd_mesh);
 
   ErrorCode read_variable_setup(std::vector<std::string> &var_names,
                                 std::vector<int> &tstep_nums, 
                                 std::vector<VarData> &vdatas,
                                 std::vector<VarData> &vsetdatas,
-                                bool scdMesh);
+                                bool scd_mesh);
 
-  ErrorCode convert_variable(VarData &var_data, int tstep_num, bool scdMesh);
+  ErrorCode convert_variable(VarData &var_data, int tstep_num, bool scd_mesh);
 
   ErrorCode get_tag_to_set(VarData &var_data, int tstep_num, Tag &tagh);
 
@@ -387,7 +387,7 @@ private:
   std::string partitionTagName;
 
     //! Helper class instance
-  NCHelper* helper;
+  NCHelper* myHelper;
 };
 
 // inline functions

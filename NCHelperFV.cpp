@@ -19,7 +19,7 @@ bool NCHelperFV::can_read_file(ReadNC* readNC, int fileId)
       dimNames.end(), std::string("lat")) != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slon"))
       != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slat")) != dimNames.end())) {
     // Make sure it is CAM grid
-	std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("source");
+    std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("source");
     if (attIt == readNC->globalAtts.end()) {
       readNC->readMeshIface->report_error("%s", "File does not have source global attribute.");
       return false;

@@ -19,7 +19,7 @@ bool NCHelperEuler::can_read_file(ReadNC* readNC, int fileId)
 
   // If dimension names "lon" AND "lat' exist then it could be either the Eulerian Spectral grid or the FV grid
   if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
-    dimNames.end(), std::string("lat")) != dimNames.end())) {
+      dimNames.end(), std::string("lat")) != dimNames.end())) {
     // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it should be the FV grid
     if ((std::find(dimNames.begin(), dimNames.end(), std::string("slon")) != dimNames.end()) && (std::find(dimNames.begin(),
         dimNames.end(), std::string("slat")) != dimNames.end()))

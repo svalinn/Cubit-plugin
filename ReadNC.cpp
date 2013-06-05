@@ -41,7 +41,7 @@ ReadNC::ReadNC(Interface* impl) :
 #ifdef USE_MPI
   myPcomm(NULL), 
 #endif
-  noMesh(false), noVars(false), spectralMesh(false), helper(NULL)
+  noMesh(false), noVars(false), spectralMesh(false), myHelper(NULL)
 {
   assert(impl != NULL);
 
@@ -90,8 +90,8 @@ void ReadNC::reset() {
 
 ReadNC::~ReadNC() {
   mbImpl->release_interface(readMeshIface);
-  if (helper != NULL)
-    delete helper;
+  if (myHelper != NULL)
+    delete myHelper;
 }
 
 ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set, const FileOptions& opts,
@@ -194,15 +194,15 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     ERRORR(MB_FAILURE, "File not following known conventions.");
   }
 
-  if (helper != NULL)
-    delete helper;
+  if (myHelper != NULL)
+    delete myHelper;
 
-  helper = NCHelper::get_nc_helper(this, fileId, opts);
-  if (helper == NULL) {
+  myHelper = NCHelper::get_nc_helper(this, fileId, opts);
+  if (myHelper == NULL) {
     ERRORR(MB_FAILURE, "Failed to get NCHelper class instance.");
   }
 
-  rval = helper->init_mesh_vals(opts, tmp_set);
+  rval = myHelper->init_mesh_vals(opts, tmp_set);
   ERRORR(rval, "Trouble initializing mesh values.");
 
   // Create mesh vertex/quads sequences
@@ -212,15 +212,15 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
   else if (!noMesh) {
-    rval = helper->create_verts_quads(scdi, opts, tmp_set, quads);
+    rval = myHelper->create_verts_quads(scdi, opts, tmp_set, quads);
     ERRORR(rval, "Trouble creating vertices and quads.");
   }
 
-  bool scdMesh = helper->is_scd_mesh();
+  bool scd_mesh = myHelper->is_scd_mesh();
 
   // Read variables onto grid
   if (!noVars) {
-    rval = read_variables(tmp_set, var_names, tstep_nums, scdMesh);
+    rval = read_variables(tmp_set, var_names, tstep_nums, scd_mesh);
     if (MB_FAILURE == rval)
       return rval;
   }
@@ -232,7 +232,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
       if (mit != varInfo.end())
         filteredDimNames.push_back(dimNames[i]);
     }
-    rval = read_variables(tmp_set, filteredDimNames, tstep_nums, scdMesh);
+    rval = read_variables(tmp_set, filteredDimNames, tstep_nums, scd_mesh);
     if (MB_FAILURE == rval)
       return rval;
   }
@@ -593,10 +593,10 @@ ErrorCode ReadNC::create_scd_verts_quads(ScdInterface *scdi, EntityHandle tmp_se
 }
 
 ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names, std::vector<int> &tstep_nums,
-    std::vector<VarData> &vdatas, std::vector<VarData> &vsetdatas, bool scdMesh) {
+    std::vector<VarData> &vdatas, std::vector<VarData> &vsetdatas, bool scd_mesh) {
   std::map<std::string, VarData>::iterator mit;
 
-  if (scdMesh) { // scd mesh
+  if (scd_mesh) { // scd mesh
     // if empty read them all
     if (var_names.empty()) {
       for (mit = varInfo.begin(); mit != varInfo.end(); mit++) {
@@ -697,7 +697,7 @@ ErrorCode ReadNC::read_variable_setup(std::vector<std::string> &var_names, std::
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool scdMesh) {
+ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool scd_mesh) {
   ErrorCode rval = MB_SUCCESS;
 
   std::vector<EntityHandle>* ehandles = NULL;
@@ -795,7 +795,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
       switch (vdatas[i].entLoc) {
         case 0:
           // vertices
-          if (scdMesh) {
+          if (scd_mesh) {
             // only structured mesh has j parameter that multiplies i to get total # vertices
             vdatas[i].readDims[t].push_back(lDims[1]);
             vdatas[i].readCounts[t].push_back(lDims[4] - lDims[1] + 1);
@@ -897,33 +897,33 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
   return rval;
 }
 
-ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string> &var_names, std::vector<int> &tstep_nums, bool scdMesh) {
+ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string> &var_names, std::vector<int> &tstep_nums, bool scd_mesh) {
   std::vector<VarData> vdatas;
   std::vector<VarData> vsetdatas;
 
-  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas, scdMesh);
+  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas, scd_mesh);
   ERRORR(rval, "Trouble setting up read variable.");
 
-  if (scdMesh) {
+  if (scd_mesh) {
     // create COORDS tag for quads
     rval = create_quad_coordinate_tag(file_set);
     ERRORR(rval, "Trouble creating coordinate tags to entities quads");
   }
 
   if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(file_set, vsetdatas, tstep_nums, scdMesh);
+    rval = read_variable_to_set(file_set, vsetdatas, tstep_nums, scd_mesh);
     ERRORR(rval, "Trouble read variables to set.");
   }
 
   if (!vdatas.empty()) {
 #ifdef PNETCDF_FILE
-    if (!scdMesh) // in serial, we will use the old read, everything is contiguous
+    if (!scd_mesh) // in serial, we will use the old read, everything is contiguous
       // in parallel, we will use async read in pnetcdf
       // the other mechanism is not working, forget about it
       rval = read_variable_to_nonset_async(file_set, vdatas, tstep_nums);
     else
 #endif
-      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums, scdMesh);
+      rval = read_variable_to_nonset(file_set, vdatas, tstep_nums, scd_mesh);
 
     ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
   }
@@ -1011,7 +1011,7 @@ ErrorCode ReadNC::read_variable_to_set_allocate(std::vector<VarData> &vdatas, st
   return rval;
 }
 
-ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool scdMesh) {
+ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool scd_mesh) {
   ErrorCode rval = read_variable_to_set_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables to set.");
 
@@ -1075,7 +1075,7 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t, scdMesh);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t, scd_mesh);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
       if (vdatas[i].varDims.size() <= 1)
@@ -1104,8 +1104,8 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
   return rval;
 }
 
-ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool scdMesh) {
-  ErrorCode rval = read_variable_allocate(file_set, vdatas, tstep_nums, scdMesh);
+ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas, std::vector<int> &tstep_nums, bool scd_mesh) {
+  ErrorCode rval = read_variable_allocate(file_set, vdatas, tstep_nums, scd_mesh);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // finally, read into that space
@@ -1116,7 +1116,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
       void *data = vdatas[i].varDatas[t];
       std::size_t sz = 1;
       size_t ni = vdatas[i].readCounts[t][2], nj = vdatas[i].readCounts[t][3], nk = vdatas[i].readCounts[t][1];
-      if (scdMesh) {
+      if (scd_mesh) {
         for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); ++idx)
           sz *= vdatas[i].readCounts[t][idx];
       }
@@ -1158,7 +1158,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
         case NC_FLOAT: {
           std::vector<float> tmpfloatdata(sz);
 
-          if (scdMesh)
+          if (scd_mesh)
           {
             success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
                 &tmpfloatdata[0] NCREQ);
@@ -1252,7 +1252,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t, scdMesh);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t, scd_mesh);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
     }
@@ -1440,12 +1440,12 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
 }
 #endif
 
-ErrorCode ReadNC::convert_variable(VarData &var_data, int tstep_num, bool scdMesh) {
+ErrorCode ReadNC::convert_variable(VarData &var_data, int tstep_num, bool scd_mesh) {
   // get ptr to tag space
   void *data = var_data.varDatas[tstep_num];
 
   std::size_t sz = 1;
-  if (scdMesh) {
+  if (scd_mesh) {
     for (std::size_t idx = 0; idx != var_data.readCounts[tstep_num].size(); ++idx)
       sz *= var_data.readCounts[tstep_num][idx];
   }
@@ -2022,7 +2022,7 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set, const s
   // <__MESH_TYPE>
   Tag meshTypeTag = 0;
   tag_name = "__MESH_TYPE";
-  std::string meshTypeName = helper->get_mesh_type_name();
+  std::string meshTypeName = myHelper->get_mesh_type_name();
 
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, meshTypeTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
   ERRORR(rval, "Trouble creating __MESH_TYPE tag.");
