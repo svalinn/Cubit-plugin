@@ -34,7 +34,7 @@ bool NCHelperHOMME::can_read_file(ReadNC* readNC, int fileId)
   // If global attribute "np" exists then it should be the HOMME grid
   if (readNC->globalAtts.find("np") != readNC->globalAtts.end()) {
     // Make sure it is CAM grid
-	std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("source");
+    std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("source");
     if (attIt == readNC->globalAtts.end()) {
       readNC->readMeshIface->report_error("%s", "File does not have source global attribute.");
       return false;
