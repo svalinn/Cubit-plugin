@@ -13,22 +13,43 @@
 
 namespace moab {
 
-bool NCHelperHOMME::can_read_file(ReadNC* readNC, const FileOptions& opts, int& spectralOrder)
+NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts) : NCHelper(readNC, fileId), _spectralOrder(-1)
 {
-  // If global attribute "np" exists then it's the HOMME grid
+  // Calculate spectral order
   std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("np");
-  if (attIt != readNC->globalAtts.end())
-  {
-    int success = NCFUNC(get_att_int)(readNC->fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &spectralOrder);
-    if (success != 0) {
+  if (attIt != readNC->globalAtts.end()) {
+    int success = NCFUNC(get_att_int)(readNC->fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &_spectralOrder);
+    if (success != 0)
       readNC->readMeshIface->report_error("%s", "Failed to read np global attribute int data.");
-      return false;
-    }
-
-    spectralOrder--; // Spectral order is one less than np
+    else
+      _spectralOrder--; // Spectral order is one less than np
 
     if (MB_SUCCESS == opts.match_option("PARTITION_METHOD", "NODAL_PARTITION"))
       readNC->partMethod = -1;
+  }
+}
+
+bool NCHelperHOMME::can_read_file(ReadNC* readNC, int fileId)
+{
+  // If global attribute "np" exists then it should be the HOMME grid
+  if (readNC->globalAtts.find("np") != readNC->globalAtts.end()) {
+    // Make sure it is CAM grid
+	std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("source");
+    if (attIt == readNC->globalAtts.end()) {
+      readNC->readMeshIface->report_error("%s", "File does not have source global attribute.");
+      return false;
+    }
+    unsigned int sz = attIt->second.attLen;
+    std::string att_data;
+    att_data.resize(sz + 1);
+    att_data[sz] = '\000';
+    int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
+    if (success != 0) {
+      readNC->readMeshIface->report_error("%s", "Failed to read source global attribute char data.");
+      return false;
+    }
+    if (att_data.find("CAM") == std::string::npos)
+      return false;
 
     return true;
   }
@@ -37,24 +58,6 @@ bool NCHelperHOMME::can_read_file(ReadNC* readNC, const FileOptions& opts, int& 
 }
 
 ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle file_set)
-{
-  ErrorCode rval = init_HOMMEucd_vals();
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble initializing HOMME grid.");
-
-  return rval;
-}
-
-ErrorCode NCHelperHOMME::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
-{
-  ErrorCode rval = create_HOMMEucd_verts_quads(opts, file_set, quads);
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble creating vertices and quads for HOMME grid.");
-
-  return rval;
-}
-
-ErrorCode NCHelperHOMME::init_HOMMEucd_vals()
 {
   std::vector<std::string>& dimNames = _readNC->dimNames;
   std::vector<int>& dimVals = _readNC->dimVals;
@@ -80,7 +83,9 @@ ErrorCode NCHelperHOMME::init_HOMMEucd_vals()
     idx = vit - dimNames.begin();
   else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
     idx = vit - dimNames.begin();
-  else ERRORR(MB_FAILURE, "Couldn't find time variable.");
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find time variable.");
+  }
   tDim = idx;
   tMax = dimVals[idx] - 1;
   tMin = 0;
@@ -186,10 +191,15 @@ ErrorCode NCHelperHOMME::init_HOMMEucd_vals()
   // with no corresponding variables
   _readNC->init_dims_with_no_cvars_info();
 
+  // This check is for HOMME and other ucd mesh. When ReadNC class instance
+  // gets out of scope in a script (and deleted), the localGid will be lost
+  rval = _readNC->check_ucd_localGid(file_set);
+  ERRORR(rval, "Trouble checking local Gid for ucd mesh.");
+
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperHOMME::create_HOMMEucd_verts_quads(const FileOptions& opts, EntityHandle file_set, Range& quads)
+ErrorCode NCHelperHOMME::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::string& fileName = _readNC->fileName;
@@ -260,15 +270,10 @@ ErrorCode NCHelperHOMME::create_HOMMEucd_verts_quads(const FileOptions& opts, En
   std::vector<std::string>::iterator vit;
   int idx;
   if ((vit = std::find(conn_names.begin(), conn_names.end(), "ncells")) != conn_names.end())
-  {
     idx = vit - conn_names.begin();
-  }
   else if ((vit = std::find(conn_names.begin(), conn_names.end(), "ncenters")) != conn_names.end())
-  {
     idx = vit - conn_names.begin();
-  }
-  else
-  {
+  else {
     ERRORR(MB_FAILURE, "Failed to get number of quads.");
   }
   int num_quads = conn_vals[idx];
@@ -277,7 +282,7 @@ ErrorCode NCHelperHOMME::create_HOMMEucd_verts_quads(const FileOptions& opts, En
   int cornerVarId;
   success = NCFUNC(inq_varid)(connectId, "element_corners", &cornerVarId);
   ERRORS(success, "Failed to get variable id.");
-  NCDF_SIZE tmp_dims[2] = { 0, 0 }, tmp_counts[2] = { 4, static_cast<size_t>(num_quads) };
+  NCDF_SIZE tmp_dims[2] = {0, 0}, tmp_counts[2] = {4, static_cast<size_t>(num_quads)};
   std::vector<int> tmp_conn(4 * num_quads), tmp_conn2(4 * num_quads);
   success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_dims, tmp_counts, &tmp_conn2[0] NCREQ);
   ERRORS(success, "Failed to get temporary connectivity.");
@@ -285,10 +290,10 @@ ErrorCode NCHelperHOMME::create_HOMMEucd_verts_quads(const FileOptions& opts, En
   ERRORS(success, "Failed on close.");
   // permute the connectivity
   for (int i = 0; i < num_quads; i++) {
-    tmp_conn[4*i] = tmp_conn2[i];
-    tmp_conn[4*i + 1] = tmp_conn2[i + 1 * num_quads];
-    tmp_conn[4*i + 2] = tmp_conn2[i + 2 * num_quads];
-    tmp_conn[4*i + 3] = tmp_conn2[i + 3 * num_quads];
+    tmp_conn[4 * i] = tmp_conn2[i];
+    tmp_conn[4 * i + 1] = tmp_conn2[i + 1 * num_quads];
+    tmp_conn[4 * i + 2] = tmp_conn2[i + 2 * num_quads];
+    tmp_conn[4 * i + 3] = tmp_conn2[i + 3 * num_quads];
   }
 
   // need to know whether we'll be creating gather mesh later, to make sure we allocate enough space
@@ -309,7 +314,8 @@ ErrorCode NCHelperHOMME::create_HOMMEucd_verts_quads(const FileOptions& opts, En
   start_idx = 4 * rank * num_coarse_quads * spectral_unit;
   // iextra = # coarse quads extra after equal split over procs
   int iextra = num_quads % (procs * spectral_unit);
-  if (rank < iextra) num_coarse_quads++;
+  if (rank < iextra)
+    num_coarse_quads++;
   start_idx += 4 * spectral_unit * std::min(rank, iextra);
   // num_fine_quads is the number of quads in the connectivity list in HommeMapping file assigned to this proc
   num_fine_quads = spectral_unit * num_coarse_quads;
@@ -359,7 +365,7 @@ ErrorCode NCHelperHOMME::create_HOMMEucd_verts_quads(const FileOptions& opts, En
   double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
   int i;
   for (i = 0, rit = localGid.begin(); i < (int)num_local_verts; i++, ++rit) {
-    assert(*rit < ilVals.size()+1);
+    assert(*rit < ilVals.size() + 1);
     xptr[i] = ilVals[(*rit) - 1];
     yptr[i] = jlVals[(*rit) - 1];
     zptr[i] = klVals[lDims[2]];
@@ -383,8 +389,7 @@ ErrorCode NCHelperHOMME::create_HOMMEucd_verts_quads(const FileOptions& opts, En
   int *gid_data = (int*) data;
   std::copy(localGid.begin(), localGid.end(), gid_data);
   // duplicate global id data, which will be used to resolve sharing
-  if (mpFileIdTag)
-  {
+  if (mpFileIdTag) {
     rval = mbImpl->tag_iterate(*mpFileIdTag, vert_range.begin(), vert_range.end(), count, data);
     ERRORR(rval, "Failed to get tag iterator on file id tag.");
     assert(count == (int) num_local_verts);

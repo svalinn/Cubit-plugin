@@ -18,17 +18,13 @@ class NCHelperFV : public NCHelper
 {
 public:
   NCHelperFV(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
-  static bool can_read_file(ReadNC* readNC);
+  static bool can_read_file(ReadNC* readNC, int fileId);
 
 private:
   virtual ErrorCode init_mesh_vals(const FileOptions& opts, EntityHandle file_set);
   virtual ErrorCode create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads);
   virtual std::string get_mesh_type_name() { return "CAM_FV"; }
   virtual bool is_scd_mesh() { return true; }
-
-private:
-  ErrorCode init_FVCDscd_vals(const FileOptions& opts, EntityHandle file_set);
-  ErrorCode create_FVCDscd_verts_quads(ScdInterface* scdi, EntityHandle file_set, Range& quads);
 };
 
 } // namespace moab

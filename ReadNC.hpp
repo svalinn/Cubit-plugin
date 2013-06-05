@@ -161,6 +161,9 @@ private:
     //! create vertices for scd mesh
   ErrorCode create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &quads);
 
+    //! make sure that localGid is properly initialized for ucd mesh
+  ErrorCode check_ucd_localGid(EntityHandle file_set);
+
     //! check number of vertices and elements against what's already in file_set
   ErrorCode check_verts_quads(EntityHandle file_set);
 

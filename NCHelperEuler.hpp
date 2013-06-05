@@ -19,7 +19,7 @@ class NCHelperEuler : public NCHelper
 public:
   NCHelperEuler(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
 
-  static bool can_read_file(ReadNC* readNC);
+  static bool can_read_file(ReadNC* readNC, int fileId);
 
 private:
   virtual ErrorCode init_mesh_vals(const FileOptions& opts, EntityHandle file_set);
@@ -29,9 +29,6 @@ private:
   virtual std::string get_mesh_type_name() { return "CAM_EUL"; }
 
   virtual bool is_scd_mesh() { return true; }
-
-  ErrorCode init_EulSpcscd_vals(const FileOptions& opts, EntityHandle file_set);
-  ErrorCode create_EulSpcscd_verts_quads(ScdInterface* scdi, EntityHandle file_set, Range& quads);
 };
 
 } // namespace moab

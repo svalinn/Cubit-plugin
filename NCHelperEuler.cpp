@@ -13,42 +13,43 @@
 
 namespace moab {
 
-bool NCHelperEuler::can_read_file(ReadNC* readNC)
+bool NCHelperEuler::can_read_file(ReadNC* readNC, int fileId)
 {
   std::vector<std::string>& dimNames = readNC->dimNames;
 
-  // If dimension names "lon" AND "lat' exist then it's the Eulerian Spectral grid or the FV grid
+  // If dimension names "lon" AND "lat' exist then it could be either the Eulerian Spectral grid or the FV grid
   if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
-    dimNames.end(), std::string("lat")) != dimNames.end()))
-  {
-    // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it's the FV grid
+    dimNames.end(), std::string("lat")) != dimNames.end())) {
+    // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it should be the FV grid
     if ((std::find(dimNames.begin(), dimNames.end(), std::string("slon")) != dimNames.end()) && (std::find(dimNames.begin(),
         dimNames.end(), std::string("slat")) != dimNames.end()))
       return false;
-    else
-      return true;
+
+    // Make sure it is CAM grid
+    std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("source");
+    if (attIt == readNC->globalAtts.end()) {
+      readNC->readMeshIface->report_error("%s", "File does not have source global attribute.");
+      return false;
+    }
+    unsigned int sz = attIt->second.attLen;
+    std::string att_data;
+    att_data.resize(sz + 1);
+    att_data[sz] = '\000';
+    int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
+    if (success != 0) {
+      readNC->readMeshIface->report_error("%s", "Failed to read source global attribute char data.");
+      return false;
+    }
+    if (att_data.find("CAM") == std::string::npos)
+      return false;
+
+    return true;
   }
 
   return false;
 }
 
 ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle file_set)
-{
-  ErrorCode rval = init_EulSpcscd_vals(opts, file_set);
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble initializing Euler grid.");
-
-  return rval;
-}
-
-ErrorCode NCHelperEuler::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
-{
-  ErrorCode rval = create_EulSpcscd_verts_quads(scdi, file_set, quads);
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble creating vertices and quads for Euler grid.");
-}
-
-ErrorCode NCHelperEuler::init_EulSpcscd_vals(const FileOptions& opts, EntityHandle file_set)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<std::string>& dimNames = _readNC->dimNames;
@@ -472,7 +473,7 @@ ErrorCode NCHelperEuler::init_EulSpcscd_vals(const FileOptions& opts, EntityHand
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperEuler::create_EulSpcscd_verts_quads(ScdInterface* scdi, EntityHandle file_set, Range& quads)
+ErrorCode NCHelperEuler::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
 {
   return _readNC->create_scd_verts_quads(scdi, file_set, quads);
 }

@@ -203,8 +203,7 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   }
 
   rval = helper->init_mesh_vals(opts, tmp_set);
-  if (MB_SUCCESS != rval)
-    return rval;
+  ERRORR(rval, "Trouble initializing mesh values.");
 
   // Create mesh vertex/quads sequences
   Range quads;
@@ -214,33 +213,10 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   }
   else if (!noMesh) {
     rval = helper->create_verts_quads(scdi, opts, tmp_set, quads);
-    if (MB_SUCCESS != rval)
-      return rval;
+    ERRORR(rval, "Trouble creating vertices and quads.");
   }
 
   bool scdMesh = helper->is_scd_mesh();
-  if (noMesh && !scdMesh)
-  {
-    // we need to populate localGid range with the gids of vertices from the tmp_set
-    // localGid is important in reading the variable data into the nodes
-    // also, for our purposes, localGid is truly the GLOBAL_ID tag data, not other
-    // file_id tags that could get passed around in other scenarios for parallel reading
-    // for nodal_partition, this local gid is easier, should be initialized with only
-    // the owned nodes
-
-    // we need to get all vertices from tmp_set (it is the input set in no_mesh scenario)
-    Range local_verts;
-    rval = mbImpl->get_entities_by_dimension(tmp_set, 0, local_verts);
-    if (MB_FAILURE == rval)
-      return rval;
-    std::vector<int> gids(local_verts.size());
-    // !IMPORTANT : this has to be the GLOBAL_ID tag
-    rval=mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
-    if (MB_FAILURE == rval)
-      return rval;
-    // this will do a smart copy
-    std::copy(gids.begin(), gids.end(), range_inserter(localGid));
-  }
 
   // Read variables onto grid
   if (!noVars) {
@@ -461,6 +437,41 @@ ErrorCode ReadNC::parse_options(const FileOptions &opts, std::vector<std::string
   else
     partMethod = dum;
 #endif
+
+  return MB_SUCCESS;
+}
+
+// In a script, the ReadNC class instance can get out of scope (and deleted). In that
+// case, the localGid (initialized properly when the mesh was created) will be lost,
+// so it has to be properly refilled with the Global Ids of the local vertices
+ErrorCode ReadNC::check_ucd_localGid(EntityHandle tmp_set)
+{
+  if (noMesh && localGid.empty()) {
+    // we need to populate localGid range with the gids of vertices from the tmp_set
+    // localGid is important in reading the variable data into the nodes
+    // also, for our purposes, localGid is truly the GLOBAL_ID tag data, not other
+    // file_id tags that could get passed around in other scenarios for parallel reading
+    // for nodal_partition, this local gid is easier, should be initialized with only
+    // the owned nodes
+
+    // we need to get all vertices from tmp_set (it is the input set in no_mesh scenario)
+    Range local_verts;
+    ErrorCode rval = mbImpl->get_entities_by_dimension(tmp_set, 0, local_verts);
+    if (MB_FAILURE == rval)
+      return rval;
+
+    if (!local_verts.empty()) {
+      std::vector<int> gids(local_verts.size());
+
+      // !IMPORTANT : this has to be the GLOBAL_ID tag
+      rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
+      if (MB_FAILURE == rval)
+        return rval;
+
+      // this will do a smart copy
+      std::copy(gids.begin(), gids.end(), range_inserter(localGid));
+    }
+  }
 
   return MB_SUCCESS;
 }

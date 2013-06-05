@@ -10,38 +10,39 @@
 
 namespace moab {
 
-bool NCHelperFV::can_read_file(ReadNC* readNC)
+bool NCHelperFV::can_read_file(ReadNC* readNC, int fileId)
 {
   std::vector<std::string>& dimNames = readNC->dimNames;
 
-  // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it's the FV grid
+  // If dimension names "lon" AND "lat" AND "slon" AND "slat" exist then it should be the FV grid
   if ((std::find(dimNames.begin(), dimNames.end(), std::string("lon")) != dimNames.end()) && (std::find(dimNames.begin(),
       dimNames.end(), std::string("lat")) != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slon"))
-      != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slat")) != dimNames.end()))
+      != dimNames.end()) && (std::find(dimNames.begin(), dimNames.end(), std::string("slat")) != dimNames.end())) {
+    // Make sure it is CAM grid
+	std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("source");
+    if (attIt == readNC->globalAtts.end()) {
+      readNC->readMeshIface->report_error("%s", "File does not have source global attribute.");
+      return false;
+    }
+    unsigned int sz = attIt->second.attLen;
+    std::string att_data;
+    att_data.resize(sz + 1);
+    att_data[sz] = '\000';
+    int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
+    if (success != 0) {
+      readNC->readMeshIface->report_error("%s", "Failed to read source global attribute char data.");
+      return false;
+    }
+    if (att_data.find("CAM") == std::string::npos)
+      return false;
+
     return true;
+  }
 
   return false;
 }
 
 ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_set)
-{
-  ErrorCode rval = init_FVCDscd_vals(opts, file_set);
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble initializing FV grid.");
-
-  return rval;
-}
-
-ErrorCode NCHelperFV::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
-{
-  ErrorCode rval = create_FVCDscd_verts_quads(scdi, file_set, quads);
-  if (MB_SUCCESS != rval)
-    _readNC->readMeshIface->report_error("%s", "Trouble creating vertices and quads for FV grid.");
-
-  return rval;
-}
-
-ErrorCode NCHelperFV::init_FVCDscd_vals(const FileOptions& opts, EntityHandle file_set)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<std::string>& dimNames = _readNC->dimNames;
@@ -121,7 +122,7 @@ ErrorCode NCHelperFV::init_FVCDscd_vals(const FileOptions& opts, EntityHandle fi
   if (globallyPeriodic[0])
     assert("Number of vertices and edges should be same" && gDims[3] == gCDims[3]);
   else
-    assert("Number of vertices should equal to number of edges plus one" && gDims[3] == gCDims[3]+1);
+    assert("Number of vertices should equal to number of edges plus one" && gDims[3] == gCDims[3] + 1);
 
 #ifdef USE_MPI
   // if serial, use a locally-periodic representation only if local mesh is periodic, otherwise don't
@@ -468,7 +469,7 @@ ErrorCode NCHelperFV::init_FVCDscd_vals(const FileOptions& opts, EntityHandle fi
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperFV::create_FVCDscd_verts_quads(ScdInterface* scdi, EntityHandle file_set, Range& quads)
+ErrorCode NCHelperFV::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
 {
   return _readNC->create_scd_verts_quads(scdi, file_set, quads);
 }
