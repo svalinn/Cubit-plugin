@@ -16,8 +16,12 @@ if NETCDF_FILE
   MOAB_NETCDF_SRCS = ReadNCDF.cpp  ReadNCDF.hpp \
                      WriteNCDF.cpp WriteNCDF.hpp \
                      WriteSLAC.cpp WriteSLAC.hpp \
-		     ReadNC.cpp ReadNC.hpp \
-	  	     ReadGCRM.cpp ReadGCRM.hpp
+                     ReadNC.cpp ReadNC.hpp \
+                     NCHelper.cpp NCHelper.hpp \
+                     NCHelperEuler.cpp NCHelperEuler.hpp \
+                     NCHelperFV.cpp NCHelperFV.hpp \
+                     NCHelperHOMME.cpp NCHelperHOMME.hpp \
+                     ReadGCRM.cpp ReadGCRM.hpp
 else
   MOAB_NETCDF_SRCS =
 endif
@@ -25,7 +29,11 @@ endif
 if PNETCDF_FILE
 if !NETCDF_FILE
      MOAB_NETCDF_SRCS += ReadNC.cpp ReadNC.hpp \
-	  	     ReadGCRM.cpp ReadGCRM.hpp
+                     NCHelper.cpp NCHelper.hpp \
+                     NCHelperEuler.cpp NCHelperEuler.hpp \
+                     NCHelperFV.cpp NCHelperFV.hpp \
+                     NCHelperHOMME.cpp NCHelperHOMME.hpp \
+                     ReadGCRM.cpp ReadGCRM.hpp
 endif
 endif
 
