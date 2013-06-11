@@ -71,6 +71,7 @@ class ReadNC : public ReaderIface
   friend class NCHelperEuler;
   friend class NCHelperFV;
   friend class NCHelperHOMME;
+  friend class NCHelperMPAS;
 
 public:
 
@@ -158,8 +159,8 @@ private:
     //! number of dimensions in this nc file
   unsigned int number_dimensions();
 
-    //! create vertices and faces for scd mesh
-  ErrorCode create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &faces);
+    //! create vertices and quads for scd mesh
+  ErrorCode create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &quads);
 
     //! make sure that localGid is properly initialized for ucd mesh
   ErrorCode check_ucd_localGid(EntityHandle file_set);
