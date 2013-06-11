@@ -180,7 +180,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
     ReadNC::VarData& vd = (*mit).second;
     if ((std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
         vd.varDims.end(), kDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCNODE;
+      vd.entLoc = ReadNC::ENTLOCVERT;
   }
 
   std::copy(gDims, gDims + 6, lDims);
@@ -199,7 +199,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperHOMME::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
+ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::string& fileName = _readNC->fileName;

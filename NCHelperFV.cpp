@@ -333,7 +333,7 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
     ReadNC::VarData& vd = (*mit).second;
     if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
         vd.varDims.end(), jCDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCQUAD;
+      vd.entLoc = ReadNC::ENTLOCFACE;
     else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
         vd.varDims.end(), iCDim) != vd.varDims.end()))
       vd.entLoc = ReadNC::ENTLOCNSEDGE;
@@ -469,9 +469,9 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperFV::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
+ErrorCode NCHelperFV::create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces)
 {
-  return _readNC->create_scd_verts_quads(scdi, file_set, quads);
+  return _readNC->create_scd_verts_quads(scdi, file_set, faces);
 }
 
 } // namespace moab

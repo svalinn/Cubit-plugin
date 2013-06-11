@@ -74,14 +74,14 @@ class ReadNC : public ReaderIface
 
 public:
 
-  static ReaderIface* factory( Interface* );
+  static ReaderIface* factory(Interface*);
 
     //! load an NC file
-  ErrorCode load_file( const char* file_name,
+  ErrorCode load_file(const char* file_name,
                        const EntityHandle* file_set,
                        const FileOptions& opts,
                        const SubsetList* subset_list = 0,
-                       const Tag* file_id_tag = 0 );
+                       const Tag* file_id_tag = 0);
 
    //! Constructor
    ReadNC(Interface* impl = NULL);
@@ -89,15 +89,15 @@ public:
    //! Destructor
   virtual ~ReadNC();
 
-  virtual ErrorCode read_tag_values( const char* file_name,
-                                     const char* tag_name,
-                                     const FileOptions& opts,
-                                     std::vector<int>& tag_values_out,
-                                     const SubsetList* subset_list = 0 );
+  virtual ErrorCode read_tag_values(const char* file_name,
+                                    const char* tag_name,
+                                    const FileOptions& opts,
+                                    std::vector<int>& tag_values_out,
+                                    const SubsetList* subset_list = 0);
 
   // ENTLOCNSEDGE for north/south edge
   // ENTLOCWEEDGE for west/east edge
-  enum EntityLocation {ENTLOCNODE=0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCQUAD, ENTLOCSET};
+  enum EntityLocation {ENTLOCVERT = 0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCFACE, ENTLOCSET, ENTLOCEDGE, ENTLOCREGION};
 
 private:
 
@@ -143,7 +143,7 @@ private:
   ErrorCode read_header();
 
     //! get all global attributes in the file
-  ErrorCode get_attributes(int var_id, int num_atts, std::map<std::string,AttData> &atts,
+  ErrorCode get_attributes(int var_id, int num_atts, std::map<std::string, AttData> &atts,
                            const char *prefix="");
 
     //! get all dimensions in the file
@@ -158,14 +158,14 @@ private:
     //! number of dimensions in this nc file
   unsigned int number_dimensions();
 
-    //! create vertices for scd mesh
-  ErrorCode create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &quads);
+    //! create vertices and faces for scd mesh
+  ErrorCode create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &faces);
 
     //! make sure that localGid is properly initialized for ucd mesh
   ErrorCode check_ucd_localGid(EntityHandle file_set);
 
-    //! check number of vertices and elements against what's already in file_set
-  ErrorCode check_verts_quads(EntityHandle file_set);
+    //! check number of vertices and faces against what's already in file_set
+  ErrorCode check_verts_faces(EntityHandle file_set);
 
   ErrorCode parse_options(const FileOptions &opts,
                           std::vector<std::string> &var_names, 
@@ -240,7 +240,7 @@ private:
         for (std::size_t j = 0; j != nj; ++j)
           for (std::size_t i = 0; i != ni; ++i)
             for (std::size_t k = 0; k != nk; ++k) 
-              tmp_data[j*nik+i*nk+k] = source[k*nij+j*ni+i];         
+              tmp_data[j*nik + i*nk + k] = source[k*nij + j*ni + i];
         return MB_SUCCESS;
       }
 
@@ -249,22 +249,22 @@ private:
   // we read one time step, one variable at a time, usually, so we will
   template <typename T> ErrorCode kji_to_jik_stride(size_t , size_t nj, size_t nk, void *dest, T *source)
       {
-        std::size_t idxInSource=0;// position of the start of the stride
+        std::size_t idxInSource = 0;// position of the start of the stride
         // for each subrange, we will transpose a matrix of size subrange*nj*nk (subrange takes
         //                                                                       the role of ni)
         T *tmp_data = reinterpret_cast<T*>(dest);
         for (
           Range::pair_iterator pair_iter = localGid.pair_begin();
-          pair_iter!=localGid.pair_end();
+          pair_iter != localGid.pair_end();
           pair_iter++)
         {
-          std::size_t size_range= pair_iter->second - pair_iter->first+1;
+          std::size_t size_range = pair_iter->second - pair_iter->first + 1;
           std::size_t nik = size_range * nk, nij = size_range * nj;
           for (std::size_t j = 0; j != nj; ++j)
             for (std::size_t i = 0; i != size_range; ++i)
               for (std::size_t k = 0; k != nk; ++k)
-                tmp_data[idxInSource + j*nik+i*nk+k] = source[idxInSource + k*nij+j*size_range+i];
-          idxInSource+=(size_range*nj*nk);
+                tmp_data[idxInSource + j*nik + i*nk + k] = source[idxInSource + k*nij + j*size_range + i];
+          idxInSource += (size_range * nj * nk);
         }
         return MB_SUCCESS;
       }
@@ -287,7 +287,7 @@ private:
   // these should be taken out when we fix the dummy var info things
   std::set<std::string> dummyVarNames;
   std::vector<int> dimVals;
-  std::string iName, jName, kName,tName;
+  std::string iName, jName, kName, tName;
   std::string iCName, jCName;
 
     //! global attribs
@@ -314,7 +314,7 @@ private:
   //! center values for i/j
   std::vector<double> ilCVals, jlCVals;
 
-    //! dimension numbers for i, j, t
+    //! dimension numbers for i, j, k, t
   int iDim, jDim, kDim, tDim;
 
     //! center dimension numbers for i, j

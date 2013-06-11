@@ -22,7 +22,7 @@ public:
   static NCHelper* get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts);
 
   virtual ErrorCode init_mesh_vals(const FileOptions& opts, EntityHandle file_set) = 0;
-  virtual ErrorCode create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads) = 0;
+  virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces) = 0;
   virtual std::string get_mesh_type_name() = 0;
   virtual bool is_scd_mesh() = 0;
 

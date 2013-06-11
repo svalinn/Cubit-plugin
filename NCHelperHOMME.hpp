@@ -22,7 +22,7 @@ public:
 
 private:
   virtual ErrorCode init_mesh_vals(const FileOptions& opts, EntityHandle file_set);
-  virtual ErrorCode create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads);
+  virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& elems);
   virtual std::string get_mesh_type_name() { return "CAM_SE"; }
   virtual bool is_scd_mesh() { return false; }
 

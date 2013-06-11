@@ -205,15 +205,15 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   rval = myHelper->init_mesh_vals(opts, tmp_set);
   ERRORR(rval, "Trouble initializing mesh values.");
 
-  // Create mesh vertex/quads sequences
-  Range quads;
+  // Create mesh vertex/edge/face sequences
+  Range faces;
   if (noMesh && !noVars) {
-    rval = check_verts_quads(tmp_set);
+    rval = check_verts_faces(tmp_set);
     ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
   }
   else if (!noMesh) {
-    rval = myHelper->create_verts_quads(scdi, opts, tmp_set, quads);
-    ERRORR(rval, "Trouble creating vertices and quads.");
+    rval = myHelper->create_mesh(scdi, opts, tmp_set, faces);
+    ERRORR(rval, "Trouble creating mesh.");
   }
 
   bool scd_mesh = myHelper->is_scd_mesh();
@@ -244,21 +244,21 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
     rval = mbImpl->create_meshset(MESHSET_SET, partn_set);
     ERRORR(rval, "Trouble creating partition set.");
 
-    rval = mbImpl->add_entities(partn_set,quads);
-    ERRORR(rval, "Couldn't add new quads to partition set.");
+    rval = mbImpl->add_entities(partn_set, faces);
+    ERRORR(rval, "Couldn't add new faces to partition set.");
 
     Range verts;
-    rval = mbImpl->get_connectivity(quads, verts);
-    ERRORR(rval, "Couldn't get verts of quads");
+    rval = mbImpl->get_connectivity(faces, verts);
+    ERRORR(rval, "Couldn't get verts of faces");
 
-    rval = mbImpl->add_entities(partn_set,verts);
+    rval = mbImpl->add_entities(partn_set, verts);
     ERRORR(rval, "Couldn't add new verts to partition set.");
 
     myPcomm->partition_sets().insert(partn_set);
 
     //write partition tag name on partition set
     Tag part_tag;
-    rval = mbImpl->tag_get_handle( partitionTagName.c_str(), 1, MB_TYPE_INTEGER, part_tag );
+    rval = mbImpl->tag_get_handle(partitionTagName.c_str(), 1, MB_TYPE_INTEGER, part_tag);
     if (MB_SUCCESS != rval) {
       // fall back to the partition tag
       part_tag = myPcomm->partition_tag();
@@ -266,12 +266,13 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
 
     int dum_rank = myPcomm->proc_config().proc_rank();
     rval = mbImpl->tag_set_data(part_tag, &partn_set, 1, &dum_rank);
-    if (MB_SUCCESS != rval) return rval;
+    if (MB_SUCCESS != rval)
+      return rval;
   }
 #endif
 
   mbImpl->release_interface(scdi);
-  ERRORR(rval, "Trouble creating scd element sequence.");
+  ERRORR(rval, "Trouble creating element sequence.");
 
   // create nc conventional tags when loading header info only
   if (noMesh && noVars) {
@@ -476,7 +477,7 @@ ErrorCode ReadNC::check_ucd_localGid(EntityHandle tmp_set)
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::check_verts_quads(EntityHandle file_set) {
+ErrorCode ReadNC::check_verts_faces(EntityHandle file_set) {
   // check parameters on this read against what was on the mesh from last read
   // get the number of vertices
   int num_verts;
@@ -702,10 +703,8 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
 
   std::vector<EntityHandle>* ehandles = NULL;
   Range* range = NULL;
-  //std::vector<EntityHandle> verts_handles;
   std::vector<EntityHandle> ns_edges_handles;
   std::vector<EntityHandle> ew_edges_handles;
-  //std::vector<EntityHandle> quads_handles;
 
   // get vertices in set
   Range verts;
@@ -713,8 +712,6 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
   ERRORR(rval, "Trouble getting vertices in set.");
   assert("Should only have a single vertex subrange, since they were read in one shot" &&
       verts.psize() == 1);
-  //verts_handles.resize(verts.size());
-  //std::copy(verts.begin(), verts.end(), verts_handles.begin());
 
   Range edges;
   rval = mbImpl->get_entities_by_dimension(file_set, 1, edges);
@@ -730,25 +727,22 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
   // FIXME: initialize ew_edges_handles to get the right order
   //std::copy(edges.begin(), edges.end(), ew_edges_handles.begin());
 
-  // get quads in set
-  Range quads;
-  rval = mbImpl->get_entities_by_dimension(file_set, 2, quads);
-  ERRORR(rval, "Trouble getting quads in set.");
-  assert("Should only have a single quad subrange, since they were read in one shot" &&
-      quads.psize() == 1);
-  //quads_handles.resize(quads.size());
-  //std::copy(quads.begin(), quads.end(), quads_handles.begin());
+  // get faces in set
+  Range faces;
+  rval = mbImpl->get_entities_by_dimension(file_set, 2, faces);
+  ERRORR(rval, "Trouble getting faces in set.");
+  assert("Should only have a single face subrange, since they were read in one shot" &&
+      faces.psize() == 1);
 
 #ifdef USE_MPI
-  moab::Range quads_owned;
+  moab::Range faces_owned;
   if (isParallel)
   {
-    rval = myPcomm->filter_pstatus(quads, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1,
-      &quads_owned);
-    ERRORR(rval, "Trouble getting owned quads in set.");
+    rval = myPcomm->filter_pstatus(faces, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &faces_owned);
+    ERRORR(rval, "Trouble getting owned faces in set.");
   }
   else
-    quads_owned=quads;// not running in parallel, but still with MPI
+    faces_owned = faces; // not running in parallel, but still with MPI
 #endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
@@ -793,7 +787,7 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
       }
 
       switch (vdatas[i].entLoc) {
-        case 0:
+        case ENTLOCVERT:
           // vertices
           if (scd_mesh) {
             // only structured mesh has j parameter that multiplies i to get total # vertices
@@ -806,14 +800,14 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
           {
             // we will start from the first localGid, actually; we will reset that
             // later on, anyway, in a loop
-            vdatas[i].readDims[t].push_back(localGid[0]-1);
+            vdatas[i].readDims[t].push_back(localGid[0] - 1);
             vdatas[i].readCounts[t].push_back(localGid.size());
           }
 
           assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
           range = &verts;
           break;
-        case 1:
+        case ENTLOCNSEDGE:
           // north/south edges
           /*
            vdatas[i].readDims[t].push_back(lDims[1]);
@@ -826,10 +820,9 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
            ehandles = &ns_edges_handles;
            range = &verts; // FIXME: should remove when edge handles are used
            */
-          ERRORR(MB_FAILURE, "Reading edge data not implemented yet.")
-          ;
+          ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
           break;
-        case 2:
+        case ENTLOCEWEDGE:
           // east/west edges
           /*
            vdatas[i].readDims[t].push_back(lCDims[1]);
@@ -847,11 +840,10 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
            ehandles = &ew_edges_handles;
            range = &verts; // FIXME: should remove when edge handles are used
            */
-          ERRORR(MB_FAILURE, "Reading edge data not implemented yet.")
-          ;
+          ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
           break;
-        case 3:
-          // quads
+        case ENTLOCFACE:
+          // faces
           vdatas[i].readDims[t].push_back(lCDims[1]);
           vdatas[i].readDims[t].push_back(lCDims[0]);
           vdatas[i].readCounts[t].push_back(lCDims[4] - lCDims[1] + 1);
@@ -859,17 +851,22 @@ ErrorCode ReadNC::read_variable_allocate(EntityHandle file_set, std::vector<VarD
           assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
 
 #ifdef USE_MPI
-          range = &quads_owned;
+          range = &faces_owned;
 #else
-          range = &quads;
+          range = &faces;
 #endif
           break;
-        case 4:
-          // set
+        case ENTLOCSET:
+          // sets
+          break;
+        case ENTLOCEDGE:
+          // edges
+          break;
+        case ENTLOCREGION:
+          // regions
           break;
         default:
-          ERRORR(MB_FAILURE, "Unrecoganized entity location type.")
-          ;
+          ERRORR(MB_FAILURE, "Unrecoganized entity location type.");
           break;
       }
 
@@ -925,7 +922,7 @@ ErrorCode ReadNC::read_variables(EntityHandle file_set, std::vector<std::string>
 #endif
       rval = read_variable_to_nonset(file_set, vdatas, tstep_nums, scd_mesh);
 
-    ERRORR(rval, "Trouble read variables to entities verts/edges/quads.");
+    ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");
   }
 
   return MB_SUCCESS;
@@ -1029,14 +1026,12 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
         case NC_CHAR:
           success = NCFUNCAG(_vara_text)(fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
               (char*) data NCREQ);
-          ERRORS(success, "Failed to read char data.")
-          ;
+          ERRORS(success, "Failed to read char data.");
           break;
         case NC_DOUBLE:
           success = NCFUNCAG(_vara_double)(fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
               (double*) data NCREQ);
-          ERRORS(success, "Failed to read double data.")
-          ;
+          ERRORS(success, "Failed to read double data.");
           break;
         case NC_FLOAT: {
           success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
@@ -1047,14 +1042,12 @@ ErrorCode ReadNC::read_variable_to_set(EntityHandle file_set, std::vector<VarDat
         case NC_INT:
           success = NCFUNCAG(_vara_int)(fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
               (int*) data NCREQ);
-          ERRORS(success, "Failed to read int data.")
-          ;
+          ERRORS(success, "Failed to read int data.");
           break;
         case NC_SHORT:
           success = NCFUNCAG(_vara_short)(fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
               (short*) data NCREQ);
-          ERRORS(success, "Failed to read short data.")
-          ;
+          ERRORS(success, "Failed to read short data.");
           break;
         default:
           success = 1;
@@ -1122,7 +1115,7 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
       }
       else {
         sz = vdatas[i].numLev * vdatas[i].readCounts[t][2];
-        nj = 1; // for ucdMesh, nj holds # quads, so here should reset to 1
+        nj = 1; // for ucdMesh, nj holds # faces, so here should reset to 1
       }
 
       switch (vdatas[i].varDataType) {
@@ -1174,12 +1167,11 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
             // assume that the last dimension is for the ncol,
             // node varying variable
 
-            size_t indexInFloatArray= 0;
-            size_t ic=0;
-            for (
-                Range::pair_iterator pair_iter = localGid.pair_begin();
-                pair_iter!=localGid.pair_end();
-                pair_iter++, ic++)
+            size_t indexInFloatArray = 0;
+            size_t ic = 0;
+            for (Range::pair_iterator pair_iter = localGid.pair_begin();
+                 pair_iter!=localGid.pair_end();
+                 pair_iter++, ic++)
             {
               EntityHandle starth = pair_iter->first;
               EntityHandle endh = pair_iter->second;// inclusive
@@ -1192,9 +1184,9 @@ ErrorCode ReadNC::read_variable_to_nonset(EntityHandle file_set, std::vector<Var
               ERRORS(success, "Failed to read float data in loop");
               // we need to increment the index in float array for the
               // next subrange
-              indexInFloatArray+= (endh-starth+1)*1*vdatas[i].numLev; //
+              indexInFloatArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
             }
-            assert(ic==localGid.psize());
+            assert(ic == localGid.psize());
             //
           }
           if (vdatas[i].numLev != 1)
@@ -1293,10 +1285,10 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
       size_t nk = vdatas[i].readCounts[t][1];
 
       sz = vdatas[i].numLev * vdatas[i].readCounts[t][2];
-      size_t nj = 1; // for ucdMesh, nj holds # quads, so here should reset to 1
+      size_t nj = 1; // for ucdMesh, nj holds # faces, so here should reset to 1
 
-      if (sz<=0)
-        continue;// nothing to read, why worry?
+      if (sz <= 0)
+        continue; // nothing to read, why worry?
 
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
@@ -1317,17 +1309,16 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
           // assume that the last dimension is for the ncol,
           // node varying variable
 
-          size_t indexInDoubleArray= 0;
-          size_t ic=0;
-          for (
-              Range::pair_iterator pair_iter = localGid.pair_begin();
-              pair_iter!=localGid.pair_end();
-              pair_iter++, ic++)
+          size_t indexInDoubleArray = 0;
+          size_t ic = 0;
+          for (Range::pair_iterator pair_iter = localGid.pair_begin();
+               pair_iter!=localGid.pair_end();
+               pair_iter++, ic++)
           {
             EntityHandle starth = pair_iter->first;
-            EntityHandle endh = pair_iter->second;// inclusive
-            vdatas[i].readDims[t][nbDims-1] = (NCDF_SIZE) (starth-1);
-            vdatas[i].readCounts[t][nbDims-1] = (NCDF_SIZE) (endh-starth+1);
+            EntityHandle endh = pair_iter->second; // inclusive
+            vdatas[i].readDims[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
 
             // do a partial read, in each subrange
             // wait outside this loop
@@ -1337,7 +1328,7 @@ ErrorCode ReadNC::read_variable_to_nonset_async(EntityHandle file_set, std::vect
             ERRORS(success, "Failed to read double data in loop");
             // we need to increment the index in float array for the
             // next subrange
-            indexInDoubleArray+= (endh-starth+1)*1*vdatas[i].numLev; //
+            indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
           }
           assert(ic==localGid.psize());
           //
@@ -1525,7 +1516,7 @@ ErrorCode ReadNC::convert_variable(VarData &var_data, int tstep_num, bool scd_me
 
 ErrorCode ReadNC::get_tag_to_set(VarData &var_data, int tstep_num, Tag &tagh) {
   std::ostringstream tag_name;
-  if ((!var_data.has_t)||( var_data.varDims.size()<=1))
+  if ((!var_data.has_t) || (var_data.varDims.size() <= 1))
     tag_name << var_data.varName;
   else if (!tstep_num) {
     std::string tmp_name = var_data.varName + "0";
@@ -1597,10 +1588,10 @@ void ReadNC::init_dims_with_no_cvars_info() {
   // hack: look at all dimensions, and see if we have one that does not appear in the list of varInfo names
   // right now, candidates are ncol and nbnd
   // for them, create dummy tags
-  for (unsigned int i=0; i<dimNames.size(); i++)
+  for (unsigned int i = 0; i < dimNames.size(); i++)
   {
     // if there is a var with this name, skip, we are fine; if not, create a varInfo...
-    if ( varInfo.find(dimNames[i])!=varInfo.end())
+    if (varInfo.find(dimNames[i]) != varInfo.end())
       continue; // we already have a variable with this dimension name
 
     int sizeTotalVar = varInfo.size();
@@ -1677,7 +1668,6 @@ ErrorCode ReadNC::read_header() {
 }
 
 ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string, AttData> &atts, const char *prefix) {
-
   char dum_name[120];
 
   for (int i = 0; i < num_atts; i++) {
@@ -1783,7 +1773,6 @@ ErrorCode ReadNC::get_variables() {
 
     ErrorCode rval = get_attributes(i, data.numAtts, data.varAtts, "   ");
     ERRORR(rval, "Trouble getting attributes for a variable.");
-
   }
 
   return MB_SUCCESS;
@@ -1840,7 +1829,6 @@ ErrorCode ReadNC::create_tags(ScdInterface *scdi, EntityHandle file_set, const s
   // <__DIM_VALUES>
   Tag dimValsTag = 0;
   tag_name = "__DIM_VALUES";
-  //std::vector<int> dim;
   int dimValsSz = (int)dimVals.size();
 
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, dimValsTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
@@ -2051,40 +2039,35 @@ ErrorCode ReadNC::create_attrib_string(const std::map<std::string, AttData>& att
         sz = attIt->second.attLen;
         attData = (char *) malloc(sz);
         success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (char*) attData);
-        ERRORS(success, "Failed to read attribute char data.")
-        ;
+        ERRORS(success, "Failed to read attribute char data.");
         ssAtt << "char;";
         break;
       case NC_DOUBLE:
         sz = attIt->second.attLen * sizeof(double);
         attData = (double *) malloc(sz);
         success = NCFUNC(get_att_double)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (double*) attData);
-        ERRORS(success, "Failed to read attribute double data.")
-        ;
+        ERRORS(success, "Failed to read attribute double data.");
         ssAtt << "double;";
         break;
       case NC_FLOAT:
         sz = attIt->second.attLen * sizeof(float);
         attData = (float *) malloc(sz);
         success = NCFUNC(get_att_float)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (float*) attData);
-        ERRORS(success, "Failed to read attribute float data.")
-        ;
+        ERRORS(success, "Failed to read attribute float data.");
         ssAtt << "float;";
         break;
       case NC_INT:
         sz = attIt->second.attLen * sizeof(int);
         attData = (int *) malloc(sz);
         success = NCFUNC(get_att_int)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (int*) attData);
-        ERRORS(success, "Failed to read attribute int data.")
-        ;
+        ERRORS(success, "Failed to read attribute int data.");
         ssAtt << "int;";
         break;
       case NC_SHORT:
         sz = attIt->second.attLen * sizeof(short);
         attData = (short *) malloc(sz);
         success = NCFUNC(get_att_short)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (short*) attData);
-        ERRORS(success, "Failed to read attribute short data.")
-        ;
+        ERRORS(success, "Failed to read attribute short data.");
         ssAtt << "short;";
         break;
       default:
