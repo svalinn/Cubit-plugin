@@ -175,25 +175,6 @@ ErrorCode ReadNC::load_file(const char *file_name, const EntityHandle* file_set,
   if (!scdi)
     return MB_FAILURE;
 
-  // Check if CF convention is being followed
-  std::map<std::string, AttData>::iterator attIt = globalAtts.find("conventions");
-  if (attIt == globalAtts.end())
-    attIt = globalAtts.find("Conventions");
-
-  if (attIt == globalAtts.end()) {
-    ERRORR(MB_FAILURE, "File does not have conventions global attribute.");
-  }
-
-  unsigned int sz = attIt->second.attLen;
-  std::string att_data;
-  att_data.resize(sz + 1);
-  att_data[sz] = '\000';
-  success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
-  ERRORS(success, "Failed to read conventions global attribute char data.");
-  if (att_data.find("CF") == std::string::npos) {
-    ERRORR(MB_FAILURE, "File not following known conventions.");
-  }
-
   if (myHelper != NULL)
     delete myHelper;
 
