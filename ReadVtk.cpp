@@ -28,7 +28,7 @@
 #include "Internals.hpp"
 #include "moab/Interface.hpp"
 #include "moab/ReadUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "FileTokenizer.hpp"
 #include "VtkUtil.hpp"
 

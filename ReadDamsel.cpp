@@ -13,7 +13,7 @@
 #include "moab/Range.hpp"
 #include "moab/Error.hpp"
 #include "moab/ReadUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "MBTagConventions.hpp"
 #include "EntitySequence.hpp"
 #include "Internals.hpp"

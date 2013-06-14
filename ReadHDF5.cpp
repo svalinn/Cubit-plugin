@@ -38,7 +38,7 @@
 #include "MBTagConventions.hpp"
 #include "ReadHDF5.hpp"
 #include "moab/CN.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #ifdef HDF5_PARALLEL
 #  include <H5FDmpi.h>
 #  include <H5FDmpio.h>

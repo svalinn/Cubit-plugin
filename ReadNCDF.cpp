@@ -38,7 +38,7 @@
 #include "Internals.hpp"
 #include "moab/ReadUtilIface.hpp"
 #include "exodus_order.h"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "moab/AdaptiveKDTree.hpp"
 #include "moab/CartVect.hpp"
 

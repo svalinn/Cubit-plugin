@@ -48,16 +48,11 @@
 #include "Internals.hpp"
 #include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "moab/Version.h"
+#include "moab/CpuTimer.hpp"
 #include "IODebugTrack.hpp"
 #include "mhdf.h"
-
-#ifdef USE_MPI
-#define RUNTIME MPI_Wtime()
-#else
-#define RUNTIME (clock()/(double)CLOCKS_PER_SEC)
-#endif
 
 /* Access HDF5 file handle for debugging
 #include <H5Fpublic.h>
@@ -99,15 +94,6 @@ struct file { uint32_t magic; hid_t handle; };
 #endif
 
 namespace moab {
-
-class CpuTimer {
-private:
-  double atBirth, atLast;
-public:
-  CpuTimer() : atBirth(RUNTIME), atLast(atBirth) {}
-  double since_birth() { return (atLast = RUNTIME) - atBirth; };
-  double elapsed() { double tmp = atLast; return (atLast = RUNTIME) - tmp; }
-};
 
 template <typename T> inline 
 void VALGRIND_MAKE_VEC_UNDEFINED( std::vector<T>& v ) {
@@ -601,7 +587,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   topState.end(result);
   CHK_MB_ERR_0(result);
   
-  times[GATHER_TIME] = timer.elapsed();
+  times[GATHER_TIME] = timer.time_elapsed();
   
   //if (nodeSet.range.size() == 0)
   //  return error(MB_ENTITY_NOT_FOUND);
@@ -650,7 +636,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
   if (MB_SUCCESS != result)
     return error(result);
 
-  times[CREATE_TIME] = timer.elapsed();
+  times[CREATE_TIME] = timer.time_elapsed();
 
   dbgOut.tprint(1,"Writing Nodes.\n");
     // Write node coordinates
@@ -662,7 +648,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
       return error(result);
   }
 
-  times[COORD_TIME] = timer.elapsed();
+  times[COORD_TIME] = timer.time_elapsed();
 
   dbgOut.tprint(1,"Writing connectivity.\n");
   
@@ -674,7 +660,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     if (MB_SUCCESS != result)
       return error(result);
   }
-  times[CONN_TIME] = timer.elapsed();
+  times[CONN_TIME] = timer.time_elapsed();
 
   dbgOut.tprint(1,"Writing sets.\n");
   
@@ -684,7 +670,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     return error(result);
   debug_barrier();
   
-  times[SET_TIME] = timer.elapsed();
+  times[SET_TIME] = timer.time_elapsed();
   dbgOut.tprint(1,"Writing adjacencies.\n");
   
     // Write adjacencies
@@ -701,7 +687,7 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     if (MB_SUCCESS != result)
       return error(result);
   }
-  times[ADJ_TIME] = timer.elapsed();
+  times[ADJ_TIME] = timer.time_elapsed();
 
   dbgOut.tprint(1,"Writing tags.\n");
   
@@ -716,9 +702,9 @@ ErrorCode WriteHDF5::write_file_impl( const char* filename,
     if (MB_SUCCESS != result)
       return error(result);
   }
-  times[TAG_TIME] = timer.elapsed();
+  times[TAG_TIME] = timer.time_elapsed();
   
-  times[TOTAL_TIME] = timer.since_birth();
+  times[TOTAL_TIME] = timer.time_since_birth();
 
   if (cputime) {
     print_times( times );
@@ -1374,7 +1360,7 @@ ErrorCode WriteHDF5::write_sets( double* times )
     mhdf_closeData( filePtr, table, &status );
     CHK_MHDF_ERR_0(status);
    
-    times[SET_PARENT] = timer.elapsed();
+    times[SET_PARENT] = timer.time_elapsed();
     track.all_reduce();
   }
   
@@ -1393,7 +1379,7 @@ ErrorCode WriteHDF5::write_sets( double* times )
     mhdf_closeData( filePtr, table, &status );
     CHK_MHDF_ERR_0(status);
    
-    times[SET_CHILD] = timer.elapsed();
+    times[SET_CHILD] = timer.time_elapsed();
     track.all_reduce();
   }
   
@@ -1415,7 +1401,7 @@ ErrorCode WriteHDF5::write_sets( double* times )
     mhdf_closeData( filePtr, table, &status );
     CHK_MHDF_ERR_0(status);
    
-    times[SET_CONTENT] = timer.elapsed();
+    times[SET_CONTENT] = timer.time_elapsed();
     track.all_reduce();
   }
   assert( ranged_sets.size() + null_stripped_sets.size() == set_sizes.size() );
@@ -1544,7 +1530,7 @@ ErrorCode WriteHDF5::write_sets( double* times )
   mhdf_closeData( filePtr, table, &status );
   CHK_MHDF_ERR_0(status);
 
-  times[SET_META] = timer.elapsed();
+  times[SET_META] = timer.time_elapsed();
   track_meta.all_reduce();
 
   return MB_SUCCESS;
@@ -1881,7 +1867,7 @@ ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data,
   if (array_len == MB_VARIABLE_LENGTH && tag_data.write_sparse) {
     dbgOut.printf( 2, "Writing sparse data for var-len tag: \"%s\"\n", name.c_str() );
     rval = write_var_len_tag( tag_data, name, moab_type, hdf5_type, elem_size );
-    times[VARLEN_TAG_TIME] += timer.elapsed();
+    times[VARLEN_TAG_TIME] += timer.time_elapsed();
   }
   else {
     int data_len = elem_size;
@@ -1890,7 +1876,7 @@ ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data,
     if (tag_data.write_sparse) {
       dbgOut.printf( 2, "Writing sparse data for tag: \"%s\"\n", name.c_str() );
       rval = write_sparse_tag( tag_data, name, moab_type, hdf5_type, data_len );
-      times[SPARSE_TAG_TIME] += timer.elapsed();
+      times[SPARSE_TAG_TIME] += timer.time_elapsed();
     }
     for (size_t i = 0; MB_SUCCESS == rval && i < tag_data.dense_list.size(); ++i) {
       const ExportSet* set = find( tag_data.dense_list[i] );
@@ -1901,7 +1887,7 @@ ErrorCode WriteHDF5::write_tag( const TagDesc& tag_data,
       rval = write_dense_tag( tag_data, *set, name, moab_type, hdf5_type, data_len );
       subState.end(rval);
     }
-    times[DENSE_TAG_TIME] += timer.elapsed();
+    times[DENSE_TAG_TIME] += timer.time_elapsed();
   }
  
   H5Tclose( hdf5_type );

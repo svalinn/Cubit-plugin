@@ -2,7 +2,7 @@
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
 #include "moab/ReadUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "MBTagConventions.hpp"
 #include <iostream>
 #include <fstream>

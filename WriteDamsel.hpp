@@ -26,7 +26,7 @@
 #include "moab/Range.hpp"
 #include "moab/WriterIface.hpp"
 #include "RangeSeqIntersectIter.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "DamselUtil.hpp"
 
 #include "damsel.h"

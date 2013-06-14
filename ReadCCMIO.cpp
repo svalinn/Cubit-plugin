@@ -11,7 +11,7 @@
 #include "MBTagConventions.hpp"
 #include "Internals.hpp"
 #include "moab/ReadUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "ReadCCMIO.hpp"
 #include "moab/MeshTopoUtil.hpp"
 

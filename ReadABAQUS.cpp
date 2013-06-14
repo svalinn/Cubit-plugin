@@ -36,7 +36,7 @@
 #include "moab/ReadUtilIface.hpp"
 #include "AffineXform.hpp"
 // #include "abaqus_order.h"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 
 namespace moab {
 

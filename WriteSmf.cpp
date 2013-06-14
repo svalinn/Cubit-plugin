@@ -40,7 +40,7 @@
 #include "MBTagConventions.hpp"
 #include "moab/WriteUtilIface.hpp"
 #include "Internals.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "moab/Version.h"
 
 namespace moab {

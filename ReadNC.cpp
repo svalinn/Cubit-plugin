@@ -16,7 +16,7 @@
 #include "moab/ReaderIface.hpp"
 #include "moab/ReadUtilIface.hpp"
 #include "MBTagConventions.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "moab/ScdInterface.hpp"
 #include "moab/SpectralMeshTool.hpp"
 

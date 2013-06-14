@@ -25,7 +25,7 @@
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
 #include "moab/WriteUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "SysUtil.hpp"
 
 #include <stdio.h>
