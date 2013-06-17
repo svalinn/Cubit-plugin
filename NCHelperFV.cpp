@@ -158,7 +158,7 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
 #ifdef USE_MPI
     for (int i = 0; i < 6; i++)
       parData.gDims[i] = gDims[i];
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 2; i++)
       parData.gPeriodic[i] = globallyPeriodic[i];
     parData.partMethod = partMethod;
     int pdims[3];
