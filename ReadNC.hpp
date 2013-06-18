@@ -33,7 +33,7 @@
 #  include "pnetcdf.h"
 #  define NCFUNC(func) ncmpi_ ## func
 #  define NCFUNCA(func) ncmpi_ ## func ## _all
-// keep it this way , introduce another macro, used so far only for ucd mesh
+//! keep it this way , introduce another macro, used so far only for ucd mesh
 //#  define NCASYNCH
 #  ifdef NCASYNCH
 #    define NCREQ , &requests[j]
@@ -68,6 +68,8 @@ class NCHelper;
 class ReadNC : public ReaderIface
 {
   friend class NCHelper;
+  friend class ScdNCHelper;
+  friend class UcdNCHelper;
   friend class NCHelperEuler;
   friend class NCHelperFV;
   friend class NCHelperHOMME;
@@ -77,7 +79,7 @@ public:
 
   static ReaderIface* factory(Interface*);
 
-    //! load an NC file
+  //! load an NC file
   ErrorCode load_file(const char* file_name,
                        const EntityHandle* file_set,
                        const FileOptions& opts,
@@ -96,8 +98,8 @@ public:
                                     std::vector<int>& tag_values_out,
                                     const SubsetList* subset_list = 0);
 
-  // ENTLOCNSEDGE for north/south edge
-  // ENTLOCWEEDGE for west/east edge
+  //! ENTLOCNSEDGE for north/south edge
+  //! ENTLOCWEEDGE for west/east edge
   enum EntityLocation {ENTLOCVERT = 0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCFACE, ENTLOCSET, ENTLOCEDGE, ENTLOCREGION};
 
 private:
@@ -140,80 +142,49 @@ private:
 
   void reset();
 
-    //! read the header information
+  //! read the header information
   ErrorCode read_header();
 
-    //! get all global attributes in the file
-  ErrorCode get_attributes(int var_id, int num_atts, std::map<std::string, AttData> &atts,
-                           const char *prefix="");
+  //! get all global attributes in the file
+  ErrorCode get_attributes(int var_id, int num_atts, std::map<std::string, AttData>& atts,
+                           const char *prefix = "");
 
-    //! get all dimensions in the file
-  ErrorCode get_dimensions(int file_id, std::vector<std::string> &dim_names, std::vector<int> &dim_vals);
+  //! get all dimensions in the file
+  ErrorCode get_dimensions(int file_id, std::vector<std::string>& dim_names, std::vector<int>& dim_vals);
 
-    //! get the variable names and other info defined for this file
+  //! get the variable names and other info defined for this file
   ErrorCode get_variables();
 
-  ErrorCode read_coordinate(const char *var_name, int lmin, int lmax,
-                            std::vector<double> &cvals);
+  ErrorCode read_coordinate(const char* var_name, int lmin, int lmax,
+                            std::vector<double>& cvals);
 
-    //! number of dimensions in this nc file
+  //! number of dimensions in this nc file
   unsigned int number_dimensions();
 
-    //! create vertices and quads for scd mesh
-  ErrorCode create_scd_verts_quads(ScdInterface *scdi, EntityHandle file_set, Range &quads);
-
-    //! make sure that localGid is properly initialized for ucd mesh
+  //! make sure that localGid is properly initialized for ucd mesh
   ErrorCode check_ucd_localGid(EntityHandle file_set);
 
-    //! check number of vertices and faces against what's already in file_set
+  //! check number of vertices and faces against what's already in file_set
   ErrorCode check_verts_faces(EntityHandle file_set);
 
-  ErrorCode parse_options(const FileOptions &opts,
-                          std::vector<std::string> &var_names, 
-                          std::vector<int> &tstep_nums,
-                          std::vector<double> &tstep_vals);
+  ErrorCode parse_options(const FileOptions& opts,
+                          std::vector<std::string>& var_names,
+                          std::vector<int>& tstep_nums,
+                          std::vector<double>& tstep_vals);
 
-  ErrorCode read_variable_to_set_allocate(std::vector<VarData> &vdatas,
-                                          std::vector<int> &tstep_nums);
-
-  ErrorCode read_variable_to_set(EntityHandle file_set, std::vector<VarData> &vdatas,
-				 std::vector<int> &tstep_nums, bool scd_mesh);
-
-  ErrorCode read_variable_to_nonset(EntityHandle file_set, std::vector<VarData> &vdatas,
-				    std::vector<int> &tstep_nums, bool scd_mesh);
-
-#ifdef PNETCDF_FILE
-  ErrorCode read_variable_to_nonset_async(EntityHandle file_set, std::vector<VarData> &vdatas,
-              std::vector<int> &tstep_nums);
-#endif
-
-  ErrorCode read_variables(EntityHandle file_set, std::vector<std::string> &var_names,
-                           std::vector<int> &tstep_nums, bool scd_mesh);
-
-  ErrorCode read_variable_allocate(EntityHandle file_set, std::vector<VarData> &vdatas,
-                                   std::vector<int> &tstep_nums, bool scd_mesh);
-
-  ErrorCode read_variable_setup(std::vector<std::string> &var_names,
-                                std::vector<int> &tstep_nums, 
-                                std::vector<VarData> &vdatas,
-                                std::vector<VarData> &vsetdatas,
-                                bool scd_mesh);
-
-  ErrorCode convert_variable(VarData &var_data, int tstep_num, bool scd_mesh);
-
-  ErrorCode get_tag_to_set(VarData &var_data, int tstep_num, Tag &tagh);
+  ErrorCode get_tag_to_set(VarData& var_data, int tstep_num, Tag& tagh);
 
   ErrorCode get_tag(VarData &var_data, int tstep_num, Tag &tagh, int num_lev);
 
-    //! create nc conventional tags
-  ErrorCode create_tags(ScdInterface *scdi, EntityHandle file_set, 
+  //! create nc conventional tags
+  ErrorCode create_tags(ScdInterface* scdi, EntityHandle file_set,
                         const std::vector<int> &tstep_nums);
 
-    //! create a character string attString of attMap.  with '\0'
-    //! terminating each attribute name, ';' separating the data type
-    //! and value, and ';' separating one name/data type/value from
-    //! the next'.  attLen stores the end postion for each name/data
-    //! type/ value.
+  //! create a character string attString of attMap.  with '\0'
+  //! terminating each attribute name, ';' separating the data type
+  //! and value, and ';' separating one name/data type/value from
+  //! the next'.  attLen stores the end position for each name/data
+  //! type/ value.
   ErrorCode create_attrib_string(const std::map<std::string, AttData>& attMap, 
 				 std::string& attString,
 				 std::vector<int>& attLen);
@@ -232,166 +203,164 @@ private:
 
   ErrorCode get_BIL_dir();
 
-  bool BIL_mode_enabled(const char * file_name);
+  bool BIL_mode_enabled(const char* file_name);
 
-  template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void *dest, T *source) 
-      {
-        size_t nik = ni * nk, nij = ni * nj;
-        T *tmp_data = reinterpret_cast<T*>(dest);
-        for (std::size_t j = 0; j != nj; ++j)
-          for (std::size_t i = 0; i != ni; ++i)
-            for (std::size_t k = 0; k != nk; ++k) 
-              tmp_data[j*nik + i*nk + k] = source[k*nij + j*ni + i];
-        return MB_SUCCESS;
-      }
+  template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void* dest, T* source)
+  {
+    size_t nik = ni * nk, nij = ni * nj;
+    T* tmp_data = reinterpret_cast<T*>(dest);
+    for (std::size_t j = 0; j != nj; j++)
+      for (std::size_t i = 0; i != ni; i++)
+        for (std::size_t k = 0; k != nk; k++)
+          tmp_data[j*nik + i*nk + k] = source[k*nij + j*ni + i];
+    return MB_SUCCESS;
+  }
 
-  // this version takes as input the moab range, from which we actually need just the
-  // size of each sequence, for a proper transpose of the data
-  // we read one time step, one variable at a time, usually, so we will
-  template <typename T> ErrorCode kji_to_jik_stride(size_t , size_t nj, size_t nk, void *dest, T *source)
-      {
-        std::size_t idxInSource = 0;// position of the start of the stride
-        // for each subrange, we will transpose a matrix of size subrange*nj*nk (subrange takes
-        //                                                                       the role of ni)
-        T *tmp_data = reinterpret_cast<T*>(dest);
-        for (
-          Range::pair_iterator pair_iter = localGid.pair_begin();
-          pair_iter != localGid.pair_end();
-          pair_iter++)
-        {
-          std::size_t size_range = pair_iter->second - pair_iter->first + 1;
-          std::size_t nik = size_range * nk, nij = size_range * nj;
-          for (std::size_t j = 0; j != nj; ++j)
-            for (std::size_t i = 0; i != size_range; ++i)
-              for (std::size_t k = 0; k != nk; ++k)
-                tmp_data[idxInSource + j*nik + i*nk + k] = source[idxInSource + k*nij + j*size_range + i];
-          idxInSource += (size_range * nj * nk);
-        }
-        return MB_SUCCESS;
-      }
+  //! this version takes as input the moab range, from which we actually need just the
+  //! size of each sequence, for a proper transpose of the data
+  //! we read one time step, one variable at a time, usually, so we will
+  template <typename T> ErrorCode kji_to_jik_stride(size_t , size_t nj, size_t nk, void* dest, T* source)
+  {
+    std::size_t idxInSource = 0; // position of the start of the stride
+    // for each subrange, we will transpose a matrix of size subrange*nj*nk (subrange takes
+    //                                                                       the role of ni)
+    T* tmp_data = reinterpret_cast<T*>(dest);
+    for (Range::pair_iterator pair_iter = localGid.pair_begin();
+        pair_iter != localGid.pair_end(); ++pair_iter) {
+      std::size_t size_range = pair_iter->second - pair_iter->first + 1;
+      std::size_t nik = size_range * nk, nij = size_range * nj;
+      for (std::size_t j = 0; j != nj; j++)
+        for (std::size_t i = 0; i != size_range; i++)
+          for (std::size_t k = 0; k != nk; k++)
+            tmp_data[idxInSource + j*nik + i*nk + k] = source[idxInSource + k*nij + j*size_range + i];
+      idxInSource += (size_range*nj*nk);
+    }
+    return MB_SUCCESS;
+  }
 //------------member variables ------------//
 
-    //! interface instance
+  //! interface instance
   Interface* mbImpl;
 
   int CPU_WORD_SIZE;
   int IO_WORD_SIZE;
 
-    //! file name
+  //! file name
   std::string fileName;
 
-    //! file numbers assigned by netcdf
+  //! file numbers assigned by netcdf
   int fileId, connectId;
 
-    //! dimensions
+  //! dimensions
   std::vector<std::string> dimNames;
-  // these should be taken out when we fix the dummy var info things
+  //! these should be taken out when we fix the dummy var info things
   std::set<std::string> dummyVarNames;
   std::vector<int> dimVals;
   std::string iName, jName, kName, tName;
   std::string iCName, jCName;
 
-    //! global attribs
-  std::map<std::string,AttData> globalAtts;
+  //! global attribs
+  std::map<std::string, AttData> globalAtts;
 
-    //! variable info
-  std::map<std::string,VarData> varInfo;
+  //! variable info
+  std::map<std::string, VarData> varInfo;
 
-    //! dimensions of grid in file
+  //! dimensions of grid in file
   int gDims[6], tMin, tMax;
 
-    //! dimensions of my part of grid
+  //! dimensions of my part of grid
   int lDims[6];
 
   //! center dimensions of grid in file
   int gCDims[6];
 
-    //! center dimensions of my part of grid
+  //! center dimensions of my part of grid
   int lCDims[6];
 
-    //! values for i/j/k
+  //! values for i/j/k/t
   std::vector<double> ilVals, jlVals, klVals, tVals;
 
   //! center values for i/j
   std::vector<double> ilCVals, jlCVals;
 
-    //! dimension numbers for i, j, k, t
+  //! dimension numbers for i, j, k, t
   int iDim, jDim, kDim, tDim;
 
-    //! center dimension numbers for i, j
+  //! center dimension numbers for i, j
   int iCDim, jCDim;
 
-    //! number of the dimension of unlimited dimension, if any
+  //! number of the dimension of unlimited dimension, if any
   int numUnLim;
 
-    //! Meshset Handle for the mesh that is currently being read
+  //! Meshset Handle for the mesh that is currently being read
   EntityHandle mCurrentMeshHandle;
 
-    //! starting vertex and element handles for this read
+  //! starting vertex and element handles for this read
   EntityHandle startVertex, startElem;
 
-  //! Cached tags for reading.  Note that all these tags are defined when the
+  //! Cached tags for reading. Note that all these tags are defined when the
   //! core is initialized.
   Tag mGlobalIdTag;
 
-  // this is a pointer to the file id tag that is passed from ReadParallel
-  // it gets deleted at the end of resolve sharing, but it will have same data
-  // as the global id tag
-  // global id tag is preserved, and is needed later on.
+  //! this is a pointer to the file id tag that is passed from ReadParallel
+  //! it gets deleted at the end of resolve sharing, but it will have same data
+  //! as the global id tag
+  //! global id tag is preserved, and is needed later on.
   const Tag * mpFileIdTag;
 
   int max_line_length, max_str_length;
 
-    //! range of entities in initial mesh, before this read
+  //! range of entities in initial mesh, before this read
   Range initRange;
 
-    //! offset of first vertex id
+  //! offset of first vertex id
   int vertexOffset;
 
-    //! debug stuff
+  //! debug stuff
   DebugOutput dbgOut;
 
-    //! are we reading in parallel?
+  //! are we reading in parallel?
   bool isParallel;
 
-    //! partitioning method
+  //! partitioning method
   int partMethod;
 
-  Range localGid; // used only by ucd mesh, e.g. HOMME grid
+  //! used only by ucd mesh, e.g. HOMME grid
+  Range localGid;
 
-    //! whether mesh is locally periodic in i or j
+  //! whether mesh is locally periodic in i or j
   int locallyPeriodic[2];
 
-    //! whether mesh is globally periodic in i or j
+  //! whether mesh is globally periodic in i or j
   int globallyPeriodic[2];
 
-    //! parallel data object, to be cached with ScdBox
+  //! parallel data object, to be cached with ScdBox
   ScdParData parData;
 
-    //! directory where data is stored for BIL reader
+  //! directory where data is stored for BIL reader
   std::string BIL_dir;
 
 #ifdef USE_MPI
-  ParallelComm *myPcomm;
+  ParallelComm* myPcomm;
 #endif
 
-    // read option
+  //! read option
   bool noMesh;
 
-    // read option
+  //! read option
   bool noVars;
 
-    // read option
+  //! read option
   bool spectralMesh;
 
-    // read option
+  //! read option
   std::string partitionTagName;
 
-    //! Helper class instance
+  //! Helper class instance
   NCHelper* myHelper;
 };
 
-// inline functions
+//! inline functions
 inline unsigned int ReadNC::number_dimensions() 
 {
   return dimVals.size();

@@ -2,6 +2,7 @@
 #include "moab/ReadUtilIface.hpp"
 #include "FileOptions.hpp"
 #include "moab/SpectralMeshTool.hpp"
+#include "MBTagConventions.hpp"
 
 #include <cmath>
 
@@ -13,7 +14,7 @@
 
 namespace moab {
 
-NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts) : NCHelper(readNC, fileId), _spectralOrder(-1)
+NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts) : UcdNCHelper(readNC, fileId), _spectralOrder(-1)
 {
   // Calculate spectral order
   std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("np");
@@ -199,7 +200,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
+ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::string& fileName = _readNC->fileName;
@@ -381,12 +382,12 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
 
   // get ptr to gid memory for vertices
   Range vert_range(start_vertex, start_vertex + num_local_verts - 1);
-  void *data;
+  void* data;
   int count;
   rval = mbImpl->tag_iterate(mGlobalIdTag, vert_range.begin(), vert_range.end(), count, data);
   ERRORR(rval, "Failed to get tag iterator.");
   assert(count == (int) num_local_verts);
-  int *gid_data = (int*) data;
+  int* gid_data = (int*) data;
   std::copy(localGid.begin(), localGid.end(), gid_data);
   // duplicate global id data, which will be used to resolve sharing
   if (mpFileIdTag) {
@@ -417,7 +418,7 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   }
 
   // add new vertices and elements to the set
-  quads.merge(tmp_range);
+  faces.merge(tmp_range);
   tmp_range.insert(start_vertex, start_vertex + num_local_verts - 1);
   rval = mbImpl->add_entities(file_set, tmp_range);
   ERRORR(rval, "Couldn't add new vertices and quads/hexes to file set.");
@@ -499,6 +500,598 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
 #ifdef USE_MPI
   }
 #endif
+
+  return MB_SUCCESS;
+}
+
+ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
+                                                 std::vector<ReadNC::VarData>& vdatas, std::vector<ReadNC::VarData>& vsetdatas)
+{
+  std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
+  int& tMin = _readNC->tMin;
+  int& tMax = _readNC->tMax;
+  int& iDim = _readNC->iDim;
+  int& kDim = _readNC->kDim;
+  int& tDim = _readNC->tDim;
+
+  std::map<std::string, ReadNC::VarData>::iterator mit;
+
+  if (var_names.empty()) {
+    for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
+      ReadNC::VarData vd = (*mit).second;
+      if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
+          vd.varDims.end(), kDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(), vd.varDims.end(), iDim)
+          != vd.varDims.end()))
+        vdatas.push_back(vd); //3d data (time, ncol, ilev) read here
+      else
+        vsetdatas.push_back(vd);
+    }
+  }
+  else {
+    for (unsigned int i = 0; i < var_names.size(); i++) {
+
+      mit = varInfo.find(var_names[i]);
+      if (mit != varInfo.end()) {
+        ReadNC::VarData vd = (*mit).second;
+        if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
+            vd.varDims.end(), kDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(), vd.varDims.end(), iDim)
+            != vd.varDims.end()))
+          vdatas.push_back(vd); //3d data
+        else
+          vsetdatas.push_back(vd);
+      }
+      else ERRORR(MB_FAILURE, "Couldn't find variable.");
+    }
+  }
+
+  if (tstep_nums.empty() && -1 != tMin) {
+    // no timesteps input, get them all
+    for (int i = tMin; i <= tMax; i++)
+      tstep_nums.push_back(i);
+  }
+  if (!tstep_nums.empty()) {
+    for (unsigned int i = 0; i < vdatas.size(); i++) {
+      vdatas[i].varTags.resize(tstep_nums.size(), 0);
+      vdatas[i].varDatas.resize(tstep_nums.size());
+      vdatas[i].readDims.resize(tstep_nums.size());
+      vdatas[i].readCounts.resize(tstep_nums.size());
+    }
+    for (unsigned int i = 0; i < vsetdatas.size(); i++) {
+      if ((std::find(vsetdatas[i].varDims.begin(), vsetdatas[i].varDims.end(), tDim) != vsetdatas[i].varDims.end())
+          && (vsetdatas[i].varDims.size() != 1)) {
+        vsetdatas[i].varTags.resize(tstep_nums.size(), 0);
+        vsetdatas[i].varDatas.resize(tstep_nums.size());
+        vsetdatas[i].readDims.resize(tstep_nums.size());
+        vsetdatas[i].readCounts.resize(tstep_nums.size());
+      }
+      else {
+        vsetdatas[i].varTags.resize(1, 0);
+        vsetdatas[i].varDatas.resize(1);
+        vsetdatas[i].readDims.resize(1);
+        vsetdatas[i].readCounts.resize(1);
+      }
+    }
+  }
+
+  return MB_SUCCESS;
+}
+
+ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+{
+  Interface*& mbImpl = _readNC->mbImpl;
+  std::vector<std::string>& dimNames = _readNC->dimNames;
+  std::vector<int>& dimVals = _readNC->dimVals;
+   int& tDim = _readNC->tDim;
+  DebugOutput& dbgOut = _readNC->dbgOut;
+  Range& localGid = _readNC->localGid;
+
+  ErrorCode rval = MB_SUCCESS;
+
+  Range* range = NULL;
+
+  // get vertices in set
+  Range verts;
+  rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
+  ERRORR(rval, "Trouble getting vertices in set.");
+  assert("Should only have a single vertex subrange, since they were read in one shot" &&
+      verts.psize() == 1);
+
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+
+      std::vector<std::string>::iterator vit;
+      int idx_lev = 0;
+      int idx_ilev = 0;
+      if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
+        idx_lev = vit - dimNames.begin();
+      if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
+        idx_ilev = vit - dimNames.begin();
+      if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), idx_lev) != vdatas[i].varDims.end())
+        vdatas[i].numLev = dimVals[idx_lev];
+      else if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), idx_ilev) != vdatas[i].varDims.end())
+        vdatas[i].numLev = dimVals[idx_ilev];
+
+      // get the tag to read into
+      if (!vdatas[i].varTags[t]) {
+        rval = _readNC->get_tag(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
+        ERRORR(rval, "Trouble getting tag.");
+      }
+
+      // assume point-based values for now?
+      if (-1 == tDim || dimVals[tDim] <= (int) t) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
+      }
+      else if (vdatas[i].varDims[0] != tDim) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Non-default timestep number given for time-independent variable.");
+      }
+
+      // set up the dimensions and counts
+      // first time
+      vdatas[i].readDims[t].push_back(tstep_nums[t]);
+      vdatas[i].readCounts[t].push_back(1);
+
+      // then numLev/numVertices
+      if (vdatas[i].numLev != 1) {
+        vdatas[i].readDims[t].push_back(0);
+        vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
+      }
+
+      switch (vdatas[i].entLoc) {
+        case ReadNC::ENTLOCVERT:
+          // vertices
+          // we will start from the first localGid, actually; we will reset that
+          // later on, anyway, in a loop
+          vdatas[i].readDims[t].push_back(localGid[0]-1);
+          vdatas[i].readCounts[t].push_back(localGid.size());
+          assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+          range = &verts;
+          break;
+        case ReadNC::ENTLOCSET:
+          // set
+          break;
+        default:
+          ERRORR(MB_FAILURE, "Unrecognized entity location type.");
+          break;
+      }
+
+      // get ptr to tag space
+      void* data;
+      int count;
+      rval = mbImpl->tag_iterate(vdatas[i].varTags[t], range->begin(), range->end(), count, data);
+      ERRORR(rval, "Failed to get tag iterator.");
+      assert((unsigned)count == range->size());
+      vdatas[i].varDatas[t] = data;
+    }
+  }
+
+  return rval;
+}
+
+#ifdef PNETCDF_FILE
+ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+{
+  DebugOutput& dbgOut = _readNC->dbgOut;
+  Range& localGid = _readNC->localGid;
+
+  ErrorCode rval = read_ucd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
+  ERRORR(rval, "Trouble allocating read variables.");
+
+  // finally, read into that space
+  int success;
+  // MPI_offset or size_t?
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      std::size_t sz = vdatas[i].numLev * vdatas[i].readCounts[t][2];
+      if (sz <= 0)
+        continue; // nothing to read, why worry?
+
+      // we will synchronize all these reads with the other processors,
+      // so the wait will be inside this double loop; is it too much?
+      size_t nb_reads = localGid.psize();
+      std::vector<int> requests(nb_reads), statuss(nb_reads);
+      size_t idxReq = 0;
+      void* data = vdatas[i].varDatas[t];
+      size_t ni = vdatas[i].readCounts[t][2];
+      size_t nj = 1; // for HOMME, nj holds # quads, so here should set to 1
+      size_t nk = vdatas[i].readCounts[t][1];
+
+      switch (vdatas[i].varDataType) {
+        case NC_BYTE:
+        case NC_CHAR: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        case NC_DOUBLE: {
+          // copy from float case
+          std::vector<double> tmpdoubledata(sz);
+
+          // in the case of ucd mesh, and on multiple proc,
+          // we need to read as many times as subranges we have in the
+          // localGid range;
+          // basically, we have to give a different point
+          // for data to start, for every subrange :(
+          size_t nbDims = vdatas[i].readDims[t].size();
+          // assume that the last dimension is for the ncol,
+          // node varying variable
+
+          size_t indexInDoubleArray = 0;
+          size_t ic = 0;
+          for (Range::pair_iterator pair_iter = localGid.pair_begin();
+              pair_iter != localGid.pair_end();
+              pair_iter++, ic++) {
+            EntityHandle starth = pair_iter->first;
+            EntityHandle endh = pair_iter->second; // inclusive
+            vdatas[i].readDims[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
+
+            // do a partial read, in each subrange
+            // wait outside this loop
+            success = NCFUNCAG2(_vara_double)(_fileId, vdatas[i].varId,
+                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(tmpdoubledata[indexInDoubleArray]) NCREQ2);
+            ERRORS(success, "Failed to read double data in loop");
+            // we need to increment the index in float array for the
+            // next subrange
+            indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
+          }
+          assert(ic == localGid.psize());
+
+          success = ncmpi_wait_all(_fileId, requests.size(), &requests[0], &statuss[0]);
+          ERRORS(success, "Failed on wait_all.");
+
+          if (vdatas[i].numLev != 1)
+            // switch from k varying slowest to k varying fastest
+            success = _readNC->kji_to_jik_stride(ni, nj, nk, data, &tmpdoubledata[0]);
+          else {
+            for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
+              ((double*) data)[idx] = tmpdoubledata[idx];
+          }
+          ERRORS(success, "Failed to read double data.");
+          break;
+        }
+        case NC_FLOAT: {
+          std::vector<float> tmpfloatdata(sz);
+
+          // in the case of ucd mesh, and on multiple proc,
+          // we need to read as many times as subranges we have in the
+          // localGid range;
+          // basically, we have to give a different point
+          // for data to start, for every subrange :(
+          size_t nbDims = vdatas[i].readDims[t].size();
+          // assume that the last dimension is for the ncol,
+          // node varying variable
+
+          size_t indexInFloatArray = 0;
+          size_t ic = 0;
+          for (Range::pair_iterator pair_iter = localGid.pair_begin();
+              pair_iter != localGid.pair_end();
+              pair_iter++, ic++) {
+            EntityHandle starth = pair_iter->first;
+            EntityHandle endh = pair_iter->second; // inclusive
+            vdatas[i].readDims[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
+
+            // do a partial read, in each subrange
+            // wait outside this loop
+            success = NCFUNCAG2(_vara_float)(_fileId, vdatas[i].varId,
+                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(tmpfloatdata[indexInFloatArray]) NCREQ2);
+            ERRORS(success, "Failed to read float data in loop");
+            // we need to increment the index in float array for the
+            // next subrange
+            indexInFloatArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
+          }
+          assert(ic == localGid.psize());
+
+          success = ncmpi_wait_all(_fileId, requests.size(), &requests[0], &statuss[0]);
+          ERRORS(success, "Failed on wait_all.");
+
+          if (vdatas[i].numLev != 1)
+            // switch from k varying slowest to k varying fastest
+            success = _readNC->kji_to_jik_stride(ni, nj, nk, data, &tmpfloatdata[0]);
+          else {
+            for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
+              ((float*) data)[idx] = tmpfloatdata[idx];
+          }
+          ERRORS(success, "Failed to read float data.");
+          break;
+        }
+        case NC_INT: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        case NC_SHORT: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        default:
+          success = 1;
+      }
+
+      if (success)
+        ERRORR(MB_FAILURE, "Trouble reading variable.");
+    }
+  }
+
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+      ErrorCode tmp_rval = convert_ucd_variable(vdatas[i], t);
+      if (MB_SUCCESS != tmp_rval)
+        rval = tmp_rval;
+    }
+  }
+  // debug output, if requested
+  if (1 == dbgOut.get_verbosity()) {
+    dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
+    for (unsigned int i = 1; i < vdatas.size(); i++)
+      dbgOut.printf(1, ", %s ", vdatas[i].varName.c_str());
+    dbgOut.tprintf(1, "\n");
+  }
+
+  return rval;
+}
+#else
+ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+{
+  DebugOutput& dbgOut = _readNC->dbgOut;
+
+  ErrorCode rval = read_ucd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
+  ERRORR(rval, "Trouble allocating read variables.");
+
+  // finally, read into that space
+  int success;
+  std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      std::size_t sz = vdatas[i].numLev * vdatas[i].readCounts[t][2];
+      void* data = vdatas[i].varDatas[t];
+      size_t ni = vdatas[i].readCounts[t][2];
+      size_t nj = 1; // for HOMME, nj holds # quads, so here should set to 1
+      size_t nk = vdatas[i].readCounts[t][1];
+
+      switch (vdatas[i].varDataType) {
+        case NC_BYTE:
+        case NC_CHAR: {
+          std::vector<char> tmpchardata(sz);
+          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+              &tmpchardata[0] NCREQ);
+          if (vdatas[i].numLev != 1)
+            // switch from k varying slowest to k varying fastest
+            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
+          else {
+            for (std::size_t idx = 0; idx != tmpchardata.size(); idx++)
+              ((char*) data)[idx] = tmpchardata[idx];
+          }
+          ERRORS(success, "Failed to read char data.");
+          break;
+        }
+        case NC_DOUBLE: {
+          // copy from float case
+          std::vector<double> tmpdoubledata(sz);
+
+          // in the case of ucd mesh, and on multiple proc,
+          // we need to read as many times as subranges we have in the
+          // localGid range;
+          // basically, we have to give a different point
+          // for data to start, for every subrange :(
+          size_t nbDims = vdatas[i].readDims[t].size();
+          // assume that the last dimension is for the ncol,
+          // node varying variable
+
+          size_t indexInDoubleArray = 0;
+          size_t ic = 0;
+          for (Range::pair_iterator pair_iter = localGid.pair_begin();
+              pair_iter != localGid.pair_end();
+              pair_iter++, ic++) {
+            EntityHandle starth = pair_iter->first;
+            EntityHandle endh = pair_iter->second; // inclusive
+            vdatas[i].readDims[t][nbDims-1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[t][nbDims-1] = (NCDF_SIZE) (endh - starth + 1);
+
+            success = NCFUNCAG(_vara_double)(fileId, vdatas[i].varId,
+                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(tmpdoubledata[indexInDoubleArray]) NCREQ);
+            ERRORS(success, "Failed to read float data in loop");
+            // we need to increment the index in float array for the
+            // next subrange
+            indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
+          }
+          assert(ic == localGid.psize());
+
+          if (vdatas[i].numLev != 1)
+            // switch from k varying slowest to k varying fastest
+            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
+          else {
+            for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
+              ((double*) data)[idx] = tmpdoubledata[idx];
+          }
+          ERRORS(success, "Failed to read double data.");
+          break;
+        }
+        case NC_FLOAT: {
+          std::vector<float> tmpfloatdata(sz);
+
+          // in the case of ucd mesh, and on multiple proc,
+          // we need to read as many times as subranges we have in the
+          // localGid range;
+          // basically, we have to give a different point
+          // for data to start, for every subrange :(
+          size_t nbDims = vdatas[i].readDims[t].size();
+          // assume that the last dimension is for the ncol,
+          // node varying variable
+
+          size_t indexInFloatArray = 0;
+          size_t ic = 0;
+          for (Range::pair_iterator pair_iter = localGid.pair_begin();
+              pair_iter != localGid.pair_end();
+              pair_iter++, ic++) {
+            EntityHandle starth = pair_iter->first;
+            EntityHandle endh = pair_iter->second; // inclusive
+            vdatas[i].readDims[t][nbDims-1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[t][nbDims-1] = (NCDF_SIZE) (endh - starth + 1);
+
+            success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId,
+                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(tmpfloatdata[indexInFloatArray]) NCREQ);
+            ERRORS(success, "Failed to read float data in loop");
+            // we need to increment the index in float array for the
+            // next subrange
+            indexInFloatArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
+          }
+          assert(ic == localGid.psize());
+
+          if (vdatas[i].numLev != 1)
+            // switch from k varying slowest to k varying fastest
+            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
+          else {
+            for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
+              ((float*) data)[idx] = tmpfloatdata[idx];
+          }
+          ERRORS(success, "Failed to read float data.");
+          break;
+        }
+        case NC_INT: {
+          std::vector<int> tmpintdata(sz);
+          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+              &tmpintdata[0] NCREQ);
+          if (vdatas[i].numLev != 1)
+            // switch from k varying slowest to k varying fastest
+            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
+          else {
+            for (std::size_t idx = 0; idx != tmpintdata.size(); idx++)
+              ((int*) data)[idx] = tmpintdata[idx];
+          }
+          ERRORS(success, "Failed to read int data.");
+          break;
+        }
+        case NC_SHORT: {
+          std::vector<short> tmpshortdata(sz);
+          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+              &tmpshortdata[0] NCREQ);
+          if (vdatas[i].numLev != 1)
+            // switch from k varying slowest to k varying fastest
+            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
+          else {
+            for (std::size_t idx = 0; idx != tmpshortdata.size(); idx++)
+              ((short*) data)[idx] = tmpshortdata[idx];
+          }
+          ERRORS(success, "Failed to read short data.");
+          break;
+        }
+        default:
+          success = 1;
+      }
+
+      if (success)
+        ERRORR(MB_FAILURE, "Trouble reading variable.");
+    }
+  }
+
+#ifdef NCWAIT
+  int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
+  ERRORS(success, "Failed on wait_all.");
+#endif
+
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+      ErrorCode tmp_rval = convert_ucd_variable(vdatas[i], t);
+      if (MB_SUCCESS != tmp_rval)
+        rval = tmp_rval;
+    }
+  }
+  // debug output, if requested
+  if (1 == dbgOut.get_verbosity()) {
+    dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
+    for (unsigned int i = 1; i < vdatas.size(); i++)
+      dbgOut.printf(1, ", %s ", vdatas[i].varName.c_str());
+    dbgOut.tprintf(1, "\n");
+  }
+
+  return rval;
+}
+#endif
+
+ErrorCode NCHelperHOMME::convert_ucd_variable(ReadNC::VarData& var_data, int tstep_num)
+{
+  DebugOutput& dbgOut = _readNC->dbgOut;
+  Range& localGid = _readNC->localGid;
+
+  // get ptr to tag space
+  void* data = var_data.varDatas[tstep_num];
+
+  std::size_t sz = var_data.numLev * localGid.size(); // how many nodes are we reading?
+
+  // finally, read into that space
+  int success = 0;
+  int* idata;
+  double* ddata;
+  float* fdata;
+  short* sdata;
+
+  switch (var_data.varDataType) {
+    case NC_FLOAT:
+      ddata = (double*) var_data.varDatas[tstep_num];
+      fdata = (float*) var_data.varDatas[tstep_num];
+      // convert in-place
+      for (int i = sz - 1; i >= 0; i--)
+        ddata[i] = fdata[i];
+      break;
+    case NC_SHORT:
+      idata = (int*) var_data.varDatas[tstep_num];
+      sdata = (short*) var_data.varDatas[tstep_num];
+      // convert in-place
+      for (int i = sz - 1; i >= 0; i--)
+        idata[i] = sdata[i];
+      break;
+    default:
+      success = 1;
+  }
+
+  if (2 <= dbgOut.get_verbosity() && !success) {
+    double dmin, dmax;
+    int imin, imax;
+    switch (var_data.varDataType) {
+      case NC_DOUBLE:
+      case NC_FLOAT:
+        ddata = (double*) data;
+        if (sz == 0)
+          break;
+
+        dmin = dmax = ddata[0];
+        for (unsigned int i = 1; i < sz; i++) {
+          if (ddata[i] < dmin)
+            dmin = ddata[i];
+          if (ddata[i] > dmax)
+            dmax = ddata[i];
+        }
+        dbgOut.tprintf(2, "Variable %s (double): min = %f, max = %f\n", var_data.varName.c_str(), dmin, dmax);
+        break;
+      case NC_INT:
+      case NC_SHORT:
+        idata = (int*) data;
+        if (sz == 0)
+          break;
+
+        imin = imax = idata[0];
+        for (unsigned int i = 1; i < sz; i++) {
+          if (idata[i] < imin)
+            imin = idata[i];
+          if (idata[i] > imax)
+            imax = idata[i];
+        }
+        dbgOut.tprintf(2, "Variable %s (int): min = %d, max = %d\n", var_data.varName.c_str(), imin, imax);
+        break;
+      case NC_NAT:
+      case NC_BYTE:
+      case NC_CHAR:
+        break;
+      default: //default case added to remove compiler warnings
+        success = 1;
+    }
+  }
 
   return MB_SUCCESS;
 }

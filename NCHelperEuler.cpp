@@ -473,9 +473,4 @@ ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle fi
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperEuler::create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
-{
-  return _readNC->create_scd_verts_quads(scdi, file_set, quads);
-}
-
 } // namespace moab
