@@ -12,7 +12,9 @@
     ReadSmf.cpp
     ReadSms.cpp
     ReadSTL.cpp
+    ReadTemplate.cpp
     ReadTetGen.cpp
+    ReadTxt.cpp
     ReadVtk.cpp
     SMF_State.cpp
     Tqdcfr.cpp
