@@ -2,15 +2,14 @@
 #include "moab/ReadUtilIface.hpp"
 #include "FileOptions.hpp"
 #include "moab/SpectralMeshTool.hpp"
-#include "MBTagConventions.hpp"
 
 #include <cmath>
 
 #define ERRORR(rval, str) \
-    if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
+  if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
 
 #define ERRORS(err, str) \
-    if (err) {_readNC->readMeshIface->report_error("%s", str); return MB_FAILURE;}
+  if (err) {_readNC->readMeshIface->report_error("%s", str); return MB_FAILURE;}
 
 namespace moab {
 
@@ -92,7 +91,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
   tMin = 0;
   tName = dimNames[idx];
 
-  // get number of vertices (labeled as number of columns) and levels
+  // Get number of vertices (labeled as number of columns) and levels
   gDims[0] = gDims[3] = -1;
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "ncol")) != dimNames.end()) {
     idx = vit - dimNames.begin();
@@ -144,9 +143,9 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
       rval = _readNC->read_coordinate("lev", gDims[2], gDims[5], klVals);
       ERRORR(rval, "Trouble reading z variable.");
 
-      // decide whether down is positive
+      // Decide whether down is positive
       char posval[10];
-      int success = NCFUNC(get_att_text)(_readNC->fileId, (*vmit).second.varId, "positive", posval);
+      int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
       if (0 == success && !strcmp(posval, "down")) {
         for (std::vector<double>::iterator dvit = klVals.begin(); dvit != klVals.end(); ++dvit)
           (*dvit) *= -1.0;
@@ -350,7 +349,7 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
     ERRORR(rval, "Failed to get fine connectivity of spectral elements.");
   }
 
-  // on this proc, I get columns ldims[1]..ldims[4], inclusive; need to find which vertices those correpond to
+  // on this proc, I get columns lDims[1]..lDims[4], inclusive; need to find which vertices those correspond to
   unsigned int num_local_verts = localGid.size();
   unsigned int num_total_verts = gDims[3] - gDims[0] + 1;
 
@@ -367,17 +366,21 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   int i;
   for (i = 0, rit = localGid.begin(); i < (int)num_local_verts; i++, ++rit) {
     assert(*rit < ilVals.size() + 1);
-    xptr[i] = ilVals[(*rit) - 1];
-    yptr[i] = jlVals[(*rit) - 1];
-    zptr[i] = klVals[lDims[2]];
+    xptr[i] = ilVals[(*rit) - 1]; // lon
+    yptr[i] = jlVals[(*rit) - 1]; // lat
+    zptr[i] = klVals[lDims[2]]; // dummy
   }
 
   const double pideg = acos(-1.0) / 180.0;
   for (i = 0; i < (int)num_local_verts; i++) {
     double cosphi = cos(pideg * yptr[i]);
-    double zmult = sin(pideg * yptr[i]), xmult = cosphi * cos(xptr[i] * pideg), ymult = cosphi * sin(xptr[i] * pideg);
+    double zmult = sin(pideg * yptr[i]);
+    double xmult = cosphi * cos(xptr[i] * pideg);
+    double ymult = cosphi * sin(xptr[i] * pideg);
     double rad = 8.0e3 + klVals[lDims[2]];
-    xptr[i] = rad * xmult, yptr[i] = rad * ymult, zptr[i] = rad * zmult;
+    xptr[i] = rad * xmult;
+    yptr[i] = rad * ymult;
+    zptr[i] = rad * zmult;
   }
 
   // get ptr to gid memory for vertices
@@ -516,13 +519,14 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
 
   std::map<std::string, ReadNC::VarData>::iterator mit;
 
+  // If empty read them all
   if (var_names.empty()) {
     for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
       ReadNC::VarData vd = (*mit).second;
       if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
           vd.varDims.end(), kDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(), vd.varDims.end(), iDim)
           != vd.varDims.end()))
-        vdatas.push_back(vd); //3d data (time, ncol, ilev) read here
+        vdatas.push_back(vd); // 3d data (time, lev, ncol) read here
       else
         vsetdatas.push_back(vd);
     }
@@ -536,11 +540,13 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
         if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
             vd.varDims.end(), kDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(), vd.varDims.end(), iDim)
             != vd.varDims.end()))
-          vdatas.push_back(vd); //3d data
+          vdatas.push_back(vd); // 3d data (time, lev, ncol) read here
         else
           vsetdatas.push_back(vd);
       }
-      else ERRORR(MB_FAILURE, "Couldn't find variable.");
+      else {
+        ERRORR(MB_FAILURE, "Couldn't find variable.");
+      }
     }
   }
 
@@ -589,7 +595,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
 
   Range* range = NULL;
 
-  // get vertices in set
+  // Get vertices in set
   Range verts;
   rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
   ERRORR(rval, "Trouble getting vertices in set.");
@@ -601,8 +607,8 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
 
       std::vector<std::string>::iterator vit;
-      int idx_lev = 0;
-      int idx_ilev = 0;
+      int idx_lev = -1;
+      int idx_ilev = -1;
       if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
         idx_lev = vit - dimNames.begin();
       if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
@@ -612,13 +618,13 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
       else if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), idx_ilev) != vdatas[i].varDims.end())
         vdatas[i].numLev = dimVals[idx_ilev];
 
-      // get the tag to read into
+      // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
         rval = _readNC->get_tag(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
         ERRORR(rval, "Trouble getting tag.");
       }
 
-      // assume point-based values for now?
+      // Assume point-based values for now?
       if (-1 == tDim || dimVals[tDim] <= (int) t) {
         ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
       }
@@ -626,23 +632,24 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
         ERRORR(MB_INDEX_OUT_OF_RANGE, "Non-default timestep number given for time-independent variable.");
       }
 
-      // set up the dimensions and counts
-      // first time
+      // Set up the dimensions and counts
+      // First: time
       vdatas[i].readDims[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
-      // then numLev/numVertices
+      // Next: numLev
       if (vdatas[i].numLev != 1) {
         vdatas[i].readDims[t].push_back(0);
         vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
       }
 
+      // Finally: nVertices
       switch (vdatas[i].entLoc) {
         case ReadNC::ENTLOCVERT:
           // vertices
           // we will start from the first localGid, actually; we will reset that
           // later on, anyway, in a loop
-          vdatas[i].readDims[t].push_back(localGid[0]-1);
+          vdatas[i].readDims[t].push_back(localGid[0] - 1);
           vdatas[i].readCounts[t].push_back(localGid.size());
           assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
           range = &verts;
@@ -655,7 +662,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
           break;
       }
 
-      // get ptr to tag space
+      // Get ptr to tag space
       void* data;
       int count;
       rval = mbImpl->tag_iterate(vdatas[i].varTags[t], range->begin(), range->end(), count, data);
@@ -677,7 +684,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
   ErrorCode rval = read_ucd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
-  // finally, read into that space
+  // Finally, read into that space
   int success;
   // MPI_offset or size_t?
   for (unsigned int i = 0; i < vdatas.size(); i++) {
@@ -693,7 +700,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
       size_t idxReq = 0;
       void* data = vdatas[i].varDatas[t];
       size_t ni = vdatas[i].readCounts[t][2];
-      size_t nj = 1; // for HOMME, nj holds # quads, so here should set to 1
+      size_t nj = 1; // For HOMME, nj holds # quads, so here should set to 1
       size_t nk = vdatas[i].readCounts[t][1];
 
       switch (vdatas[i].varDataType) {
@@ -731,7 +738,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
                 &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpdoubledata[indexInDoubleArray]) NCREQ2);
             ERRORS(success, "Failed to read double data in loop");
-            // we need to increment the index in float array for the
+            // we need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
           }
@@ -817,7 +824,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_ucd_variable(vdatas[i], t);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
     }
@@ -836,11 +843,12 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
 ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   DebugOutput& dbgOut = _readNC->dbgOut;
+  Range& localGid = _readNC->localGid;
 
   ErrorCode rval = read_ucd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
-  // finally, read into that space
+  // Finally, read into that space
   int success;
   std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
@@ -848,7 +856,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
       std::size_t sz = vdatas[i].numLev * vdatas[i].readCounts[t][2];
       void* data = vdatas[i].varDatas[t];
       size_t ni = vdatas[i].readCounts[t][2];
-      size_t nj = 1; // for HOMME, nj holds # quads, so here should set to 1
+      size_t nj = 1; // For HOMME, nj holds # quads, so here should set to 1
       size_t nk = vdatas[i].readCounts[t][1];
 
       switch (vdatas[i].varDataType) {
@@ -868,7 +876,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
           break;
         }
         case NC_DOUBLE: {
-          // copy from float case
+          // Copy from float case
           std::vector<double> tmpdoubledata(sz);
 
           // in the case of ucd mesh, and on multiple proc,
@@ -877,31 +885,30 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
           // basically, we have to give a different point
           // for data to start, for every subrange :(
           size_t nbDims = vdatas[i].readDims[t].size();
-          // assume that the last dimension is for the ncol,
-          // node varying variable
 
+          // Assume that the last dimension is for the ncol
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = localGid.pair_begin();
               pair_iter != localGid.pair_end();
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
-            EntityHandle endh = pair_iter->second; // inclusive
-            vdatas[i].readDims[t][nbDims-1] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[t][nbDims-1] = (NCDF_SIZE) (endh - starth + 1);
+            EntityHandle endh = pair_iter->second; // Inclusive
+            vdatas[i].readDims[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
 
-            success = NCFUNCAG(_vara_double)(fileId, vdatas[i].varId,
+            success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpdoubledata[indexInDoubleArray]) NCREQ);
             ERRORS(success, "Failed to read float data in loop");
-            // we need to increment the index in float array for the
+            // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
           }
           assert(ic == localGid.psize());
 
           if (vdatas[i].numLev != 1)
-            // switch from k varying slowest to k varying fastest
+            // Switch from k varying slowest to k varying fastest
             success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
@@ -919,31 +926,30 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
           // basically, we have to give a different point
           // for data to start, for every subrange :(
           size_t nbDims = vdatas[i].readDims[t].size();
-          // assume that the last dimension is for the ncol,
-          // node varying variable
 
+          // Assume that the last dimension is for the ncol
           size_t indexInFloatArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = localGid.pair_begin();
               pair_iter != localGid.pair_end();
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
-            EntityHandle endh = pair_iter->second; // inclusive
+            EntityHandle endh = pair_iter->second; // Inclusive
             vdatas[i].readDims[t][nbDims-1] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[t][nbDims-1] = (NCDF_SIZE) (endh - starth + 1);
 
-            success = NCFUNCAG(_vara_float)(fileId, vdatas[i].varId,
+            success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpfloatdata[indexInFloatArray]) NCREQ);
             ERRORS(success, "Failed to read float data in loop");
-            // we need to increment the index in float array for the
+            // We need to increment the index in float array for the
             // next subrange
             indexInFloatArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
           }
           assert(ic == localGid.psize());
 
           if (vdatas[i].numLev != 1)
-            // switch from k varying slowest to k varying fastest
+            // Switch from k varying slowest to k varying fastest
             success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
@@ -957,7 +963,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
           success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
               &tmpintdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
-            // switch from k varying slowest to k varying fastest
+            // Switch from k varying slowest to k varying fastest
             success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpintdata.size(); idx++)
@@ -971,7 +977,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
           success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
               &tmpshortdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
-            // switch from k varying slowest to k varying fastest
+            // Switch from k varying slowest to k varying fastest
             success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpshortdata.size(); idx++)
@@ -997,7 +1003,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_ucd_variable(vdatas[i], t);
+      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
     }
@@ -1013,87 +1019,5 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
   return rval;
 }
 #endif
-
-ErrorCode NCHelperHOMME::convert_ucd_variable(ReadNC::VarData& var_data, int tstep_num)
-{
-  DebugOutput& dbgOut = _readNC->dbgOut;
-  Range& localGid = _readNC->localGid;
-
-  // get ptr to tag space
-  void* data = var_data.varDatas[tstep_num];
-
-  std::size_t sz = var_data.numLev * localGid.size(); // how many nodes are we reading?
-
-  // finally, read into that space
-  int success = 0;
-  int* idata;
-  double* ddata;
-  float* fdata;
-  short* sdata;
-
-  switch (var_data.varDataType) {
-    case NC_FLOAT:
-      ddata = (double*) var_data.varDatas[tstep_num];
-      fdata = (float*) var_data.varDatas[tstep_num];
-      // convert in-place
-      for (int i = sz - 1; i >= 0; i--)
-        ddata[i] = fdata[i];
-      break;
-    case NC_SHORT:
-      idata = (int*) var_data.varDatas[tstep_num];
-      sdata = (short*) var_data.varDatas[tstep_num];
-      // convert in-place
-      for (int i = sz - 1; i >= 0; i--)
-        idata[i] = sdata[i];
-      break;
-    default:
-      success = 1;
-  }
-
-  if (2 <= dbgOut.get_verbosity() && !success) {
-    double dmin, dmax;
-    int imin, imax;
-    switch (var_data.varDataType) {
-      case NC_DOUBLE:
-      case NC_FLOAT:
-        ddata = (double*) data;
-        if (sz == 0)
-          break;
-
-        dmin = dmax = ddata[0];
-        for (unsigned int i = 1; i < sz; i++) {
-          if (ddata[i] < dmin)
-            dmin = ddata[i];
-          if (ddata[i] > dmax)
-            dmax = ddata[i];
-        }
-        dbgOut.tprintf(2, "Variable %s (double): min = %f, max = %f\n", var_data.varName.c_str(), dmin, dmax);
-        break;
-      case NC_INT:
-      case NC_SHORT:
-        idata = (int*) data;
-        if (sz == 0)
-          break;
-
-        imin = imax = idata[0];
-        for (unsigned int i = 1; i < sz; i++) {
-          if (idata[i] < imin)
-            imin = idata[i];
-          if (idata[i] > imax)
-            imax = idata[i];
-        }
-        dbgOut.tprintf(2, "Variable %s (int): min = %d, max = %d\n", var_data.varName.c_str(), imin, imax);
-        break;
-      case NC_NAT:
-      case NC_BYTE:
-      case NC_CHAR:
-        break;
-      default: //default case added to remove compiler warnings
-        success = 1;
-    }
-  }
-
-  return MB_SUCCESS;
-}
 
 } // namespace moab

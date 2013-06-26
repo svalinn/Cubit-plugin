@@ -45,8 +45,13 @@ private:
   virtual ErrorCode read_ucd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
                                                 std::vector<int>& tstep_nums);
 #endif
-  //! Implementation of UcdNCHelper::convert_ucd_variable()
-  virtual ErrorCode convert_ucd_variable(ReadNC::VarData& var_data, int tstep_num);
+
+private:
+  int maxCellEdges;
+  int numCellGroups;
+  std::vector<int> verticesOnEdge;
+  std::map<EntityHandle, int> CellEntityHandleToIndex;
+  Range facesOwned;
 };
 
 } // namespace moab
