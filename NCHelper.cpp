@@ -337,6 +337,7 @@ ErrorCode ScdNCHelper::check_existing_mesh(EntityHandle file_set) {
   rval = mbImpl->get_number_entities_by_dimension(file_set, (-1 == lDims[2] ? 2 : 3), num_elems);
   ERRORR(rval, "Trouble getting number of elements.");
 
+  /*
   // Check against parameters
   if (num_elems > 0)
   {
@@ -345,6 +346,7 @@ ErrorCode ScdNCHelper::check_existing_mesh(EntityHandle file_set) {
       ERRORR(MB_FAILURE, "Number of elements doesn't match.");
     }
   }
+  */
 
   return MB_SUCCESS;
 }
