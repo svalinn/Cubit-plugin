@@ -23,6 +23,8 @@ public:
 private:
   //! Implementation of NCHelper::init_mesh_vals()
   virtual ErrorCode init_mesh_vals(const FileOptions& opts, EntityHandle file_set);
+  //! Implementation of NCHelper::check_existing_mesh()
+  virtual ErrorCode check_existing_mesh(EntityHandle file_set);
   //! Implementation of NCHelper::create_mesh()
   virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads);
   //! Implementation of NCHelper::get_mesh_type_name()
@@ -50,7 +52,7 @@ private:
   int maxCellEdges;
   int numCellGroups;
   std::vector<int> verticesOnEdge;
-  std::map<EntityHandle, int> CellEntityHandleToIndex;
+  std::map<EntityHandle, int> cellHandleToGlobalID;
   Range facesOwned;
 };
 

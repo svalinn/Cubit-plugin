@@ -10,7 +10,6 @@
 #include <iostream>
 #include <sstream>
 #include <map>
-#include <dirent.h>
 
 #include "moab/Core.hpp"
 #include "moab/ReaderIface.hpp"
@@ -20,13 +19,11 @@
 #include "moab/ScdInterface.hpp"
 #include "moab/SpectralMeshTool.hpp"
 
-//#include "bil.h"
-
 #define ERRORR(rval, str) \
-    if (MB_SUCCESS != rval) {readMeshIface->report_error("%s", str); return rval;}
+  if (MB_SUCCESS != rval) { readMeshIface->report_error("%s", str); return rval; }
 
 #define ERRORS(err, str) \
-    if (err) {readMeshIface->report_error("%s", str); return MB_FAILURE;}
+  if (err) { readMeshIface->report_error("%s", str); return MB_FAILURE; }
 
 namespace moab {
 
@@ -36,8 +33,7 @@ ReaderIface* ReadNC::factory(Interface* iface) {
 
 ReadNC::ReadNC(Interface* impl) :
   mbImpl(impl), CPU_WORD_SIZE(-1), IO_WORD_SIZE(-1), fileId(-1), tMin(-1), tMax(-1), iDim(-1), jDim(-1), tDim(-1), iCDim(-1),
-  jCDim(-1), numUnLim(-1), mCurrentMeshHandle(0), startVertex(0), startElem(0), mGlobalIdTag(0), mpFileIdTag(NULL), max_line_length(-1),
-  max_str_length(-1), vertexOffset(0), dbgOut(stderr), isParallel(false), partMethod(-1),
+  jCDim(-1), numUnLim(-1), mGlobalIdTag(0), mpFileIdTag(NULL), dbgOut(stderr), isParallel(false), partMethod(-1),
 #ifdef USE_MPI
   myPcomm(NULL), 
 #endif
@@ -73,15 +69,8 @@ void ReadNC::reset() {
   iDim = jDim = tDim = -1;
   iCDim = jCDim = -1;
   numUnLim = -1;
-  mCurrentMeshHandle = 0;
-  startVertex = startElem = 0;
   mGlobalIdTag = 0;
-  max_line_length = -1;
-  max_str_length = -1;
-  vertexOffset = 0;
   dbgOut = stderr;
-  mCurrentMeshHandle = 0;
-  vertexOffset = 0;
 
 #ifdef USE_MPI
   myPcomm = NULL;
@@ -102,18 +91,16 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   std::vector<std::string> var_names;
   std::vector<int> tstep_nums;
   std::vector<double> tstep_vals;
-  /*
-  if (file_id_tag)
-    mGlobalIdTag = *file_id_tag;
-  else {
-    */
-    //! get and cache predefined tag handles
+
+  // Get and cache predefined tag handles
   int dum_val = 0;
   rval = mbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, mGlobalIdTag, MB_TAG_DENSE | MB_TAG_CREAT, &dum_val);
   if (MB_SUCCESS != rval)
     return rval;
-  mpFileIdTag = file_id_tag; // store the pointer to the tag ; if not null, set when global id tag
-  // is set too, with the same data , duplicated
+
+  // Store the pointer to the tag; if not null, set when global id tag
+  // is set too, with the same data, duplicated
+  mpFileIdTag = file_id_tag;
 
   std::string partition_tag_name;
   rval = parse_options(opts, var_names, tstep_nums, tstep_vals);
@@ -135,28 +122,11 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
 
   ERRORS(success, "Trouble opening file.");
 
-  // BIL data
-
-  if (BIL_mode_enabled(file_name)) {
-
-    rval = get_BIL_dir();
-    ERRORS(rval, "Failed to find directory with BIL data.");
-
-    dbgOut.tprintf(1, "Reading BIL data from directory: %s\n", BIL_dir.c_str());
-
-    rval = load_BIL(BIL_dir, file_set, opts, file_id_tag);
-    ERRORR(rval, "Trouble reading BIL data.");
-
-    return rval;
-  }
-
-  // end of BIL
-
   // Read the header (num dimensions, dimensions, num variables, global attribs)
   rval = read_header();
-  ERRORR(rval, " ");
+  ERRORR(rval, "Trouble reading file header.");
 
-  // make sure there's a file set to put things in
+  // Make sure there's a file set to put things in
   EntityHandle tmp_set;
   if (noMesh && !file_set) {
     ERRORR(MB_FAILURE, "NOMESH option requires non-NULL file set on input.\n");
@@ -168,7 +138,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   else
     tmp_set = *file_set;
 
-  // get the scd interface
+  // Get the scd interface
   ScdInterface *scdi = NULL;
   rval = mbImpl->query_interface(scdi);
   if (!scdi)
@@ -177,21 +147,25 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   if (myHelper != NULL)
     delete myHelper;
 
+  // Get appropriate NC helper instance based on information read from the header
   myHelper = NCHelper::get_nc_helper(this, fileId, opts);
   if (myHelper == NULL) {
     ERRORR(MB_FAILURE, "Failed to get NCHelper class instance.");
   }
 
+  // Initialize mesh values
   rval = myHelper->init_mesh_vals(opts, tmp_set);
   ERRORR(rval, "Trouble initializing mesh values.");
 
+  // Check existing mesh from last read
+  if (noMesh && !noVars) {
+    rval = myHelper->check_existing_mesh(tmp_set);
+    ERRORR(rval, "Trouble checking mesh from last read.\n");
+  }
+
   // Create mesh vertex/edge/face sequences
   Range faces;
-  if (noMesh && !noVars) {
-    rval = check_verts_faces(tmp_set);
-    ERRORR(rval, "Mesh characteristics didn't match from last read.\n");
-  }
-  else if (!noMesh) {
+  if (!noMesh) {
     rval = myHelper->create_mesh(scdi, opts, tmp_set, faces);
     ERRORR(rval, "Trouble creating mesh.");
   }
@@ -203,20 +177,23 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
       return rval;
   }
   else {
-    // read dimension variable by default, the ones that are also variables
+    // Read dimension variable by default, the ones that are also variables
     std::vector<std::string> filteredDimNames;
     for (unsigned int i = 0; i < dimNames.size(); i++) {
       std::map<std::string, VarData>::iterator mit = varInfo.find(dimNames[i]);
       if (mit != varInfo.end())
         filteredDimNames.push_back(dimNames[i]);
     }
-    rval = myHelper->read_variables(tmp_set, filteredDimNames, tstep_nums);
-    if (MB_FAILURE == rval)
-      return rval;
+
+    if (!filteredDimNames.empty()) {
+      rval = myHelper->read_variables(tmp_set, filteredDimNames, tstep_nums);
+      if (MB_FAILURE == rval)
+        return rval;
+    }
   }
 
 #ifdef USE_MPI
-  // create partition set, and populate with elements
+  // Create partition set, and populate with elements
   if (isParallel) {
     EntityHandle partn_set;
     rval = mbImpl->create_meshset(MESHSET_SET, partn_set);
@@ -234,11 +211,11 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
 
     myPcomm->partition_sets().insert(partn_set);
 
-    //write partition tag name on partition set
+    // Write partition tag name on partition set
     Tag part_tag;
     rval = mbImpl->tag_get_handle(partitionTagName.c_str(), 1, MB_TYPE_INTEGER, part_tag);
     if (MB_SUCCESS != rval) {
-      // fall back to the partition tag
+      // Fall back to the partition tag
       part_tag = myPcomm->partition_tag();
     }
 
@@ -249,85 +226,21 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   }
 #endif
 
-  // create nc conventional tags when loading header info only
+  // Create nc conventional tags when loading header info only
   if (noMesh && noVars) {
-    rval = create_tags(scdi, tmp_set, tstep_nums);
+    rval = create_conventional_tags(scdi, tmp_set, tstep_nums);
     ERRORR(rval, "Trouble creating nc conventional tags.");
   }
 
   mbImpl->release_interface(scdi);
 
-  // close the file
+  // Close the file
   success = NCFUNC(close)(fileId);
   ERRORS(success, "Trouble closing file.");
 
   return MB_SUCCESS;
 }
     
-ErrorCode ReadNC::load_BIL(std::string, const EntityHandle*, const FileOptions&, const Tag*) {
-  /*
-   BIL_Init( MPI_COMM_WORLD );
-
-   void ** buffer;
-
-   DIR * dir;
-   struct dirent * ent;
-   dir = opendir(dir_name.c_str());
-   if (dir != NULL) {
-   while ((ent = readdir(dir)) != NULL) {
-   if (strlen(ent->d_name) > 3) { //filter out . and ..
-
-   dbgOut.tprintf(1,"reading block from %s\n",ent->d_name);
-
-   int num_dims = 3;
-   int time_d = 1;
-   int lev_d  = 26;
-   int ncol_d = 3458;
-   int block_start[3] = {0,0,0};
-   int block_size[3]  = {time_d, lev_d, ncol_d};
-   const char * file_name = ent->d_name;
-   const char * var_name = "T";
-
-   BIL_Add_block_nc(num_dims, block_start, block_size,
-   file_name, var_name, buffer);
-   }
-   }
-   closedir (dir);
-   }
-
-   BIL_Read();
-
-   BIL_Finalize();
-   */
-  return MB_SUCCESS;
-}
-
-ErrorCode ReadNC::get_BIL_dir() {
-  std::map<std::string, AttData> dirAtt;
-  ErrorCode result = get_attributes(NC_GLOBAL, 1, dirAtt);
-  ERRORR(result, "Failed to get BIL_DIR attribute");
-
-  std::string attname;
-  std::map<std::string, AttData>::iterator attIt = dirAtt.find("BIL_DIR");
-
-  unsigned int sz = attIt->second.attLen;
-  char *att_data = (char *) malloc(sz + 1);
-  att_data[sz] = '\000';
-  int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (char*) att_data);
-  ERRORS(success, "Trouble getting BIL data directory.");
-  BIL_dir = std::string(att_data);
-
-  return MB_SUCCESS;
-}
-
-bool ReadNC::BIL_mode_enabled(const char* file_name) {
-  std::string file_path = std::string(file_name);
-  int idx = file_path.find_last_of("/");
-  std::string file = file_path.substr(idx + 1);
-
-  return (file == "BIL_DIR.nc");
-}
-
 ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
                                 std::vector<double>& tstep_vals) {
   int tmpval;
@@ -420,65 +333,6 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
   return MB_SUCCESS;
 }
 
-// In a script, the ReadNC class instance can get out of scope (and deleted). In that
-// case, the localGid (initialized properly when the mesh was created) will be lost,
-// so it has to be properly refilled with the Global Ids of the local vertices
-ErrorCode ReadNC::check_ucd_localGid(EntityHandle tmp_set) {
-  if (noMesh && localGid.empty()) {
-    // we need to populate localGid range with the gids of vertices from the tmp_set
-    // localGid is important in reading the variable data into the nodes
-    // also, for our purposes, localGid is truly the GLOBAL_ID tag data, not other
-    // file_id tags that could get passed around in other scenarios for parallel reading
-    // for nodal_partition, this local gid is easier, should be initialized with only
-    // the owned nodes
-
-    // we need to get all vertices from tmp_set (it is the input set in no_mesh scenario)
-    Range local_verts;
-    ErrorCode rval = mbImpl->get_entities_by_dimension(tmp_set, 0, local_verts);
-    if (MB_FAILURE == rval)
-      return rval;
-
-    if (!local_verts.empty()) {
-      std::vector<int> gids(local_verts.size());
-
-      // !IMPORTANT : this has to be the GLOBAL_ID tag
-      rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
-      if (MB_FAILURE == rval)
-        return rval;
-
-      // this will do a smart copy
-      std::copy(gids.begin(), gids.end(), range_inserter(localGid));
-    }
-  }
-
-  return MB_SUCCESS;
-}
-
-ErrorCode ReadNC::check_verts_faces(EntityHandle file_set) {
-  // check parameters on this read against what was on the mesh from last read
-  // get the number of vertices
-  int num_verts;
-  ErrorCode rval = mbImpl->get_number_entities_by_dimension(file_set, 0, num_verts);
-  ERRORR(rval, "Trouble getting number of vertices.");
-
-  // check against parameters
-  //int expected_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2] + 1);
-  //if (num_verts != expected_verts)
-  //ERRORR(MB_FAILURE, "Number of vertices doesn't match.");
-
-  // check the number of elements too
-  int num_elems;
-  rval = mbImpl->get_number_entities_by_dimension(file_set, (-1 == lDims[2] ? 2 : 3), num_elems);
-  ERRORR(rval, "Trouble getting number of elements.");
-
-  // check against parameters
-  //int expected_elems = (lDims[3] - lDims[0]) * (lDims[4] - lDims[1]) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2]);
-  //if (num_elems != expected_elems)
-  //ERRORR(MB_FAILURE, "Number of elements doesn't match.");
-
-  return MB_SUCCESS;
-}
-
 ErrorCode ReadNC::get_tag_to_set(VarData& var_data, int tstep_num, Tag& tagh) {
   std::ostringstream tag_name;
   if ((!var_data.has_t) || (var_data.varDims.size() <= 1))
@@ -515,7 +369,7 @@ ErrorCode ReadNC::get_tag_to_set(VarData& var_data, int tstep_num, Tag& tagh) {
   return rval;
 }
 
-ErrorCode ReadNC::get_tag(VarData& var_data, int tstep_num, Tag& tagh, int num_lev) {
+ErrorCode ReadNC::get_tag_to_nonset(VarData& var_data, int tstep_num, Tag& tagh, int num_lev) {
   std::ostringstream tag_name;
   if (!tstep_num) {
     std::string tmp_name = var_data.varName + "0";
@@ -654,7 +508,7 @@ ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string,
 }
 
 ErrorCode ReadNC::get_dimensions(int file_id, std::vector<std::string>& dim_names, std::vector<int>& dim_vals) {
-  // get the number of dimensions
+  // Get the number of dimensions
   int num_dims;
   int success = NCFUNC(inq_ndims)(file_id, &num_dims);
   ERRORS(success, "Trouble getting number of dimensions.");
@@ -747,7 +601,7 @@ ErrorCode ReadNC::read_tag_values(const char*, const char*, const FileOptions&, 
   return MB_FAILURE;
 }
 
-ErrorCode ReadNC::create_tags(ScdInterface* scdi, EntityHandle file_set, const std::vector<int>& tstep_nums) {
+ErrorCode ReadNC::create_conventional_tags(ScdInterface* scdi, EntityHandle file_set, const std::vector<int>& tstep_nums) {
   ErrorCode rval;
   std::string tag_name;
 

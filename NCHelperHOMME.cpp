@@ -191,10 +191,46 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
   // with no corresponding variables
   _readNC->init_dims_with_no_cvars_info();
 
-  // This check is for HOMME and other ucd mesh. When ReadNC class instance
-  // gets out of scope in a script (and deleted), the localGid will be lost
-  rval = _readNC->check_ucd_localGid(file_set);
-  ERRORR(rval, "Trouble checking local Gid for ucd mesh.");
+  return MB_SUCCESS;
+}
+
+// When noMesh option is used on this read, the old ReadNC class instance for last read can get out
+// of scope (and deleted). The old instance initialized localGidVerts properly when the mesh was
+// created, but it is now lost. The new instance (will not create the mesh with noMesh option) has
+// to restore it based on the existing mesh from last read
+ErrorCode NCHelperHOMME::check_existing_mesh(EntityHandle tmp_set)
+{
+  Interface*& mbImpl = _readNC->mbImpl;
+  Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
+  bool& noMesh = _readNC->noMesh;
+  Range& localGid = _readNC->localGid;
+
+  if (noMesh && localGid.empty()) {
+    // We need to populate localGid range with the gids of vertices from the tmp_set
+    // localGid is important in reading the variable data into the nodes
+    // also, for our purposes, localGid is truly the GLOBAL_ID tag data, not other
+    // file_id tags that could get passed around in other scenarios for parallel reading
+    // for nodal_partition, this local gid is easier, should be initialized with only
+    // the owned nodes
+
+    // We need to get all vertices from tmp_set (it is the input set in no_mesh scenario)
+    Range local_verts;
+    ErrorCode rval = mbImpl->get_entities_by_dimension(tmp_set, 0, local_verts);
+    if (MB_FAILURE == rval)
+      return rval;
+
+    if (!local_verts.empty()) {
+      std::vector<int> gids(local_verts.size());
+
+      // !IMPORTANT : this has to be the GLOBAL_ID tag
+      rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
+      if (MB_FAILURE == rval)
+        return rval;
+
+      // This will do a smart copy
+      std::copy(gids.begin(), gids.end(), range_inserter(localGid));
+    }
+  }
 
   return MB_SUCCESS;
 }
@@ -282,9 +318,9 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   int cornerVarId;
   success = NCFUNC(inq_varid)(connectId, "element_corners", &cornerVarId);
   ERRORS(success, "Failed to get variable id.");
-  NCDF_SIZE tmp_dims[2] = {0, 0}, tmp_counts[2] = {4, static_cast<size_t>(num_quads)};
+  NCDF_SIZE tmp_starts[2] = {0, 0}, tmp_counts[2] = {4, static_cast<size_t>(num_quads)};
   std::vector<int> tmp_conn(4 * num_quads), tmp_conn2(4 * num_quads);
-  success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_dims, tmp_counts, &tmp_conn2[0] NCREQ);
+  success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_starts, tmp_counts, &tmp_conn2[0] NCREQ);
   ERRORS(success, "Failed to get temporary connectivity.");
   success = NCFUNC(close)(connectId);
   ERRORS(success, "Failed on close.");
@@ -620,7 +656,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
 
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
-        rval = _readNC->get_tag(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
+        rval = _readNC->get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
         ERRORR(rval, "Trouble getting tag.");
       }
 

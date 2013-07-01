@@ -25,6 +25,7 @@ public:
 
   //! Interfaces to be implemented in child classes
   virtual ErrorCode init_mesh_vals(const FileOptions& opts, EntityHandle file_set) = 0;
+  virtual ErrorCode check_existing_mesh(EntityHandle file_set) = 0;
   virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces) = 0;
   virtual ErrorCode read_variables(EntityHandle file_set, std::vector<std::string>& var_names, std::vector<int>& tstep_nums) = 0;
   virtual std::string get_mesh_type_name() = 0;
@@ -53,6 +54,8 @@ public:
   virtual ~ScdNCHelper() {}
 
 private:
+  //! Implementation of NCHelper::check_existing_mesh()
+  virtual ErrorCode check_existing_mesh(EntityHandle file_set);
   //! Implementation of NCHelper::create_mesh()
   virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces);
   //! Implementation of NCHelper::read_variables()

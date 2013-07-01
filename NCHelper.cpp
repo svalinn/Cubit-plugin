@@ -93,16 +93,16 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
         }
       }
 
-      // set up other dimensions and counts
+      // Set up other dimensions and counts
       if (vdatas[i].varDims.empty()) {
-        // scalar variable
+        // Scalar variable
         vdatas[i].readDims[t].push_back(0);
         vdatas[i].readCounts[t].push_back(1);
       }
       else {
         for (unsigned int idx = 0; idx != vdatas[i].varDims.size(); idx++){
           if (tDim != vdatas[i].varDims[idx]){
-            // push other variable dimensions, except time, which was already pushed
+            // Push other variable dimensions, except time, which was already pushed
             vdatas[i].readDims[t].push_back(0);
             vdatas[i].readCounts[t].push_back(dimVals[vdatas[i].varDims[idx]]);
           }
@@ -308,6 +308,41 @@ ErrorCode NCHelper::convert_variable(ReadNC::VarData& var_data, int tstep_num)
         break;
       default: // Default case added to remove compiler warnings
         success = 1;
+    }
+  }
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ScdNCHelper::check_existing_mesh(EntityHandle file_set) {
+  Interface*& mbImpl = _readNC->mbImpl;
+  int (&lDims)[6] = _readNC->lDims;
+
+  // Get the number of vertices
+  int num_verts;
+  ErrorCode rval = mbImpl->get_number_entities_by_dimension(file_set, 0, num_verts);
+  ERRORR(rval, "Trouble getting number of vertices.");
+
+  // Check against parameters
+  if (num_verts > 0)
+  {
+    int expected_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2] + 1);
+    if (num_verts != expected_verts) {
+      ERRORR(MB_FAILURE, "Number of vertices doesn't match.");
+    }
+  }
+
+  // Check the number of elements too
+  int num_elems;
+  rval = mbImpl->get_number_entities_by_dimension(file_set, (-1 == lDims[2] ? 2 : 3), num_elems);
+  ERRORR(rval, "Trouble getting number of elements.");
+
+  // Check against parameters
+  if (num_elems > 0)
+  {
+    int expected_elems = (lDims[3] - lDims[0]) * (lDims[4] - lDims[1]) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2]);
+    if (num_elems != expected_elems) {
+      ERRORR(MB_FAILURE, "Number of elements doesn't match.");
     }
   }
 
@@ -592,7 +627,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
 
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
-        rval = _readNC->get_tag(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
+        rval = _readNC->get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
         ERRORR(rval, "Trouble getting tag.");
       }
 

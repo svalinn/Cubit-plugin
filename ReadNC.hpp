@@ -118,18 +118,17 @@ private:
   class VarData
   {
     public:
-    VarData() : varId(-1), numAtts(-1), read(false), entLoc(ENTLOCSET), numLev(1), sz(0), has_t(false) {}
+    VarData() : varId(-1), numAtts(-1), entLoc(ENTLOCSET), numLev(1), sz(0), has_t(false) {}
     int varId;
     int numAtts;
     nc_type varDataType;
-    std::vector<int> varDims; // the dimension indices making up this multi-dimensional variable
-    std::map<std::string,AttData> varAtts;
+    std::vector<int> varDims; // The dimension indices making up this multi-dimensional variable
+    std::map<std::string, AttData> varAtts;
     std::string varName;
-    bool read;
-    std::vector<Tag> varTags; // one tag for each timestep, varTags[t]
+    std::vector<Tag> varTags; // One tag for each time step, varTags[t]
     std::vector<void*> varDatas;
-    std::vector<std::vector<NCDF_SIZE> > readDims; // start value for this [t][dim]
-    std::vector<std::vector<NCDF_SIZE> > readCounts; // number of data values for this [t][dim]
+    std::vector<std::vector<NCDF_SIZE> > readDims; // Start value for this [t][dim]
+    std::vector<std::vector<NCDF_SIZE> > readCounts; // Number of data values for this [t][dim]
     int entLoc;
     int numLev;
     int sz;
@@ -158,14 +157,8 @@ private:
   ErrorCode read_coordinate(const char* var_name, int lmin, int lmax,
                             std::vector<double>& cvals);
 
-  //! number of dimensions in this nc file
-  unsigned int number_dimensions();
-
   //! make sure that localGid is properly initialized for ucd mesh
-  ErrorCode check_ucd_localGid(EntityHandle file_set);
-
-  //! check number of vertices and faces against what's already in file_set
-  ErrorCode check_verts_faces(EntityHandle file_set);
+  //ErrorCode check_ucd_localGid(EntityHandle file_set);
 
   ErrorCode parse_options(const FileOptions& opts,
                           std::vector<std::string>& var_names,
@@ -174,11 +167,11 @@ private:
 
   ErrorCode get_tag_to_set(VarData& var_data, int tstep_num, Tag& tagh);
 
-  ErrorCode get_tag(VarData &var_data, int tstep_num, Tag &tagh, int num_lev);
+  ErrorCode get_tag_to_nonset(VarData& var_data, int tstep_num, Tag& tagh, int num_lev);
 
   //! create nc conventional tags
-  ErrorCode create_tags(ScdInterface* scdi, EntityHandle file_set,
-                        const std::vector<int> &tstep_nums);
+  ErrorCode create_conventional_tags(ScdInterface* scdi, EntityHandle file_set,
+                                     const std::vector<int>& tstep_nums);
 
   //! create a character string attString of attMap.  with '\0'
   //! terminating each attribute name, ';' separating the data type
@@ -195,15 +188,6 @@ private:
   //! Init info for dimensions that don't have corresponding 
   //! coordinate variables - this info is used for creating tags
   void init_dims_with_no_cvars_info();
-
-  ErrorCode load_BIL(std::string dir_name,
-                     const EntityHandle* file_set,
-                     const FileOptions& opts,
-                     const Tag* file_id_tag);
-
-  ErrorCode get_BIL_dir();
-
-  bool BIL_mode_enabled(const char* file_name);
 
   template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void* dest, T* source)
   {
@@ -292,12 +276,6 @@ private:
   //! number of the dimension of unlimited dimension, if any
   int numUnLim;
 
-  //! Meshset Handle for the mesh that is currently being read
-  EntityHandle mCurrentMeshHandle;
-
-  //! starting vertex and element handles for this read
-  EntityHandle startVertex, startElem;
-
   //! Cached tags for reading. Note that all these tags are defined when the
   //! core is initialized.
   Tag mGlobalIdTag;
@@ -306,15 +284,10 @@ private:
   //! it gets deleted at the end of resolve sharing, but it will have same data
   //! as the global id tag
   //! global id tag is preserved, and is needed later on.
-  const Tag * mpFileIdTag;
-
-  int max_line_length, max_str_length;
-
-  //! range of entities in initial mesh, before this read
-  Range initRange;
+  const Tag* mpFileIdTag;
 
   //! offset of first vertex id
-  int vertexOffset;
+  //int vertexOffset;
 
   //! debug stuff
   DebugOutput dbgOut;
@@ -337,34 +310,19 @@ private:
   //! parallel data object, to be cached with ScdBox
   ScdParData parData;
 
-  //! directory where data is stored for BIL reader
-  std::string BIL_dir;
-
 #ifdef USE_MPI
   ParallelComm* myPcomm;
 #endif
 
-  //! read option
+  //! Read options
   bool noMesh;
-
-  //! read option
   bool noVars;
-
-  //! read option
   bool spectralMesh;
-
-  //! read option
   std::string partitionTagName;
 
   //! Helper class instance
   NCHelper* myHelper;
 };
-
-//! inline functions
-inline unsigned int ReadNC::number_dimensions() 
-{
-  return dimVals.size();
-}
 
 } // namespace moab
 
