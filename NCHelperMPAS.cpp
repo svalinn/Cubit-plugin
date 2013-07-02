@@ -867,6 +867,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::
   int success;
   Range* pLocalGid = NULL;
   // MPI_offset or size_t?
+  std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     switch (vdatas[i].entLoc) {
       case ReadNC::ENTLOCVERT:
@@ -882,10 +883,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::
         ERRORR(MB_FAILURE, "Unrecognized entity location type.");
         break;
     }
-  }
 
-  std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       std::size_t sz = vdatas[i].numLev * vdatas[i].readCounts[t][1];
 
