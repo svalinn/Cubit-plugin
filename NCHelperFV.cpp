@@ -158,7 +158,7 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
 #ifdef USE_MPI
     for (int i = 0; i < 6; i++)
       parData.gDims[i] = gDims[i];
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 2; i++)
       parData.gPeriodic[i] = globallyPeriodic[i];
     parData.partMethod = partMethod;
     int pdims[3];
@@ -333,7 +333,7 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
     ReadNC::VarData& vd = (*mit).second;
     if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
         vd.varDims.end(), jCDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCQUAD;
+      vd.entLoc = ReadNC::ENTLOCFACE;
     else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
         vd.varDims.end(), iCDim) != vd.varDims.end()))
       vd.entLoc = ReadNC::ENTLOCNSEDGE;
@@ -467,11 +467,6 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
   _readNC->init_dims_with_no_cvars_info();
 
   return MB_SUCCESS;
-}
-
-ErrorCode NCHelperFV::create_verts_quads(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads)
-{
-  return _readNC->create_scd_verts_quads(scdi, file_set, quads);
 }
 
 } // namespace moab

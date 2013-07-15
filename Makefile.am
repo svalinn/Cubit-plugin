@@ -21,6 +21,7 @@ if NETCDF_FILE
                      NCHelperEuler.cpp NCHelperEuler.hpp \
                      NCHelperFV.cpp NCHelperFV.hpp \
                      NCHelperHOMME.cpp NCHelperHOMME.hpp \
+                     NCHelperMPAS.cpp NCHelperMPAS.hpp \
                      ReadGCRM.cpp ReadGCRM.hpp
 else
   MOAB_NETCDF_SRCS =
@@ -33,6 +34,7 @@ if !NETCDF_FILE
                      NCHelperEuler.cpp NCHelperEuler.hpp \
                      NCHelperFV.cpp NCHelperFV.hpp \
                      NCHelperHOMME.cpp NCHelperHOMME.hpp \
+                     NCHelperMPAS.cpp NCHelperMPAS.hpp \
                      ReadGCRM.cpp ReadGCRM.hpp
 endif
 endif

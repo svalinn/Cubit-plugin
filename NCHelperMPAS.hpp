@@ -1,23 +1,23 @@
 //-------------------------------------------------------------------------
-// Filename      : NCHelperHOMME.hpp
+// Filename      : NCHelperMPAS.hpp
 //
-// Purpose       : Climate NC file helper for HOMME grid
+// Purpose       : Climate NC file helper for MPAS grid
 //
 // Creator       : Danqing Wu
 //-------------------------------------------------------------------------
 
-#ifndef NCHELPERHOMME_HPP
-#define NCHELPERHOMME_HPP
+#ifndef NCHELPERMPAS_HPP
+#define NCHELPERMPAS_HPP
 
 #include "NCHelper.hpp"
 
 namespace moab {
 
-//! Child helper class for HOMME grid (CAM_SE)
-class NCHelperHOMME : public UcdNCHelper
+//! Child helper class for MPAS grid
+class NCHelperMPAS : public UcdNCHelper
 {
 public:
-  NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts);
+  NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts);
   static bool can_read_file(ReadNC* readNC, int fileId);
 
 private:
@@ -26,9 +26,9 @@ private:
   //! Implementation of NCHelper::check_existing_mesh()
   virtual ErrorCode check_existing_mesh(EntityHandle file_set);
   //! Implementation of NCHelper::create_mesh()
-  virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces);
+  virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& quads);
   //! Implementation of NCHelper::get_mesh_type_name()
-  virtual std::string get_mesh_type_name() { return "CAM_SE"; }
+  virtual std::string get_mesh_type_name() { return "MPAS"; }
 
   //! Implementation of UcdNCHelper::read_ucd_variable_to_nonset_allocate()
   virtual ErrorCode read_ucd_variable_to_nonset_allocate(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
@@ -49,7 +49,11 @@ private:
 #endif
 
 private:
-  int _spectralOrder; // Read from variable 'np'
+  int maxCellEdges;
+  int numCellGroups;
+  std::vector<int> verticesOnEdge;
+  std::map<EntityHandle, int> cellHandleToGlobalID;
+  Range facesOwned;
 };
 
 } // namespace moab
