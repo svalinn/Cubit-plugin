@@ -1,7 +1,7 @@
 project(mhdf)
 
 include_directories(
-  ${HDF5_INCLUDE_DIRECTORIES}
+  ${HDF5_INCLUDE_DIR}
 )
 
 set ( mhdf_LIB_SRCS
