@@ -668,9 +668,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_s
           vdatas[i].readCounts[t].push_back(nLocalCells);
           range = &facesOwned;
           break;
-        case ReadNC::ENTLOCSET:
-          // set
-          break;
         case ReadNC::ENTLOCEDGE:
           // edges
           vdatas[i].readDims[t].push_back(localGidEdges[0] - 1);
@@ -678,7 +675,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_s
           range = &edges;
           break;
         default:
-          ERRORR(MB_FAILURE, "Unrecognized entity location type.");
+          ERRORR(MB_FAILURE, "Unexpected entity location type for MPAS non-set variable.");
           break;
       }
 
@@ -700,6 +697,12 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_s
         vdatas[i].varDatas[t] = data;
       }
     }
+
+    // Calculate variable size
+    std::size_t sz = 1;
+    for (std::size_t idx = 0; idx != vdatas[i].readCounts[0].size(); idx++)
+      sz *= vdatas[i].readCounts[0][idx];
+    vdatas[i].sz = sz;
   }
 
   return rval;

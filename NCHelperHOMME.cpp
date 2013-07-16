@@ -690,11 +690,8 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
           assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
           range = &verts;
           break;
-        case ReadNC::ENTLOCSET:
-          // set
-          break;
         default:
-          ERRORR(MB_FAILURE, "Unrecognized entity location type.");
+          ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
           break;
       }
 
@@ -706,6 +703,12 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
       assert((unsigned)count == range->size());
       vdatas[i].varDatas[t] = data;
     }
+
+    // Calculate variable size
+    std::size_t sz = 1;
+    for (std::size_t idx = 0; idx != vdatas[i].readCounts[0].size(); idx++)
+      sz *= vdatas[i].readCounts[0][idx];
+    vdatas[i].sz = sz;
   }
 
   return rval;

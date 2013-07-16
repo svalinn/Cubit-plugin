@@ -238,9 +238,8 @@ ErrorCode NCHelper::convert_variable(ReadNC::VarData& var_data, int tstep_num)
   // Get ptr to tag space
   void* data = var_data.varDatas[tstep_num];
 
-  std::size_t sz = 1;
-  for (std::size_t idx = 0; idx != var_data.readCounts[tstep_num].size(); idx++)
-    sz *= var_data.readCounts[tstep_num][idx];
+  // Get variable size
+  std::size_t sz = var_data.sz;
 
   // Finally, read into that space
   int success = 0;
