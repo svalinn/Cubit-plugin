@@ -240,6 +240,7 @@ ErrorCode NCHelper::convert_variable(ReadNC::VarData& var_data, int tstep_num)
 
   // Get variable size
   std::size_t sz = var_data.sz;
+  assert(sz > 0);
 
   // Finally, read into that space
   int success = 0;
@@ -701,6 +702,12 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
       assert((unsigned)count == range->size());
       vdatas[i].varDatas[t] = data;
     }
+
+    // Calculate variable size
+    std::size_t sz = 1;
+    for (std::size_t idx = 0; idx != vdatas[i].readCounts[0].size(); idx++)
+      sz *= vdatas[i].readCounts[0][idx];
+    vdatas[i].sz = sz;
   }
 
   return rval;
