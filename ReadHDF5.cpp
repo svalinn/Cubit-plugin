@@ -842,7 +842,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     dbgOut.printf( 2, "Partition with num_parts = %d and part_number = %d\n", 
                    num_parts, part_number );
   
-  dbgOut.tprint( 1, "RETREIVING TAGGED ENTITIES\n" );
+  dbgOut.tprint( 1, "RETRIEVING TAGGED ENTITIES\n" );
     
   Range file_ids;
   ErrorCode rval = get_subset_ids( subset_list, subset_list_length, file_ids );
@@ -959,11 +959,14 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     if (MBPOLYHEDRON == type)
       continue;
       
-    debug_barrier();
+    //debug_barrier();
     dbgOut.printf( 2, "    Getting element node IDs for: %s\n", fileInfo->elems[i].handle );
     
     Range subset;
     intersect( fileInfo->elems[i].desc, file_ids, subset );
+    // if the subset is empty, the allocation in readUtil will fail miserably
+    if (subset.empty())
+      continue;
   
     mpe_event.start( "reading connectivity for ", fileInfo->elems[i].handle );
     
@@ -1522,7 +1525,7 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
 
   CHECK_OPEN_HANDLES;
 
-  debug_barrier();
+  //debug_barrier();
   dbgOut.tprintf( 1, "READING %s CONNECTIVITY (%lu elems in %lu selects)\n", 
                      elems.handle, (unsigned long)file_ids.size(), (unsigned long)file_ids.psize() );
 
