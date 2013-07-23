@@ -449,6 +449,7 @@ ErrorCode ReadNC::read_coordinate(const char* var_name, int lmin, int lmax, std:
     fail = NCFUNCA(get_vars_float)(fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &tcvals[0]);
     if (fail)
       ERRORS(MB_FAILURE, "Failed to get coordinate values.");
+    cvals.resize(tcount);
     std::copy(tcvals.begin(), tcvals.end(), cvals.begin());
   }
   else ERRORR(MB_FAILURE, "Wrong data type for coordinate variable.");
