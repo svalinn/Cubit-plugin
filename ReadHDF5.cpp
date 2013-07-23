@@ -959,15 +959,11 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     if (MBPOLYHEDRON == type)
       continue;
       
-    //debug_barrier();
+    debug_barrier();
     dbgOut.printf( 2, "    Getting element node IDs for: %s\n", fileInfo->elems[i].handle );
     
     Range subset;
     intersect( fileInfo->elems[i].desc, file_ids, subset );
-    // if the subset is empty, the allocation in readUtil will fail miserably
-    if (subset.empty())
-      continue;
-  
     mpe_event.start( "reading connectivity for ", fileInfo->elems[i].handle );
     
       // If dimension is max_dim, then we can create the elements now
@@ -1525,7 +1521,7 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
 
   CHECK_OPEN_HANDLES;
 
-  //debug_barrier();
+  debug_barrier();
   dbgOut.tprintf( 1, "READING %s CONNECTIVITY (%lu elems in %lu selects)\n", 
                      elems.handle, (unsigned long)file_ids.size(), (unsigned long)file_ids.psize() );
 
@@ -1547,7 +1543,8 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
 
   EntityHandle handle;
   EntityHandle* array = 0;
-  rval = readUtil->get_element_connect( count, nodes_per_elem, type,
+  if (count>0)
+    rval = readUtil->get_element_connect( count, nodes_per_elem, type,
                                         0, handle, array );
   if (MB_SUCCESS != rval)
     return error(rval);
