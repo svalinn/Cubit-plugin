@@ -60,10 +60,11 @@ ErrorCode NCHelperMPAS::init_mesh_vals(const FileOptions& opts, EntityHandle fil
     }
   }
 
+  // Look for time dimension
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "Time")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find time variable.");
+    ERRORR(MB_FAILURE, "Couldn't find time dimension.");
   }
   tDim = idx;
   tMax = dimVals[idx] - 1;
@@ -137,13 +138,16 @@ ErrorCode NCHelperMPAS::init_mesh_vals(const FileOptions& opts, EntityHandle fil
     ERRORR(MB_FAILURE, "Couldn't find z coordinate.");
   }
 
+  // Store time coordinate values in tVals
   if (tMin != -1) {
     if ((vmit = varInfo.find(tName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       rval = _readNC->read_coordinate(tName.c_str(), tMin, tMax, tVals);
       ERRORR(rval, "Trouble reading time variable.");
     }
     else {
-      ERRORR(MB_FAILURE, "Couldn't find time coordinate.");
+      // If expected time variable is not available, set dummy time coordinate values to tVals
+      for (int t = tMin; t <= tMax; t++)
+        tVals.push_back((double)t);
     }
   }
 
