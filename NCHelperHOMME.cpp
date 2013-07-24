@@ -251,6 +251,7 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   ParallelComm*& myPcomm = _readNC->myPcomm;
 #endif
   bool& spectralMesh = _readNC->spectralMesh;
+  int& gatherSetRank = _readNC->gatherSetRank;
 
   // need to get/read connectivity data before creating elements
   std::string conn_fname;
@@ -329,14 +330,16 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
     tmp_conn[4 * i + 3] = tmp_conn2[i + 3 * num_quads];
   }
 
-  // need to know whether we'll be creating gather mesh later, to make sure we allocate enough space
+  // Need to know whether we'll be creating gather mesh later, to make sure we allocate enough space
   // in one shot
-  bool create_gathers = true;
+  bool create_gathers = false;
+  int proc_rank = 0;
 #ifdef USE_MPI
   if (isParallel)
-    if (myPcomm->proc_config().proc_rank() != 0)
-      create_gathers = false;
+    proc_rank = myPcomm->proc_config().proc_rank();
 #endif
+  if (proc_rank == gatherSetRank)
+    create_gathers = true;
 
   // compute the number of local quads, accounting for coarse or fine representation
   // spectral_unit is the # fine quads per coarse quad, or spectralOrder^2
@@ -466,11 +469,9 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   rval = mbImpl->tag_set_data(sporder, &file_set, 1, &_spectralOrder);
   ERRORR(rval, "Couldn't set value for spectral order tag.");
 
-#ifdef USE_MPI
-  if (isParallel && myPcomm->proc_config().proc_rank() == 0) {
-#endif
+  if (create_gathers) {
     EntityHandle gather_set;
-    rval = mbImpl->create_meshset(MESHSET_SET, gather_set);
+    rval = _readNC->readMeshIface->create_gather_set(gather_set);
     ERRORR(rval, "Trouble creating gather set.");
 
     // create vertices
@@ -524,18 +525,7 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
       conn_arr[i] += start_vertex - 1; // connectivity array is shifted by where the gather verts start
     rval = mbImpl->add_entities(gather_set, gather_quads);
     ERRORR(rval, "Couldn't add quads to gather set.");
-
-    Tag gathersettag;
-    rval = mbImpl->tag_get_handle("GATHER_SET", 1, MB_TYPE_INTEGER, gathersettag,
-				  MB_TAG_CREAT | MB_TAG_SPARSE);
-    ERRORR(rval, "Couldn't create gather set tag.");
-    int gatherval = 1;
-    rval = mbImpl->tag_set_data(gathersettag, &gather_set, 1, &gatherval);
-    ERRORR(rval, "Couldn't set value for gather set tag.");
-
-#ifdef USE_MPI
   }
-#endif
 
   return MB_SUCCESS;
 }

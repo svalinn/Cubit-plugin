@@ -35,9 +35,9 @@ ReadNC::ReadNC(Interface* impl) :
   mbImpl(impl), CPU_WORD_SIZE(-1), IO_WORD_SIZE(-1), fileId(-1), tMin(-1), tMax(-1), iDim(-1), jDim(-1), tDim(-1), iCDim(-1),
   jCDim(-1), numUnLim(-1), mGlobalIdTag(0), mpFileIdTag(NULL), dbgOut(stderr), isParallel(false), partMethod(-1),
 #ifdef USE_MPI
-  myPcomm(NULL), 
+  myPcomm(NULL),
 #endif
-  noMesh(false), noVars(false), spectralMesh(false), myHelper(NULL)
+  noMesh(false), noVars(false), spectralMesh(false), gatherSetRank(-1), myHelper(NULL)
 {
   assert(impl != NULL);
 
@@ -240,7 +240,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
 
   return MB_SUCCESS;
 }
-    
+
 ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
                                 std::vector<double>& tstep_vals) {
   int tmpval;
@@ -283,6 +283,12 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
         std::cerr << tstep_vals[i];
       std::cerr << std::endl;
     }
+  }
+
+  rval = opts.get_int_option("GATHER_SET", 0, gatherSetRank);
+  if (MB_TYPE_OUT_OF_RANGE == rval) {
+    readMeshIface->report_error("Invalid value for GATHER_SET option");
+    return rval;
   }
 
 #ifdef USE_MPI
