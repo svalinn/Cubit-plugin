@@ -319,6 +319,7 @@ private:
   bool noVars;
   bool spectralMesh;
   std::string partitionTagName;
+  int gatherSetRank;
 
   //! Helper class instance
   NCHelper* myHelper;
