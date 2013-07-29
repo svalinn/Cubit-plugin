@@ -155,10 +155,10 @@ ErrorCode NCHelperMPAS::init_mesh_vals(const FileOptions& opts, EntityHandle fil
   int verticesOnEdgeVarId;
   int success = NCFUNC(inq_varid)(_fileId, "verticesOnEdge", &verticesOnEdgeVarId);
   ERRORS(success, "Failed to get variable id of verticesOnEdge.");
-  NCDF_SIZE tmp_dims[2] = {0, 0};
+  NCDF_SIZE tmp_starts[2] = {0, 0};
   NCDF_SIZE tmp_counts[2] = {static_cast<size_t>(nEdges), 2};
   verticesOnEdge.resize(nEdges * 2);
-  success = NCFUNCAG(_vara_int)(_fileId, verticesOnEdgeVarId, tmp_dims, tmp_counts, &verticesOnEdge[0] NCREQ);
+  success = NCFUNCAG(_vara_int)(_fileId, verticesOnEdgeVarId, tmp_starts, tmp_counts, &verticesOnEdge[0] NCREQ);
   ERRORS(success, "Failed to read variable values of verticesOnEdge.");
 
   // Determine the entity location type of a variable
@@ -559,7 +559,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_setup(std::vector<std::string>& var_na
     for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);
       vdatas[i].varDatas.resize(tstep_nums.size());
-      vdatas[i].readDims.resize(tstep_nums.size());
+      vdatas[i].readStarts.resize(tstep_nums.size());
       vdatas[i].readCounts.resize(tstep_nums.size());
     }
     for (unsigned int i = 0; i < vsetdatas.size(); i++) {
@@ -567,13 +567,13 @@ ErrorCode NCHelperMPAS::read_ucd_variable_setup(std::vector<std::string>& var_na
           && (vsetdatas[i].varDims.size() != 1)) {
         vsetdatas[i].varTags.resize(tstep_nums.size(), 0);
         vsetdatas[i].varDatas.resize(tstep_nums.size());
-        vsetdatas[i].readDims.resize(tstep_nums.size());
+        vsetdatas[i].readStarts.resize(tstep_nums.size());
         vsetdatas[i].readCounts.resize(tstep_nums.size());
       }
       else {
         vsetdatas[i].varTags.resize(1, 0);
         vsetdatas[i].varDatas.resize(1);
-        vsetdatas[i].readDims.resize(1);
+        vsetdatas[i].readStarts.resize(1);
         vsetdatas[i].readCounts.resize(1);
       }
     }
@@ -655,26 +655,26 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_s
 
       // Set up the dimensions and counts
       // First: Time
-      vdatas[i].readDims[t].push_back(tstep_nums[t]);
+      vdatas[i].readStarts[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
       // Next: nCells or nEdges or nVertices
       switch (vdatas[i].entLoc) {
         case ReadNC::ENTLOCVERT:
           // vertices
-          vdatas[i].readDims[t].push_back(localGidVerts[0] - 1);
+          vdatas[i].readStarts[t].push_back(localGidVerts[0] - 1);
           vdatas[i].readCounts[t].push_back(nLocalVertices);
           range = &verts;
           break;
         case ReadNC::ENTLOCFACE:
           // faces
-          vdatas[i].readDims[t].push_back(localGidCells[0] - 1);
+          vdatas[i].readStarts[t].push_back(localGidCells[0] - 1);
           vdatas[i].readCounts[t].push_back(nLocalCells);
           range = &facesOwned;
           break;
         case ReadNC::ENTLOCEDGE:
           // edges
-          vdatas[i].readDims[t].push_back(localGidEdges[0] - 1);
+          vdatas[i].readStarts[t].push_back(localGidEdges[0] - 1);
           vdatas[i].readCounts[t].push_back(nLocalEdges);
           range = &edges;
           break;
@@ -684,9 +684,9 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_s
       }
 
       // Last, numLev, even if it is 1
-      vdatas[i].readDims[t].push_back(0);
+      vdatas[i].readStarts[t].push_back(0);
       vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
-      assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+      assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
 
       // Get ptr to tag space
       if (vdatas[i].entLoc == ReadNC::ENTLOCFACE && numCellGroups > 1)
@@ -766,7 +766,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set,
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readDims[t].size();
+          size_t nbDims = vdatas[i].readStarts[t].size();
 
           // Assume that the last dimension is for the nVertLevels
           size_t indexInDoubleArray = 0;
@@ -776,13 +776,13 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set,
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // inclusive
-            vdatas[i].readDims[t][nbDims - 2] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readStarts[t][nbDims - 2] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[t][nbDims - 2] = (NCDF_SIZE) (endh - starth + 1);
 
             // do a partial read, in each subrange
             // wait outside this loop
             success = NCFUNCAG2(_vara_double)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpdoubledata[indexInDoubleArray]) NCREQ2);
             ERRORS(success, "Failed to read double data in loop");
             // we need to increment the index in double array for the
@@ -909,7 +909,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readDims[t].size();
+          size_t nbDims = vdatas[i].readStarts[t].size();
 
           // Assume that the last dimension is for the nVertLevels
           size_t indexInDoubleArray = 0;
@@ -919,11 +919,11 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
-            vdatas[i].readDims[t][nbDims - 2] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readStarts[t][nbDims - 2] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[t][nbDims - 2] = (NCDF_SIZE) (endh - starth + 1);
 
             success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpdoubledata[indexInDoubleArray]) NCREQ);
             ERRORS(success, "Failed to read double data in loop");
             // We need to increment the index in double array for the

@@ -127,7 +127,7 @@ private:
     std::string varName;
     std::vector<Tag> varTags; // One tag for each time step, varTags[t]
     std::vector<void*> varDatas;
-    std::vector<std::vector<NCDF_SIZE> > readDims; // Start value for this [t][dim]
+    std::vector<std::vector<NCDF_SIZE> > readStarts; // Start value for this [t][dim]
     std::vector<std::vector<NCDF_SIZE> > readCounts; // Number of data values for this [t][dim]
     int entLoc;
     int numLev;
