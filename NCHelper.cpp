@@ -83,12 +83,12 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
       {
         if (vdatas[i].varDims.size() != 1)
         {
-          vdatas[i].readDims[t].push_back(tstep_nums[t]);
+          vdatas[i].readStarts[t].push_back(tstep_nums[t]);
           vdatas[i].readCounts[t].push_back(1);
         }
         else
         {
-          vdatas[i].readDims[t].push_back(0);
+          vdatas[i].readStarts[t].push_back(0);
           vdatas[i].readCounts[t].push_back(tstep_nums.size());
         }
       }
@@ -96,14 +96,14 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
       // Set up other dimensions and counts
       if (vdatas[i].varDims.empty()) {
         // Scalar variable
-        vdatas[i].readDims[t].push_back(0);
+        vdatas[i].readStarts[t].push_back(0);
         vdatas[i].readCounts[t].push_back(1);
       }
       else {
         for (unsigned int idx = 0; idx != vdatas[i].varDims.size(); idx++){
           if (tDim != vdatas[i].varDims[idx]){
             // Push other variable dimensions, except time, which was already pushed
-            vdatas[i].readDims[t].push_back(0);
+            vdatas[i].readStarts[t].push_back(0);
             vdatas[i].readCounts[t].push_back(dimVals[vdatas[i].varDims[idx]]);
           }
         }
@@ -158,28 +158,28 @@ ErrorCode NCHelper::read_variable_to_set(EntityHandle file_set, std::vector<Read
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR:
-          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               (char*) data NCREQ);
           ERRORS(success, "Failed to read char data.");
           break;
         case NC_DOUBLE:
-          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               (double*) data NCREQ);
           ERRORS(success, "Failed to read double data.");
           break;
         case NC_FLOAT: {
-          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               (float*) data NCREQ);
           ERRORS(success, "Failed to read float data.");
           break;
         }
         case NC_INT:
-          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               (int*) data NCREQ);
           ERRORS(success, "Failed to read int data.");
           break;
         case NC_SHORT:
-          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               (short*) data NCREQ);
           ERRORS(success, "Failed to read short data.");
           break;
@@ -545,7 +545,7 @@ ErrorCode ScdNCHelper::read_scd_variable_setup(std::vector<std::string>& var_nam
     for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);
       vdatas[i].varDatas.resize(tstep_nums.size());
-      vdatas[i].readDims.resize(tstep_nums.size());
+      vdatas[i].readStarts.resize(tstep_nums.size());
       vdatas[i].readCounts.resize(tstep_nums.size());
     }
     for (unsigned int i = 0; i < vsetdatas.size(); i++) {
@@ -553,13 +553,13 @@ ErrorCode ScdNCHelper::read_scd_variable_setup(std::vector<std::string>& var_nam
           && (vsetdatas[i].varDims.size() != 1)) {
         vsetdatas[i].varTags.resize(tstep_nums.size(), 0);
         vsetdatas[i].varDatas.resize(tstep_nums.size());
-        vsetdatas[i].readDims.resize(tstep_nums.size());
+        vsetdatas[i].readStarts.resize(tstep_nums.size());
         vsetdatas[i].readCounts.resize(tstep_nums.size());
       }
       else {
         vsetdatas[i].varTags.resize(1, 0);
         vsetdatas[i].varDatas.resize(1);
-        vsetdatas[i].readDims.resize(1);
+        vsetdatas[i].readStarts.resize(1);
         vsetdatas[i].readCounts.resize(1);
       }
     }
@@ -647,12 +647,12 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
 
       // Set up the dimensions and counts
       // First time
-      vdatas[i].readDims[t].push_back(tstep_nums[t]);
+      vdatas[i].readStarts[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
       // then z/y/x
       if (vdatas[i].numLev != 1) {
-        vdatas[i].readDims[t].push_back(0);
+        vdatas[i].readStarts[t].push_back(0);
         vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
       }
 
@@ -660,11 +660,11 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
         case ReadNC::ENTLOCVERT:
           // vertices
           // only structured mesh has j parameter that multiplies i to get total # vertices
-          vdatas[i].readDims[t].push_back(lDims[1]);
+          vdatas[i].readStarts[t].push_back(lDims[1]);
           vdatas[i].readCounts[t].push_back(lDims[4] - lDims[1] + 1);
-          vdatas[i].readDims[t].push_back(lDims[0]);
+          vdatas[i].readStarts[t].push_back(lDims[0]);
           vdatas[i].readCounts[t].push_back(lDims[3] - lDims[0] + 1);
-          assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+          assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
           range = &verts;
           break;
         case ReadNC::ENTLOCNSEDGE:
@@ -675,11 +675,11 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
           break;
         case ReadNC::ENTLOCFACE:
           // faces
-          vdatas[i].readDims[t].push_back(lCDims[1]);
-          vdatas[i].readDims[t].push_back(lCDims[0]);
+          vdatas[i].readStarts[t].push_back(lCDims[1]);
+          vdatas[i].readStarts[t].push_back(lCDims[0]);
           vdatas[i].readCounts[t].push_back(lCDims[4] - lCDims[1] + 1);
           vdatas[i].readCounts[t].push_back(lCDims[3] - lCDims[0] + 1);
-          assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+          assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
 #ifdef USE_MPI
           range = &faces_owned;
 #else
@@ -737,7 +737,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
         case NC_BYTE:
         case NC_CHAR: {
           std::vector<char> tmpchardata(sz);
-          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpchardata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // switch from k varying slowest to k varying fastest
@@ -751,7 +751,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
         }
         case NC_DOUBLE: {
           std::vector<double> tmpdoubledata(sz);
-          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpdoubledata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // switch from k varying slowest to k varying fastest
@@ -765,7 +765,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
         }
         case NC_FLOAT: {
           std::vector<float> tmpfloatdata(sz);
-          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpfloatdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
@@ -779,7 +779,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
         }
         case NC_INT: {
           std::vector<int> tmpintdata(sz);
-          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpintdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
@@ -793,7 +793,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
         }
         case NC_SHORT: {
           std::vector<short> tmpshortdata(sz);
-          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpshortdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest

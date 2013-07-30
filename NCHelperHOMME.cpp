@@ -582,7 +582,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
     for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);
       vdatas[i].varDatas.resize(tstep_nums.size());
-      vdatas[i].readDims.resize(tstep_nums.size());
+      vdatas[i].readStarts.resize(tstep_nums.size());
       vdatas[i].readCounts.resize(tstep_nums.size());
     }
     for (unsigned int i = 0; i < vsetdatas.size(); i++) {
@@ -590,13 +590,13 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
           && (vsetdatas[i].varDims.size() != 1)) {
         vsetdatas[i].varTags.resize(tstep_nums.size(), 0);
         vsetdatas[i].varDatas.resize(tstep_nums.size());
-        vsetdatas[i].readDims.resize(tstep_nums.size());
+        vsetdatas[i].readStarts.resize(tstep_nums.size());
         vsetdatas[i].readCounts.resize(tstep_nums.size());
       }
       else {
         vsetdatas[i].varTags.resize(1, 0);
         vsetdatas[i].varDatas.resize(1);
-        vsetdatas[i].readDims.resize(1);
+        vsetdatas[i].readStarts.resize(1);
         vsetdatas[i].readCounts.resize(1);
       }
     }
@@ -657,12 +657,12 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
 
       // Set up the dimensions and counts
       // First: time
-      vdatas[i].readDims[t].push_back(tstep_nums[t]);
+      vdatas[i].readStarts[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
       // Next: numLev
       if (vdatas[i].numLev != 1) {
-        vdatas[i].readDims[t].push_back(0);
+        vdatas[i].readStarts[t].push_back(0);
         vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
       }
 
@@ -672,9 +672,9 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
           // vertices
           // we will start from the first localGid, actually; we will reset that
           // later on, anyway, in a loop
-          vdatas[i].readDims[t].push_back(localGid[0] - 1);
+          vdatas[i].readStarts[t].push_back(localGid[0] - 1);
           vdatas[i].readCounts[t].push_back(localGid.size());
-          assert(vdatas[i].readDims[t].size() == vdatas[i].varDims.size());
+          assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
           range = &verts;
           break;
         default:
@@ -744,7 +744,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readDims[t].size();
+          size_t nbDims = vdatas[i].readStarts[t].size();
           // assume that the last dimension is for the ncol,
           // node varying variable
 
@@ -755,13 +755,13 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // inclusive
-            vdatas[i].readDims[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readStarts[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
 
             // do a partial read, in each subrange
             // wait outside this loop
             success = NCFUNCAG2(_vara_double)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpdoubledata[indexInDoubleArray]) NCREQ2);
             ERRORS(success, "Failed to read double data in loop");
             // we need to increment the index in double array for the
@@ -791,7 +791,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readDims[t].size();
+          size_t nbDims = vdatas[i].readStarts[t].size();
           // assume that the last dimension is for the ncol,
           // node varying variable
 
@@ -802,13 +802,13 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // inclusive
-            vdatas[i].readDims[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readStarts[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
 
             // do a partial read, in each subrange
             // wait outside this loop
             success = NCFUNCAG2(_vara_float)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpfloatdata[indexInFloatArray]) NCREQ2);
             ERRORS(success, "Failed to read float data in loop");
             // we need to increment the index in float array for the
@@ -889,7 +889,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
         case NC_BYTE:
         case NC_CHAR: {
           std::vector<char> tmpchardata(sz);
-          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpchardata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // switch from k varying slowest to k varying fastest
@@ -910,7 +910,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readDims[t].size();
+          size_t nbDims = vdatas[i].readStarts[t].size();
 
           // Assume that the last dimension is for the ncol
           size_t indexInDoubleArray = 0;
@@ -920,11 +920,11 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
-            vdatas[i].readDims[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readStarts[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
 
             success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpdoubledata[indexInDoubleArray]) NCREQ);
             ERRORS(success, "Failed to read float data in loop");
             // We need to increment the index in double array for the
@@ -951,7 +951,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readDims[t].size();
+          size_t nbDims = vdatas[i].readStarts[t].size();
 
           // Assume that the last dimension is for the ncol
           size_t indexInFloatArray = 0;
@@ -961,11 +961,11 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
-            vdatas[i].readDims[t][nbDims-1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readStarts[t][nbDims-1] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[t][nbDims-1] = (NCDF_SIZE) (endh - starth + 1);
 
             success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readDims[t][0]), &(vdatas[i].readCounts[t][0]),
+                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpfloatdata[indexInFloatArray]) NCREQ);
             ERRORS(success, "Failed to read float data in loop");
             // We need to increment the index in float array for the
@@ -986,7 +986,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
         }
         case NC_INT: {
           std::vector<int> tmpintdata(sz);
-          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpintdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
@@ -1000,7 +1000,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std:
         }
         case NC_SHORT: {
           std::vector<short> tmpshortdata(sz);
-          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readDims[t][0], &vdatas[i].readCounts[t][0],
+          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpshortdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
