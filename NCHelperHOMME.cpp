@@ -278,11 +278,11 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
 
 #ifdef PNETCDF_FILE
   if (isParallel) {
+    ParallelComm*& myPcomm = _readNC->myPcomm;
     success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
   }
-  else {
+  else
     success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
-  }
 #else
   success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
 #endif
