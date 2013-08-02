@@ -277,23 +277,14 @@ ErrorCode NCHelperMPAS::create_mesh(ScdInterface* scdi, const FileOptions& opts,
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
   const Tag*& mpFileIdTag = _readNC->mpFileIdTag;
   bool& isParallel = _readNC->isParallel;
-#ifdef USE_MPI
-  ParallelComm*& myPcomm = _readNC->myPcomm;
-#endif
 
-  int rank, procs;
-#ifdef PNETCDF_FILE
+  int rank = 0, procs = 1;
+#ifdef USE_MPI
   if (isParallel) {
+    ParallelComm*& myPcomm = _readNC->myPcomm;
     rank = myPcomm->proc_config().proc_rank();
     procs = myPcomm->proc_config().proc_size();
   }
-  else {
-    rank = 0;
-    procs = 1;
-  }
-#else
-  rank = 0;
-  procs = 1;
 #endif
 
   ErrorCode rval;
