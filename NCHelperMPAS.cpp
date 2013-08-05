@@ -542,7 +542,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_setup(std::vector<std::string>& var_na
   }
 
   if (tstep_nums.empty() && -1 != tMin) {
-    // no timesteps input, get them all
+    // No timesteps input, get them all
     for (int i = tMin; i <= tMax; i++)
       tstep_nums.push_back(i);
   }
@@ -652,19 +652,19 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_s
       // Next: nCells or nEdges or nVertices
       switch (vdatas[i].entLoc) {
         case ReadNC::ENTLOCVERT:
-          // vertices
+          // Vertices
           vdatas[i].readStarts[t].push_back(localGidVerts[0] - 1);
           vdatas[i].readCounts[t].push_back(nLocalVertices);
           range = &verts;
           break;
         case ReadNC::ENTLOCFACE:
-          // faces
+          // Faces
           vdatas[i].readStarts[t].push_back(localGidCells[0] - 1);
           vdatas[i].readCounts[t].push_back(nLocalCells);
           range = &facesOwned;
           break;
         case ReadNC::ENTLOCEDGE:
-          // edges
+          // Edges
           vdatas[i].readStarts[t].push_back(localGidEdges[0] - 1);
           vdatas[i].readCounts[t].push_back(nLocalEdges);
           range = &edges;
@@ -715,7 +715,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set,
   // Finally, read into that space
   int success;
   Range* pLocalGid = NULL;
-  // MPI_offset or size_t?
+
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     switch (vdatas[i].entLoc) {
       case ReadNC::ENTLOCVERT:
@@ -732,12 +732,10 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set,
         break;
     }
 
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      std::size_t sz = 1;
-      for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); ++idx)
-        sz *= vdatas[i].readCounts[t][idx];
+    std::size_t sz = vdatas[i].sz;
 
-      // we will synchronize all these reads with the other processors,
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      // We will synchronize all these reads with the other processors,
       // so the wait will be inside this double loop; is it too much?
       size_t nb_reads = pLocalGid->psize();
       std::vector<int> requests(nb_reads), statuss(nb_reads);
@@ -752,7 +750,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set,
         case NC_DOUBLE: {
           std::vector<double> tmpdoubledata(sz);
 
-          // in the case of ucd mesh, and on multiple proc,
+          // In the case of ucd mesh, and on multiple proc,
           // we need to read as many times as subranges we have in the
           // localGid range;
           // basically, we have to give a different point
@@ -770,13 +768,13 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set,
             vdatas[i].readStarts[t][nbDims - 2] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[t][nbDims - 2] = (NCDF_SIZE) (endh - starth + 1);
 
-            // do a partial read, in each subrange
+            // Do a partial read, in each subrange
             // wait outside this loop
             success = NCFUNCAG2(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
                             &(tmpdoubledata[indexInDoubleArray]) NCREQ2);
             ERRORS(success, "Failed to read double data in loop");
-            // we need to increment the index in double array for the
+            // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
           }
@@ -842,7 +840,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set,
         rval = tmp_rval;
     }
   }
-  // debug output, if requested
+  // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
     for (unsigned int i = 1; i < vdatas.size(); i++)
@@ -864,7 +862,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::
   // Finally, read into that space
   int success;
   Range* pLocalGid = NULL;
-  // MPI_offset or size_t?
+
   std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     switch (vdatas[i].entLoc) {
@@ -882,9 +880,9 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::
         break;
     }
 
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      std::size_t sz = vdatas[i].numLev * vdatas[i].readCounts[t][1];
+    std::size_t sz = vdatas[i].sz;
 
+    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR: {
@@ -895,7 +893,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::
           // Copy from float case
           std::vector<double> tmpdoubledata(sz);
 
-          // in the case of ucd mesh, and on multiple proc,
+          // In the case of ucd mesh, and on multiple proc,
           // we need to read as many times as subranges we have in the
           // localGid range;
           // basically, we have to give a different point
@@ -986,7 +984,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::
     }
   }
 
-  // debug output, if requested
+  // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
     for (unsigned int i = 1; i < vdatas.size(); i++)

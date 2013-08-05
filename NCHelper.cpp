@@ -67,18 +67,18 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
 
-      // get the tag to read into
+      // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
         rval = _readNC->get_tag_to_set(vdatas[i], tstep_nums[t], vdatas[i].varTags[t]);
         ERRORR(rval, "Trouble getting tag.");
       }
 
-      // assume point-based values for now?
+      // Assume point-based values for now?
       if (-1 == tDim || dimVals[tDim] <= (int) t)
         ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
 
-      // set up the dimensions and counts
-      // first variable dimension is time, if it exists
+      // Set up the dimensions and counts
+      // First variable dimension is time, if it exists
       if (vdatas[i].has_t)
       {
         if (vdatas[i].varDims.size() != 1)
@@ -146,12 +146,12 @@ ErrorCode NCHelper::read_variable_to_set(EntityHandle file_set, std::vector<Read
   ErrorCode rval = read_variable_to_set_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables to set.");
 
-  // finally, read into that space
+  // Finally, read into that space
   int success;
   std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     if (dummyVarNames.find(vdatas[i].varName) != dummyVarNames.end() )
-       continue;// this is a dummy one, we don't have it; we created it for the dummy tag
+       continue; // This is a dummy one, we don't have it; we created it for the dummy tag
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void* data = vdatas[i].varDatas[t];
 
@@ -209,7 +209,7 @@ ErrorCode NCHelper::read_variable_to_set(EntityHandle file_set, std::vector<Read
         break;
     }
   }
-  // debug output, if requested
+  // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
     for (unsigned int i = 1; i < vdatas.size(); i++)
@@ -436,7 +436,7 @@ ErrorCode ScdNCHelper::create_mesh(ScdInterface* scdi, const FileOptions& opts, 
   dbgOut.tprintf(1, "Vertex gids %d-%d\n", vmin, vmax);
 #endif
 
-  // add elements to the range passed in
+  // Add elements to the range passed in
   faces.insert(scd_box->start_element(), scd_box->start_element() + scd_box->num_elements() - 1);
 
   if (2 <= dbgOut.get_verbosity()) {
@@ -467,7 +467,7 @@ ErrorCode ScdNCHelper::read_variables(EntityHandle file_set, std::vector<std::st
   ErrorCode rval = read_scd_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
-  // create COORDS tag for quads
+  // Create COORDS tag for quads
   rval = _readNC->create_quad_coordinate_tag(file_set);
   ERRORR(rval, "Trouble creating coordinate tags to entities quads");
 
@@ -537,7 +537,7 @@ ErrorCode ScdNCHelper::read_scd_variable_setup(std::vector<std::string>& var_nam
   }
 
   if (tstep_nums.empty() && -1 != tMin) {
-    // no timesteps input, get them all
+    // No timesteps input, get them all
     for (int i = tMin; i <= tMax; i++)
       tstep_nums.push_back(i);
   }
@@ -586,7 +586,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
 
   Range* range = NULL;
 
-  // get vertices in set
+  // Get vertices in set
   Range verts;
   rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
   ERRORR(rval, "Trouble getting vertices in set.");
@@ -612,7 +612,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
     ERRORR(rval, "Trouble getting owned faces in set.");
   }
   else
-    faces_owned = faces; // not running in parallel, but still with MPI
+    faces_owned = faces; // Not running in parallel, but still with MPI
 #endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
@@ -646,20 +646,21 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
       }
 
       // Set up the dimensions and counts
-      // First time
+      // First: time
       vdatas[i].readStarts[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
-      // then z/y/x
+      // Next: numLev
       if (vdatas[i].numLev != 1) {
         vdatas[i].readStarts[t].push_back(0);
         vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
       }
 
+      // Finally: y and x
       switch (vdatas[i].entLoc) {
         case ReadNC::ENTLOCVERT:
-          // vertices
-          // only structured mesh has j parameter that multiplies i to get total # vertices
+          // Vertices
+          // Only structured mesh has j parameter that multiplies i to get total # vertices
           vdatas[i].readStarts[t].push_back(lDims[1]);
           vdatas[i].readCounts[t].push_back(lDims[4] - lDims[1] + 1);
           vdatas[i].readStarts[t].push_back(lDims[0]);
@@ -674,7 +675,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
           ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
           break;
         case ReadNC::ENTLOCFACE:
-          // faces
+          // Faces
           vdatas[i].readStarts[t].push_back(lCDims[1]);
           vdatas[i].readStarts[t].push_back(lCDims[0]);
           vdatas[i].readCounts[t].push_back(lCDims[4] - lCDims[1] + 1);
@@ -687,7 +688,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
 #endif
           break;
         case ReadNC::ENTLOCSET:
-          // set
+          // Set
           break;
         default:
           ERRORR(MB_FAILURE, "Unrecognized entity location type.");
@@ -724,10 +725,9 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
   int success;
   std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    std::size_t sz = vdatas[i].sz;
+
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      std::size_t sz = 1;
-      for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); idx++)
-        sz *= vdatas[i].readCounts[t][idx];
       void* data = vdatas[i].varDatas[t];
       size_t ni = vdatas[i].readCounts[t][2];
       size_t nj = vdatas[i].readCounts[t][3];
@@ -740,8 +740,8 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
           success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpchardata[0] NCREQ);
           if (vdatas[i].numLev != 1)
-            // switch from k varying slowest to k varying fastest
-            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
+            // Switch from k varying slowest to k varying fastest
+            success = kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpchardata.size(); idx++)
               ((char*) data)[idx] = tmpchardata[idx];
@@ -754,8 +754,8 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
           success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               &tmpdoubledata[0] NCREQ);
           if (vdatas[i].numLev != 1)
-            // switch from k varying slowest to k varying fastest
-            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
+            // Switch from k varying slowest to k varying fastest
+            success = kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
               ((double*) data)[idx] = tmpdoubledata[idx];
@@ -769,7 +769,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
               &tmpfloatdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
-            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
+            success = kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
               ((float*) data)[idx] = tmpfloatdata[idx];
@@ -783,7 +783,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
               &tmpintdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
-            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
+            success = kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpintdata.size(); idx++)
               ((int*) data)[idx] = tmpintdata[idx];
@@ -797,7 +797,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
               &tmpshortdata[0] NCREQ);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
-            success = _readNC->kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
+            success = kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpshortdata.size(); idx++)
               ((short*) data)[idx] = tmpshortdata[idx];
@@ -827,7 +827,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
         rval = tmp_rval;
     }
   }
-  // debug output, if requested
+  // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
     for (unsigned int i = 1; i < vdatas.size(); i++)
@@ -853,11 +853,10 @@ ErrorCode UcdNCHelper::read_variables(EntityHandle file_set, std::vector<std::st
 
   if (!vdatas.empty()) {
 #ifdef PNETCDF_FILE
-    // in serial, we will use the old read, everything is contiguous
-    // in parallel, we will use async read in pnetcdf
-    // the other mechanism is not working, forget about it
+    // With pnetcdf support, we will use async read
     rval = read_ucd_variable_to_nonset_async(file_set, vdatas, tstep_nums);
 #else
+    // Without pnetcdf support, we will use old read
     rval = read_ucd_variable_to_nonset(file_set, vdatas, tstep_nums);
 #endif
     ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");

@@ -72,6 +72,17 @@ private:
                                                  std::vector<int>& tstep_nums);
   ErrorCode read_scd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
                                         std::vector<int>& tstep_nums);
+
+  template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void* dest, T* source)
+  {
+    size_t nik = ni * nk, nij = ni * nj;
+    T* tmp_data = reinterpret_cast<T*>(dest);
+    for (std::size_t j = 0; j != nj; j++)
+      for (std::size_t i = 0; i != ni; i++)
+        for (std::size_t k = 0; k != nk; k++)
+          tmp_data[j*nik + i*nk + k] = source[k*nij + j*ni + i];
+    return MB_SUCCESS;
+  }
 };
 
 //! Child helper class for ucd mesh, e.g. CAM_SE (HOMME) or MPAS
@@ -107,6 +118,27 @@ private:
 #endif
 
 protected:
+  //! This version takes as input the moab range, from which we actually need just the
+  //! size of each sequence, for a proper transpose of the data
+  template <typename T> ErrorCode kji_to_jik_stride(size_t , size_t nj, size_t nk, void* dest, T* source, Range& localGid)
+  {
+    std::size_t idxInSource = 0; // Position of the start of the stride
+    // For each subrange, we will transpose a matrix of size
+    // subrange*nj*nk (subrange takes the role of ni)
+    T* tmp_data = reinterpret_cast<T*>(dest);
+    for (Range::pair_iterator pair_iter = localGid.pair_begin();
+        pair_iter != localGid.pair_end(); ++pair_iter) {
+      std::size_t size_range = pair_iter->second - pair_iter->first + 1;
+      std::size_t nik = size_range * nk, nij = size_range * nj;
+      for (std::size_t j = 0; j != nj; j++)
+        for (std::size_t i = 0; i != size_range; i++)
+          for (std::size_t k = 0; k != nk; k++)
+            tmp_data[idxInSource + j*nik + i*nk + k] = source[idxInSource + k*nij + j*size_range + i];
+      idxInSource += (size_range*nj*nk);
+    }
+    return MB_SUCCESS;
+  }
+
   //! Dimension numbers for nCells, nEdges, nVertices, nLevels
   int cDim, eDim, vDim, levDim;
 
