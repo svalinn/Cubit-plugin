@@ -17,7 +17,8 @@ namespace moab {
 class NCHelper
 {
 public:
-  NCHelper(ReadNC* readNC, int fileId) : _readNC(readNC), _fileId(fileId) {}
+  NCHelper(ReadNC* readNC, int fileId) :_readNC(readNC), _fileId(fileId),
+  nTimeSteps(0), nLevels(1), tDim(-1), levDim(-1) {}
   virtual ~NCHelper() {}
 
   //! Get appropriate helper instance for ReadNC class
@@ -30,6 +31,10 @@ public:
   virtual ErrorCode read_variables(EntityHandle file_set, std::vector<std::string>& var_names, std::vector<int>& tstep_nums) = 0;
   virtual std::string get_mesh_type_name() = 0;
 
+  //! Create NC conventional tags
+  ErrorCode create_conventional_tags(ScdInterface* scdi, EntityHandle file_set,
+                                     const std::vector<int>& tstep_nums);
+
 protected:
   //! Read set variables, common to scd mesh and ucd mesh
   ErrorCode read_variable_to_set(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
@@ -37,20 +42,62 @@ protected:
   //! Convert variables in place
   ErrorCode convert_variable(ReadNC::VarData& var_data, int tstep_num);
 
+  ErrorCode read_coordinate(const char* var_name, int lmin, int lmax,
+                            std::vector<double>& cvals);
+
+  ErrorCode get_tag_to_set(ReadNC::VarData& var_data, int tstep_num, Tag& tagh);
+
+  ErrorCode get_tag_to_nonset(ReadNC::VarData& var_data, int tstep_num, Tag& tagh, int num_lev);
+
+  //! Create a character string attString of attMap.  with '\0'
+  //! terminating each attribute name, ';' separating the data type
+  //! and value, and ';' separating one name/data type/value from
+  //! the next'.  attLen stores the end position for each name/data
+  //! type/ value.
+  ErrorCode create_attrib_string(const std::map<std::string, ReadNC::AttData>& attMap,
+                                 std::string& attString,
+                                 std::vector<int>& attLen);
+
+  //! Init info for dimensions that don't have corresponding
+  //! coordinate variables - this info is used for creating tags
+  void init_dims_with_no_cvars_info();
+
 private:
   //! Used by read_variable_to_set()
   ErrorCode read_variable_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
 
 protected:
   ReadNC* _readNC;
+
   int _fileId;
+
+  //! Dimensions of time and level
+  int nTimeSteps, nLevels;
+
+  //! Values for time and level
+  std::vector<double> tVals, levVals;
+
+  //! Dimension numbers for time and level
+  int tDim, levDim;
 };
 
 //! Child helper class for scd mesh, e.g. CAM_EL or CAM_FV
 class ScdNCHelper : public NCHelper
 {
 public:
-  ScdNCHelper(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId) {}
+  ScdNCHelper(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId),
+  iDim(-1), jDim(-1), iCDim(-1), jCDim(-1)
+  {
+    for (unsigned int i = 0; i < 6; i++) {
+      gDims[i] = -1;
+      lDims[i] = -1;
+      gCDims[i] = -1;
+      lCDims[i] = -1;
+    }
+
+    locallyPeriodic[0] = locallyPeriodic[1] = 0;
+    globallyPeriodic[0] = globallyPeriodic[1] = 0;
+  }
   virtual ~ScdNCHelper() {}
 
 private:
@@ -73,6 +120,9 @@ private:
   ErrorCode read_scd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
                                         std::vector<int>& tstep_nums);
 
+  //! Create COORDS tag for quads coordinate
+  ErrorCode create_quad_coordinate_tag(EntityHandle file_set);
+
   template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void* dest, T* source)
   {
     size_t nik = ni * nk, nij = ni * nj;
@@ -83,6 +133,37 @@ private:
           tmp_data[j*nik + i*nk + k] = source[k*nij + j*ni + i];
     return MB_SUCCESS;
   }
+
+protected:
+  //! Dimensions of global grid in file
+  int gDims[6];
+
+  //! Dimensions of my local part of grid
+  int lDims[6];
+
+  //! Center dimensions of global grid in file
+  int gCDims[6];
+
+  //! Center dimensions of my local part of grid
+  int lCDims[6];
+
+  //! Values for i/j
+  std::vector<double> ilVals, jlVals;
+
+  //! Center values for i/j
+  std::vector<double> ilCVals, jlCVals;
+
+  //! Dimension numbers for i/j
+  int iDim, jDim;
+
+  //! Center dimension numbers for i/j
+  int iCDim, jCDim;
+
+  //! Whether mesh is locally periodic in i or j
+  int locallyPeriodic[2];
+
+  //! Whether mesh is globally periodic in i or j
+  int globallyPeriodic[2];
 };
 
 //! Child helper class for ucd mesh, e.g. CAM_SE (HOMME) or MPAS
@@ -90,9 +171,9 @@ class UcdNCHelper : public NCHelper
 {
 public:
   UcdNCHelper(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId),
-  cDim(-1), eDim(-1), vDim(-1), levDim(-1),
   nCells(0), nEdges(0), nVertices(0),
-  nLocalCells(0), nLocalEdges(0), nLocalVertices(0) {}
+  nLocalCells(0), nLocalEdges(0), nLocalVertices(0),
+  cDim(-1), eDim(-1), vDim(-1) {}
   virtual ~UcdNCHelper() {}
 
 private:
@@ -139,20 +220,23 @@ protected:
     return MB_SUCCESS;
   }
 
-  //! Dimension numbers for nCells, nEdges, nVertices, nLevels
-  int cDim, eDim, vDim, levDim;
-
-  //! Coordinate values for vertices
-  std::vector<double> xVertVals, yVertVals, zVertVals;
-
+  //! Dimensions of global grid in file
   int nCells;
   int nEdges;
   int nVertices;
 
+  //! Dimensions of my local part of grid
   int nLocalCells;
   int nLocalEdges;
   int nLocalVertices;
 
+  //! Coordinate values for vertices
+  std::vector<double> xVertVals, yVertVals, zVertVals;
+
+  //! Dimension numbers for nCells, nEdges and nVertices
+  int cDim, eDim, vDim;
+
+  //! Local global ID for cells, edges and vertices
   Range localGidCells, localGidEdges, localGidVerts;
 };
 

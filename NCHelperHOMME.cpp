@@ -13,7 +13,8 @@
 
 namespace moab {
 
-NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts) : UcdNCHelper(readNC, fileId), _spectralOrder(-1)
+NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts) : UcdNCHelper(readNC, fileId),
+_spectralOrder(-1), connectId(-1)
 {
   // Calculate spectral order
   std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("np");
@@ -61,20 +62,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
 {
   std::vector<std::string>& dimNames = _readNC->dimNames;
   std::vector<int>& dimVals = _readNC->dimVals;
-  std::string& kName = _readNC->kName;
-  std::string& tName = _readNC->tName;
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
-  int& tMin = _readNC->tMin;
-  int& tMax = _readNC->tMax;
-  int (&gDims)[6] = _readNC->gDims;
-  int (&lDims)[6] = _readNC->lDims;
-  int& iDim = _readNC->iDim;
-  int& kDim = _readNC->kDim;
-  int& tDim = _readNC->tDim;
-  std::vector<double>& ilVals = _readNC->ilVals;
-  std::vector<double>& jlVals = _readNC->jlVals;
-  std::vector<double>& klVals = _readNC->klVals;
-  std::vector<double>& tVals = _readNC->tVals;
 
   ErrorCode rval;
   unsigned int idx;
@@ -86,107 +74,96 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
   else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find time dimension.");
+    ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
   }
   tDim = idx;
-  tMax = dimVals[idx] - 1;
-  tMin = 0;
-  tName = dimNames[idx];
+  nTimeSteps = dimVals[idx];
 
-  // Get number of vertices (labeled as number of columns) and levels
-  gDims[0] = gDims[3] = -1;
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "ncol")) != dimNames.end()) {
+  // Get number of vertices (labeled as number of columns)
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "ncol")) != dimNames.end())
     idx = vit - dimNames.begin();
-    gDims[3] = dimVals[idx] - 1;
-    gDims[0] = 0;
-    iDim = idx;
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find 'ncol' dimension.");
   }
-  if (-1 == gDims[0])
-    return MB_FAILURE;
+  vDim = idx;
+  nVertices = dimVals[idx];
 
-  // Set j coordinate to the number of quads
-  gDims[1] = gDims[0];
-  gDims[4] = gDims[3] - 2;
+  // Set number of cells
+  nCells = nVertices - 2;
 
-  gDims[2] = gDims[5] = -1;
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end()) {
+  // Get number of levels
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
     idx = vit - dimNames.begin();
-    gDims[5] = dimVals[idx] - 1, gDims[2] = 0, kName = std::string("lev");
-    kDim = idx;
+  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
+    idx = vit - dimNames.begin();
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
   }
-  if (-1 == gDims[2])
-    return MB_FAILURE;
+  levDim = idx;
+  nLevels = dimVals[idx];
 
-  // Read coordinate data
+  // Store lon values in xVertVals
   std::map<std::string, ReadNC::VarData>::iterator vmit;
-  if (gDims[0] != -1) {
-    if ((vmit = varInfo.find("lon")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = _readNC->read_coordinate("lon", gDims[0], gDims[3], ilVals);
-      ERRORR(rval, "Trouble reading x variable.");
-    }
-    else {
-      ERRORR(MB_FAILURE, "Couldn't find x coordinate.");
-    }
+  if ((vmit = varInfo.find("lon")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+    rval = read_coordinate("lon", 0, nVertices - 1, xVertVals);
+    ERRORR(rval, "Trouble reading 'lon' variable.");
+  }
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find 'lon' variable.");
   }
 
-  // Store lat values in jlVals parameterized by j
-  if (gDims[1] != -1) {
-    if ((vmit = varInfo.find("lat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = _readNC->read_coordinate("lat", gDims[0], gDims[3], jlVals);
-      ERRORR(rval, "Trouble reading y variable.");
-    }
-    else {
-      ERRORR(MB_FAILURE, "Couldn't find y coordinate.");
-    }
+  // Store lat values in yVertVals
+  if ((vmit = varInfo.find("lat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+    rval = read_coordinate("lat", 0, nVertices - 1, yVertVals);
+    ERRORR(rval, "Trouble reading 'lat' variable.");
+  }
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find 'lat' variable.");
   }
 
-  if (gDims[2] != -1) {
-    if ((vmit = varInfo.find("lev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = _readNC->read_coordinate("lev", gDims[2], gDims[5], klVals);
-      ERRORR(rval, "Trouble reading z variable.");
+  // Store lev values in levVals
+  if ((vmit = varInfo.find("lev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+    rval = read_coordinate("lev", 0, nLevels - 1, levVals);
+    ERRORR(rval, "Trouble reading 'lev' variable.");
 
-      // Decide whether down is positive
-      char posval[10];
-      int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
-      if (0 == success && !strcmp(posval, "down")) {
-        for (std::vector<double>::iterator dvit = klVals.begin(); dvit != klVals.end(); ++dvit)
-          (*dvit) *= -1.0;
-      }
+    // Decide whether down is positive
+    char posval[10];
+    int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
+    if (0 == success && !strcmp(posval, "down")) {
+      for (std::vector<double>::iterator dvit = zVertVals.begin(); dvit != zVertVals.end(); ++dvit)
+        (*dvit) *= -1.0;
     }
-    else {
-      ERRORR(MB_FAILURE, "Couldn't find z coordinate.");
-    }
+  }
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find 'lev' variable.");
   }
 
   // Store time coordinate values in tVals
-  if (tMin != -1) {
-    if ((vmit = varInfo.find(tName)) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = _readNC->read_coordinate(tName.c_str(), tMin, tMax, tVals);
-      ERRORR(rval, "Trouble reading time variable.");
-    }
-    else {
-      // If expected time variable is not available, set dummy time coordinate values to tVals
-      for (int t = tMin; t <= tMax; t++)
-        tVals.push_back((double)t);
-    }
+  if ((vmit = varInfo.find("time")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+    rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);
+    ERRORR(rval, "Trouble reading 'time' variable.");
+  }
+  else if ((vmit = varInfo.find("t")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+    rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);
+    ERRORR(rval, "Trouble reading 't' variable.");
+  }
+  else {
+    // If expected time variable is not available, set dummy time coordinate values to tVals
+    for (int t = 0; t < nTimeSteps; t++)
+      tVals.push_back((double)t);
   }
 
   // Determine the entity location type of a variable
   std::map<std::string, ReadNC::VarData>::iterator mit;
   for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
     ReadNC::VarData& vd = (*mit).second;
-    if ((std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-        vd.varDims.end(), kDim) != vd.varDims.end()))
+    if ((std::find(vd.varDims.begin(), vd.varDims.end(), vDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
+        vd.varDims.end(), levDim) != vd.varDims.end()))
       vd.entLoc = ReadNC::ENTLOCVERT;
   }
 
-  std::copy(gDims, gDims + 6, lDims);
-
-  // Don't read coordinates of columns until we actually create the mesh
-
-  // Hack: create dummy tags, if needed, for variables like ncol and nbnd
-  // with no corresponding variables
-  _readNC->init_dims_with_no_cvars_info();
+  // Hack: create dummy tags, if needed, for variables with no corresponding variables
+  init_dims_with_no_cvars_info();
 
   return MB_SUCCESS;
 }
@@ -223,8 +200,8 @@ ErrorCode NCHelperHOMME::check_existing_mesh(EntityHandle tmp_set)
       if (MB_FAILURE == rval)
         return rval;
 
-      // This will do a smart copy
-      std::copy(gids.begin(), gids.end(), range_inserter(localGidVerts));
+      // Restore localGidVerts
+      std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVerts));
     }
   }
 
@@ -235,12 +212,6 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::string& fileName = _readNC->fileName;
-  int& connectId = _readNC->connectId;
-  int (&gDims)[6] = _readNC->gDims;
-  int (&lDims)[6] = _readNC->lDims;
-  std::vector<double>& ilVals = _readNC->ilVals;
-  std::vector<double>& jlVals = _readNC->jlVals;
-  std::vector<double>& klVals = _readNC->klVals;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
   const Tag*& mpFileIdTag = _readNC->mpFileIdTag;
   DebugOutput& dbgOut = _readNC->dbgOut;
@@ -291,11 +262,6 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   rval = _readNC->get_dimensions(connectId, conn_names, conn_vals);
   ERRORR(rval, "Failed to get dimensions for connectivity.");
 
-  if (conn_vals[0] != gDims[3] - gDims[0] + 1 - 2) {
-    dbgOut.tprintf(1, "Warning: number of quads from %s and vertices from %s are inconsistent; nverts = %d, nquads = %d.\n",
-        conn_fname.c_str(), fileName.c_str(), gDims[3] - gDims[0] + 1, conn_vals[0]);
-  }
-
   // Read connectivity into temporary variable
   int num_fine_quads, num_coarse_quads, start_idx;
   std::vector<std::string>::iterator vit;
@@ -308,6 +274,10 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
     ERRORR(MB_FAILURE, "Failed to get number of quads.");
   }
   int num_quads = conn_vals[idx];
+  if (num_quads != nVertices - 2) {
+    dbgOut.tprintf(1, "Warning: number of quads from %s and vertices from %s are inconsistent; nverts = %d, nquads = %d.\n",
+        conn_fname.c_str(), fileName.c_str(), nVertices, num_quads);
+  }
 
   // Get the connectivity into tmp_conn2 and permute into tmp_conn
   int cornerVarId;
@@ -349,12 +319,13 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   num_fine_quads = spectral_unit * num_coarse_quads;
 
   // Now create num_coarse_quads
-  EntityHandle *conn_arr;
+  EntityHandle* conn_arr;
   EntityHandle start_vertex;
   Range tmp_range;
 
   // Read connectivity into that space
-  EntityHandle *sv_ptr = NULL, start_quad;
+  EntityHandle* sv_ptr = NULL;
+  EntityHandle start_quad;
   SpectralMeshTool smt(mbImpl, _spectralOrder);
   if (!spectralMesh) {
     rval = _readNC->readMeshIface->get_element_connect(num_coarse_quads, 4,
@@ -377,15 +348,14 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
     ERRORR(rval, "Failed to get fine connectivity of spectral elements.");
   }
 
-  // On this proc, I get columns lDims[1]..lDims[4], inclusive; need to find which vertices those correspond to
   unsigned int num_local_verts = localGidVerts.size();
-  unsigned int num_total_verts = gDims[3] - gDims[0] + 1;
+  unsigned int num_total_verts = nVertices;
 
   // Create vertices
   std::vector<double*> arrays;
   rval = _readNC->readMeshIface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays,
                                           // might have to create gather mesh later
-                                        (create_gathers ? num_local_verts+num_total_verts : num_local_verts));
+                                        (create_gathers ? num_local_verts + num_total_verts : num_local_verts));
   ERRORR(rval, "Couldn't create vertices in ucd mesh.");
 
   // Set vertex coordinates
@@ -393,19 +363,19 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
   int i;
   for (i = 0, rit = localGidVerts.begin(); i < (int)num_local_verts; i++, ++rit) {
-    assert(*rit < ilVals.size() + 1);
-    xptr[i] = ilVals[(*rit) - 1]; // lon
-    yptr[i] = jlVals[(*rit) - 1]; // lat
-    zptr[i] = klVals[lDims[2]]; // dummy
+    assert(*rit < xVertVals.size() + 1);
+    xptr[i] = xVertVals[(*rit) - 1]; // lon
+    yptr[i] = yVertVals[(*rit) - 1]; // lat
   }
 
+  // Convert lon/lat/rad to x/y/z
   const double pideg = acos(-1.0) / 180.0;
   for (i = 0; i < (int)num_local_verts; i++) {
     double cosphi = cos(pideg * yptr[i]);
     double zmult = sin(pideg * yptr[i]);
     double xmult = cosphi * cos(xptr[i] * pideg);
     double ymult = cosphi * sin(xptr[i] * pideg);
-    double rad = 8.0e3 + klVals[lDims[2]];
+    double rad = 8000.0 + levVals[0];
     xptr[i] = rad * xmult;
     yptr[i] = rad * ymult;
     zptr[i] = rad * zmult;
@@ -420,6 +390,7 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   assert(count == (int) num_local_verts);
   int* gid_data = (int*) data;
   std::copy(localGidVerts.begin(), localGidVerts.end(), gid_data);
+
   // Duplicate global id data, which will be used to resolve sharing
   if (mpFileIdTag) {
     rval = mbImpl->tag_iterate(*mpFileIdTag, vert_range.begin(), vert_range.end(), count, data);
@@ -474,11 +445,11 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
 
     xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
     for (i = 0; i < (int)num_total_verts; i++) {
-      double cosphi = cos(pideg * jlVals[i]);
-      double zmult = sin(pideg * jlVals[i]);
-      double xmult = cosphi * cos(ilVals[i] * pideg);
-      double ymult = cosphi * sin(ilVals[i] * pideg);
-      double rad = 8.0e3 + klVals[lDims[2]];
+      double cosphi = cos(pideg * yVertVals[i]);
+      double zmult = sin(pideg * yVertVals[i]);
+      double xmult = cosphi * cos(xVertVals[i] * pideg);
+      double ymult = cosphi * sin(xVertVals[i] * pideg);
+      double rad = 8000.0 + levVals[0];
       xptr[i] = rad * xmult;
       yptr[i] = rad * ymult;
       zptr[i] = rad * zmult;
@@ -526,12 +497,6 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
                                                  std::vector<ReadNC::VarData>& vdatas, std::vector<ReadNC::VarData>& vsetdatas)
 {
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
-  int& tMin = _readNC->tMin;
-  int& tMax = _readNC->tMax;
-  int& iDim = _readNC->iDim;
-  int& kDim = _readNC->kDim;
-  int& tDim = _readNC->tDim;
-
   std::map<std::string, ReadNC::VarData>::iterator mit;
 
   // If empty read them all
@@ -539,23 +504,22 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
     for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
       ReadNC::VarData vd = (*mit).second;
       if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-          vd.varDims.end(), kDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(), vd.varDims.end(), iDim)
+          vd.varDims.end(), levDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(), vd.varDims.end(), vDim)
           != vd.varDims.end()))
-        vdatas.push_back(vd); // 3d data (time, lev, ncol) read here
+        vdatas.push_back(vd); // 3D data (time, lev, ncol) read here
       else
         vsetdatas.push_back(vd);
     }
   }
   else {
     for (unsigned int i = 0; i < var_names.size(); i++) {
-
       mit = varInfo.find(var_names[i]);
       if (mit != varInfo.end()) {
         ReadNC::VarData vd = (*mit).second;
         if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-            vd.varDims.end(), kDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(), vd.varDims.end(), iDim)
+            vd.varDims.end(), levDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(), vd.varDims.end(), vDim)
             != vd.varDims.end()))
-          vdatas.push_back(vd); // 3d data (time, lev, ncol) read here
+          vdatas.push_back(vd); // 3D data (time, lev, ncol) read here
         else
           vsetdatas.push_back(vd);
       }
@@ -565,11 +529,12 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
     }
   }
 
-  if (tstep_nums.empty() && -1 != tMin) {
+  if (tstep_nums.empty() && nTimeSteps > 0) {
     // No timesteps input, get them all
-    for (int i = tMin; i <= tMax; i++)
+    for (int i = 0; i < nTimeSteps; i++)
       tstep_nums.push_back(i);
   }
+
   if (!tstep_nums.empty()) {
     for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);
@@ -600,9 +565,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
 ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
-  std::vector<std::string>& dimNames = _readNC->dimNames;
   std::vector<int>& dimVals = _readNC->dimVals;
-   int& tDim = _readNC->tDim;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   ErrorCode rval = MB_SUCCESS;
@@ -617,24 +580,13 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
       verts.psize() == 1);
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    vdatas[i].numLev = nLevels;
+
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-
-      std::vector<std::string>::iterator vit;
-      int idx_lev = -1;
-      int idx_ilev = -1;
-      if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
-        idx_lev = vit - dimNames.begin();
-      if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
-        idx_ilev = vit - dimNames.begin();
-      if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), idx_lev) != vdatas[i].varDims.end())
-        vdatas[i].numLev = dimVals[idx_lev];
-      else if (std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), idx_ilev) != vdatas[i].varDims.end())
-        vdatas[i].numLev = dimVals[idx_ilev];
-
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
-        rval = _readNC->get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
+        rval = get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
         ERRORR(rval, "Trouble getting tag.");
       }
 
@@ -762,7 +714,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
           ERRORS(success, "Failed on wait_all.");
 
           if (vdatas[i].numLev != 1)
-            // switch from k varying slowest to k varying fastest
+            // Switch from k varying slowest to k varying fastest
             success = kji_to_jik_stride(ni, nj, nk, data, &tmpdoubledata[0], localGidVerts);
           else {
             for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)

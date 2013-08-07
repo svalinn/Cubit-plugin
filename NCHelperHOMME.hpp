@@ -50,6 +50,7 @@ private:
 
 private:
   int _spectralOrder; // Read from variable 'np'
+  int connectId; // For connectivity file
 };
 
 } // namespace moab
