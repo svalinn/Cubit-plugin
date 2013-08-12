@@ -95,8 +95,8 @@ public:
       lCDims[i] = -1;
     }
 
-    locallyPeriodic[0] = locallyPeriodic[1] = 0;
-    globallyPeriodic[0] = globallyPeriodic[1] = 0;
+    locallyPeriodic[0] = locallyPeriodic[1] = locallyPeriodic[2] = 0;
+    globallyPeriodic[0] = globallyPeriodic[1] = globallyPeriodic[2] = 0;
   }
   virtual ~ScdNCHelper() {}
 
@@ -160,10 +160,10 @@ protected:
   int iCDim, jCDim;
 
   //! Whether mesh is locally periodic in i or j
-  int locallyPeriodic[2];
+  int locallyPeriodic[3];
 
   //! Whether mesh is globally periodic in i or j
-  int globallyPeriodic[2];
+  int globallyPeriodic[3];
 };
 
 //! Child helper class for ucd mesh, e.g. CAM_SE (HOMME) or MPAS

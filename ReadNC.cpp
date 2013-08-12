@@ -19,7 +19,8 @@ ReaderIface* ReadNC::factory(Interface* iface)
 }
 
 ReadNC::ReadNC(Interface* impl) :
-  mbImpl(impl), fileId(-1), mGlobalIdTag(0), mpFileIdTag(NULL), dbgOut(stderr), isParallel(false), partMethod(-1),
+        mbImpl(impl), fileId(-1), mGlobalIdTag(0), mpFileIdTag(NULL), dbgOut(stderr), isParallel(false), 
+        partMethod(ScdParData::ALLJORKORI),
 #ifdef USE_MPI
   myPcomm(NULL),
 #endif
@@ -268,9 +269,8 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
   const int rank = myPcomm->proc_config().proc_rank();
   dbgOut.set_rank(rank);
 
-  const char* part_options[] = {"alljorkori", "alljkbal", "sqij", "sqjk", "TRIVIAL_PARTITION"};
   int dum;
-  rval = opts.match_option("PARTITION_METHOD", part_options, dum);
+  rval = opts.match_option("PARTITION_METHOD", ScdParData::PartitionMethodNames, dum);
   if (rval == MB_FAILURE) {
     readMeshIface->report_error("Unknown partition method specified.");
     partMethod = ScdParData::ALLJORKORI;
