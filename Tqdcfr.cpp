@@ -2491,6 +2491,8 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
   if (records[entity_rec_num].entity == 0) {
     records[entity_rec_num].entity = uidSetMap[uid];
   }
+
+  assert(records[entity_rec_num].entity);
   
     // set the id
   if (id != -1) {

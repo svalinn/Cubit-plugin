@@ -264,10 +264,10 @@ private:
   int partMethod;
 
   //! whether mesh is locally periodic in i or j
-  int locallyPeriodic[2];
+  int locallyPeriodic[3];
 
   //! whether mesh is globally periodic in i or j
-  int globallyPeriodic[2];
+  int globallyPeriodic[3];
 
   //! parallel data object, to be cached with ScdBox
   ScdParData parData;

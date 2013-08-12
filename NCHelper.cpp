@@ -365,8 +365,8 @@ ErrorCode ScdNCHelper::create_mesh(ScdInterface* scdi, const FileOptions& opts, 
   std::vector<double>& klVals = _readNC->klVals;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
   DebugOutput& dbgOut = _readNC->dbgOut;
-  int (&locallyPeriodic)[2] = _readNC->locallyPeriodic;
-  int (&globallyPeriodic)[2] = _readNC->globallyPeriodic;
+  int (&locallyPeriodic)[3] = _readNC->locallyPeriodic;
+  int (&globallyPeriodic)[3] = _readNC->globallyPeriodic;
   ScdParData& parData = _readNC->parData;
 
   Range tmp_range;

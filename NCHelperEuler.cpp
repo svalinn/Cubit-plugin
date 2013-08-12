@@ -77,8 +77,8 @@ ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle fi
   DebugOutput& dbgOut = _readNC->dbgOut;
   bool& isParallel = _readNC->isParallel;
   int& partMethod = _readNC->partMethod;
-  int (&locallyPeriodic)[2] = _readNC->locallyPeriodic;
-  int (&globallyPeriodic)[2] = _readNC->globallyPeriodic;
+  int (&locallyPeriodic)[3] = _readNC->locallyPeriodic;
+  int (&globallyPeriodic)[3] = _readNC->globallyPeriodic;
   ScdParData& parData = _readNC->parData;
 #ifdef USE_MPI
   ParallelComm*& myPcomm = _readNC->myPcomm;
@@ -147,7 +147,7 @@ ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle fi
 #ifdef USE_MPI
     for (int i = 0; i < 6; i++)
       parData.gDims[i] = gDims[i];
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 3; i++)
       parData.gPeriodic[i] = globallyPeriodic[i];
     parData.partMethod = partMethod;
     int pdims[3];
