@@ -52,10 +52,9 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
   bool& isParallel = _readNC->isParallel;
   int& partMethod = _readNC->partMethod;
   ScdParData& parData = _readNC->parData;
-#ifdef USE_MPI
-  ParallelComm*& myPcomm = _readNC->myPcomm;
-#endif
 
+  // Look for names of i/j dimensions
+  // First i
   std::vector<std::string>::iterator vit;
   unsigned int idx;
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "slon")) != dimNames.end())
@@ -64,31 +63,33 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
     ERRORR(MB_FAILURE, "Couldn't find 'slon' variable.");
   }
   iDim = idx;
-  gDims[3] = dimVals[idx] - 1;
   gDims[0] = 0;
+  gDims[3] = dimVals[idx] - 1;
 
+  // Then j
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "slat")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
     ERRORR(MB_FAILURE, "Couldn't find 'slat' variable.");
   }
   jDim = idx;
-  gDims[4] = dimVals[idx] - 1 + 2; // Add 2 for the pole points
   gDims[1] = 0;
+  gDims[4] = dimVals[idx] - 1 + 2; // Add 2 for the pole points
 
   // Look for names of center i/j dimensions
+  // First i
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lon")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
     ERRORR(MB_FAILURE, "Couldn't find 'lon' variable.");
   }
   iCDim = idx;
-  gCDims[3] = dimVals[idx] - 1;
   gCDims[0] = 0;
+  gCDims[3] = dimVals[idx] - 1;
 
-  // Check and set globallyPeriodic[0]
+  // Check i periodicity and set globallyPeriodic[0]
   std::vector<double> til_vals(2);
-  ErrorCode rval = read_coordinate("lon", dimVals[idx] - 2, dimVals[idx] - 1, til_vals);
+  ErrorCode rval = read_coordinate("lon", gCDims[3] - 1, gCDims[3], til_vals);
   ERRORR(rval, "Trouble reading 'lon' variable.");
   if (std::fabs(2 * til_vals[1] - til_vals[0] - 360) < 0.001)
     globallyPeriodic[0] = 1;
@@ -97,23 +98,22 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
   else
     assert("Number of vertices should equal to number of edges plus one" && gDims[3] == gCDims[3] + 1);
 
-#ifdef USE_MPI
-  // If serial, use a locally-periodic representation only if local mesh is periodic, otherwise don't
-  if ((isParallel && myPcomm->proc_config().proc_size() == 1) && globallyPeriodic[0])
-    locallyPeriodic[0] = 1;
-#else
-  if (globallyPeriodic[0])
-    locallyPeriodic[0] = 1;
-#endif
-
+  // Then j
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lat")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lat' variable.");
+    ERRORR(MB_FAILURE, "Couldn't find 'lat' dimension.");
   }
   jCDim = idx;
-  gCDims[4] = dimVals[idx] - 1;
   gCDims[1] = 0;
+  gCDims[4] = dimVals[idx] - 1;
+
+  // For FV models, will always be non-periodic in j
+  assert(gDims[4] == gCDims[4] + 1);
+
+  // Try a truly 2D mesh
+  gDims[2] = -1;
+  gDims[5] = -1;
 
   // Look for time dimension
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end())
@@ -138,8 +138,15 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
   nLevels = dimVals[idx];
 
   // Parse options to get subset
-  if (isParallel) {
+  int rank = 0, procs = 1;
 #ifdef USE_MPI
+  if (isParallel) {
+    ParallelComm*& myPcomm = _readNC->myPcomm;
+    rank = myPcomm->proc_config().proc_rank();
+    procs = myPcomm->proc_config().proc_size();
+  }
+#endif
+  if (procs > 1) {
     for (int i = 0; i < 6; i++)
       parData.gDims[i] = gDims[i];
     for (int i = 0; i < 2; i++)
@@ -147,9 +154,7 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
     parData.partMethod = partMethod;
     int pdims[3];
 
-    rval = ScdInterface::compute_partition(myPcomm->proc_config().proc_size(),
-        myPcomm->proc_config().proc_rank(),
-        parData, lDims, locallyPeriodic, pdims);
+    rval = ScdInterface::compute_partition(procs, rank, parData, lDims, locallyPeriodic, pdims);
     if (MB_SUCCESS != rval)
       return rval;
     for (int i = 0; i < 3; i++)
@@ -158,56 +163,47 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
     dbgOut.tprintf(1, "Partition: %dx%d (out of %dx%d)\n",
         lDims[3] - lDims[0] + 1, lDims[4] - lDims[1] + 1,
         gDims[3] - gDims[0] + 1, gDims[4] - gDims[1] + 1);
-    if (myPcomm->proc_config().proc_rank() == 0)
+    if (0 == rank)
       dbgOut.tprintf(1, "Contiguous chunks of size %d bytes.\n", 8 * (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1));
-#endif
   }
   else {
     for (int i = 0; i < 6; i++)
       lDims[i] = gDims[i];
     locallyPeriodic[0] = globallyPeriodic[0];
   }
+
   opts.get_int_option("IMIN", lDims[0]);
   opts.get_int_option("IMAX", lDims[3]);
   opts.get_int_option("JMIN", lDims[1]);
   opts.get_int_option("JMAX", lDims[4]);
 
-  // Now get actual coordinate values for vertices and cell centers; first resize
-  if (locallyPeriodic[0]) {
-    // If locally periodic, doesn't matter what global periodicity is, # vertex coords = # elem coords
-    ilVals.resize(lDims[3] - lDims[0] + 1);
-    ilCVals.resize(lDims[3] - lDims[0] + 1);
-    lCDims[3] = lDims[3];
-  }
-  else {
-    if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
-      // Globally periodic and I'm the last proc, get fewer vertex coords than vertices in i
-      ilVals.resize(lDims[3] - lDims[0] + 1);
-      ilCVals.resize(lDims[3] - lDims[0]);
-      lCDims[3] = lDims[3] - 1;
-    }
-    else {
-      ilVals.resize(lDims[3] - lDims[0] + 1);
-      ilCVals.resize(lDims[3] - lDims[0]);
-      lCDims[3] = lDims[3] - 1;
-    }
-  }
-
+  // Now get actual coordinate values for vertices and cell centers
   lCDims[0] = lDims[0];
+  if (locallyPeriodic[0])
+    // If locally periodic, doesn't matter what global periodicity is, # vertex coords = # elem coords
+    lCDims[3] = lDims[3];
+  else
+    lCDims[3] = lDims[3] - 1;
+
+  // For FV models, will always be non-periodic in j
   lCDims[1] = lDims[1];
   lCDims[4] = lDims[4] - 1;
 
-  if (-1 != lDims[1]) {
+  // Resize vectors to store values later
+  if (-1 != lDims[0])
+    ilVals.resize(lDims[3] - lDims[0] + 1);
+  if (-1 != lCDims[0])
+    ilCVals.resize(lCDims[3] - lCDims[0] + 1);
+  if (-1 != lDims[1])
     jlVals.resize(lDims[4] - lDims[1] + 1);
+  if (-1 != lCDims[1])
     jlCVals.resize(lCDims[4] - lCDims[1] + 1);
-  }
-
   if (nTimeSteps > 0)
     tVals.resize(nTimeSteps);
 
-  // ... then read actual values
+  // Now read coord values
   std::map<std::string, ReadNC::VarData>::iterator vmit;
-  if (lCDims[0] != -1) {
+  if (-1 != lCDims[0]) {
     if ((vmit = varInfo.find("lon")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       rval = read_coordinate("lon", lCDims[0], lCDims[3], ilCVals);
       ERRORR(rval, "Trouble reading 'lon' variable.");
@@ -217,7 +213,7 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
     }
   }
 
-  if (lCDims[1] != -1) {
+  if (-1 != lCDims[1]) {
     if ((vmit = varInfo.find("lat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       rval = read_coordinate("lat", lCDims[1], lCDims[4], jlCVals);
       ERRORR(rval, "Trouble reading 'lat' variable.");
@@ -227,16 +223,17 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
     }
   }
 
-  if (lDims[0] != -1) {
+  if (-1 != lDims[0]) {
     if ((vmit = varInfo.find("slon")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       // Last column
       if (!locallyPeriodic[0] && globallyPeriodic[0] && lDims[3] > gDims[3]) {
-        til_vals.resize(ilVals.size() - 1, 0.0);
-        rval = read_coordinate("slon", lDims[0], lDims[3] - 1, til_vals);
-        double dif = til_vals[1] - til_vals[0];
+        assert(lDims[3] == gDims[3] + 1);
+        std::vector<double> dummyVar(lDims[3] - lDims[0]);
+        rval = read_coordinate("slon", lDims[0], lDims[3] - 1, dummyVar);
+        double dif = dummyVar[1] - dummyVar[0];
         std::size_t i;
-        for (i = 0; i != til_vals.size(); i++)
-          ilVals[i] = til_vals[i];
+        for (i = 0; i != dummyVar.size(); i++)
+          ilVals[i] = dummyVar[i];
         ilVals[i] = ilVals[i - 1] + dif;
       }
       else {
@@ -249,7 +246,7 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
     }
   }
 
-  if (lDims[1] != -1) {
+  if (-1 != lDims[1]) {
     if ((vmit = varInfo.find("slat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       if (!isParallel || ((gDims[4] - gDims[1]) == (lDims[4] - lDims[1]))) {
         std::vector<double> dummyVar(lDims[4] - lDims[1] - 1);
@@ -257,7 +254,7 @@ ErrorCode NCHelperFV::init_mesh_vals(const FileOptions& opts, EntityHandle file_
         ERRORR(rval, "Trouble reading 'slat' variable.");
         // Copy the correct piece
         jlVals[0] = -90.0;
-        unsigned int i = 0;
+        std::size_t i = 0;
         for (i = 1; i != dummyVar.size() + 1; i++)
           jlVals[i] = dummyVar[i - 1];
         jlVals[i] = 90.0; // Using value of i after loop exits.

@@ -488,25 +488,32 @@ ErrorCode NCHelper::read_coordinate(const char* var_name, int lmin, int lmax, st
   if (varInfo.end() == vmit)
     return MB_FAILURE;
 
-  // Check to make sure it's a float or double
-  int fail;
-  NCDF_SIZE tmin = lmin, tcount = lmax - lmin + 1;
+  assert(lmin >= 0 && lmax >= lmin);
+  NCDF_SIZE tstart = lmin;
+  NCDF_SIZE tcount = lmax - lmin + 1;
   NCDF_DIFF dum_stride = 1;
-  if (NC_DOUBLE == (*vmit).second.varDataType) {
+  int fail;
+
+  // Check size
+  if (tcount != cvals.size())
     cvals.resize(tcount);
-    fail = NCFUNCA(get_vars_double)(_fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &cvals[0]);
+
+  // Check to make sure it's a float or double
+  if (NC_DOUBLE == (*vmit).second.varDataType) {
+    fail = NCFUNCA(get_vars_double)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &cvals[0]);
     if (fail)
       ERRORS(MB_FAILURE, "Failed to get coordinate values.");
   }
   else if (NC_FLOAT == (*vmit).second.varDataType) {
     std::vector<float> tcvals(tcount);
-    fail = NCFUNCA(get_vars_float)(_fileId, (*vmit).second.varId, &tmin, &tcount, &dum_stride, &tcvals[0]);
+    fail = NCFUNCA(get_vars_float)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &tcvals[0]);
     if (fail)
       ERRORS(MB_FAILURE, "Failed to get coordinate values.");
-    cvals.resize(tcount);
     std::copy(tcvals.begin(), tcvals.end(), cvals.begin());
   }
-  else ERRORR(MB_FAILURE, "Wrong data type for coordinate variable.");
+  else {
+    ERRORR(MB_FAILURE, "Wrong data type for coordinate variable.");
+  }
 
   return MB_SUCCESS;
 }
@@ -673,7 +680,7 @@ void NCHelper::init_dims_with_no_cvars_info()
     data.varName = std::string(var_name);
     data.varId =sizeTotalVar;
     data.varTags.resize(1, 0);
-    data.varDataType = NC_DOUBLE; // could be int, actually, but we do not really need the type
+    data.varDataType = NC_DOUBLE; // Could be int, actually, but we do not really need the type
     data.varDims.resize(1);
     data.varDims[0]= (int)i;
     data.numAtts=0;
