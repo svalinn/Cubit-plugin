@@ -1019,7 +1019,6 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimVals = _readNC->dimVals;
   DebugOutput& dbgOut = _readNC->dbgOut;
-  bool& isParallel = _readNC->isParallel;
 
   ErrorCode rval = MB_SUCCESS;
 
@@ -1045,6 +1044,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
 
 #ifdef USE_MPI
   moab::Range faces_owned;
+  bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     rval = myPcomm->filter_pstatus(faces, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &faces_owned);
@@ -1269,7 +1269,6 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
 
 ErrorCode ScdNCHelper::create_quad_coordinate_tag() {
   Interface*& mbImpl = _readNC->mbImpl;
-  bool& isParallel = _readNC->isParallel;
 
   Range ents;
   ErrorCode rval = mbImpl->get_entities_by_type(_fileSet, moab::MBQUAD, ents);
@@ -1278,6 +1277,7 @@ ErrorCode ScdNCHelper::create_quad_coordinate_tag() {
   std::size_t numOwnedEnts = 0;
 #ifdef USE_MPI
   Range ents_owned;
+  bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     rval = myPcomm->filter_pstatus(ents, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &ents_owned);

@@ -216,7 +216,6 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
   const Tag*& mpFileIdTag = _readNC->mpFileIdTag;
   DebugOutput& dbgOut = _readNC->dbgOut;
-  bool& isParallel = _readNC->isParallel;
   bool& spectralMesh = _readNC->spectralMesh;
   int& gatherSetRank = _readNC->gatherSetRank;
 
@@ -239,6 +238,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 
   int rank = 0, procs = 1;
 #ifdef USE_MPI
+  bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     rank = myPcomm->proc_config().proc_rank();
@@ -247,12 +247,14 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 #endif
 
 #ifdef PNETCDF_FILE
+#ifdef USE_MPI
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
   }
   else
     success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+#endif
 #else
   success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
 #endif

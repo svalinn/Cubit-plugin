@@ -269,10 +269,10 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
   const Tag*& mpFileIdTag = _readNC->mpFileIdTag;
-  bool& isParallel = _readNC->isParallel;
 
   int rank = 0, procs = 1;
 #ifdef USE_MPI
+  bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     rank = myPcomm->proc_config().proc_rank();
@@ -567,7 +567,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimVals = _readNC->dimVals;
   DebugOutput& dbgOut = _readNC->dbgOut;
-  bool& isParallel = _readNC->isParallel;
 
   ErrorCode rval = MB_SUCCESS;
 
@@ -592,6 +591,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
   // Note, for MPAS faces.psize() can be more than 1
 
 #ifdef USE_MPI
+  bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     rval = myPcomm->filter_pstatus(faces, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &facesOwned);
