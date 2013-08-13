@@ -20,7 +20,7 @@ ReaderIface* ReadNC::factory(Interface* iface)
 
 ReadNC::ReadNC(Interface* impl) :
         mbImpl(impl), fileId(-1), mGlobalIdTag(0), mpFileIdTag(NULL), dbgOut(stderr), isParallel(false), 
-        partMethod(ScdParData::ALLJORKORI),
+        partMethod(ScdParData::ALLJORKORI), scdi(NULL),
 #ifdef USE_MPI
   myPcomm(NULL),
 #endif
@@ -94,40 +94,40 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
     tmp_set = *file_set;
 
   // Get the scd interface
-  ScdInterface *scdi = NULL;
+  scdi = NULL;
   rval = mbImpl->query_interface(scdi);
-  if (!scdi)
+  if (NULL == scdi)
     return MB_FAILURE;
 
-  if (myHelper != NULL)
+  if (NULL != myHelper)
     delete myHelper;
 
   // Get appropriate NC helper instance based on information read from the header
-  myHelper = NCHelper::get_nc_helper(this, fileId, opts);
-  if (myHelper == NULL) {
+  myHelper = NCHelper::get_nc_helper(this, fileId, opts, tmp_set);
+  if (NULL == myHelper) {
     ERRORR(MB_FAILURE, "Failed to get NCHelper class instance.");
   }
 
   // Initialize mesh values
-  rval = myHelper->init_mesh_vals(opts, tmp_set);
+  rval = myHelper->init_mesh_vals();
   ERRORR(rval, "Trouble initializing mesh values.");
 
   // Check existing mesh from last read
   if (noMesh && !noVars) {
-    rval = myHelper->check_existing_mesh(tmp_set);
+    rval = myHelper->check_existing_mesh();
     ERRORR(rval, "Trouble checking mesh from last read.\n");
   }
 
   // Create mesh vertex/edge/face sequences
   Range faces;
   if (!noMesh) {
-    rval = myHelper->create_mesh(scdi, opts, tmp_set, faces);
+    rval = myHelper->create_mesh(faces);
     ERRORR(rval, "Trouble creating mesh.");
   }
 
   // Read variables onto grid
   if (!noVars) {
-    rval = myHelper->read_variables(tmp_set, var_names, tstep_nums);
+    rval = myHelper->read_variables(var_names, tstep_nums);
     if (MB_FAILURE == rval)
       return rval;
   }
@@ -141,7 +141,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
     }
 
     if (!filteredDimNames.empty()) {
-      rval = myHelper->read_variables(tmp_set, filteredDimNames, tstep_nums);
+      rval = myHelper->read_variables(filteredDimNames, tstep_nums);
       if (MB_FAILURE == rval)
         return rval;
     }
@@ -183,11 +183,12 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
 
   // Create NC conventional tags when loading header info only
   if (noMesh && noVars) {
-    rval = myHelper->create_conventional_tags(scdi, tmp_set, tstep_nums);
+    rval = myHelper->create_conventional_tags(tstep_nums);
     ERRORR(rval, "Trouble creating NC conventional tags.");
   }
 
   mbImpl->release_interface(scdi);
+  scdi = NULL;
 
   // Close the file
   success = NCFUNC(close)(fileId);

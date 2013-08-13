@@ -13,7 +13,8 @@
 
 namespace moab {
 
-NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts) : UcdNCHelper(readNC, fileId),
+NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+: UcdNCHelper(readNC, fileId, opts, fileSet),
 _spectralOrder(-1), connectId(-1)
 {
   // Calculate spectral order
@@ -58,7 +59,7 @@ bool NCHelperHOMME::can_read_file(ReadNC* readNC, int fileId)
   return false;
 }
 
-ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle file_set)
+ErrorCode NCHelperHOMME::init_mesh_vals()
 {
   std::vector<std::string>& dimNames = _readNC->dimNames;
   std::vector<int>& dimVals = _readNC->dimVals;
@@ -172,7 +173,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals(const FileOptions& opts, EntityHandle fi
 // of scope (and deleted). The old instance initialized localGidVerts properly when the mesh was
 // created, but it is now lost. The new instance (will not create the mesh with noMesh option) has
 // to restore it based on the existing mesh from last read
-ErrorCode NCHelperHOMME::check_existing_mesh(EntityHandle tmp_set)
+ErrorCode NCHelperHOMME::check_existing_mesh()
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
@@ -188,7 +189,7 @@ ErrorCode NCHelperHOMME::check_existing_mesh(EntityHandle tmp_set)
 
     // We need to get all vertices from tmp_set (it is the input set in no_mesh scenario)
     Range local_verts;
-    ErrorCode rval = mbImpl->get_entities_by_dimension(tmp_set, 0, local_verts);
+    ErrorCode rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);
     if (MB_FAILURE == rval)
       return rval;
 
@@ -208,7 +209,7 @@ ErrorCode NCHelperHOMME::check_existing_mesh(EntityHandle tmp_set)
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces)
+ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::string& fileName = _readNC->fileName;
@@ -223,7 +224,7 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   std::string conn_fname;
 
   // Try to open the connectivity file through CONN option, if used
-  ErrorCode rval = opts.get_str_option("CONN", conn_fname);
+  ErrorCode rval = _opts.get_str_option("CONN", conn_fname);
   if (MB_SUCCESS != rval) {
     // Default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
     conn_fname = std::string(fileName);
@@ -422,14 +423,14 @@ ErrorCode NCHelperHOMME::create_mesh(ScdInterface* scdi, const FileOptions& opts
   // Add new vertices and elements to the set
   faces.merge(tmp_range);
   tmp_range.insert(start_vertex, start_vertex + num_local_verts - 1);
-  rval = mbImpl->add_entities(file_set, tmp_range);
+  rval = mbImpl->add_entities(_fileSet, tmp_range);
   ERRORR(rval, "Couldn't add new vertices and quads/hexes to file set.");
 
   // Mark the set with the spectral order
   Tag sporder;
   rval = mbImpl->tag_get_handle("SPECTRAL_ORDER", 1, MB_TYPE_INTEGER, sporder, MB_TAG_CREAT | MB_TAG_SPARSE);
   ERRORR(rval, "Couldn't create spectral order tag.");
-  rval = mbImpl->tag_set_data(sporder, &file_set, 1, &_spectralOrder);
+  rval = mbImpl->tag_set_data(sporder, &_fileSet, 1, &_spectralOrder);
   ERRORR(rval, "Couldn't set value for spectral order tag.");
 
   if (create_gathers) {
@@ -562,7 +563,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimVals = _readNC->dimVals;
@@ -574,7 +575,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
 
   // Get vertices in set
   Range verts;
-  rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);
   ERRORR(rval, "Trouble getting vertices in set.");
   assert("Should only have a single vertex subrange, since they were read in one shot" &&
       verts.psize() == 1);
@@ -645,11 +646,11 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(EntityHandle file_
 }
 
 #ifdef PNETCDF_FILE
-ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
+  ErrorCode rval = read_ucd_variable_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -805,11 +806,11 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(EntityHandle file_set
   return rval;
 }
 #else
-ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
+  ErrorCode rval = read_ucd_variable_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space

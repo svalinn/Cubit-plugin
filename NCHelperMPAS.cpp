@@ -16,8 +16,8 @@ namespace moab {
 
 const int MAX_EDGES_PER_CELL = 10;
 
-NCHelperMPAS::NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts)
-: UcdNCHelper(readNC, fileId)
+NCHelperMPAS::NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+: UcdNCHelper(readNC, fileId, opts, fileSet)
 , maxCellEdges(MAX_EDGES_PER_CELL)
 , numCellGroups(0)
 {
@@ -25,7 +25,7 @@ NCHelperMPAS::NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts)
     readNC->partMethod = -1;
 }
 
-bool NCHelperMPAS::can_read_file(ReadNC* readNC, int fileId)
+bool NCHelperMPAS::can_read_file(ReadNC* readNC)
 {
   std::vector<std::string>& dimNames = readNC->dimNames;
 
@@ -36,7 +36,7 @@ bool NCHelperMPAS::can_read_file(ReadNC* readNC, int fileId)
   return false;
 }
 
-ErrorCode NCHelperMPAS::init_mesh_vals(const FileOptions& opts, EntityHandle file_set)
+ErrorCode NCHelperMPAS::init_mesh_vals()
 {
   std::vector<std::string>& dimNames = _readNC->dimNames;
   std::vector<int>& dimVals = _readNC->dimVals;
@@ -175,7 +175,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals(const FileOptions& opts, EntityHandle fil
 // of scope (and deleted). The old instance initialized some variables properly when the mesh was
 // created, but they are now lost. The new instance (will not create the mesh with noMesh option)
 // has to restore them based on the existing mesh from last read
-ErrorCode NCHelperMPAS::check_existing_mesh(EntityHandle tmp_set)
+ErrorCode NCHelperMPAS::check_existing_mesh()
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
@@ -187,7 +187,7 @@ ErrorCode NCHelperMPAS::check_existing_mesh(EntityHandle tmp_set)
     if (localGidVerts.empty()) {
       // Get all vertices from tmp_set (it is the input set in no_mesh scenario)
       Range local_verts;
-      rval = mbImpl->get_entities_by_dimension(tmp_set, 0, local_verts);
+      rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);
       if (MB_FAILURE == rval)
         return rval;
 
@@ -206,9 +206,9 @@ ErrorCode NCHelperMPAS::check_existing_mesh(EntityHandle tmp_set)
     }
 
     if (localGidEdges.empty()) {
-      // Get all edges from tmp_set (it is the input set in no_mesh scenario)
+      // Get all edges from _fileSet (it is the input set in no_mesh scenario)
       Range local_edges;
-      rval = mbImpl->get_entities_by_dimension(tmp_set, 1, local_edges);
+      rval = mbImpl->get_entities_by_dimension(_fileSet, 1, local_edges);
       if (MB_FAILURE == rval)
         return rval;
 
@@ -229,7 +229,7 @@ ErrorCode NCHelperMPAS::check_existing_mesh(EntityHandle tmp_set)
     if (localGidCells.empty()) {
       // Get all cells from tmp_set (it is the input set in no_mesh scenario)
       Range local_cells;
-      rval = mbImpl->get_entities_by_dimension(tmp_set, 2, local_cells);
+      rval = mbImpl->get_entities_by_dimension(_fileSet, 2, local_cells);
       if (MB_FAILURE == rval)
         return rval;
 
@@ -257,14 +257,14 @@ ErrorCode NCHelperMPAS::check_existing_mesh(EntityHandle tmp_set)
     if (0 == numCellGroups) {
       Tag numCellGroupsTag;
       rval = mbImpl->tag_get_handle("__NUM_CELL_GROUPS", 1, MB_TYPE_INTEGER, numCellGroupsTag);
-      rval = mbImpl->tag_get_data(numCellGroupsTag, &tmp_set, 1, &numCellGroups);
+      rval = mbImpl->tag_get_data(numCellGroupsTag, &_fileSet, 1, &numCellGroups);
     }
   }
 
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces)
+ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
@@ -377,7 +377,7 @@ ErrorCode NCHelperMPAS::create_mesh(ScdInterface* scdi, const FileOptions& opts,
   Tag numCellGroupsTag = 0;
   rval = mbImpl->tag_get_handle("__NUM_CELL_GROUPS", 1, MB_TYPE_INTEGER, numCellGroupsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
   ERRORR(rval, "Trouble creating __NUM_CELL_GROUPS tag.");
-  rval = mbImpl->tag_set_data(numCellGroupsTag, &file_set, 1, &numCellGroups);
+  rval = mbImpl->tag_set_data(numCellGroupsTag, &_fileSet, 1, &numCellGroups);
   ERRORR(rval, "Trouble setting data for __NUM_CELL_GROUPS tag.");
 
   // Collect localGid for vertices
@@ -467,7 +467,7 @@ ErrorCode NCHelperMPAS::create_mesh(ScdInterface* scdi, const FileOptions& opts,
   std::copy(localGidEdges.begin(), localGidEdges.end(), gid_data);
 
   // Add new vertices, elements and edges to the file set
-  rval = _readNC->mbImpl->add_entities(file_set, tmp_range);
+  rval = _readNC->mbImpl->add_entities(_fileSet, tmp_range);
   ERRORR(rval, "Couldn't add new vertices/faces/edges to file set.");
 
   return MB_SUCCESS;
@@ -562,7 +562,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_setup(std::vector<std::string>& var_na
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimVals = _readNC->dimVals;
@@ -575,19 +575,19 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_s
 
   // Get vertices in set
   Range verts;
-  rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);
   ERRORR(rval, "Trouble getting vertices in set.");
   assert("Should only have a single vertex subrange, since they were read in one shot" &&
       verts.psize() == 1);
 
   // Get edges in set
   Range edges;
-  rval = mbImpl->get_entities_by_dimension(file_set, 1, edges);
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 1, edges);
   ERRORR(rval, "Trouble getting edges in set.");
 
   // Get faces in set
   Range faces;
-  rval = mbImpl->get_entities_by_dimension(file_set, 2, faces);
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, faces);
   ERRORR(rval, "Trouble getting faces in set.");
   // Note, for MPAS faces.psize() can be more than 1
 
@@ -682,12 +682,12 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(EntityHandle file_s
 }
 
 #ifdef PNETCDF_FILE
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
+  ErrorCode rval = read_ucd_variable_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -829,12 +829,12 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(EntityHandle file_set,
   return rval;
 }
 #else
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
+  ErrorCode rval = read_ucd_variable_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space

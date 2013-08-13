@@ -17,7 +17,7 @@
 
 namespace moab {
 
-NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts)
+NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 {
   // Check if CF convention is being followed
   bool is_CF = false;
@@ -39,22 +39,22 @@ NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions&
 
   if (is_CF) {
     if (NCHelperEuler::can_read_file(readNC, fileId))
-      return new (std::nothrow) NCHelperEuler(readNC, fileId);
+      return new (std::nothrow) NCHelperEuler(readNC, fileId, opts, fileSet);
     else if (NCHelperFV::can_read_file(readNC, fileId))
-      return new (std::nothrow) NCHelperFV(readNC, fileId);
+      return new (std::nothrow) NCHelperFV(readNC, fileId, opts, fileSet);
     else if (NCHelperHOMME::can_read_file(readNC, fileId))
-      return new (std::nothrow) NCHelperHOMME(readNC, fileId, opts);
+      return new (std::nothrow) NCHelperHOMME(readNC, fileId, opts, fileSet);
   }
   else {
-    if (NCHelperMPAS::can_read_file(readNC, fileId))
-      return new (std::nothrow) NCHelperMPAS(readNC, fileId, opts);
+    if (NCHelperMPAS::can_read_file(readNC))
+      return new (std::nothrow) NCHelperMPAS(readNC, fileId, opts, fileSet);
   }
 
   // Unknown NetCDF grid (will fill this in later for POP, CICE and CLM)
   return NULL;
 }
 
-ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle file_set, const std::vector<int>& tstep_nums) {
+ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums) {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<std::string>& dimNames = _readNC->dimNames;
   std::vector<int>& dimVals = _readNC->dimVals;
@@ -62,6 +62,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
   DebugOutput& dbgOut = _readNC->dbgOut;
   int& partMethod = _readNC->partMethod;
+  ScdInterface* scdi = _readNC->scdi;
 
   ErrorCode rval;
   std::string tag_name;
@@ -72,7 +73,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   int numDims = dimNames.size();
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, numDimsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
   ERRORR(rval, "Trouble creating __NUM_DIMS tag.");
-  rval = mbImpl->tag_set_data(numDimsTag, &file_set, 1, &numDims);
+  rval = mbImpl->tag_set_data(numDimsTag, &_fileSet, 1, &numDims);
   ERRORR(rval, "Trouble setting data for __NUM_DIMS tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -83,7 +84,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   int numVars = varInfo.size();
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 1, MB_TYPE_INTEGER, numVarsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
   ERRORR(rval, "Trouble creating __NUM_VARS tag.");
-  rval = mbImpl->tag_set_data(numVarsTag, &file_set, 1, &numVars);
+  rval = mbImpl->tag_set_data(numVarsTag, &_fileSet, 1, &numVars);
   ERRORR(rval, "Trouble setting data for __NUM_VARS tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -101,7 +102,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, dimNamesTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
   ERRORR(rval, "Trouble creating __DIM_NAMES tag.");
   const void* ptr = dimnames.c_str();
-  rval = mbImpl->tag_set_by_ptr(dimNamesTag, &file_set, 1, &ptr, &dimnamesSz);
+  rval = mbImpl->tag_set_by_ptr(dimNamesTag, &_fileSet, 1, &ptr, &dimnamesSz);
   ERRORR(rval, "Trouble setting data for __DIM_NAMES tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -114,7 +115,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, dimValsTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
   ERRORR(rval, "Trouble creating __DIM_VALUES tag.");
   ptr = &(dimVals[0]);
-  rval = mbImpl->tag_set_by_ptr(dimValsTag, &file_set, 1, &ptr, &dimValsSz);
+  rval = mbImpl->tag_set_by_ptr(dimValsTag, &_fileSet, 1, &ptr, &dimValsSz);
   ERRORR(rval, "Trouble setting data for __DIM_VALUES tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -132,7 +133,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varNamesTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
   ERRORR(rval, "Trouble creating __VAR_NAMES tag.");
   ptr = varnames.c_str();
-  rval = mbImpl->tag_set_by_ptr(varNamesTag, &file_set, 1, &ptr, &varnamesSz);
+  rval = mbImpl->tag_set_by_ptr(varNamesTag, &_fileSet, 1, &ptr, &varnamesSz);
   ERRORR(rval, "Trouble setting data for __VAR_NAMES tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -149,7 +150,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
       val[1] = nTimeSteps - 1;
       rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
       ERRORR(rval, "Trouble creating __<dim_name>_LOC_MINMAX tag.");
-      rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+      rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
       ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_MINMAX tag.");
       if (MB_SUCCESS == rval)
         dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -174,7 +175,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), val.size(), MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
-    rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
     ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_VALS tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -198,7 +199,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
     }
     rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
-    rval = mbImpl->tag_set_data(varNamesDimsTag, &file_set, 1, &(varInfo[mapIter->first].varTags[0]));
+    rval = mbImpl->tag_set_data(varNamesDimsTag, &_fileSet, 1, &(varInfo[mapIter->first].varTags[0]));
     ERRORR(rval, "Trouble setting data for __<var_name>_DIMS tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -208,7 +209,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   Tag part_tag = scdi->part_method_tag();
   if (!part_tag)
     ERRORR(MB_FAILURE, "Trouble getting partition method tag.");
-  rval = mbImpl->tag_set_data(part_tag, &file_set, 1, &partMethod);
+  rval = mbImpl->tag_set_data(part_tag, &_fileSet, 1, &partMethod);
   ERRORR(rval, "Trouble setting data for PARTITION_METHOD tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -224,7 +225,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   ERRORR(rval, "Trouble creating attribute strings.");
   const void* gattptr = gattVal.c_str();
   int globalAttSz = gattVal.size();
-  rval = mbImpl->tag_set_by_ptr(globalAttTag, &file_set, 1, &gattptr, &globalAttSz);
+  rval = mbImpl->tag_set_by_ptr(globalAttTag, &_fileSet, 1, &gattptr, &globalAttSz);
   ERRORR(rval, "Trouble setting data for __GLOBAL_ATTRIBS tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -236,7 +237,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
     gattLen.push_back(0);
   rval = mbImpl->tag_get_handle(tag_name.c_str(), gattLen.size(), MB_TYPE_INTEGER, globalAttLenTag, MB_TAG_SPARSE | MB_TAG_CREAT);
   ERRORR(rval, "Trouble creating __GLOBAL_ATTRIBS_LEN tag.");
-  rval = mbImpl->tag_set_data(globalAttLenTag, &file_set, 1, &gattLen[0]);
+  rval = mbImpl->tag_set_data(globalAttLenTag, &_fileSet, 1, &gattLen[0]);
   ERRORR(rval, "Trouble setting data for __GLOBAL_ATTRIBS_LEN tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -255,7 +256,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
     ERRORR(rval, "Trouble creating attribute strings.");
     const void* varAttPtr = varAttVal.c_str();
     int varAttSz = varAttVal.size();
-    rval = mbImpl->tag_set_by_ptr(varAttTag, &file_set, 1, &varAttPtr, &varAttSz);
+    rval = mbImpl->tag_set_by_ptr(varAttTag, &_fileSet, 1, &varAttPtr, &varAttSz);
     ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -266,7 +267,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
     Tag varAttLenTag = 0;
     rval = mbImpl->tag_get_handle(tag_name.c_str(), varAttLen.size(), MB_TYPE_INTEGER, varAttLenTag, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<var_name>_ATTRIBS_LEN tag.");
-    rval = mbImpl->tag_set_data(varAttLenTag, &file_set, 1, &varAttLen[0]);
+    rval = mbImpl->tag_set_data(varAttLenTag, &_fileSet, 1, &varAttLen[0]);
     ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS_LEN tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -282,7 +283,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   for (mapIter = varInfo.begin(); mapIter != varInfo.end(); ++mapIter) {
     varNamesLocs[std::distance(varInfo.begin(), mapIter)] = mapIter->second.entLoc;
   }
-  rval = mbImpl->tag_set_data(varNamesLocsTag, &file_set, 1, &varNamesLocs[0]);
+  rval = mbImpl->tag_set_data(varNamesLocsTag, &_fileSet, 1, &varNamesLocs[0]);
   ERRORR(rval, "Trouble setting data for __VAR_NAMES_LOCATIONS tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -296,7 +297,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   ERRORR(rval, "Trouble creating __MESH_TYPE tag.");
   ptr = meshTypeName.c_str();
   int leng= meshTypeName.size();
-  rval = mbImpl->tag_set_by_ptr(meshTypeTag, &file_set, 1, &ptr, &leng);
+  rval = mbImpl->tag_set_by_ptr(meshTypeTag, &_fileSet, 1, &ptr, &leng);
   ERRORR(rval, "Trouble setting data for __MESH_TYPE tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -304,7 +305,7 @@ ErrorCode NCHelper::create_conventional_tags(ScdInterface* scdi, EntityHandle fi
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelper::read_variable_to_set(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   std::set<std::string>& dummyVarNames = _readNC->dummyVarNames;;
   Interface*& mbImpl = _readNC->mbImpl;
@@ -387,7 +388,7 @@ ErrorCode NCHelper::read_variable_to_set(EntityHandle file_set, std::vector<Read
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Setting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &file_set, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
+      ErrorCode tmp_rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
       if (vdatas[i].varDims.size() <= 1)
@@ -495,7 +496,7 @@ ErrorCode NCHelper::read_coordinate(const char* var_name, int lmin, int lmax, st
   int fail;
 
   // Check size
-  if (tcount != cvals.size())
+  if ((std::size_t)tcount != cvals.size())
     cvals.resize(tcount);
 
   // Check to make sure it's a float or double
@@ -774,12 +775,12 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
   return rval;
 }
 
-ErrorCode ScdNCHelper::check_existing_mesh(EntityHandle file_set) {
+ErrorCode ScdNCHelper::check_existing_mesh() {
   Interface*& mbImpl = _readNC->mbImpl;
 
   // Get the number of vertices
   int num_verts;
-  ErrorCode rval = mbImpl->get_number_entities_by_dimension(file_set, 0, num_verts);
+  ErrorCode rval = mbImpl->get_number_entities_by_dimension(_fileSet, 0, num_verts);
   ERRORR(rval, "Trouble getting number of vertices.");
 
   /*
@@ -796,7 +797,7 @@ ErrorCode ScdNCHelper::check_existing_mesh(EntityHandle file_set) {
 
   // Check the number of elements too
   int num_elems;
-  rval = mbImpl->get_number_entities_by_dimension(file_set, (-1 == lDims[2] ? 2 : 3), num_elems);
+  rval = mbImpl->get_number_entities_by_dimension(_fileSet, (-1 == lDims[2] ? 2 : 3), num_elems);
   ERRORR(rval, "Trouble getting number of elements.");
 
   /*
@@ -814,11 +815,12 @@ ErrorCode ScdNCHelper::check_existing_mesh(EntityHandle file_set) {
   return MB_SUCCESS;
 }
 
-ErrorCode ScdNCHelper::create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces)
+ErrorCode ScdNCHelper::create_mesh(Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
   DebugOutput& dbgOut = _readNC->dbgOut;
+  ScdInterface* scdi = _readNC->scdi;
   ScdParData& parData = _readNC->parData;
 
   Range tmp_range;
@@ -832,7 +834,7 @@ ErrorCode ScdNCHelper::create_mesh(ScdInterface* scdi, const FileOptions& opts, 
   tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex() + scd_box->num_vertices() - 1);
   tmp_range.insert(scd_box->start_element(), scd_box->start_element() + scd_box->num_elements() - 1);
   tmp_range.insert(scd_box->box_set());
-  rval = mbImpl->add_entities(file_set, tmp_range);
+  rval = mbImpl->add_entities(_fileSet, tmp_range);
   ERRORR(rval, "Couldn't add new vertices to file set.");
 
   dbgOut.tprintf(1, "scdbox %d quads, %d vertices\n", scd_box->num_elements(), scd_box->num_vertices());
@@ -911,7 +913,7 @@ ErrorCode ScdNCHelper::create_mesh(ScdInterface* scdi, const FileOptions& opts, 
   return MB_SUCCESS;
 }
 
-ErrorCode ScdNCHelper::read_variables(EntityHandle file_set, std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
+ErrorCode ScdNCHelper::read_variables(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
   std::vector<ReadNC::VarData> vdatas;
   std::vector<ReadNC::VarData> vsetdatas;
@@ -920,16 +922,16 @@ ErrorCode ScdNCHelper::read_variables(EntityHandle file_set, std::vector<std::st
   ERRORR(rval, "Trouble setting up read variable.");
 
   // Create COORDS tag for quads
-  rval = create_quad_coordinate_tag(file_set);
+  rval = create_quad_coordinate_tag();
   ERRORR(rval, "Trouble creating coordinate tags to entities quads");
 
   if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(file_set, vsetdatas, tstep_nums);
+    rval = read_variable_to_set(vsetdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to set.");
   }
 
   if (!vdatas.empty()) {
-    rval = read_scd_variable_to_nonset(file_set, vdatas, tstep_nums);
+    rval = read_scd_variable_to_nonset(vdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");
   }
 
@@ -1012,7 +1014,7 @@ ErrorCode ScdNCHelper::read_scd_variable_setup(std::vector<std::string>& var_nam
   return MB_SUCCESS;
 }
 
-ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimVals = _readNC->dimVals;
@@ -1025,18 +1027,18 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
 
   // Get vertices in set
   Range verts;
-  rval = mbImpl->get_entities_by_dimension(file_set, 0, verts);
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);
   ERRORR(rval, "Trouble getting vertices in set.");
   assert("Should only have a single vertex subrange, since they were read in one shot" &&
       verts.psize() == 1);
 
   Range edges;
-  rval = mbImpl->get_entities_by_dimension(file_set, 1, edges);
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 1, edges);
   ERRORR(rval, "Trouble getting edges in set.");
 
   // Get faces in set
   Range faces;
-  rval = mbImpl->get_entities_by_dimension(file_set, 2, faces);
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, faces);
   ERRORR(rval, "Trouble getting faces in set.");
   assert("Should only have a single face subrange, since they were read in one shot" &&
       faces.psize() == 1);
@@ -1141,11 +1143,11 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(EntityHandle file_se
   return rval;
 }
 
-ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_scd_variable_to_nonset_allocate(file_set, vdatas, tstep_nums);
+  ErrorCode rval = read_scd_variable_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -1265,12 +1267,12 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(EntityHandle file_set, std::v
   return rval;
 }
 
-ErrorCode ScdNCHelper::create_quad_coordinate_tag(EntityHandle file_set) {
+ErrorCode ScdNCHelper::create_quad_coordinate_tag() {
   Interface*& mbImpl = _readNC->mbImpl;
   bool& isParallel = _readNC->isParallel;
 
   Range ents;
-  ErrorCode rval = mbImpl->get_entities_by_type(file_set, moab::MBQUAD, ents);
+  ErrorCode rval = mbImpl->get_entities_by_type(_fileSet, moab::MBQUAD, ents);
   ERRORR(rval, "Trouble getting QUAD entity.");
 
   std::size_t numOwnedEnts = 0;
@@ -1325,7 +1327,7 @@ ErrorCode ScdNCHelper::create_quad_coordinate_tag(EntityHandle file_set) {
   return MB_SUCCESS;
 }
 
-ErrorCode UcdNCHelper::read_variables(EntityHandle file_set, std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
+ErrorCode UcdNCHelper::read_variables(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
   std::vector<ReadNC::VarData> vdatas;
   std::vector<ReadNC::VarData> vsetdatas;
@@ -1334,17 +1336,17 @@ ErrorCode UcdNCHelper::read_variables(EntityHandle file_set, std::vector<std::st
   ERRORR(rval, "Trouble setting up read variable.");
 
   if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(file_set, vsetdatas, tstep_nums);
+    rval = read_variable_to_set(vsetdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to set.");
   }
 
   if (!vdatas.empty()) {
 #ifdef PNETCDF_FILE
     // With pnetcdf support, we will use async read
-    rval = read_ucd_variable_to_nonset_async(file_set, vdatas, tstep_nums);
+    rval = read_ucd_variable_to_nonset_async(vdatas, tstep_nums);
 #else
     // Without pnetcdf support, we will use old read
-    rval = read_ucd_variable_to_nonset(file_set, vdatas, tstep_nums);
+    rval = read_ucd_variable_to_nonset(vdatas, tstep_nums);
 #endif
     ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");
   }

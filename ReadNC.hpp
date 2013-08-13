@@ -198,6 +198,9 @@ private:
   //! Partitioning method
   int partMethod;
 
+  //! Scd interface
+  ScdInterface* scdi;
+
   //! Parallel data object, to be cached with ScdBox
   ScdParData parData;
 

@@ -17,27 +17,27 @@ namespace moab {
 class NCHelper
 {
 public:
-  NCHelper(ReadNC* readNC, int fileId) :_readNC(readNC), _fileId(fileId),
+  NCHelper(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+:_readNC(readNC), _fileId(fileId), _opts(opts), _fileSet(fileSet),
   nTimeSteps(0), nLevels(1), tDim(-1), levDim(-1) {}
   virtual ~NCHelper() {}
 
   //! Get appropriate helper instance for ReadNC class
-  static NCHelper* get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts);
+  static NCHelper* get_nc_helper(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet);
 
   //! Interfaces to be implemented in child classes
-  virtual ErrorCode init_mesh_vals(const FileOptions& opts, EntityHandle file_set) = 0;
-  virtual ErrorCode check_existing_mesh(EntityHandle file_set) = 0;
-  virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces) = 0;
-  virtual ErrorCode read_variables(EntityHandle file_set, std::vector<std::string>& var_names, std::vector<int>& tstep_nums) = 0;
+  virtual ErrorCode init_mesh_vals() = 0;
+  virtual ErrorCode check_existing_mesh() = 0;
+  virtual ErrorCode create_mesh(Range& faces) = 0;
+  virtual ErrorCode read_variables(std::vector<std::string>& var_names, std::vector<int>& tstep_nums) = 0;
   virtual std::string get_mesh_type_name() = 0;
 
   //! Create NC conventional tags
-  ErrorCode create_conventional_tags(ScdInterface* scdi, EntityHandle file_set,
-                                     const std::vector<int>& tstep_nums);
+  ErrorCode create_conventional_tags(const std::vector<int>& tstep_nums);
 
 protected:
   //! Read set variables, common to scd mesh and ucd mesh
-  ErrorCode read_variable_to_set(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
+  ErrorCode read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
 
   //! Convert variables in place
   ErrorCode convert_variable(ReadNC::VarData& var_data, int tstep_num);
@@ -67,9 +67,13 @@ private:
   ErrorCode read_variable_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
 
 protected:
+  //! Allow NCHelper to directly access members of ReadNC
   ReadNC* _readNC;
 
+  //! Cache some information from ReadNC
   int _fileId;
+  const FileOptions& _opts;
+  EntityHandle _fileSet;
 
   //! Dimensions of time and level
   int nTimeSteps, nLevels;
@@ -85,7 +89,8 @@ protected:
 class ScdNCHelper : public NCHelper
 {
 public:
-  ScdNCHelper(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId),
+  ScdNCHelper(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+: NCHelper(readNC, fileId, opts, fileSet),
   iDim(-1), jDim(-1), iCDim(-1), jCDim(-1)
   {
     for (unsigned int i = 0; i < 6; i++) {
@@ -102,11 +107,11 @@ public:
 
 private:
   //! Implementation of NCHelper::check_existing_mesh()
-  virtual ErrorCode check_existing_mesh(EntityHandle file_set);
+  virtual ErrorCode check_existing_mesh();
   //! Implementation of NCHelper::create_mesh()
-  virtual ErrorCode create_mesh(ScdInterface* scdi, const FileOptions& opts, EntityHandle file_set, Range& faces);
+  virtual ErrorCode create_mesh(Range& faces);
   //! Implementation of NCHelper::read_variables()
-  virtual ErrorCode read_variables(EntityHandle file_set, std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
+  virtual ErrorCode read_variables(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
 
   //! Separate set and non-set variables for scd mesh
   ErrorCode read_scd_variable_setup(std::vector<std::string>& var_names,
@@ -115,13 +120,13 @@ private:
                                     std::vector<ReadNC::VarData>& vsetdatas);
 
   //! Read non-set variables for scd mesh
-  ErrorCode read_scd_variable_to_nonset_allocate(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
+  ErrorCode read_scd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
                                                  std::vector<int>& tstep_nums);
-  ErrorCode read_scd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
+  ErrorCode read_scd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas,
                                         std::vector<int>& tstep_nums);
 
   //! Create COORDS tag for quads coordinate
-  ErrorCode create_quad_coordinate_tag(EntityHandle file_set);
+  ErrorCode create_quad_coordinate_tag();
 
   template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void* dest, T* source)
   {
@@ -170,7 +175,8 @@ protected:
 class UcdNCHelper : public NCHelper
 {
 public:
-  UcdNCHelper(ReadNC* readNC, int fileId) : NCHelper(readNC, fileId),
+  UcdNCHelper(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+: NCHelper(readNC, fileId, opts, fileSet),
   nCells(0), nEdges(0), nVertices(0),
   nLocalCells(0), nLocalEdges(0), nLocalVertices(0),
   cDim(-1), eDim(-1), vDim(-1) {}
@@ -178,7 +184,7 @@ public:
 
 private:
   //! Implementation of NCHelper::read_variables()
-  virtual ErrorCode read_variables(EntityHandle file_set, std::vector<std::string>& var_names,
+  virtual ErrorCode read_variables(std::vector<std::string>& var_names,
                                    std::vector<int> &tstep_nums);
 
   //! Separate set and non-set variables for ucd mesh (implemented differently in child classes)
@@ -188,13 +194,13 @@ private:
                                             std::vector<ReadNC::VarData>& vsetdatas) = 0;
 
   //! Read non-set variables for ucd mesh (implemented differently in child classes)
-  virtual ErrorCode read_ucd_variable_to_nonset_allocate(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
+  virtual ErrorCode read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
                                                          std::vector<int>& tstep_nums) = 0;
 #ifdef PNETCDF_FILE
-  virtual ErrorCode read_ucd_variable_to_nonset_async(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
+  virtual ErrorCode read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas,
                                                       std::vector<int>& tstep_nums) = 0;
 #else
-  virtual ErrorCode read_ucd_variable_to_nonset(EntityHandle file_set, std::vector<ReadNC::VarData>& vdatas,
+  virtual ErrorCode read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas,
                                                 std::vector<int>& tstep_nums) = 0;
 #endif
 

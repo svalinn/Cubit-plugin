@@ -49,7 +49,7 @@ bool NCHelperEuler::can_read_file(ReadNC* readNC, int fileId)
   return false;
 }
 
-ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle file_set)
+ErrorCode NCHelperEuler::init_mesh_vals()
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<std::string>& dimNames = _readNC->dimNames;
@@ -159,10 +159,10 @@ ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle fi
     locallyPeriodic[0] = globallyPeriodic[0];
   }
 
-  opts.get_int_option("IMIN", lDims[0]);
-  opts.get_int_option("IMAX", lDims[3]);
-  opts.get_int_option("JMIN", lDims[1]);
-  opts.get_int_option("JMAX", lDims[4]);
+  _opts.get_int_option("IMIN", lDims[0]);
+  _opts.get_int_option("IMAX", lDims[3]);
+  _opts.get_int_option("JMIN", lDims[1]);
+  _opts.get_int_option("JMAX", lDims[4]);
 
   // Now get actual coordinate values for vertices and cell centers
   lCDims[0] = lDims[0];
@@ -380,7 +380,7 @@ ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle fi
     }
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, data_type, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
     ERRORR(rval, "Trouble creating <coordinate_dim_name> tag.");
-    rval = mbImpl->tag_set_by_ptr(tagh, &file_set, 1, &val, &val_len);
+    rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);
     ERRORR(rval, "Trouble setting data for <coordinate_dim_name> tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -411,7 +411,7 @@ ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle fi
     }
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<coordinate_dim_name>_LOC_MINMAX tag.");
-    rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
     ERRORR(rval, "Trouble setting data for __<coordinate_dim_name>_LOC_MINMAX tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -442,7 +442,7 @@ ErrorCode NCHelperEuler::init_mesh_vals(const FileOptions& opts, EntityHandle fi
     }
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<coordinate_dim_name>_GLOBAL_MINMAX tag.");
-    rval = mbImpl->tag_set_data(tagh, &file_set, 1, &val[0]);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
     ERRORR(rval, "Trouble setting data for __<coordinate_dim_name>_GLOBAL_MINMAX tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
