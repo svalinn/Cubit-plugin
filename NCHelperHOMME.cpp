@@ -25,9 +25,6 @@ _spectralOrder(-1), connectId(-1)
       readNC->readMeshIface->report_error("%s", "Failed to read np global attribute int data.");
     else
       _spectralOrder--; // Spectral order is one less than np
-
-    if (MB_SUCCESS == opts.match_option("PARTITION_METHOD", "NODAL_PARTITION"))
-      readNC->partMethod = -1;
   }
 }
 

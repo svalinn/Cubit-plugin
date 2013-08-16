@@ -21,8 +21,6 @@ NCHelperMPAS::NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts, 
 , maxCellEdges(MAX_EDGES_PER_CELL)
 , numCellGroups(0)
 {
-  if (MB_SUCCESS == opts.match_option("PARTITION_METHOD", "NODAL_PARTITION"))
-    readNC->partMethod = -1;
 }
 
 bool NCHelperMPAS::can_read_file(ReadNC* readNC)
