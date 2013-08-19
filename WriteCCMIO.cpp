@@ -950,7 +950,7 @@ namespace moab {
     //================================================
     Range neuset_facets, skin_facets;
     Skinner skinner(mbImpl);
-    result = skinner.find_skin(all_elems, mDimension-1, skin_facets);
+    result = skinner.find_skin(0, all_elems, mDimension-1, skin_facets);
     CHKERR(result, "Failed to get skin facets.");
 
     // remove neumann set facets from skin facets, we have to output these
