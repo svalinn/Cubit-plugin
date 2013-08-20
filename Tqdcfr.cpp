@@ -2492,7 +2492,10 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
     records[entity_rec_num].entity = uidSetMap[uid];
   }
 
-  assert(records[entity_rec_num].entity);
+  if (0==records[entity_rec_num].entity)
+    return MB_SUCCESS; // we do not have a MOAB entity for this, skip
+
+  //assert(records[entity_rec_num].entity);
   
     // set the id
   if (id != -1) {
