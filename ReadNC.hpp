@@ -23,35 +23,30 @@
 #include "DebugOutput.hpp"
 
 #ifdef USE_MPI
-#  include "moab_mpi.h"
-#  include "moab/ParallelComm.hpp"
+#include "moab_mpi.h"
+#include "moab/ParallelComm.hpp"
 #endif 
 
 #ifdef PNETCDF_FILE
-#  include "pnetcdf.h"
-#  define NCFUNC(func) ncmpi_ ## func
-#  define NCFUNCA(func) ncmpi_ ## func ## _all
-//! keep it this way , introduce another macro, used so far only for ucd mesh
-//#  define NCASYNCH
-#  ifdef NCASYNCH
-#    define NCREQ , &requests[j]
-#    define NCFUNCAG(func) ncmpi_iget ## func 
-#    define NCWAIT
-#  else
-#    define NCREQ2 , &requests[idxReq++]
-#    define NCFUNCAG2(func) ncmpi_iget ## func
-#    define NCREQ 
-#    define NCFUNCAG(func) ncmpi_get ## func ## _all
-#  endif
-#  define NCDF_SIZE MPI_Offset
-#  define NCDF_DIFF MPI_Offset
+#include "pnetcdf.h"
+#define NCFUNC(func) ncmpi_ ## func
+
+// Collective get
+#define NCFUNCAG(func) ncmpi_get ## func ## _all
+
+// Independent get
+#define NCFUNCG(func) ncmpi_get ## func
+
+// Nonblocking get (request aggregation), used so far only for ucd mesh
+#define NCFUNCREQG(func) ncmpi_iget ## func
+
+#define NCDF_SIZE MPI_Offset
+#define NCDF_DIFF MPI_Offset
 #else
 #  include "netcdf.h"
-#define NCREQ
-#define NCGET get
 #  define NCFUNC(func) nc_ ## func
-#  define NCFUNCA(func) nc_ ## func
 #  define NCFUNCAG(func) nc_get ## func
+#  define NCFUNCG(func) nc_get ## func
 #  define NCDF_SIZE size_t
 #  define NCDF_DIFF ptrdiff_t
 #endif
