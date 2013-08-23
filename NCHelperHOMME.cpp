@@ -285,7 +285,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   ERRORS(success, "Failed to get variable id.");
   NCDF_SIZE tmp_starts[2] = {0, 0}, tmp_counts[2] = {4, static_cast<size_t>(num_quads)};
   std::vector<int> tmp_conn(4 * num_quads), tmp_conn2(4 * num_quads);
-  success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_starts, tmp_counts, &tmp_conn2[0] NCREQ);
+  success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_starts, tmp_counts, &tmp_conn2[0]);
   ERRORS(success, "Failed to get temporary connectivity.");
   success = NCFUNC(close)(connectId);
   ERRORS(success, "Failed on close.");
@@ -700,9 +700,9 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
 
             // Do a partial read, in each subrange
             // wait outside this loop
-            success = NCFUNCAG2(_vara_double)(_fileId, vdatas[i].varId,
+            success = NCFUNCREQG(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
-                            &(tmpdoubledata[indexInDoubleArray]) NCREQ2);
+                            &(tmpdoubledata[indexInDoubleArray]), &requests[idxReq++]);
             ERRORS(success, "Failed to read double data in loop");
             // We need to increment the index in double array for the
             // next subrange
@@ -746,9 +746,9 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
 
             // Do a partial read, in each subrange
             // wait outside this loop
-            success = NCFUNCAG2(_vara_float)(_fileId, vdatas[i].varId,
+            success = NCFUNCREQG(_vara_float)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
-                            &(tmpfloatdata[indexInFloatArray]) NCREQ2);
+                            &(tmpfloatdata[indexInFloatArray]), &requests[idxReq++]);
             ERRORS(success, "Failed to read float data in loop");
             // We need to increment the index in float array for the
             // next subrange
@@ -814,7 +814,6 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
 
   // Finally, read into that space
   int success;
-  std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     std::size_t sz = vdatas[i].sz;
 
@@ -854,7 +853,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
 
             success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
-                            &(tmpdoubledata[indexInDoubleArray]) NCREQ);
+                            &(tmpdoubledata[indexInDoubleArray]));
             ERRORS(success, "Failed to read float data in loop");
             // We need to increment the index in double array for the
             // next subrange
@@ -895,7 +894,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
 
             success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
-                            &(tmpfloatdata[indexInFloatArray]) NCREQ);
+                            &(tmpfloatdata[indexInFloatArray]));
             ERRORS(success, "Failed to read float data in loop");
             // We need to increment the index in float array for the
             // next subrange
@@ -929,11 +928,6 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
         ERRORR(MB_FAILURE, "Trouble reading variable.");
     }
   }
-
-#ifdef NCWAIT
-  int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
-  ERRORS(success, "Failed on wait_all.");
-#endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {

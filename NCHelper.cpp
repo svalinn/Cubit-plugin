@@ -316,7 +316,6 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
 
   // Finally, read into that space
   int success;
-  std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     if (dummyVarNames.find(vdatas[i].varName) != dummyVarNames.end() )
        continue; // This is a dummy one, we don't have it; we created it for the dummy tag
@@ -327,28 +326,28 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
         case NC_BYTE:
         case NC_CHAR:
           success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (char*) data NCREQ);
+              (char*) data);
           ERRORS(success, "Failed to read char data.");
           break;
         case NC_DOUBLE:
           success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (double*) data NCREQ);
+              (double*) data);
           ERRORS(success, "Failed to read double data.");
           break;
         case NC_FLOAT: {
           success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (float*) data NCREQ);
+              (float*) data);
           ERRORS(success, "Failed to read float data.");
           break;
         }
         case NC_INT:
           success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (int*) data NCREQ);
+              (int*) data);
           ERRORS(success, "Failed to read int data.");
           break;
         case NC_SHORT:
           success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (short*) data NCREQ);
+              (short*) data);
           ERRORS(success, "Failed to read short data.");
           break;
         default:
@@ -361,11 +360,6 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
         break;
     }
   }
-
-#ifdef NCWAIT
-  int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
-  ERRORS(success, "Failed on wait_all.");
-#endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
@@ -501,13 +495,13 @@ ErrorCode NCHelper::read_coordinate(const char* var_name, int lmin, int lmax, st
 
   // Check to make sure it's a float or double
   if (NC_DOUBLE == (*vmit).second.varDataType) {
-    fail = NCFUNCA(get_vars_double)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &cvals[0]);
+    fail = NCFUNCAG(_vars_double)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &cvals[0]);
     if (fail)
       ERRORS(MB_FAILURE, "Failed to get coordinate values.");
   }
   else if (NC_FLOAT == (*vmit).second.varDataType) {
     std::vector<float> tcvals(tcount);
-    fail = NCFUNCA(get_vars_float)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &tcvals[0]);
+    fail = NCFUNCAG(_vars_float)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &tcvals[0]);
     if (fail)
       ERRORS(MB_FAILURE, "Failed to get coordinate values.");
     std::copy(tcvals.begin(), tcvals.end(), cvals.begin());
@@ -1152,7 +1146,6 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
 
   // Finally, read into that space
   int success;
-  std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     std::size_t sz = vdatas[i].sz;
 
@@ -1167,7 +1160,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         case NC_CHAR: {
           std::vector<char> tmpchardata(sz);
           success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpchardata[0] NCREQ);
+              &tmpchardata[0]);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
             success = kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
@@ -1181,7 +1174,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         case NC_DOUBLE: {
           std::vector<double> tmpdoubledata(sz);
           success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpdoubledata[0] NCREQ);
+              &tmpdoubledata[0]);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
             success = kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
@@ -1195,7 +1188,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         case NC_FLOAT: {
           std::vector<float> tmpfloatdata(sz);
           success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpfloatdata[0] NCREQ);
+              &tmpfloatdata[0]);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
             success = kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
@@ -1209,7 +1202,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         case NC_INT: {
           std::vector<int> tmpintdata(sz);
           success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpintdata[0] NCREQ);
+              &tmpintdata[0]);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
             success = kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
@@ -1223,7 +1216,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         case NC_SHORT: {
           std::vector<short> tmpshortdata(sz);
           success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpshortdata[0] NCREQ);
+              &tmpshortdata[0]);
           if (vdatas[i].numLev != 1)
             // Switch from k varying slowest to k varying fastest
             success = kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
@@ -1242,11 +1235,6 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         ERRORR(MB_FAILURE, "Trouble reading variable.");
     }
   }
-
-#ifdef NCWAIT
-  int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
-  ERRORS(success, "Failed on wait_all.");
-#endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {

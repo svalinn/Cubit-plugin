@@ -149,7 +149,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   NCDF_SIZE tmp_starts[2] = {0, 0};
   NCDF_SIZE tmp_counts[2] = {static_cast<size_t>(nEdges), 2};
   verticesOnEdge.resize(nEdges * 2);
-  success = NCFUNCAG(_vara_int)(_fileId, verticesOnEdgeVarId, tmp_starts, tmp_counts, &verticesOnEdge[0] NCREQ);
+  success = NCFUNCAG(_vara_int)(_fileId, verticesOnEdgeVarId, tmp_starts, tmp_counts, &verticesOnEdge[0]);
   ERRORS(success, "Failed to read variable values of verticesOnEdge.");
 
   // Determine the entity location type of a variable
@@ -300,7 +300,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   NCDF_SIZE tmp_starts_1[1] = {static_cast<size_t>(start_cell_idx - 1)};
   NCDF_SIZE tmp_counts_1[1] = {static_cast<size_t>(nLocalCells)};
   std::vector<int> num_edges_on_cell(nLocalCells);
-  success = NCFUNCAG(_vara_int)(_fileId, nEdgesOnCellVarId, tmp_starts_1, tmp_counts_1, &num_edges_on_cell[0] NCREQ);
+  success = NCFUNCAG(_vara_int)(_fileId, nEdgesOnCellVarId, tmp_starts_1, tmp_counts_1, &num_edges_on_cell[0]);
   ERRORS(success, "Failed to read variable values of nEdgesOnCell.");
 
   // Read vertices on each cell (connectivity)
@@ -310,7 +310,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   NCDF_SIZE tmp_starts_2[2] = {static_cast<size_t>(start_cell_idx - 1), 0};
   NCDF_SIZE tmp_counts_2[2] = {static_cast<size_t>(nLocalCells), maxCellEdges};
   std::vector<int> vertices_on_cell(nLocalCells * maxCellEdges);
-  success = NCFUNCAG(_vara_int)(_fileId, verticesOnCellVarId, tmp_starts_2, tmp_counts_2, &vertices_on_cell[0] NCREQ);
+  success = NCFUNCAG(_vara_int)(_fileId, verticesOnCellVarId, tmp_starts_2, tmp_counts_2, &vertices_on_cell[0]);
   ERRORS(success, "Failed to read variable values of verticesOnCell.");
 
   // Read edges on each cell
@@ -320,7 +320,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   NCDF_SIZE tmp_starts_3[2] = {static_cast<size_t>(start_cell_idx - 1), 0};
   NCDF_SIZE tmp_counts_3[2] = {static_cast<size_t>(nLocalCells), maxCellEdges};
   std::vector<int> edges_on_cell(nLocalCells * maxCellEdges);
-  success = NCFUNCAG(_vara_int)(_fileId, edgesOnCellVarId, tmp_starts_3, tmp_counts_3, &edges_on_cell[0] NCREQ);
+  success = NCFUNCAG(_vara_int)(_fileId, edgesOnCellVarId, tmp_starts_3, tmp_counts_3, &edges_on_cell[0]);
   ERRORS(success, "Failed to read variable values of edgesOnCell.");
 
   // Divide cells into groups based on the number of edges
@@ -746,9 +746,9 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
 
             // Do a partial read, in each subrange
             // wait outside this loop
-            success = NCFUNCAG2(_vara_double)(_fileId, vdatas[i].varId,
+            success = NCFUNCREQG(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
-                            &(tmpdoubledata[indexInDoubleArray]) NCREQ2);
+                            &(tmpdoubledata[indexInDoubleArray]), &requests[idxReq++]);
             ERRORS(success, "Failed to read double data in loop");
             // We need to increment the index in double array for the
             // next subrange
@@ -839,7 +839,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
   int success;
   Range* pLocalGid = NULL;
 
-  std::vector<int> requests(vdatas.size() * tstep_nums.size()), statuss(vdatas.size() * tstep_nums.size());
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     switch (vdatas[i].entLoc) {
       case ReadNC::ENTLOCVERT:
@@ -889,7 +888,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
 
             success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
-                            &(tmpdoubledata[indexInDoubleArray]) NCREQ);
+                            &(tmpdoubledata[indexInDoubleArray]));
             ERRORS(success, "Failed to read double data in loop");
             // We need to increment the index in double array for the
             // next subrange
@@ -945,11 +944,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
         ERRORR(MB_FAILURE, "Trouble reading variable.");
     }
   }
-
-#ifdef NCWAIT
-  int success = ncmpi_wait_all(fileId, requests.size(), &requests[0], &statuss[0]);
-  ERRORS(success, "Failed on wait_all.");
-#endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
