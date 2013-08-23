@@ -31,24 +31,24 @@
 #include "pnetcdf.h"
 #define NCFUNC(func) ncmpi_ ## func
 
-// Collective get
+//! Collective I/O mode get
 #define NCFUNCAG(func) ncmpi_get ## func ## _all
 
-// Independent get
+//! Independent I/O mode get
 #define NCFUNCG(func) ncmpi_get ## func
 
-// Nonblocking get (request aggregation), used so far only for ucd mesh
+//! Nonblocking get (request aggregation), used so far only for ucd mesh
 #define NCFUNCREQG(func) ncmpi_iget ## func
 
 #define NCDF_SIZE MPI_Offset
 #define NCDF_DIFF MPI_Offset
 #else
-#  include "netcdf.h"
-#  define NCFUNC(func) nc_ ## func
-#  define NCFUNCAG(func) nc_get ## func
-#  define NCFUNCG(func) nc_get ## func
-#  define NCDF_SIZE size_t
-#  define NCDF_DIFF ptrdiff_t
+#include "netcdf.h"
+#define NCFUNC(func) nc_ ## func
+#define NCFUNCAG(func) nc_get ## func
+#define NCFUNCG(func) nc_get ## func
+#define NCDF_SIZE size_t
+#define NCDF_DIFF ptrdiff_t
 #endif
 
 namespace moab {
