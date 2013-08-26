@@ -128,7 +128,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
     char posval[10];
     int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
     if (0 == success && !strcmp(posval, "down")) {
-      for (std::vector<double>::iterator dvit = zVertVals.begin(); dvit != zVertVals.end(); ++dvit)
+      for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
         (*dvit) *= -1.0;
     }
   }
@@ -200,6 +200,7 @@ ErrorCode NCHelperHOMME::check_existing_mesh()
 
       // Restore localGidVerts
       std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVerts));
+      nLocalVertices = localGidVerts.size();
     }
   }
 
@@ -233,7 +234,8 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 
   int success;
 
-  int rank = 0, procs = 1;
+  int rank = 0;
+  int procs = 1;
 #ifdef USE_MPI
   bool& isParallel = _readNC->isParallel;
   if (isParallel) {
@@ -274,16 +276,17 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     ERRORR(MB_FAILURE, "Failed to get number of quads.");
   }
   int num_quads = conn_vals[idx];
-  if (num_quads != nVertices - 2) {
-    dbgOut.tprintf(1, "Warning: number of quads from %s and vertices from %s are inconsistent; nverts = %d, nquads = %d.\n",
-        conn_fname.c_str(), fileName.c_str(), nVertices, num_quads);
+  if (num_quads != nCells) {
+    dbgOut.tprintf(1, "Warning: number of quads from %s and cells from %s are inconsistent; num_quads = %d, nCells = %d.\n",
+        conn_fname.c_str(), fileName.c_str(), num_quads, nCells);
   }
 
   // Get the connectivity into tmp_conn2 and permute into tmp_conn
   int cornerVarId;
   success = NCFUNC(inq_varid)(connectId, "element_corners", &cornerVarId);
   ERRORS(success, "Failed to get variable id.");
-  NCDF_SIZE tmp_starts[2] = {0, 0}, tmp_counts[2] = {4, static_cast<size_t>(num_quads)};
+  NCDF_SIZE tmp_starts[2] = {0, 0};
+  NCDF_SIZE tmp_counts[2] = {4, static_cast<NCDF_SIZE>(num_quads)};
   std::vector<int> tmp_conn(4 * num_quads), tmp_conn2(4 * num_quads);
   success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_starts, tmp_counts, &tmp_conn2[0]);
   ERRORS(success, "Failed to get temporary connectivity.");
@@ -330,7 +333,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   if (!spectralMesh) {
     rval = _readNC->readMeshIface->get_element_connect(num_coarse_quads, 4,
                                               MBQUAD, 0, start_quad, conn_arr,
-                                                // might have to create gather mesh later
+                                              // Might have to create gather mesh later
                                               (create_gathers ? num_coarse_quads + num_quads : num_coarse_quads));
     ERRORR(rval, "Failed to create quads.");
     tmp_range.insert(start_quad, start_quad + num_coarse_quads - 1);
@@ -348,21 +351,21 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     ERRORR(rval, "Failed to get fine connectivity of spectral elements.");
   }
 
-  unsigned int num_local_verts = localGidVerts.size();
-  unsigned int num_total_verts = nVertices;
-
   // Create vertices
+  nLocalVertices = localGidVerts.size();
   std::vector<double*> arrays;
-  rval = _readNC->readMeshIface->get_node_coords(3, num_local_verts, 0, start_vertex, arrays,
-                                          // might have to create gather mesh later
-                                        (create_gathers ? num_local_verts + num_total_verts : num_local_verts));
-  ERRORR(rval, "Couldn't create vertices in ucd mesh.");
+  rval = _readNC->readMeshIface->get_node_coords(3, nLocalVertices, 0, start_vertex, arrays,
+                                        // Might have to create gather mesh later
+                                        (create_gathers ? nLocalVertices + nVertices : nLocalVertices));
+  ERRORR(rval, "Couldn't create vertices in HOMME mesh.");
 
   // Set vertex coordinates
   Range::iterator rit;
-  double *xptr = arrays[0], *yptr = arrays[1], *zptr = arrays[2];
+  double* xptr = arrays[0];
+  double* yptr = arrays[1];
+  double* zptr = arrays[2];
   int i;
-  for (i = 0, rit = localGidVerts.begin(); i < (int)num_local_verts; i++, ++rit) {
+  for (i = 0, rit = localGidVerts.begin(); i < nLocalVertices; i++, ++rit) {
     assert(*rit < xVertVals.size() + 1);
     xptr[i] = xVertVals[(*rit) - 1]; // lon
     yptr[i] = yVertVals[(*rit) - 1]; // lat
@@ -370,7 +373,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 
   // Convert lon/lat/rad to x/y/z
   const double pideg = acos(-1.0) / 180.0;
-  for (i = 0; i < (int)num_local_verts; i++) {
+  for (i = 0; i < nLocalVertices; i++) {
     double cosphi = cos(pideg * yptr[i]);
     double zmult = sin(pideg * yptr[i]);
     double xmult = cosphi * cos(xptr[i] * pideg);
@@ -382,12 +385,12 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   }
 
   // Get ptr to gid memory for vertices
-  Range vert_range(start_vertex, start_vertex + num_local_verts - 1);
+  Range vert_range(start_vertex, start_vertex + nLocalVertices - 1);
   void* data;
   int count;
   rval = mbImpl->tag_iterate(mGlobalIdTag, vert_range.begin(), vert_range.end(), count, data);
   ERRORR(rval, "Failed to get tag iterator.");
-  assert(count == (int) num_local_verts);
+  assert(count == nLocalVertices);
   int* gid_data = (int*) data;
   std::copy(localGidVerts.begin(), localGidVerts.end(), gid_data);
 
@@ -395,16 +398,15 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   if (mpFileIdTag) {
     rval = mbImpl->tag_iterate(*mpFileIdTag, vert_range.begin(), vert_range.end(), count, data);
     ERRORR(rval, "Failed to get tag iterator on file id tag.");
-    assert(count == (int) num_local_verts);
+    assert(count == nLocalVertices);
     gid_data = (int*) data;
     std::copy(localGidVerts.begin(), localGidVerts.end(), gid_data);
   }
 
   // Create map from file ids to vertex handles, used later to set connectivity
   std::map<EntityHandle, EntityHandle> vert_handles;
-  for (rit = localGidVerts.begin(), i = 0; rit != localGidVerts.end(); ++rit, i++) {
+  for (rit = localGidVerts.begin(), i = 0; rit != localGidVerts.end(); ++rit, i++)
     vert_handles[*rit] = start_vertex + i;
-  }
 
   // Compute proper handles in connectivity using offset
   for (int q = 0; q < 4 * num_coarse_quads; q++) {
@@ -421,9 +423,9 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 
   // Add new vertices and elements to the set
   faces.merge(tmp_range);
-  tmp_range.insert(start_vertex, start_vertex + num_local_verts - 1);
+  tmp_range.insert(start_vertex, start_vertex + nLocalVertices - 1);
   rval = mbImpl->add_entities(_fileSet, tmp_range);
-  ERRORR(rval, "Couldn't add new vertices and quads/hexes to file set.");
+  ERRORR(rval, "Couldn't add new vertices and quads to file set.");
 
   // Mark the set with the spectral order
   Tag sporder;
@@ -440,11 +442,13 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     // Create vertices
     arrays.clear();
     // Don't need to specify allocation number here, because we know enough verts were created before
-    rval = _readNC->readMeshIface->get_node_coords(3, num_total_verts, 0, start_vertex, arrays);
-    ERRORR(rval, "Couldn't create vertices in ucd mesh for gather set.");
+    rval = _readNC->readMeshIface->get_node_coords(3, nVertices, 0, start_vertex, arrays);
+    ERRORR(rval, "Couldn't create vertices in HOMME mesh for gather set.");
 
-    xptr = arrays[0], yptr = arrays[1], zptr = arrays[2];
-    for (i = 0; i < (int)num_total_verts; i++) {
+    xptr = arrays[0];
+    yptr = arrays[1];
+    zptr = arrays[2];
+    for (i = 0; i < nVertices; i++) {
       double cosphi = cos(pideg * yVertVals[i]);
       double zmult = sin(pideg * yVertVals[i]);
       double xmult = cosphi * cos(xVertVals[i] * pideg);
@@ -456,21 +460,21 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     }
 
     // Get ptr to gid memory for vertices
-    Range gather_verts(start_vertex, start_vertex + num_total_verts - 1);
+    Range gather_verts(start_vertex, start_vertex + nVertices - 1);
     rval = mbImpl->tag_iterate(mGlobalIdTag, gather_verts.begin(), gather_verts.end(), count, data);
     ERRORR(rval, "Failed to get tag iterator.");
-    assert(count == (int) num_total_verts);
+    assert(count == nVertices);
     gid_data = (int*) data;
-    for (int j = 1; j <= (int) num_total_verts; j++)
+    for (int j = 1; j <= nVertices; j++)
       gid_data[j - 1] = j;
     // Set the file id tag too, it should be bigger something not interfering with global id
     if (mpFileIdTag) {
       rval = mbImpl->tag_iterate(*mpFileIdTag, gather_verts.begin(), gather_verts.end(), count, data);
       ERRORR(rval, "Failed to get tag iterator in file id tag.");
-      assert(count == (int) num_total_verts);
+      assert(count == nVertices);
       gid_data = (int*) data;
-      for (int j = 1; j <= (int) num_total_verts; j++)
-        gid_data[j - 1] = num_total_verts + j; // bigger than global id tag
+      for (int j = 1; j <= nVertices; j++)
+        gid_data[j - 1] = nVertices + j; // bigger than global id tag
     }
 
     rval = mbImpl->add_entities(gather_set, gather_verts);
@@ -485,7 +489,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     gather_quads.insert(start_quad, start_quad + num_quads - 1);
     std::copy(&tmp_conn[0], &tmp_conn[4 * num_quads], conn_arr);
     for (i = 0; i != 4 * num_quads; i++)
-      conn_arr[i] += start_vertex - 1; // connectivity array is shifted by where the gather verts start
+      conn_arr[i] += start_vertex - 1; // Connectivity array is shifted by where the gather verts start
     rval = mbImpl->add_entities(gather_set, gather_quads);
     ERRORR(rval, "Couldn't add quads to gather set.");
   }
@@ -616,7 +620,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC
           // We will start from the first localGidVerts, actually; we will reset that
           // later on, anyway, in a loop
           vdatas[i].readStarts[t].push_back(localGidVerts[0] - 1);
-          vdatas[i].readCounts[t].push_back(localGidVerts.size());
+          vdatas[i].readCounts[t].push_back(nLocalVertices);
           assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
           range = &verts;
           break;
