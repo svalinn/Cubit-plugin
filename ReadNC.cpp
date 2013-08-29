@@ -57,7 +57,6 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   // is set too, with the same data, duplicated
   mpFileIdTag = file_id_tag;
 
-  std::string partition_tag_name;
   rval = parse_options(opts, var_names, tstep_nums, tstep_vals);
   ERRORR(rval, "Trouble parsing option string.");
 
@@ -167,13 +166,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
     myPcomm->partition_sets().insert(partn_set);
 
     // Write partition tag name on partition set
-    Tag part_tag;
-    rval = mbImpl->tag_get_handle(partitionTagName.c_str(), 1, MB_TYPE_INTEGER, part_tag);
-    if (MB_SUCCESS != rval) {
-      // Fall back to the partition tag
-      part_tag = myPcomm->partition_tag();
-    }
-
+    Tag part_tag = myPcomm->partition_tag();
     int dum_rank = myPcomm->proc_config().proc_rank();
     rval = mbImpl->tag_set_data(part_tag, &partn_set, 1, &dum_rank);
     if (MB_SUCCESS != rval)
