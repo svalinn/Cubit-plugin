@@ -294,9 +294,9 @@ ErrorCode ReadNC::read_header()
   dbgOut.tprintf(1, "Read %u attributes\n", (unsigned int) globalAtts.size());
 
   // Read in dimensions into dimVals
-  result = get_dimensions(fileId, dimNames, dimVals);
+  result = get_dimensions(fileId, dimNames, dimLens);
   ERRORR(result, "Getting dimensions.");
-  dbgOut.tprintf(1, "Read %u dimensions\n", (unsigned int) dimVals.size());
+  dbgOut.tprintf(1, "Read %u dimensions\n", (unsigned int) dimNames.size());
 
   // Read in variables into varInfo
   result = get_variables();
@@ -328,7 +328,7 @@ ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadNC::get_dimensions(int file_id, std::vector<std::string>& dim_names, std::vector<int>& dim_vals)
+ErrorCode ReadNC::get_dimensions(int file_id, std::vector<std::string>& dim_names, std::vector<int>& dim_lens)
 {
   // Get the number of dimensions
   int num_dims;
@@ -341,18 +341,18 @@ ErrorCode ReadNC::get_dimensions(int file_id, std::vector<std::string>& dim_name
   }
 
   char dim_name[NC_MAX_NAME + 1];
-  NCDF_SIZE dum_len;
+  NCDF_SIZE dim_len;
   dim_names.resize(num_dims);
-  dim_vals.resize(num_dims);
+  dim_lens.resize(num_dims);
 
   for (int i = 0; i < num_dims; i++) {
-    success = NCFUNC(inq_dim)(file_id, i, dim_name, &dum_len);
+    success = NCFUNC(inq_dim)(file_id, i, dim_name, &dim_len);
     ERRORS(success, "Trouble getting dimension info.");
 
-    dim_vals[i] = dum_len;
     dim_names[i] = std::string(dim_name);
+    dim_lens[i] = dim_len;
 
-    dbgOut.tprintf(2, "Dimension %s, length=%u\n", dim_name, (unsigned int) dum_len);
+    dbgOut.tprintf(2, "Dimension %s, length=%u\n", dim_name, (unsigned int) dim_len);
   }
 
   return MB_SUCCESS;
@@ -367,7 +367,7 @@ ErrorCode ReadNC::get_variables()
 
   int ntimes = 0;
   if (vit != dimNames.end())
-    ntimes = dimVals[vit - dimNames.begin()];
+    ntimes = dimLens[vit - dimNames.begin()];
   if (!ntimes)
     ntimes = 1;
 

@@ -59,7 +59,7 @@ bool NCHelperHOMME::can_read_file(ReadNC* readNC, int fileId)
 ErrorCode NCHelperHOMME::init_mesh_vals()
 {
   std::vector<std::string>& dimNames = _readNC->dimNames;
-  std::vector<int>& dimVals = _readNC->dimVals;
+  std::vector<int>& dimLens = _readNC->dimLens;
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
 
   ErrorCode rval;
@@ -75,7 +75,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
   }
   tDim = idx;
-  nTimeSteps = dimVals[idx];
+  nTimeSteps = dimLens[idx];
 
   // Get number of vertices (labeled as number of columns)
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "ncol")) != dimNames.end())
@@ -84,7 +84,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'ncol' dimension.");
   }
   vDim = idx;
-  nVertices = dimVals[idx];
+  nVertices = dimLens[idx];
 
   // Set number of cells
   nCells = nVertices - 2;
@@ -98,7 +98,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
   }
   levDim = idx;
-  nLevels = dimVals[idx];
+  nLevels = dimLens[idx];
 
   // Store lon values in xVertVals
   std::map<std::string, ReadNC::VarData>::iterator vmit;
@@ -569,7 +569,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_setup(std::vector<std::string>& var_n
 ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
-  std::vector<int>& dimVals = _readNC->dimVals;
+  std::vector<int>& dimLens = _readNC->dimLens;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   ErrorCode rval = MB_SUCCESS;
@@ -595,7 +595,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC
       }
 
       // Assume point-based values for now?
-      if (-1 == tDim || dimVals[tDim] <= (int) t) {
+      if (-1 == tDim || dimLens[tDim] <= (int) t) {
         ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
       }
       else if (vdatas[i].varDims[0] != tDim) {

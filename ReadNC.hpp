@@ -138,7 +138,7 @@ private:
                            const char *prefix = "");
 
   //! Get all dimensions in the file
-  ErrorCode get_dimensions(int file_id, std::vector<std::string>& dim_names, std::vector<int>& dim_vals);
+  ErrorCode get_dimensions(int file_id, std::vector<std::string>& dim_names, std::vector<int>& dim_lens);
 
   //! Get the variable names and other info defined for this file
   ErrorCode get_variables();
@@ -159,14 +159,14 @@ private:
   //! File numbers assigned by netcdf
   int fileId;
 
-  //! Dimensions
+  //! Dimension names
   std::vector<std::string> dimNames;
+
+  //! Dimension lengths
+  std::vector<int> dimLens;
 
   //! These should be taken out when we fix the dummy var info things
   std::set<std::string> dummyVarNames;
-
-  //! Dimension values
-  std::vector<int> dimVals;
 
   //! Global attribs
   std::map<std::string, AttData> globalAtts;

@@ -53,7 +53,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<std::string>& dimNames = _readNC->dimNames;
-  std::vector<int>& dimVals = _readNC->dimVals;
+  std::vector<int>& dimLens = _readNC->dimLens;
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
   DebugOutput& dbgOut = _readNC->dbgOut;
   bool& isParallel = _readNC->isParallel;
@@ -71,7 +71,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   }
   iCDim = idx;
   gCDims[0] = 0;
-  gCDims[3] = dimVals[idx] - 1;
+  gCDims[3] = dimLens[idx] - 1;
 
   // Check i periodicity and set globallyPeriodic[0]
   std::vector<double> til_vals(2);
@@ -92,7 +92,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   }
   jCDim = idx;
   gCDims[1] = 0;
-  gCDims[4] = dimVals[idx] - 1;
+  gCDims[4] = dimLens[idx] - 1;
 
   // For Eul models, will always be non-periodic in j
   gDims[1] = 0;
@@ -111,7 +111,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
   }
   tDim = idx;
-  nTimeSteps = dimVals[idx];
+  nTimeSteps = dimLens[idx];
 
   // Look for level dimension
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
@@ -122,7 +122,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
   }
   levDim = idx;
-  nLevels = dimVals[idx];
+  nLevels = dimLens[idx];
 
   // Parse options to get subset
   int rank = 0, procs = 1;
@@ -328,35 +328,49 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       vd.entLoc = ReadNC::ENTLOCFACE;
   }
 
-  // <coordinate_dim_name>
-  std::vector<std::string> ijdimNames(4);
-  ijdimNames[0] = "__slon";
-  ijdimNames[1] = "__slat";
-  ijdimNames[2] = "__lon";
-  ijdimNames[3] = "__lat";
+  std::vector<std::string> ijdimNames(2);
+  ijdimNames[0] = "__lon";
+  ijdimNames[1] = "__lat";
 
+  std::stringstream ss_tag_name;
   std::string tag_name;
-  int val_len = 0;
+  Tag tagh;
+
+  // __<dim_name>_LOC_MINMAX (for lon and lat)
   for (unsigned int i = 0; i != ijdimNames.size(); i++) {
-    tag_name = ijdimNames[i];
+    std::vector<int> val(2, 0);
+    if (ijdimNames[i] == "__lon") {
+      val[0] = lCDims[0];
+      val[1] = lCDims[3];
+    }
+    else if (ijdimNames[i] == "__lat") {
+      val[0] = lCDims[1];
+      val[1] = lCDims[4];
+    }
+    ss_tag_name.clear();
+    ss_tag_name << ijdimNames[i] << "_LOC_MINMAX";
+    tag_name = ss_tag_name.str();
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
+    ERRORR(rval, "Trouble creating __<dim_name>_LOC_MINMAX tag.");
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
+    ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_MINMAX tag.");
+    if (MB_SUCCESS == rval)
+      dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
+  }
+
+  // __<dim_name>_LOC_VALS (for lon and lat)
+  for (unsigned int i = 0; i != ijdimNames.size(); i++) {
     void* val = NULL;
-    if (tag_name == "__slon") {
-      val = &ilVals[0];
-      val_len = ilVals.size();
-    }
-    else if (tag_name == "__slat") {
-      val = &jlVals[0];
-      val_len = jlVals.size();
-    }
-    else if (tag_name == "__lon") {
+    int val_len = 0;
+    if (ijdimNames[i] == "__lon") {
       val = &ilCVals[0];
       val_len = ilCVals.size();
     }
-    else if (tag_name == "__lat") {
+    else if (ijdimNames[i] == "__lat") {
       val = &jlCVals[0];
       val_len = jlCVals.size();
     }
-    Tag tagh = 0;
+
     DataType data_type;
 
     // Assume all has same data type as lon
@@ -378,61 +392,21 @@ ErrorCode NCHelperEuler::init_mesh_vals()
         ERRORR(MB_FAILURE, "Unrecognized data type");
         break;
     }
+    ss_tag_name.clear();
+    ss_tag_name << ijdimNames[i] << "_LOC_VALS";
+    tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, data_type, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
-    ERRORR(rval, "Trouble creating <coordinate_dim_name> tag.");
+    ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
     rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);
-    ERRORR(rval, "Trouble setting data for <coordinate_dim_name> tag.");
+    ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_VALS tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
   }
 
-  // __<coordinate_dim_name>_LOC_MINMAX
+  // __<dim_name>_GLOBAL_MINMAX (for lon and lat)
   for (unsigned int i = 0; i != ijdimNames.size(); i++) {
-    std::stringstream ss_tag_name;
-    ss_tag_name << ijdimNames[i] << "_LOC_MINMAX";
-    tag_name = ss_tag_name.str();
-    Tag tagh = 0;
     std::vector<int> val(2, 0);
-    if (ijdimNames[i] == "__slon") {
-      val[0] = lDims[0];
-      val[1] = lDims[3];
-    }
-    else if (ijdimNames[i] == "__slat") {
-      val[0] = lDims[1];
-      val[1] = lDims[4];
-    }
-    else if (ijdimNames[i] == "__lon") {
-      val[0] = lCDims[0];
-      val[1] = lCDims[3];
-    }
-    else if (ijdimNames[i] == "__lat") {
-      val[0] = lCDims[1];
-      val[1] = lCDims[4];
-    }
-    rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
-    ERRORR(rval, "Trouble creating __<coordinate_dim_name>_LOC_MINMAX tag.");
-    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
-    ERRORR(rval, "Trouble setting data for __<coordinate_dim_name>_LOC_MINMAX tag.");
-    if (MB_SUCCESS == rval)
-      dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
-  }
-
-  // __<coordinate_dim_name>_GLOBAL_MINMAX
-  for (unsigned int i = 0; i != ijdimNames.size(); i++) {
-    std::stringstream ss_tag_name;
-    ss_tag_name << ijdimNames[i] << "_GLOBAL_MINMAX";
-    tag_name = ss_tag_name.str();
-    Tag tagh = 0;
-    std::vector<int> val(2, 0);
-    if (ijdimNames[i] == "__slon") {
-      val[0] = gDims[0];
-      val[1] = gDims[3];
-    }
-    else if (ijdimNames[i] == "__slat") {
-      val[0] = gDims[1];
-      val[1] = gDims[4];
-    }
-    else if (ijdimNames[i] == "__lon") {
+    if (ijdimNames[i] == "__lon") {
       val[0] = gCDims[0];
       val[1] = gCDims[3];
     }
@@ -440,10 +414,13 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       val[0] = gCDims[1];
       val[1] = gCDims[4];
     }
+    ss_tag_name.clear();
+    ss_tag_name << ijdimNames[i] << "_GLOBAL_MINMAX";
+    tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
-    ERRORR(rval, "Trouble creating __<coordinate_dim_name>_GLOBAL_MINMAX tag.");
+    ERRORR(rval, "Trouble creating __<dim_name>_GLOBAL_MINMAX tag.");
     rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
-    ERRORR(rval, "Trouble setting data for __<coordinate_dim_name>_GLOBAL_MINMAX tag.");
+    ERRORR(rval, "Trouble setting data for __<dim_name>_GLOBAL_MINMAX tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
   }

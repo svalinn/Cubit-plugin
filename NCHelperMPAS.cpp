@@ -37,7 +37,7 @@ bool NCHelperMPAS::can_read_file(ReadNC* readNC)
 ErrorCode NCHelperMPAS::init_mesh_vals()
 {
   std::vector<std::string>& dimNames = _readNC->dimNames;
-  std::vector<int>& dimVals = _readNC->dimVals;
+  std::vector<int>& dimLens = _readNC->dimLens;
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
 
   ErrorCode rval;
@@ -47,7 +47,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   // Get max edges per cell
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "maxEdges")) != dimNames.end()) {
     idx = vit - dimNames.begin();
-    maxCellEdges = dimVals[idx];
+    maxCellEdges = dimLens[idx];
     if (maxCellEdges > MAX_EDGES_PER_CELL) {
       ERRORR(MB_FAILURE, "maxEdges read from MPAS file has exceeded the limit");
     }
@@ -62,7 +62,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'Time' or 'time' dimension.");
   }
   tDim = idx;
-  nTimeSteps = dimVals[idx];
+  nTimeSteps = dimLens[idx];
 
   // Get number of cells
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "nCells")) != dimNames.end())
@@ -71,7 +71,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'nCells' dimension.");
   }
   cDim = idx;
-  nCells = dimVals[idx];
+  nCells = dimLens[idx];
 
   // Get number of edges
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "nEdges")) != dimNames.end())
@@ -80,7 +80,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'nEdges' dimension.");
   }
   eDim = idx;
-  nEdges = dimVals[idx];
+  nEdges = dimLens[idx];
 
   // Get number of vertices
   vDim = -1;
@@ -90,7 +90,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'nVertices' dimension.");
   }
   vDim = idx;
-  nVertices = dimVals[idx];
+  nVertices = dimLens[idx];
 
   // Get number of levels
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "nVertLevels")) != dimNames.end())
@@ -99,7 +99,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     ERRORR(MB_FAILURE, "Couldn't find 'nVertLevels' dimension.");
   }
   levDim = idx;
-  nLevels = dimVals[idx];
+  nLevels = dimLens[idx];
 
   // Store xVertex values in xVertVals
   std::map<std::string, ReadNC::VarData>::iterator vmit;
@@ -697,7 +697,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_setup(std::vector<std::string>& var_na
 ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
-  std::vector<int>& dimVals = _readNC->dimVals;
+  std::vector<int>& dimLens = _readNC->dimLens;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   ErrorCode rval = MB_SUCCESS;
@@ -747,7 +747,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
       }
 
       // Assume point-based values for now?
-      if (-1 == tDim || dimVals[tDim] <= (int) t) {
+      if (-1 == tDim || dimLens[tDim] <= (int) t) {
         ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
       }
       else if (vdatas[i].varDims[0] != tDim) {
