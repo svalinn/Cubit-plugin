@@ -812,6 +812,7 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
+  const Tag*& mpFileIdTag = _readNC->mpFileIdTag;
   DebugOutput& dbgOut = _readNC->dbgOut;
   ScdInterface* scdi = _readNC->scdi;
   ScdParData& parData = _readNC->parData;
@@ -842,12 +843,21 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
   assert(count == scd_box->num_vertices());
   int* gid_data = (int*) data;
 
+  // Duplicate global id data, which will be used to resolve sharing
+  int* fid_data;
+  if (mpFileIdTag) {
+    rval = mbImpl->tag_iterate(*mpFileIdTag, tmp_range.begin(), topv, count, data);
+    ERRORR(rval, "Failed to get tag iterator on file id tag.");
+    assert(count == scd_box->num_vertices());
+    fid_data = (int*) data;
+  }
+
   // Set the vertex coordinates
   double *xc, *yc, *zc;
   rval = scd_box->get_coordinate_arrays(xc, yc, zc);
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
-  int i, j, k, il, jl, kl, itmp;
+  int i, j, k, il, jl, kl, itmp, id;
   int dil = lDims[3] - lDims[0] + 1;
   int djl = lDims[4] - lDims[1] + 1;
   int di = gDims[3] - gDims[0] + 1;
@@ -866,8 +876,13 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
         yc[pos] = jlVals[j];
         zc[pos] = (-1 == lDims[2] ? 0.0 : levVals[k]);
         itmp = (!locallyPeriodic[0] && globallyPeriodic[0] && il == gDims[3] ? gDims[0] : il);
-        *gid_data = (-1 != kl ? kl * di * dj : 0) + jl * di + itmp + 1;
+        id = (-1 != kl ? kl * di * dj : 0) + jl * di + itmp + 1;
+        *gid_data = id;
         gid_data++;
+        if (mpFileIdTag) {
+          *fid_data = id;
+          fid_data++;
+        }
       }
     }
   }
