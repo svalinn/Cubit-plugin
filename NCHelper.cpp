@@ -820,12 +820,29 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
   Range tmp_range;
   ScdBox *scd_box;
 
-  ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], lDims[2], 1), HomCoord(lDims[3], lDims[4], lDims[5], 1), NULL,
-      0, scd_box, locallyPeriodic, &parData);
+  ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], lDims[2], 1), HomCoord(lDims[3], lDims[4], lDims[5], 1), 
+                                       NULL, 0, scd_box, locallyPeriodic, &parData, true);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
-  // Add box set and new vertices, elements to the file set
+    // add verts to tmp_range first, so we can duplicate global ids in vertex ids
   tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex() + scd_box->num_vertices() - 1);
+
+  if (mpFileIdTag) {
+    Range::iterator topv = tmp_range.end();
+    int count;
+    void *data;
+    rval = mbImpl->tag_iterate(*mpFileIdTag, tmp_range.begin(), topv, count, data);
+    ERRORR(rval, "Failed to get tag iterator on file id tag.");
+    assert(count == scd_box->num_vertices());
+    int *fid_data = (int*) data;
+    rval = mbImpl->tag_iterate(mGlobalIdTag, tmp_range.begin(), topv, count, data);
+    ERRORR(rval, "Failed to get tag iterator on file id tag.");
+    assert(count == scd_box->num_vertices());
+    int *gid_data = (int*) data;
+    for (int i = 0; i < count; i++) fid_data[i] = gid_data[i];
+  }
+
+    // Then add box set and elements to the range, then to the file set
   tmp_range.insert(scd_box->start_element(), scd_box->start_element() + scd_box->num_elements() - 1);
   tmp_range.insert(scd_box->box_set());
   rval = mbImpl->add_entities(_fileSet, tmp_range);
@@ -833,35 +850,14 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
 
   dbgOut.tprintf(1, "scdbox %d quads, %d vertices\n", scd_box->num_elements(), scd_box->num_vertices());
 
-  // Get a ptr to global id memory
-  void* data;
-  int count;
-  const Range::iterator topv = tmp_range.upper_bound(tmp_range.begin(), tmp_range.end(), scd_box->start_vertex()
-      + scd_box->num_vertices());
-  rval = mbImpl->tag_iterate(mGlobalIdTag, tmp_range.begin(), topv, count, data);
-  ERRORR(rval, "Failed to get tag iterator.");
-  assert(count == scd_box->num_vertices());
-  int* gid_data = (int*) data;
-
-  // Duplicate global id data, which will be used to resolve sharing
-  int* fid_data;
-  if (mpFileIdTag) {
-    rval = mbImpl->tag_iterate(*mpFileIdTag, tmp_range.begin(), topv, count, data);
-    ERRORR(rval, "Failed to get tag iterator on file id tag.");
-    assert(count == scd_box->num_vertices());
-    fid_data = (int*) data;
-  }
-
   // Set the vertex coordinates
   double *xc, *yc, *zc;
   rval = scd_box->get_coordinate_arrays(xc, yc, zc);
   ERRORR(rval, "Couldn't get vertex coordinate arrays.");
 
-  int i, j, k, il, jl, kl, itmp, id;
+  int i, j, k, il, jl, kl;
   int dil = lDims[3] - lDims[0] + 1;
   int djl = lDims[4] - lDims[1] + 1;
-  int di = gDims[3] - gDims[0] + 1;
-  int dj = gDims[4] - gDims[1] + 1;
   assert(dil == (int)ilVals.size() && djl == (int)jlVals.size() &&
       (-1 == lDims[2] || lDims[5]-lDims[2] + 1 == (int)levVals.size()));
 #define INDEX(i, j, k) ()
@@ -875,14 +871,6 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
         xc[pos] = ilVals[i];
         yc[pos] = jlVals[j];
         zc[pos] = (-1 == lDims[2] ? 0.0 : levVals[k]);
-        itmp = (!locallyPeriodic[0] && globallyPeriodic[0] && il == gDims[3] ? gDims[0] : il);
-        id = (-1 != kl ? kl * di * dj : 0) + jl * di + itmp + 1;
-        *gid_data = id;
-        gid_data++;
-        if (mpFileIdTag) {
-          *fid_data = id;
-          fid_data++;
-        }
       }
     }
   }
