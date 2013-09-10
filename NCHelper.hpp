@@ -164,10 +164,10 @@ protected:
   //! Center dimension numbers for i/j
   int iCDim, jCDim;
 
-  //! Whether mesh is locally periodic in i or j
+  //! Whether mesh is locally periodic in i or j or k
   int locallyPeriodic[3];
 
-  //! Whether mesh is globally periodic in i or j
+  //! Whether mesh is globally periodic in i or j or k
   int globallyPeriodic[3];
 };
 
