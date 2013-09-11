@@ -17,11 +17,12 @@ namespace moab {
 class NCHelperFV : public ScdNCHelper
 {
 public:
-  NCHelperFV(ReadNC* readNC, int fileId) : ScdNCHelper(readNC, fileId) {}
+  NCHelperFV(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+: ScdNCHelper(readNC, fileId, opts, fileSet) {}
   static bool can_read_file(ReadNC* readNC, int fileId);
 
 private:
-  virtual ErrorCode init_mesh_vals(const FileOptions& opts, EntityHandle file_set);
+  virtual ErrorCode init_mesh_vals();
   virtual std::string get_mesh_type_name() { return "CAM_FV"; }
 };
 

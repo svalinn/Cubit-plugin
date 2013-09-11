@@ -70,7 +70,7 @@ extern "C" {
  * type of sufficient size to accomodate the entity IDs.  
  *
  * The \c tstt group contains four sub-groups, a datatype object, and a 
- * dataset object.  The three sub-groups are: \c nodes, \c elements, 
+ * dataset object.  The four sub-groups are: \c nodes, \c elements,
  * \c sets, and \c tags.  The dataset is named \c history .
  *
  * The \c elemtypes datatype is an enumeration of the elem topologies

@@ -842,7 +842,7 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     dbgOut.printf( 2, "Partition with num_parts = %d and part_number = %d\n", 
                    num_parts, part_number );
   
-  dbgOut.tprint( 1, "RETREIVING TAGGED ENTITIES\n" );
+  dbgOut.tprint( 1, "RETRIEVING TAGGED ENTITIES\n" );
     
   Range file_ids;
   ErrorCode rval = get_subset_ids( subset_list, subset_list_length, file_ids );
@@ -964,7 +964,6 @@ ErrorCode ReadHDF5::load_file_partial( const ReaderIface::IDTag* subset_list,
     
     Range subset;
     intersect( fileInfo->elems[i].desc, file_ids, subset );
-  
     mpe_event.start( "reading connectivity for ", fileInfo->elems[i].handle );
     
       // If dimension is max_dim, then we can create the elements now
@@ -1544,7 +1543,8 @@ ErrorCode ReadHDF5::read_elems( const mhdf_ElemDesc& elems, const Range& file_id
 
   EntityHandle handle;
   EntityHandle* array = 0;
-  rval = readUtil->get_element_connect( count, nodes_per_elem, type,
+  if (count>0)
+    rval = readUtil->get_element_connect( count, nodes_per_elem, type,
                                         0, handle, array );
   if (MB_SUCCESS != rval)
     return error(rval);
