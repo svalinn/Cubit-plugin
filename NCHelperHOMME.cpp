@@ -1,6 +1,6 @@
 #include "NCHelperHOMME.hpp"
 #include "moab/ReadUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "moab/SpectralMeshTool.hpp"
 
 #include <cmath>

@@ -16,7 +16,7 @@
 #include "Tqdcfr.hpp"
 #include "moab/Core.hpp"
 #include "moab/Range.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include <iostream>
 #include <string>
 

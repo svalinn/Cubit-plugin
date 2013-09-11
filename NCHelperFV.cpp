@@ -1,6 +1,6 @@
 #include "NCHelperFV.hpp"
 #include "moab/ReadUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 
 #include <cmath>
 #include <sstream>

@@ -18,7 +18,7 @@
 #include "moab/ReadUtilIface.hpp"
 #include "Internals.hpp" // for MB_START_ID
 #include "moab/Range.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 
 #include <iostream>
 #include <sstream>

@@ -3,7 +3,7 @@
 
 #include "moab/ReadUtilIface.hpp"
 #include "MBTagConventions.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 
 #define ERRORR(rval, str) \
   if (MB_SUCCESS != rval) { readMeshIface->report_error("%s", str); return rval; }

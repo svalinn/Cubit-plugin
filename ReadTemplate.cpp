@@ -8,7 +8,7 @@
 #include "moab/Interface.hpp"
 #include "moab/ReadUtilIface.hpp"
 #include "moab/Range.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 
 #include <cstdio>
 #include <assert.h>

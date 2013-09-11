@@ -28,7 +28,7 @@
 #include "Internals.hpp"
 #include "moab/Interface.hpp"
 #include "moab/ReadUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "AffineXform.hpp"
 
 static inline int streq(const char *a,const char *b) { return strcmp(a,b)==0; }

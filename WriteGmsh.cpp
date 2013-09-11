@@ -5,7 +5,7 @@
 #include "moab/Interface.hpp"
 #include "moab/Range.hpp"
 #include "moab/WriteUtilIface.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "GmshUtil.hpp"
 
 #include <fstream>

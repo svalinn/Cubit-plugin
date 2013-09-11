@@ -48,7 +48,7 @@
 #include "Internals.hpp"
 #include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
-#include "FileOptions.hpp"
+#include "moab/FileOptions.hpp"
 #include "moab/Version.h"
 #include "IODebugTrack.hpp"
 #include "mhdf.h"
