@@ -824,25 +824,25 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
                                        NULL, 0, scd_box, locallyPeriodic, &parData, true);
   ERRORR(rval, "Trouble creating scd vertex sequence.");
 
-    // add verts to tmp_range first, so we can duplicate global ids in vertex ids
+  // Add verts to tmp_range first, so we can duplicate global ids in vertex ids
   tmp_range.insert(scd_box->start_vertex(), scd_box->start_vertex() + scd_box->num_vertices() - 1);
 
   if (mpFileIdTag) {
-    Range::iterator topv = tmp_range.end();
     int count;
-    void *data;
-    rval = mbImpl->tag_iterate(*mpFileIdTag, tmp_range.begin(), topv, count, data);
+    void* data;
+    rval = mbImpl->tag_iterate(*mpFileIdTag, tmp_range.begin(), tmp_range.end(), count, data);
     ERRORR(rval, "Failed to get tag iterator on file id tag.");
     assert(count == scd_box->num_vertices());
-    int *fid_data = (int*) data;
-    rval = mbImpl->tag_iterate(mGlobalIdTag, tmp_range.begin(), topv, count, data);
-    ERRORR(rval, "Failed to get tag iterator on file id tag.");
+    int* fid_data = (int*) data;
+    rval = mbImpl->tag_iterate(mGlobalIdTag, tmp_range.begin(), tmp_range.end(), count, data);
+    ERRORR(rval, "Failed to get tag iterator on global id tag.");
     assert(count == scd_box->num_vertices());
-    int *gid_data = (int*) data;
-    for (int i = 0; i < count; i++) fid_data[i] = gid_data[i];
+    int* gid_data = (int*) data;
+    for (int i = 0; i < count; i++)
+      fid_data[i] = gid_data[i];
   }
 
-    // Then add box set and elements to the range, then to the file set
+  // Then add box set and elements to the range, then to the file set
   tmp_range.insert(scd_box->start_element(), scd_box->start_element() + scd_box->num_elements() - 1);
   tmp_range.insert(scd_box->box_set());
   rval = mbImpl->add_entities(_fileSet, tmp_range);
@@ -859,8 +859,8 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
   int dil = lDims[3] - lDims[0] + 1;
   int djl = lDims[4] - lDims[1] + 1;
   assert(dil == (int)ilVals.size() && djl == (int)jlVals.size() &&
-      (-1 == lDims[2] || lDims[5]-lDims[2] + 1 == (int)levVals.size()));
-#define INDEX(i, j, k) ()
+      (-1 == lDims[2] || lDims[5] - lDims[2] + 1 == (int)levVals.size()));
+//#define INDEX(i, j, k) ()
   for (kl = lDims[2]; kl <= lDims[5]; kl++) {
     k = kl - lDims[2];
     for (jl = lDims[1]; jl <= lDims[4]; jl++) {
@@ -874,7 +874,7 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
       }
     }
   }
-#undef INDEX
+//#undef INDEX
 
 #ifndef NDEBUG
   int num_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2] + 1);
