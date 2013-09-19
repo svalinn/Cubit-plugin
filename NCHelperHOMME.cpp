@@ -232,7 +232,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
       conn_fname = "HommeMapping.nc";
   }
 
-  int success;
+  int success = 0;
 
   int rank = 0;
   int procs = 1;
@@ -265,9 +265,11 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   ERRORR(rval, "Failed to get dimensions for connectivity.");
 
   // Read connectivity into temporary variable
-  int num_fine_quads, num_coarse_quads, start_idx;
+  int num_fine_quads = 0;
+  int num_coarse_quads = 0;
+  int start_idx = 0;
   std::vector<std::string>::iterator vit;
-  int idx;
+  int idx = 0;
   if ((vit = std::find(conn_names.begin(), conn_names.end(), "ncells")) != conn_names.end())
     idx = vit - conn_names.begin();
   else if ((vit = std::find(conn_names.begin(), conn_names.end(), "ncenters")) != conn_names.end())
