@@ -916,6 +916,7 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
                              Tqdcfr::ModelEntry *model,
                              Tqdcfr::BlockHeader *blockh)  
 {
+
   if (blockh->memCt == 0) return MB_SUCCESS;
   
     // position file
@@ -945,24 +946,35 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   ErrorCode result = put_into_set(blockh->setHandle, block_entities, excl_entities);
   if (MB_SUCCESS != result) return result;
   
-    // read attribs if there are any
+  // read attribs if there are any
+  // <-- likask
+  Tag block_attribs;
+  {
+    int def_Block_Attributes_lenght = 0;
+    result = mdbImpl->tag_get_handle("Block_Attributes",def_Block_Attributes_lenght,MB_TYPE_DOUBLE,
+      block_attribs,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN,NULL); 
+    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+  }
   if (blockh->attribOrder > 0) {
-    Tag block_attribs;
-    
+     
     FREADD(blockh->attribOrder); num_read += sizeof(double);
-      // now do something with them...
+        // now do something with them...
       // This code seems broken.  It is apparently supposed to read 
       // blockh->attribOrder values for each block and store them in
       // a tag.  However, blockh->attribOrder is not a constant 
       // so the same fixed-length tag cannot be used for all blocks.  
       // For now, just store one value, as that was what the buggy code
       // previously did.
-    result = mdbImpl->tag_get_handle("Block_Attributes", 1/*blockh->attribOrder*/, 
-                                 MB_TYPE_DOUBLE, block_attribs, 
-                                 MB_TAG_SPARSE|MB_TAG_CREAT);
-    if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
-    result = mdbImpl->tag_set_data(block_attribs, &(blockh->setHandle), 1,
-                                   &(dbl_buf[0]));
+    //result = mdbImpl->tag_get_handle("Block_Attributes", 1 /*blockh->attribOrder*/, 
+                                 //MB_TYPE_DOUBLE, block_attribs, 
+                                 //MB_TAG_SPARSE|MB_TAG_CREAT);
+    //if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
+    //result = mdbImpl->tag_set_data(block_attribs, &(blockh->setHandle), 1,
+                                   //&(dbl_buf[0]));
+    // <- likask
+    void const* tag_data[] = { &dbl_buf[0] };
+    int tag_sizes[] = { blockh->attribOrder };
+    result = mdbImpl->tag_set_by_ptr(block_attribs,&(blockh->setHandle),1,tag_data,tag_sizes);
     if (MB_SUCCESS != result) return result;
   }
 
@@ -1921,6 +1933,16 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     block_headers[i].blockMat = instance->uint_buf[9];
     block_headers[i].blockLength = instance->uint_buf[10];
     block_headers[i].blockDim = instance->uint_buf[11];
+
+    // <-likask
+    std::vector<unsigned int> def_uint_zero(12,0);
+    Tag bhTag_header;
+    result = instance->mdbImpl->tag_get_handle("BLOCK_HEADER",12*sizeof(unsigned int),MB_TYPE_INTEGER,
+      bhTag_header,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_BYTES,&def_uint_zero[0]); 
+    if (MB_SUCCESS != result) return result;
+    result = instance->mdbImpl->tag_set_data(bhTag_header,&(block_headers[i].setHandle), 1,
+					      &(instance->uint_buf[0]));
+    if (MB_SUCCESS != result) return result;
 
       // adjust element type for data version; older element types didn't include
       // 4 new trishell element types
