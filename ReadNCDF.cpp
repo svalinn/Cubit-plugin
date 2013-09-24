@@ -171,13 +171,11 @@ void ReadNCDF::reset()
     nodesInLoadedBlocks.clear();
 }
 
-
 ReadNCDF::~ReadNCDF() 
 {
   mdbImpl->release_interface(readMeshIface);
 }
   
-
 ErrorCode ReadNCDF::read_tag_values(const char* file_name,
                                     const char* tag_name,
                                     const FileOptions& ,
@@ -235,8 +233,6 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
   
   return MB_SUCCESS;
 }
-
-
 
 ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
                               const EntityHandle* file_set,
@@ -328,8 +324,6 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
   return MB_SUCCESS;
 }
 
-
-
 ErrorCode ReadNCDF::read_exodus_header()
 {
   CPU_WORD_SIZE = sizeof(double);  // With ExodusII version 2, all floats
@@ -403,17 +397,18 @@ ErrorCode ReadNCDF::read_exodus_header()
     readMeshIface->report_error("ReadNCDF:: Problem getting title attribute.");
     return MB_FAILURE;
   }
-  char *title = new char[att_len+1];
   if (att_type != NC_CHAR) {
     readMeshIface->report_error("ReadNCDF:: title didn't have type char.");
     return MB_FAILURE;
   }
+  char *title = new char[att_len + 1];
   fail = nc_get_att_text(ncFile, NC_GLOBAL, "title", title);
   if (NC_NOERR != fail) {
     readMeshIface->report_error("ReadNCDF:: trouble getting title.");
+    delete[] title;
     return MB_FAILURE;
   }
-  delete [] title;
+  delete[] title;
 
   return MB_SUCCESS;
 }
@@ -683,12 +678,10 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
     const int* reorder = exodus_elem_order_map[mb_type][verts_per_element];
     if (reorder)
       ReadUtilIface::reorder( reorder, conn, this_it->numElements, verts_per_element );
-    
 
-      
     readMeshIface->update_adjacencies((*this_it).startMBId, (*this_it).numElements,
                                       ExoIIUtil::VerticesPerElement[(*this_it).elemType], conn);
-    
+
     if ( result == -1 )
     {
       readMeshIface->report_error("ReadNCDF:: error getting element connectivity for block %i",
@@ -701,8 +694,7 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
       return MB_FAILURE;
     if( mdbImpl->tag_set_data( mGlobalIdTag, &ms_handle, 1, &block_id ) != MB_SUCCESS )
       return MB_FAILURE;
-      
-      
+
     if (file_id_tag) {
       Range range;
       range.insert( this_it->startMBId, this_it->startMBId + this_it->numElements - 1 );
@@ -1199,7 +1191,6 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
     else if( type == MBQUAD &&
              exoii_type >= EXOII_SHELL && exoii_type <= EXOII_SHELL9 )
     {
-
       //ent_handle = CREATE_HANDLE(MBQUAD, base_id, error );
 
       //just use this quad
@@ -1325,9 +1316,7 @@ ErrorCode ReadNCDF::create_ss_elements( int *element_ids,
             dist_factor_vector.push_back( temp_dist_factor_vector[df_index++] );
         }
       }
-
     }
-
   }
 
   return MB_SUCCESS; 
@@ -1411,11 +1400,9 @@ ErrorCode ReadNCDF::create_sideset_element( const std::vector<EntityHandle>& con
   return error;
 }
 
-
 ErrorCode ReadNCDF::find_side_element_type( const int exodus_id, ExoIIElementType &elem_type, 
                                                 ReadBlockData &block_data, int &df_index, int side_id)
 {
-
   std::vector<ReadBlockData>::iterator iter, end_iter;
   iter = blocksLoading.begin();
   end_iter = blocksLoading.end();
@@ -1450,7 +1437,6 @@ ErrorCode ReadNCDF::find_side_element_type( const int exodus_id, ExoIIElementTyp
           df_index += 3;
 
         return MB_FAILURE;
-
       }
 
       block_data = *iter;
