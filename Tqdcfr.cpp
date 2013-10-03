@@ -950,8 +950,8 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   // <-- likask
   Tag block_attribs;
   {
-    int def_Block_Attributes_lenght = 0;
-    result = mdbImpl->tag_get_handle("Block_Attributes",def_Block_Attributes_lenght,MB_TYPE_DOUBLE,
+    int def_block_attributes_length = 0;
+    result = mdbImpl->tag_get_handle("Block_Attributes",def_block_attributes_length,MB_TYPE_DOUBLE,
       block_attribs,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN,NULL); 
     if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
   }
