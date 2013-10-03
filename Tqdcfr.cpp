@@ -588,7 +588,6 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
     if (MB_SUCCESS != result) return result;
   }
     // check for more data
-    // <- likask 
   if (num_read < nodeseth->nsLength) {
     FREADC(2); num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
@@ -604,7 +603,7 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
     }
   }
 
-  if(debug) { // <-likask
+  if(debug) { 
     nodeseth->print(); 
     if(!bc_data.empty()) {
       std::cout << "bc_data = ";
@@ -619,7 +618,7 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
       }
       std::cout << std::endl;
     }
-  } // <-likask
+  } 
 
     // and put entities into this nodeset's set
   ErrorCode result = put_into_set(nodeseth->setHandle, ns_entities, excl_entities);
@@ -628,7 +627,6 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
   result = get_names(model->nodesetMD, nsindex, nodeseth->setHandle);
   if (MB_SUCCESS != result) return result;
 
-  // <-likask
   const int def_bc_data_len = 0;
   std::string tag_name = std::string(DIRICHLET_SET_TAG_NAME)+"__BC_DATA";
   Tag nbc_data;
@@ -757,7 +755,7 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
     }
   }
 
-  if(debug) { // <-likask
+  if(debug) { 
     sideseth->print(); 
     if(!bc_data.empty()) {
       std::cout << "bc_data = ";
@@ -772,12 +770,11 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
       }
       std::cout << std::endl;
     }
-  } // <-likask
+  } 
 
   result = get_names(model->sidesetMD, ssindex, sideseth->setHandle);
   if (MB_SUCCESS != result) return result;
 
-  // <-likask
   const int def_bc_data_len = 0;
   std::string tag_name = std::string(NEUMANN_SET_TAG_NAME)+"__BC_DATA";
   Tag nbc_data;
@@ -947,31 +944,16 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   if (MB_SUCCESS != result) return result;
   
   // read attribs if there are any
-  // <-- likask
   Tag block_attribs;
   {
     int def_block_attributes_length = 0;
-    result = mdbImpl->tag_get_handle("Block_Attributes",def_block_attributes_length,MB_TYPE_DOUBLE,
+    result = mdbImpl->tag_get_handle(BLOCK_ATTRIBUTES,def_block_attributes_length,MB_TYPE_DOUBLE,
       block_attribs,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_VARLEN,NULL); 
     if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
   }
   if (blockh->attribOrder > 0) {
      
     FREADD(blockh->attribOrder); num_read += sizeof(double);
-        // now do something with them...
-      // This code seems broken.  It is apparently supposed to read 
-      // blockh->attribOrder values for each block and store them in
-      // a tag.  However, blockh->attribOrder is not a constant 
-      // so the same fixed-length tag cannot be used for all blocks.  
-      // For now, just store one value, as that was what the buggy code
-      // previously did.
-    //result = mdbImpl->tag_get_handle("Block_Attributes", 1 /*blockh->attribOrder*/, 
-                                 //MB_TYPE_DOUBLE, block_attribs, 
-                                 //MB_TAG_SPARSE|MB_TAG_CREAT);
-    //if (MB_SUCCESS != result && MB_ALREADY_ALLOCATED != result) return result;
-    //result = mdbImpl->tag_set_data(block_attribs, &(blockh->setHandle), 1,
-                                   //&(dbl_buf[0]));
-    // <- likask
     void const* tag_data[] = { &dbl_buf[0] };
     int tag_sizes[] = { blockh->attribOrder };
     result = mdbImpl->tag_set_by_ptr(block_attribs,&(blockh->setHandle),1,tag_data,tag_sizes);
@@ -1934,14 +1916,14 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     block_headers[i].blockLength = instance->uint_buf[10];
     block_headers[i].blockDim = instance->uint_buf[11];
 
-    // <-likask
-    std::vector<unsigned int> def_uint_zero(12,0);
     Tag bhTag_header;
-    result = instance->mdbImpl->tag_get_handle("BLOCK_HEADER",12*sizeof(unsigned int),MB_TYPE_INTEGER,
+    std::vector<unsigned int> def_uint_zero(3,0);
+    result = instance->mdbImpl->tag_get_handle(BLOCK_HEADER,3*sizeof(unsigned int),MB_TYPE_INTEGER,
       bhTag_header,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_BYTES,&def_uint_zero[0]); 
     if (MB_SUCCESS != result) return result;
+    int block_header_data[] = { block_headers[i].blockCol, block_headers[i].blockMat, block_headers[i].blockDim }; 
     result = instance->mdbImpl->tag_set_data(bhTag_header,&(block_headers[i].setHandle), 1,
-					      &(instance->uint_buf[0]));
+					      block_header_data);
     if (MB_SUCCESS != result) return result;
 
       // adjust element type for data version; older element types didn't include
