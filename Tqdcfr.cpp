@@ -1917,13 +1917,16 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     block_headers[i].blockDim = instance->uint_buf[11];
 
     Tag bhTag_header;
-    std::vector<unsigned int> def_uint_zero(3,0);
-    result = instance->mdbImpl->tag_get_handle(BLOCK_HEADER,3*sizeof(unsigned int),MB_TYPE_INTEGER,
-      bhTag_header,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_BYTES,&def_uint_zero[0]); 
-    if (MB_SUCCESS != result) return result;
-    int block_header_data[] = { block_headers[i].blockCol, block_headers[i].blockMat, block_headers[i].blockDim }; 
-    result = instance->mdbImpl->tag_set_data(bhTag_header,&(block_headers[i].setHandle), 1,
+    {
+      std::vector<int> def_uint_zero(3,0);
+      result = instance->mdbImpl->tag_get_handle(BLOCK_HEADER,3*sizeof(unsigned int),MB_TYPE_INTEGER,
+	bhTag_header,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_BYTES,&def_uint_zero[0]); 
+      if (MB_SUCCESS != result) return result;
+      int block_header_data[] = { block_headers[i].blockCol, block_headers[i].blockMat, block_headers[i].blockDim }; 
+      result = instance->mdbImpl->tag_set_data(bhTag_header,&(block_headers[i].setHandle), 1,
 					      block_header_data);
+    }
+
     if (MB_SUCCESS != result) return result;
 
       // adjust element type for data version; older element types didn't include
