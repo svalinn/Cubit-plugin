@@ -49,7 +49,7 @@ private:
 #endif
 
 private:
-  int maxCellEdges;
+  int maxEdgesPerCell;
   int numCellGroups;
   std::vector<int> verticesOnEdge;
   std::map<EntityHandle, int> cellHandleToGlobalID;

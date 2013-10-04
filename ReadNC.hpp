@@ -207,6 +207,7 @@ private:
   bool noMesh;
   bool noVars;
   bool spectralMesh;
+  bool noMixedElements;
   int gatherSetRank;
 
   //! Helper class instance
