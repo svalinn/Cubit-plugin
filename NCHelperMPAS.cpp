@@ -351,8 +351,8 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   std::vector<double*> arrays;
   Range tmp_range;
   ErrorCode rval = _readNC->readMeshIface->get_node_coords(3, nLocalVertices, 0, start_vertex, arrays,
-                                            // Might have to create gather mesh later
-                                            (create_gathers ? nLocalVertices + nVertices : nLocalVertices));
+                                                          // Might have to create gather mesh later
+                                                          (create_gathers ? nLocalVertices + nVertices : nLocalVertices));
   ERRORR(rval, "Couldn't create local vertices in MPAS mesh.");
   tmp_range.insert(start_vertex, start_vertex + nLocalVertices - 1);
 
@@ -397,8 +397,8 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   EntityHandle start_edge;
   EntityHandle* conn_arr_edges;
   rval = _readNC->readMeshIface->get_element_connect(nLocalEdges, 2, MBEDGE, 0, start_edge, conn_arr_edges,
-                                            // Might have to create gather mesh later
-                                            (create_gathers ? nLocalEdges + nEdges : nLocalEdges));
+                                                    // Might have to create gather mesh later
+                                                    (create_gathers ? nLocalEdges + nEdges : nLocalEdges));
   ERRORR(rval, "Couldn't create local edges in MPAS mesh.");
   Range local_edges_range(start_edge, start_edge + nLocalEdges - 1);
   tmp_range.insert(start_edge, start_edge + nLocalEdges - 1);
@@ -427,8 +427,9 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
     // Create cells and set connectivity array with proper local vertices handles
     EntityHandle* conn_arr_local_cells = NULL;
-    rval = _readNC->readMeshIface->get_element_connect(nLocalCells, maxEdgesPerCell, MBPOLYGON, 0, start_element,
-                                                       conn_arr_local_cells, nLocalCells);
+    rval = _readNC->readMeshIface->get_element_connect(nLocalCells, maxEdgesPerCell, MBPOLYGON, 0, start_element, conn_arr_local_cells,
+                                                      // Might have to create gather mesh later
+                                                      (create_gathers ? nLocalCells + nCells : nLocalCells));
     ERRORR(rval, "Couldn't create local cells in MPAS mesh.");
     Range local_cell_range(start_element, start_element + nLocalCells - 1);
     tmp_range.insert(start_element, start_element + nLocalCells - 1);
@@ -521,7 +522,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
     // Create gather vertices
     arrays.clear();
-    // Don't need to specify allocation number here, because we know enough verts were created before
+    // Don't need to specify allocation number here, because we know enough vertices were created before
     rval = _readNC->readMeshIface->get_node_coords(3, nVertices, 0, start_vertex, arrays);
     ERRORR(rval, "Couldn't create vertices in MPAS mesh for gather set.");
     Range gather_verts_range(start_vertex, start_vertex + nVertices - 1);
@@ -574,7 +575,6 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
     // Create gather edges
     EntityHandle* conn_arr_gather_edges;
-
     // Don't need to specify allocation number here, because we know enough edges were created before
     rval = _readNC->readMeshIface->get_element_connect(nEdges, 2, MBEDGE, 0, start_edge, conn_arr_gather_edges);
     ERRORR(rval, "Couldn't create edges in MPAS mesh for gather set.");
@@ -609,12 +609,13 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
     Range gather_cells_range;
     if (noMixedElements) {
-      // Create cells with maxEdgesPerCell vertices per element and set connectivity array
-      EntityHandle* conn_arr_gather_cells = NULL;
-      rval = _readNC->readMeshIface->get_element_connect(nCells, maxEdgesPerCell, MBPOLYGON, 0, start_element,
-                                                         conn_arr_gather_cells, nCells);
+      // Create gather cells
+      EntityHandle* conn_arr_gather_cells;
+      // Don't need to specify allocation number here, because we know enough cells were created before
+      rval = _readNC->readMeshIface->get_element_connect(nCells, maxEdgesPerCell, MBPOLYGON, 0, start_element, conn_arr_gather_cells);
       ERRORR(rval, "Couldn't create cells in MPAS mesh for gather set.");
       gather_cells_range.insert(start_element, start_element + nCells - 1);
+
       for (int cell_idx = 0; cell_idx < nCells; cell_idx++) {
         int num_edges = num_edges_on_gather_cells[cell_idx];
         for (int i = 0; i < num_edges; i++)
@@ -635,7 +636,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
         gather_cells_with_n_edges[num_edges].push_back(i + 1); // 0 based -> 1 based
       }
 
-      // For each non-empty cell group, create cells and set connectivity array
+      // Create gather cells
       EntityHandle* conn_arr_gather_cells_with_n_edges[MAX_EDGES_PER_CELL + 1];
       for (int num_edges_per_cell = 3; num_edges_per_cell <= maxEdgesPerCell; num_edges_per_cell++) {
         int num_cells = gather_cells_with_n_edges[num_edges_per_cell].size();
