@@ -311,6 +311,9 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   success = NCFUNCAG(_vara_int)(_fileId, nEdgesOnCellVarId, tmp_starts_1, tmp_counts_1, &num_edges_on_local_cells[0]);
   ERRORS(success, "Failed to read variable values of nEdgesOnCell.");
 
+  // Get local maxEdgesPerCell on this proc, to replace the global one reported in the MPAS file
+  maxEdgesPerCell = *(std::max_element(num_edges_on_local_cells.begin(), num_edges_on_local_cells.end()));
+
   // Read vertices on each local cell (connectivity)
   int verticesOnCellVarId;
   success = NCFUNC(inq_varid)(_fileId, "verticesOnCell", &verticesOnCellVarId);
@@ -451,9 +454,11 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
       }
 
       // Padding: fill connectivity array with last vertex handle
-      EntityHandle last_vert_id = conn_arr_local_cells[cell_idx * maxEdgesPerCell + num_edges - 1];
-      for (int i = num_edges; i < maxEdgesPerCell; i++)
-        conn_arr_local_cells[cell_idx * maxEdgesPerCell + i] = last_vert_id;
+      if (num_edges < maxEdgesPerCell) {
+        EntityHandle last_vert_id = conn_arr_local_cells[cell_idx * maxEdgesPerCell + num_edges - 1];
+        for (int i = num_edges; i < maxEdgesPerCell; i++)
+          conn_arr_local_cells[cell_idx * maxEdgesPerCell + i] = last_vert_id;
+      }
     }
   } // if (noMixedElements)
   else {
