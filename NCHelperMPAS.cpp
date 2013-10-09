@@ -14,11 +14,11 @@
 
 namespace moab {
 
-const int MAX_EDGES_PER_CELL = 10;
+const int DEFAULT_MAX_EDGES_PER_CELL = 10;
 
 NCHelperMPAS::NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 : UcdNCHelper(readNC, fileId, opts, fileSet)
-, maxEdgesPerCell(MAX_EDGES_PER_CELL)
+, maxEdgesPerCell(DEFAULT_MAX_EDGES_PER_CELL)
 , numCellGroups(0)
 {
 }
@@ -44,12 +44,12 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   unsigned int idx;
   std::vector<std::string>::iterator vit;
 
-  // Get max edges per cell
+  // Get max edges per cell reported in the MPAS file header
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "maxEdges")) != dimNames.end()) {
     idx = vit - dimNames.begin();
     maxEdgesPerCell = dimLens[idx];
-    if (maxEdgesPerCell > MAX_EDGES_PER_CELL) {
-      ERRORR(MB_FAILURE, "maxEdgesPerCell read from MPAS file has exceeded the limit");
+    if (maxEdgesPerCell > DEFAULT_MAX_EDGES_PER_CELL) {
+      ERRORR(MB_FAILURE, "maxEdgesPerCell read from the MPAS file header has exceeded DEFAULT_MAX_EDGES_PER_CELL.");
     }
   }
 
@@ -311,8 +311,19 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   success = NCFUNCAG(_vara_int)(_fileId, nEdgesOnCellVarId, tmp_starts_1, tmp_counts_1, &num_edges_on_local_cells[0]);
   ERRORS(success, "Failed to read variable values of nEdgesOnCell.");
 
-  // Get local maxEdgesPerCell on this proc, to replace the global one reported in the MPAS file
+  // Get local maxEdgesPerCell on this proc
   maxEdgesPerCell = *(std::max_element(num_edges_on_local_cells.begin(), num_edges_on_local_cells.end()));
+
+  // In parallel, do a MPI_Allreduce to get a common global maxEdgesPerCell used across all procs
+#ifdef USE_MPI
+  if (procs > 1) {
+    int global_max_edges_per_cell;
+    ParallelComm*& myPcomm = _readNC->myPcomm;
+    MPI_Allreduce(&maxEdgesPerCell, &global_max_edges_per_cell, 1, MPI_INTEGER, MPI_MAX, myPcomm->proc_config().proc_comm());
+    assert(maxEdgesPerCell <= global_max_edges_per_cell);
+    maxEdgesPerCell = global_max_edges_per_cell;
+  }
+#endif
 
   // Read vertices on each local cell (connectivity)
   int verticesOnCellVarId;
@@ -463,7 +474,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   } // if (noMixedElements)
   else {
     // Divide local cells into groups based on the number of edges
-    std::vector<int> local_cells_with_n_edges[MAX_EDGES_PER_CELL + 1];
+    std::vector<int> local_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
     for (int i = 0; i < nLocalCells; i++) {
       int num_edges = num_edges_on_local_cells[i];
       local_cells_with_n_edges[num_edges].push_back(start_cell_idx + i); // Global cell index
@@ -477,7 +488,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     numCellGroups = num_edges_on_cell_groups.size();
 
     // For each non-empty cell group, create cells and set connectivity array with proper local vertices handles
-    EntityHandle* conn_arr_local_cells_with_n_edges[MAX_EDGES_PER_CELL + 1];
+    EntityHandle* conn_arr_local_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
     for (int i = 0; i < numCellGroups; i++) {
       int num_edges_per_cell = num_edges_on_cell_groups[i];
       int num_cells = local_cells_with_n_edges[num_edges_per_cell].size();
@@ -635,14 +646,14 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     }
     else {
       // Divide gather cells into groups based on the number of edges
-      std::vector<int> gather_cells_with_n_edges[MAX_EDGES_PER_CELL + 1];
+      std::vector<int> gather_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
       for (int i = 0; i < nCells; i++) {
         int num_edges = num_edges_on_gather_cells[i];
         gather_cells_with_n_edges[num_edges].push_back(i + 1); // 0 based -> 1 based
       }
 
       // Create gather cells
-      EntityHandle* conn_arr_gather_cells_with_n_edges[MAX_EDGES_PER_CELL + 1];
+      EntityHandle* conn_arr_gather_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
       for (int num_edges_per_cell = 3; num_edges_per_cell <= maxEdgesPerCell; num_edges_per_cell++) {
         int num_cells = gather_cells_with_n_edges[num_edges_per_cell].size();
         if (num_cells > 0) {
