@@ -816,12 +816,13 @@ static int merge_ranges( long* ranges, int nranges )
   qsort( ranges, nranges, 2*sizeof(long), &lcomp );
   n = 1;
   for (i = 1; i < nranges; ++i) {
-    if (ranges[2*n-2] + ranges[2*n-1+1] == ranges[2*i]) {
-      ranges[2*n-1] += ranges[2*i+1];
+    if (ranges[2*n-2] + ranges[2*n-1] == ranges[2*i]) {
+      ranges[2*n-1] += ranges[2*i+1]; /*compact the range*/
     }
     else {
-      ranges[2*n  ] = ranges[i];
-      ranges[2*n+1] = ranges[i+1];
+      /* do not compact, just copy, and increase number of ranges*/
+      ranges[2*n  ] = ranges[2*i];
+      ranges[2*n+1] = ranges[2*i+1];
       ++n;
     }
   }
