@@ -51,7 +51,6 @@ private:
 private:
   int maxEdgesPerCell;
   int numCellGroups;
-  std::vector<int> verticesOnEdge;
   std::map<EntityHandle, int> cellHandleToGlobalID;
   Range facesOwned;
 };
