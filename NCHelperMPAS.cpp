@@ -4,6 +4,10 @@
 #include "moab/SpectralMeshTool.hpp"
 #include "MBTagConventions.hpp"
 
+#if HAVE_ZOLTAN
+#include "MBZoltan.hpp"
+#endif
+
 #include <cmath>
 
 #define ERRORR(rval, str) \
@@ -15,6 +19,36 @@
 namespace moab {
 
 const int DEFAULT_MAX_EDGES_PER_CELL = 10;
+
+// this is used for zoltan only related stuff
+#define GET_VAR(name, id, dims) \
+    {                           \
+    id = -1;\
+    int gvfail = NCFUNC(inq_varid)( _fileId, name, &id);   \
+    if (NC_NOERR == gvfail) {       \
+    int ndims;\
+    gvfail = NCFUNC(inq_varndims)( _fileId, id, &ndims);\
+    if (NC_NOERR == gvfail) {\
+    dims.resize(ndims);    \
+    gvfail = NCFUNC(inq_vardimid)( _fileId, id, &dims[0]);}}}
+
+#define GET_1D_DBL_VAR_RANGE(name, id, startIndex, endIndex, vals) \
+    {std::vector<int> dum_dims;        \
+  GET_VAR(name, id, dum_dims);\
+  if (-1 != id) {\
+    if (rank==0) std::cout << " var:" << name << " id: " << id << "\n"; \
+    NCDF_SIZE ntmp;\
+    int dvfail = NCFUNC(inq_dimlen)(_fileId, dum_dims[0], &ntmp);\
+    if (rank==0) std::cout << " prepare read var " << name << " start:" << startIndex << " end:"<< endIndex <<" Actual size:" << \
+       ntmp << "\n" ; \
+    if (startIndex > (int)ntmp || endIndex > (int) ntmp || startIndex>=endIndex) \
+      { std::cout << "bad input \n"; return MB_FAILURE;} \
+    vals.resize(endIndex-startIndex);\
+    NCDF_SIZE ntmp1 = startIndex;    NCDF_SIZE count = endIndex-startIndex;           \
+    dvfail = NCFUNC(get_vara_double_all)( _fileId, id, &ntmp1, &count, &vals[0]);\
+    if (NC_NOERR != dvfail) {\
+      std::cout<<"ReadNCDF:: Problem getting variable "<< name<<"\n";\
+      return MB_FAILURE;}}}
 
 NCHelperMPAS::NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 : UcdNCHelper(readNC, fileId, opts, fileSet)
@@ -237,6 +271,8 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   int& gatherSetRank = _readNC->gatherSetRank;
   bool& noMixedElements = _readNC->noMixedElements;
 
+  DebugOutput& dbgOut = _readNC->dbgOut;
+
   int rank = 0;
   int procs = 1;
 #ifdef USE_MPI
@@ -253,25 +289,54 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   if (rank == gatherSetRank)
     create_gathers = true;
 
-  bool apply_zoltan = false;
-  if (apply_zoltan) {
-    // Zoltan partition, TBD
+  // Trivial partition
+  // Compute the number of local cells on this proc
+  nLocalCells = int(std::floor(1.0 * nCells / procs));
+  // start_cell_idx is the starting global cell index in the MPAS file for this proc
+  int start_cell_idx = rank * nLocalCells;
+  // iextra = # cells extra after equal split over procs
+  int iextra = nCells % procs;
+  if (rank < iextra)
+    nLocalCells++;
+  start_cell_idx += std::min(rank, iextra);
+
+
+#ifdef USE_MPI
+  int& partMethod = _readNC->partMethod;
+  if (partMethod==ScdParData::RCBZOLTAN && procs >=2) // it does not make sense to partition
+    // if the number of processors is less than 2; trivial partition is good enough
+  {
+    // Zoltan partition using RCB; maybe more studies would be good, as to which partition
+    // is better
+    int temp_dim;
+    MBZoltan * mbZTool = new MBZoltan(mbImpl, false, 0, NULL);
+
+    std::vector<double> x, y, z;
+    int end_cell_index=start_cell_idx+nLocalCells;
+    GET_1D_DBL_VAR_RANGE("xCell", temp_dim, start_cell_idx, end_cell_index, x) ;
+    GET_1D_DBL_VAR_RANGE("yCell", temp_dim, start_cell_idx, end_cell_index, y) ;
+    GET_1D_DBL_VAR_RANGE("zCell", temp_dim, start_cell_idx, end_cell_index, z) ;
+
+    ErrorCode rval = mbZTool->repartition(x, y, z, start_cell_idx+1, "RCB", localGidCells );
+    //delete mbZTool;
+    if (rval !=MB_SUCCESS)
+    {
+      std::cout <<" error in partitioning\n";
+      return MB_FAILURE;
+    }
+
+    dbgOut.tprintf(1, "After partitioning, localGidCells.psize()=%d\n", (int)localGidCells.psize());
+    dbgOut.tprintf(1, "                    localGidCells.size()=%d\n",  (int)localGidCells.size());
+    // this is important: local cells are now redistributed, so nLocalCells is different!
+    nLocalCells = localGidCells.size();
   }
   else {
-    // Trivial partition
-    // Compute the number of local cells on this proc
-    nLocalCells = int(std::floor(1.0 * nCells / procs));
-    // start_cell_idx is the starting global cell index in the MPAS file for this proc
-    int start_cell_idx = rank * nLocalCells;
-    // iextra = # cells extra after equal split over procs
-    int iextra = nCells % procs;
-    if (rank < iextra)
-      nLocalCells++;
-    start_cell_idx += std::min(rank, iextra);
+#endif  /* use mpi */
     start_cell_idx++; // 0 based -> 1 based
     localGidCells.insert(start_cell_idx, start_cell_idx + nLocalCells - 1);
+#ifdef USE_MPI
   }
-
+#endif
   // Read number of edges on each local cell, to calculate actual maxEdgesPerCell
   int nEdgesOnCellVarId;
   int success = NCFUNC(inq_varid)(_fileId, "nEdgesOnCell", &nEdgesOnCellVarId);
@@ -324,14 +389,18 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     MPI_Allreduce(&local_max_edges_per_cell, &global_max_edges_per_cell, 1, MPI_INTEGER, MPI_MAX, myPcomm->proc_config().proc_comm());
     assert(local_max_edges_per_cell <= global_max_edges_per_cell);
     maxEdgesPerCell = global_max_edges_per_cell;
+    if (0==rank)
+      dbgOut.tprintf(1, "  global_max_edges_per_cell=%d\n", global_max_edges_per_cell);
   }
 #endif
+
 
   // Read edges on each local cell, to get localGidEdges later
   int edgesOnCellVarId;
   success = NCFUNC(inq_varid)(_fileId, "edgesOnCell", &edgesOnCellVarId);
   ERRORS(success, "Failed to get variable id of edgesOnCell.");
   std::vector<int> edges_on_local_cells(nLocalCells * maxEdgesPerCell);
+  dbgOut.tprintf(1, "   edges_on_local_cells.size()=%d\n", (int)edges_on_local_cells.size());
 #ifdef PNETCDF_FILE
   idxReq = 0;
 #endif
@@ -342,7 +411,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     EntityHandle starth = pair_iter->first;
     EntityHandle endh = pair_iter->second;
     NCDF_SIZE tmp_starts[2] = {static_cast<NCDF_SIZE>(starth - 1), 0};
-    NCDF_SIZE tmp_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), maxEdgesPerCell};
+    NCDF_SIZE tmp_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), static_cast<NCDF_SIZE>(maxEdgesPerCell)};
 
     // Do a partial read in each subrange
 #ifdef PNETCDF_FILE
@@ -357,7 +426,6 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1) * maxEdgesPerCell;
   }
-
 #ifdef PNETCDF_FILE
   // Wait outside the loop
   success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
@@ -369,6 +437,8 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   std::copy(edges_on_local_cells.rbegin(), edges_on_local_cells.rend(), range_inserter(localGidEdges));
   nLocalEdges = localGidEdges.size();
 
+  dbgOut.tprintf(1, "   localGidEdges.psize()=%d\n", (int)localGidEdges.psize());
+  dbgOut.tprintf(1, "   localGidEdges.size()=%d\n",  (int)localGidEdges.size());
   // Read vertices on each local cell, to get localGidVerts and cell connectivity later
   int verticesOnCellVarId;
   success = NCFUNC(inq_varid)(_fileId, "verticesOnCell", &verticesOnCellVarId);
@@ -414,6 +484,9 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   std::sort(vertices_on_local_cells_sorted.begin(), vertices_on_local_cells_sorted.end());
   std::copy(vertices_on_local_cells_sorted.rbegin(), vertices_on_local_cells_sorted.rend(), range_inserter(localGidVerts));
   nLocalVertices = localGidVerts.size();
+
+  dbgOut.tprintf(1, "   localGidVerts.psize()=%d\n", (int)localGidVerts.psize());
+  dbgOut.tprintf(1, "   localGidVerts.size()=%d\n",  (int)localGidVerts.size());
 
   // Create local vertices
   // We can temporarily use the memory storage allocated before it will be populated
@@ -467,7 +540,9 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
   // Used when NO_MIXED_ELEMENTS option is NOT set
   EntityHandle* conn_arr_local_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
-  std::vector<int> local_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
+  // put in subranges; each subrange (for numEdges) will contain, in order, the
+  // gids for cells with that many edges (numEdges)
+  Range local_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
   std::vector<int> num_edges_on_cell_groups;
   std::vector<EntityHandle> start_element_on_cell_groups;
 
@@ -500,7 +575,8 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     // Divide local cells into groups based on the number of edges
     for (int i = 0; i < nLocalCells; i++) {
       int num_edges = num_edges_on_local_cells[i];
-      local_cells_with_n_edges[num_edges].push_back(localGidCells[i]); // Global cell index
+      local_cells_with_n_edges[num_edges].insert(localGidCells[i]); // Global cell index
+      // by construction, this subrange will contain cells in order
     }
 
     for (int i = 3; i <= maxEdgesPerCell; i++) {
@@ -533,11 +609,16 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
   // Create a temporary map from vertex GIDs to local handles
   // Utilize the memory storage pointed by arrays[0]
-  EntityHandle* vert_gid_to_local_handle_tmp_map = (EntityHandle*) arrays[0];
-  Range::const_iterator rit;
+  // EntityHandle* vert_gid_to_local_handle_tmp_map = (EntityHandle*) arrays[0];
+  // you don't need it:
+  // so vertex handle start_vertex+idx has the global ID localGidVerts[idx]
+  //  if I need the vertex handle for gid, use Range::index();
+  // so, from gid to eh: int index = localGidVerts.index(gid)
+  // eh = start_vertex+idx;
+  /*Range::const_iterator rit;
   int vert_idx;
   for (rit = localGidVerts.begin(), vert_idx = 0; rit != localGidVerts.end(); ++rit, vert_idx++)
-    vert_gid_to_local_handle_tmp_map[*rit - 1] = start_vertex + vert_idx;
+    vert_gid_to_local_handle_tmp_map[*rit - 1] = start_vertex + vert_idx;*/
 
   // Read vertices on each local edge, to get edge connectivity
   // Utilize the memory storage pointed by conn_arr_edges
@@ -584,7 +665,9 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   // Convert in-place from int to EntityHandle type (backward)
   for (int edge_vert = nLocalEdges * 2 - 1; edge_vert >= 0; edge_vert--) {
     EntityHandle global_vert_id = vertices_on_local_edges[edge_vert];
-    conn_arr_edges[edge_vert] = vert_gid_to_local_handle_tmp_map[global_vert_id - 1];
+    int idx_vertex=localGidVerts.index(global_vert_id);
+    assert(idx_vertex!=-1);
+    conn_arr_edges[edge_vert] = start_vertex+idx_vertex;
   }
 
   // Populate connectivity for local cells
@@ -595,7 +678,9 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
       int num_edges = num_edges_on_local_cells[cell_idx];
       for (int i = 0; i < num_edges; i++) {
         EntityHandle global_vert_id = vertices_on_local_cells[cell_idx * maxEdgesPerCell + i];
-        conn_arr_local_cells[cell_idx * maxEdgesPerCell + i] = vert_gid_to_local_handle_tmp_map[global_vert_id - 1];
+        int idx_vertex=localGidVerts.index(global_vert_id);
+        assert(idx_vertex!=-1);
+        conn_arr_local_cells[cell_idx * maxEdgesPerCell + i] =  start_vertex+idx_vertex;
       }
 
       // Padding: fill connectivity array with last vertex handle
@@ -609,14 +694,16 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   else {
     // Create a temporary map from cell GID to local index
     // Utilize the memory storage pointed by arrays[1]
-    EntityHandle* cell_gid_to_local_index_tmp_map = (EntityHandle*) arrays[1];
+    // again, not correct because of overflow
+    // here we have to use a different map, maybe RangeMap
+    /*EntityHandle* cell_gid_to_local_index_tmp_map = (EntityHandle*) arrays[1];
     for (rit = localGidCells.begin(), cell_idx = 0; rit != localGidCells.end(); ++rit, cell_idx++)
-      cell_gid_to_local_index_tmp_map[*rit - 1] = cell_idx;
+      cell_gid_to_local_index_tmp_map[*rit - 1] = cell_idx;*/
 
     // For each non-empty cell group, set connectivity array with proper local vertices handles
     for (int i = 0; i < numCellGroups; i++) {
       int num_edges_per_cell = num_edges_on_cell_groups[i];
-      int num_cells = local_cells_with_n_edges[num_edges_per_cell].size();
+      int num_cells = (int)local_cells_with_n_edges[num_edges_per_cell].size();
       start_element = start_element_on_cell_groups[i];
 
       for (int j = 0; j < num_cells; j++) {
@@ -624,12 +711,18 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
         if (numCellGroups > 1)
           cellHandleToGlobalID[start_element + j] = cell_idx;
+        // find the index in the range: local_cells_with_n_edges[num_edges_per_cell];
 
-        cell_idx = cell_gid_to_local_index_tmp_map[cell_idx - 1]; // Local cell index
+        // overflow averted :(
+        // cell_idx = cell_gid_to_local_index_tmp_map[cell_idx - 1]; // Local cell index
+        cell_idx = localGidCells.index(cell_idx);
+        assert(cell_idx!=-1);
         for (int k = 0; k < num_edges_per_cell; k++) {
           EntityHandle global_vert_id = vertices_on_local_cells[cell_idx * maxEdgesPerCell + k];
+          int idx_vertex=localGidVerts.index(global_vert_id);
+          assert(idx_vertex!=-1);
           conn_arr_local_cells_with_n_edges[num_edges_per_cell][j * num_edges_per_cell + k] =
-              vert_gid_to_local_handle_tmp_map[global_vert_id - 1];
+              start_vertex+idx_vertex;
         }
       }
     }
@@ -765,6 +858,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   rval = _readNC->mbImpl->add_entities(_fileSet, tmp_range);
   ERRORR(rval, "Couldn't add new vertices/faces/edges to file set.");
 
+  dbgOut.tprintf(1, "   local entities in set: tmp_range.size()=%d\n",  (int)tmp_range.size());
   if (create_gathers) {
     EntityHandle gather_set;
     rval = _readNC->readMeshIface->create_gather_set(gather_set);

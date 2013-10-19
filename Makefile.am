@@ -39,6 +39,9 @@ if !NETCDF_FILE
 endif
 endif
 
+if ENABLE_mbzoltan
+  AM_CPPFLAGS += -DHAVE_ZOLTAN -I$(srcdir)/../../tools/mbzoltan $(ZOLTAN_INC_FLAGS) 
+endif
 if HDF5_FILE
   libmoabio_la_LIBADD += mhdf/libmhdf.la
   MOAB_HDF5_SRCS = HDF5Common.cpp \
