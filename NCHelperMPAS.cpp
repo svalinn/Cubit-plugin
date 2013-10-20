@@ -302,6 +302,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
 
 #ifdef USE_MPI
+#ifdef HAVE_ZOLTAN
   int& partMethod = _readNC->partMethod;
   if (partMethod==ScdParData::RCBZOLTAN && procs >=2) // it does not make sense to partition
     // if the number of processors is less than 2; trivial partition is good enough
@@ -331,12 +332,16 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     nLocalCells = localGidCells.size();
   }
   else {
-#endif  /* use mpi */
+#endif /* this is end for HAVE_ZOLTAN */
+#endif  /* if use mpi */
+    /* without zoltan, only trivial partition is possible */
     start_cell_idx++; // 0 based -> 1 based
     localGidCells.insert(start_cell_idx, start_cell_idx + nLocalCells - 1);
 #ifdef USE_MPI
+#ifdef HAVE_ZOLTAN
   }
-#endif
+#endif /* end for HAVE_ZOLTAN */
+#endif /* end for USE_MPI */
   // Read number of edges on each local cell, to calculate actual maxEdgesPerCell
   int nEdgesOnCellVarId;
   int success = NCFUNC(inq_varid)(_fileId, "nEdgesOnCell", &nEdgesOnCellVarId);
