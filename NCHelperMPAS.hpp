@@ -26,7 +26,7 @@ private:
   //! Implementation of NCHelper::check_existing_mesh()
   virtual ErrorCode check_existing_mesh();
   //! Implementation of NCHelper::create_mesh()
-  virtual ErrorCode create_mesh(Range& quads);
+  virtual ErrorCode create_mesh(Range& faces);
   //! Implementation of NCHelper::get_mesh_type_name()
   virtual std::string get_mesh_type_name() { return "MPAS"; }
 
@@ -48,9 +48,41 @@ private:
                                                 std::vector<int>& tstep_nums);
 #endif
 
+  //! Redistribute local cells after trivial partition (e.g. Zoltan partition, if applicable)
+  ErrorCode redistribute_local_cells(int start_cell_index);
+
+  //! Create local vertices
+  ErrorCode create_local_vertices(const std::vector<int>& vertices_on_local_cells, EntityHandle& start_vertex);
+
+  //! Create local edges (optional)
+  ErrorCode create_local_edges(EntityHandle start_vertex);
+
+  //! Create local cells without padding (cells are divided into groups based on the number of edges)
+  ErrorCode create_local_cells(const std::vector<int>& vertices_on_local_cells,
+                                        const std::vector<int>& num_edges_on_local_cells,
+                                        EntityHandle start_vertex, Range& faces);
+
+  //! Create local cells with padding (padded cells will have the same number of edges)
+  ErrorCode create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
+                                      const std::vector<int>& num_edges_on_local_cells,
+                                      EntityHandle start_vertex, Range& faces);
+
+  //! Create gather set vertices
+  ErrorCode create_gather_set_vertices(EntityHandle gather_set, EntityHandle& gather_set_start_vertex);
+
+  //! Create gather set edges (optional)
+  ErrorCode create_gather_set_edges(EntityHandle gather_set, EntityHandle gather_set_start_vertex);
+
+  //! Create gather set cells without padding (cells are divided into groups based on the number of edges)
+  ErrorCode create_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex);
+
+  //! Create gather set cells with padding (padded cells will have the same number of edges)
+  ErrorCode create_padded_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex);
+
 private:
   int maxEdgesPerCell;
   int numCellGroups;
+  bool createGatherSet;
   std::map<EntityHandle, int> cellHandleToGlobalID;
   Range facesOwned;
 };
