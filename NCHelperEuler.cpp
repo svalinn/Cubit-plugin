@@ -332,7 +332,6 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   ijdimNames[0] = "__lon";
   ijdimNames[1] = "__lat";
 
-  std::stringstream ss_tag_name;
   std::string tag_name;
   Tag tagh;
 
@@ -347,7 +346,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       val[0] = lCDims[1];
       val[1] = lCDims[4];
     }
-    ss_tag_name.clear();
+    std::stringstream ss_tag_name;
     ss_tag_name << ijdimNames[i] << "_LOC_MINMAX";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
@@ -392,7 +391,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
         ERRORR(MB_FAILURE, "Unrecognized data type");
         break;
     }
-    ss_tag_name.clear();
+    std::stringstream ss_tag_name;
     ss_tag_name << ijdimNames[i] << "_LOC_VALS";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, data_type, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
@@ -414,7 +413,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       val[0] = gCDims[1];
       val[1] = gCDims[4];
     }
-    ss_tag_name.clear();
+    std::stringstream ss_tag_name;
     ss_tag_name << ijdimNames[i] << "_GLOBAL_MINMAX";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
