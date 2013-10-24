@@ -987,7 +987,7 @@ ErrorCode NCHelperMPAS::redistribute_local_cells(int start_cell_idx)
     DebugOutput& dbgOut = _readNC->dbgOut;
     MBZoltan* mbZTool = new MBZoltan(mbImpl, false, 0, NULL);
     ErrorCode rval = mbZTool->repartition(xCell, yCell, zCell, start_cell_idx, "RCB", localGidCells);
-    //delete mbZTool;
+    delete mbZTool;
     ERRORR(rval, "Error in Zoltan partitioning.");
 
     dbgOut.tprintf(1, "After Zoltan partitioning, localGidCells.psize() = %d\n", (int)localGidCells.psize());
