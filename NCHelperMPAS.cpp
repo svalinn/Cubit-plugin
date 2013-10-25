@@ -960,7 +960,7 @@ ErrorCode NCHelperMPAS::redistribute_local_cells(int start_cell_idx)
     int success = NCFUNC(inq_varid)(_fileId, "xCell", &xCellVarId);
     ERRORS(success, "Failed to get variable id of xCell.");
     std::vector<double> xCell(nLocalCells);
-    NCDF_SIZE read_start = 0;
+    NCDF_SIZE read_start = static_cast<NCDF_SIZE>(start_cell_idx-1);
     NCDF_SIZE read_count = static_cast<NCDF_SIZE>(nLocalCells);
     success = NCFUNCAG(_vara_double)(_fileId, xCellVarId, &read_start, &read_count, &xCell[0]);
     ERRORS(success, "Failed to read xCell data.");
