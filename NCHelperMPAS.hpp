@@ -64,7 +64,6 @@ private:
 
   //! Create local cells with padding (padded cells will have the same number of edges)
   ErrorCode create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
-                                      const std::vector<int>& num_edges_on_local_cells,
                                       EntityHandle start_vertex, Range& faces);
 
   //! Create gather set vertices

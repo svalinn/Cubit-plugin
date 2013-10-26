@@ -402,7 +402,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
   // Create local cells, either unpadded or padded
   if (noMixedElements) {
-    rval = create_padded_local_cells(vertices_on_local_cells, num_edges_on_local_cells, start_vertex, faces);
+    rval = create_padded_local_cells(vertices_on_local_cells, start_vertex, faces);
     ERRORR(rval, "Failed to create padded local cells for MPAS mesh.");
   }
   else {
@@ -1397,7 +1397,6 @@ ErrorCode NCHelperMPAS::create_local_cells(const std::vector<int>& vertices_on_l
 }
 
 ErrorCode NCHelperMPAS::create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
-                                                  const std::vector<int>& num_edges_on_local_cells,
                                                   EntityHandle start_vertex, Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
@@ -1430,20 +1429,14 @@ ErrorCode NCHelperMPAS::create_padded_local_cells(const std::vector<int>& vertic
   std::copy(localGidCells.begin(), localGidCells.end(), gid_data);
 
   // Set connectivity array with proper local vertices handles
+  // vertices_on_local_cells array was already corrected to have the last vertices padded
+  // no need for extra checks considering
   for (int cell_idx = 0; cell_idx < nLocalCells; cell_idx++) {
-    int num_edges = num_edges_on_local_cells[cell_idx];
-    for (int i = 0; i < num_edges; i++) {
+    for (int i = 0; i < maxEdgesPerCell; i++) {
       EntityHandle global_vert_id = vertices_on_local_cells[cell_idx * maxEdgesPerCell + i]; // 1 based
       int local_vert_idx = localGidVerts.index(global_vert_id); // 0 based
       assert(local_vert_idx != -1);
       conn_arr_local_cells[cell_idx * maxEdgesPerCell + i] = start_vertex + local_vert_idx;
-    }
-
-    // Padding: fill connectivity array with last vertex handle
-    if (num_edges < maxEdgesPerCell) {
-      EntityHandle last_vert_id = conn_arr_local_cells[cell_idx * maxEdgesPerCell + num_edges - 1];
-      for (int i = num_edges; i < maxEdgesPerCell; i++)
-        conn_arr_local_cells[cell_idx * maxEdgesPerCell + i] = last_vert_id;
     }
   }
 
