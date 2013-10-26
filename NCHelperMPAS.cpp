@@ -377,6 +377,18 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   ERRORS(success, "Failed on wait_all.");
 #endif
 
+  // correct the connectivity array, replace the padded vertices with the last vertices in the
+  // corresponding elements; sometimes the padded vertices are 0, sometimes a big vertex id
+  // make sure they are consistent to our padded option
+  for (int i=0; i<nLocalCells; i++)
+  {
+    int nVertsInCell=num_edges_on_local_cells[i];
+    int indxInConn=i*maxEdgesPerCell;
+    for (int j=nVertsInCell; j<maxEdgesPerCell; j++)
+    {
+      vertices_on_local_cells[indxInConn+j]=vertices_on_local_cells[indxInConn+nVertsInCell-1];
+    }
+  }
   // Create local vertices
   EntityHandle start_vertex;
   ErrorCode rval = create_local_vertices(vertices_on_local_cells, start_vertex);
@@ -384,7 +396,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
   // Create local edges (unless NO_EDGES read option is set)
   if (!noEdges) {
-    rval = create_local_edges(start_vertex);
+    rval = create_local_edges(start_vertex, num_edges_on_local_cells);
     ERRORR(rval, "Failed to create local edges for MPAS mesh.");
   }
 
@@ -1170,7 +1182,8 @@ ErrorCode NCHelperMPAS::create_local_vertices(const std::vector<int>& vertices_o
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex)
+ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex,
+    const std::vector<int>& num_edges_on_local_cells)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
@@ -1219,6 +1232,16 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex)
   ERRORS(success, "Failed on wait_all.");
 #endif
 
+  // correct local edges in the same way as padded polygons, pad list with last edges in connectivity
+  for (int i=0; i<nLocalCells; i++)
+  {
+    int nEdgesInCell=num_edges_on_local_cells[i];
+    int indxInConn=i*maxEdgesPerCell;
+    for (int j=nEdgesInCell; j<maxEdgesPerCell; j++)
+    {
+      edges_on_local_cells[indxInConn+j]=edges_on_local_cells[indxInConn+nEdgesInCell-1];
+    }
+  }
   // Collect local edges
   std::sort(edges_on_local_cells.begin(), edges_on_local_cells.end());
   std::copy(edges_on_local_cells.rbegin(), edges_on_local_cells.rend(), range_inserter(localGidEdges));

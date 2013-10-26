@@ -55,7 +55,7 @@ private:
   ErrorCode create_local_vertices(const std::vector<int>& vertices_on_local_cells, EntityHandle& start_vertex);
 
   //! Create local edges (optional)
-  ErrorCode create_local_edges(EntityHandle start_vertex);
+  ErrorCode create_local_edges(EntityHandle start_vertex, const std::vector<int>& num_edges_on_local_cells);
 
   //! Create local cells without padding (cells are divided into groups based on the number of edges)
   ErrorCode create_local_cells(const std::vector<int>& vertices_on_local_cells,
