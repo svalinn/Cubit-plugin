@@ -328,17 +328,28 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       vd.entLoc = ReadNC::ENTLOCFACE;
   }
 
-  std::vector<std::string> ijdimNames(2);
-  ijdimNames[0] = "__lon";
-  ijdimNames[1] = "__lat";
+  // For Eul models, slon and slat are "virtual" dimensions (not defined in the file header)
+  std::vector<std::string> ijdimNames(4);
+  ijdimNames[0] = "__slon";
+  ijdimNames[1] = "__slat";
+  ijdimNames[2] = "__lon";
+  ijdimNames[3] = "__lat";
 
   std::string tag_name;
   Tag tagh;
 
-  // __<dim_name>_LOC_MINMAX (for lon and lat)
+  // __<dim_name>_LOC_MINMAX (for virtual slon, virtual slat, lon and lat)
   for (unsigned int i = 0; i != ijdimNames.size(); i++) {
     std::vector<int> val(2, 0);
-    if (ijdimNames[i] == "__lon") {
+    if (ijdimNames[i] == "__slon") {
+      val[0] = lDims[0];
+      val[1] = lDims[3];
+    }
+    else if (ijdimNames[i] == "__slat") {
+      val[0] = lDims[1];
+      val[1] = lDims[4];
+    }
+    else if (ijdimNames[i] == "__lon") {
       val[0] = lCDims[0];
       val[1] = lCDims[3];
     }
@@ -357,11 +368,19 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
   }
 
-  // __<dim_name>_LOC_VALS (for lon and lat)
+  // __<dim_name>_LOC_VALS (for virtual slon, virtual slat, lon and lat)
   for (unsigned int i = 0; i != ijdimNames.size(); i++) {
     void* val = NULL;
     int val_len = 0;
-    if (ijdimNames[i] == "__lon") {
+    if (ijdimNames[i] == "__slon") {
+      val = &ilVals[0];
+      val_len = ilVals.size();
+    }
+    else if (ijdimNames[i] == "__slat") {
+      val = &jlVals[0];
+      val_len = jlVals.size();
+    }
+    else if (ijdimNames[i] == "__lon") {
       val = &ilCVals[0];
       val_len = ilCVals.size();
     }
@@ -402,10 +421,18 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
   }
 
-  // __<dim_name>_GLOBAL_MINMAX (for lon and lat)
+  // __<dim_name>_GLOBAL_MINMAX (for virtual slon, virtual slat, lon and lat)
   for (unsigned int i = 0; i != ijdimNames.size(); i++) {
     std::vector<int> val(2, 0);
-    if (ijdimNames[i] == "__lon") {
+    if (ijdimNames[i] == "__slon") {
+      val[0] = gDims[0];
+      val[1] = gDims[3];
+    }
+    else if (ijdimNames[i] == "__slat") {
+      val[0] = gDims[1];
+      val[1] = gDims[4];
+    }
+    else if (ijdimNames[i] == "__lon") {
       val[0] = gCDims[0];
       val[1] = gCDims[3];
     }
