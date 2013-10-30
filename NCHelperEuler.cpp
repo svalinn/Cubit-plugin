@@ -451,8 +451,8 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
   }
 
-  // Hack: create dummy tags, if needed, for variables with no corresponding variables
-  init_dims_with_no_cvars_info();
+  // Hack: create dummy tags, if needed, for dimensions with no corresponding coordinate variables
+  init_dims_with_no_coord_vars_info();
 
   return MB_SUCCESS;
 }

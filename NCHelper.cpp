@@ -306,7 +306,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
 
 ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
-  std::set<std::string>& dummyVarNames = _readNC->dummyVarNames;;
+  std::set<std::string>& dummyVarNames = _readNC->dummyVarNames;
   Interface*& mbImpl = _readNC->mbImpl;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
@@ -316,8 +316,11 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
   // Finally, read into that space
   int success;
   for (unsigned int i = 0; i < vdatas.size(); i++) {
-    if (dummyVarNames.find(vdatas[i].varName) != dummyVarNames.end() )
-       continue; // This is a dummy one, we don't have it; we created it for the dummy tag
+    // This is a dummy variable, we don't have it; we created it for the dummy tag
+    // No need to read tag data for it
+    if (dummyVarNames.find(vdatas[i].varName) != dummyVarNames.end())
+       continue;
+
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void* data = vdatas[i].varDatas[t];
 
@@ -652,7 +655,7 @@ ErrorCode NCHelper::create_attrib_string(const std::map<std::string, ReadNC::Att
   return MB_SUCCESS;
 }
 
-void NCHelper::init_dims_with_no_cvars_info()
+void NCHelper::init_dims_with_no_coord_vars_info()
 {
   std::vector<std::string>& dimNames = _readNC->dimNames;
   std::set<std::string>& dummyVarNames = _readNC->dummyVarNames;
@@ -660,24 +663,23 @@ void NCHelper::init_dims_with_no_cvars_info()
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   // Hack: look at all dimensions, and see if we have one that does not appear in the list of varInfo names
-  // right now, candidates are ncol and nbnd
-  // for them, create dummy tags
-  for (unsigned int i = 0; i < dimNames.size(); i++)
-  {
-    // If there is a var with this name, skip, we are fine; if not, create a varInfo...
+  // Right now, candidates are from unstructured meshes, such as ncol(HOMME) and nCells(MPAS)
+  // For them, create dummy tags
+  for (unsigned int i = 0; i < dimNames.size(); i++) {
+    // If there is a variable with this dimension name, skip, we are fine; if not, create a dummy varInfo
     if (varInfo.find(dimNames[i]) != varInfo.end())
-      continue; // We already have a variable with this dimension name
+      continue;
 
     int sizeTotalVar = varInfo.size();
     std::string var_name(dimNames[i]);
-    ReadNC::VarData &data = varInfo[var_name];
+    ReadNC::VarData& data = varInfo[var_name];
     data.varName = std::string(var_name);
-    data.varId =sizeTotalVar;
+    data.varId = sizeTotalVar;
     data.varTags.resize(1, 0);
     data.varDataType = NC_DOUBLE; // Could be int, actually, but we do not really need the type
     data.varDims.resize(1);
-    data.varDims[0]= (int)i;
-    data.numAtts=0;
+    data.varDims[0] = (int)i;
+    data.numAtts = 0;
     data.entLoc = ReadNC::ENTLOCSET;
     dbgOut.tprintf(2, "Dummy varInfo created for dimension %s\n", dimNames[i].c_str());
     dummyVarNames.insert(dimNames[i]);
@@ -686,12 +688,23 @@ void NCHelper::init_dims_with_no_cvars_info()
 
 ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
+  std::set<std::string>& dummyVarNames = _readNC->dummyVarNames;
   std::vector<int>& dimLens = _readNC->dimLens;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   ErrorCode rval = MB_SUCCESS;
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    // This is a dummy variable, we don't have it; we created it for the dummy tag
+    // No need to allocate tag space for it
+    if (dummyVarNames.find(vdatas[i].varName) != dummyVarNames.end()) {
+      if (!vdatas[i].varTags[0]) {
+        rval = get_tag_to_set(vdatas[i], 0, vdatas[i].varTags[0]);
+        ERRORR(rval, "Trouble getting dummy tag.");
+      }
+      continue;
+    }
+
     if ((std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), tDim) != vdatas[i].varDims.end()))
       vdatas[i].has_t = true;
 
@@ -710,15 +723,12 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
 
       // Set up the dimensions and counts
       // First variable dimension is time, if it exists
-      if (vdatas[i].has_t)
-      {
-        if (vdatas[i].varDims.size() != 1)
-        {
+      if (vdatas[i].has_t) {
+        if (vdatas[i].varDims.size() != 1) {
           vdatas[i].readStarts[t].push_back(tstep_nums[t]);
           vdatas[i].readCounts[t].push_back(1);
         }
-        else
-        {
+        else {
           vdatas[i].readStarts[t].push_back(0);
           vdatas[i].readCounts[t].push_back(tstep_nums.size());
         }
@@ -739,10 +749,12 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
           }
         }
       }
+
       std::size_t sz = 1;
       for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); idx++)
         sz *= vdatas[i].readCounts[t][idx];
       vdatas[i].sz = sz;
+
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR:
@@ -760,6 +772,7 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
           std::cerr << "Unrecognized data type for tag " << std::endl;
           rval = MB_FAILURE;
       }
+
       if (vdatas[i].varDims.size() <= 1)
         break;
     }
@@ -779,8 +792,7 @@ ErrorCode ScdNCHelper::check_existing_mesh() {
   /*
   // Check against parameters
   // When ghosting is used, this check might fail (to be updated later)
-  if (num_verts > 0)
-  {
+  if (num_verts > 0) {
     int expected_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2] + 1);
     if (num_verts != expected_verts) {
       ERRORR(MB_FAILURE, "Number of vertices doesn't match.");
@@ -796,8 +808,7 @@ ErrorCode ScdNCHelper::check_existing_mesh() {
   /*
   // Check against parameters
   // The expected number of elements calculated below is incorrect (to be updated later)
-  if (num_elems > 0)
-  {
+  if (num_elems > 0) {
     int expected_elems = (lDims[3] - lDims[0]) * (lDims[4] - lDims[1]) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2]);
     if (num_elems != expected_elems) {
       ERRORR(MB_FAILURE, "Number of elements doesn't match.");
@@ -990,6 +1001,7 @@ ErrorCode ScdNCHelper::read_scd_variable_setup(std::vector<std::string>& var_nam
       vdatas[i].readStarts.resize(tstep_nums.size());
       vdatas[i].readCounts.resize(tstep_nums.size());
     }
+
     for (unsigned int i = 0; i < vsetdatas.size(); i++) {
       if ((std::find(vsetdatas[i].varDims.begin(), vsetdatas[i].varDims.end(), tDim) != vsetdatas[i].varDims.end())
           && (vsetdatas[i].varDims.size() != 1)) {

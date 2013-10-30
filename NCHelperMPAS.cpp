@@ -135,6 +135,9 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
       vd.entLoc = ReadNC::ENTLOCFACE;
   }
 
+  // Hack: create dummy tags for dimensions (like nCells) with no corresponding coordinate variables
+  init_dims_with_no_coord_vars_info();
+
   return MB_SUCCESS;
 }
 
@@ -516,6 +519,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_setup(std::vector<std::string>& var_na
       vdatas[i].readStarts.resize(tstep_nums.size());
       vdatas[i].readCounts.resize(tstep_nums.size());
     }
+
     for (unsigned int i = 0; i < vsetdatas.size(); i++) {
       if ((std::find(vsetdatas[i].varDims.begin(), vsetdatas[i].varDims.end(), tDim) != vsetdatas[i].varDims.end())
           && (vsetdatas[i].varDims.size() != 1)) {

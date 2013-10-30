@@ -58,9 +58,9 @@ protected:
                                  std::string& attString,
                                  std::vector<int>& attLen);
 
-  //! Init info for dimensions that don't have corresponding
-  //! coordinate variables - this info is used for creating tags
-  void init_dims_with_no_cvars_info();
+  //! Initialize information for dimensions that don't have corresponding
+  //! coordinate variables - this information is used for creating dummy tags
+  void init_dims_with_no_coord_vars_info();
 
 private:
   //! Used by read_variable_to_set()
