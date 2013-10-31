@@ -316,8 +316,8 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
   // Finally, read into that space
   int success;
   for (unsigned int i = 0; i < vdatas.size(); i++) {
-    // This is a dummy variable, we don't have it; we created it for the dummy tag
-    // No need to read tag data for it
+    // This is a dummy variable for a dimension with no corresponding coordinate variable
+    // No need to set its tag data
     if (dummyVarNames.find(vdatas[i].varName) != dummyVarNames.end())
        continue;
 
@@ -358,38 +358,26 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
 
       if (success)
         ERRORR(MB_FAILURE, "Trouble reading variable.");
+
+      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+      rval = convert_variable(vdatas[i], t);
+      ERRORR(rval, "Failed to convert variable.");
+
+      dbgOut.tprintf(2, "Setting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+      rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
+      ERRORR(rval, "Failed to set data for variable.");
+
       if (vdatas[i].varDims.size() <= 1)
         break;
     }
   }
 
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
-      if (vdatas[i].varDims.size() <= 1)
-        break;
-    }
-  }
   // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
     for (unsigned int i = 1; i < vdatas.size(); i++)
       dbgOut.printf(1, ", %s ", vdatas[i].varName.c_str());
     dbgOut.tprintf(1, "\n");
-  }
-
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Setting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
-      if (vdatas[i].varDims.size() <= 1)
-        break;
-    }
   }
 
   return rval;
@@ -695,8 +683,8 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
   ErrorCode rval = MB_SUCCESS;
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
-    // This is a dummy variable, we don't have it; we created it for the dummy tag
-    // No need to allocate tag space for it
+    // This is a dummy variable for a dimension with no corresponding coordinate variable
+    // No need to allocate memory to read it
     if (dummyVarNames.find(vdatas[i].varName) != dummyVarNames.end()) {
       if (!vdatas[i].varTags[0]) {
         rval = get_tag_to_set(vdatas[i], 0, vdatas[i].varTags[0]);
