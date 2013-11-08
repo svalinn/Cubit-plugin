@@ -40,8 +40,9 @@ endif
 endif
 
 if ENABLE_mbzoltan
-  AM_CPPFLAGS += -DHAVE_ZOLTAN -I$(srcdir)/../../tools/mbzoltan $(ZOLTAN_INC_FLAGS) 
+  AM_CPPFLAGS += -I$(srcdir)/../../tools/mbzoltan $(ZOLTAN_INC_FLAGS) 
 endif
+
 if HDF5_FILE
   libmoabio_la_LIBADD += mhdf/libmhdf.la
   MOAB_HDF5_SRCS = HDF5Common.cpp \
@@ -58,6 +59,7 @@ if HDF5_FILE
 else
   MOAB_HDF5_SRCS = 
 endif
+
 if CCMIO_FILE
   MOAB_CCMIO_SRCS = WriteCCMIO.cpp WriteCCMIO.hpp ReadCCMIO.cpp ReadCCMIO.hpp
   libmoabio_la_LIBADD += $(CCMIO_LIBS)
@@ -142,7 +144,5 @@ libmoabio_la_SOURCES = \
   $(MOAB_DAMSEL_SRCS) \
   $(MOAB_CGM_SRCS)
 
-
 libmoabio_la_includedir = $(includedir)
 nobase_libmoabio_la_include_HEADERS = moab/ExoIIInterface.hpp
-
