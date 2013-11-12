@@ -304,6 +304,82 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
   return MB_SUCCESS;
 }
 
+ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
+                                        std::vector<ReadNC::VarData>& vdatas, std::vector<ReadNC::VarData>& vsetdatas)
+{
+  std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
+  std::map<std::string, ReadNC::VarData>::iterator mit;
+
+  // If empty read them all
+  if (var_names.empty()) {
+    for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
+      ReadNC::VarData vd = (*mit).second;
+
+      // This variable will not be read
+      if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end())
+         continue;
+
+      if (vd.entLoc == ReadNC::ENTLOCSET)
+        vsetdatas.push_back(vd);
+      else
+        vdatas.push_back(vd);
+    }
+  }
+  else {
+    for (unsigned int i = 0; i < var_names.size(); i++) {
+      mit = varInfo.find(var_names[i]);
+      if (mit != varInfo.end()) {
+        ReadNC::VarData vd = (*mit).second;
+
+        // This variable will not be read
+        if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end())
+           continue;
+
+        if (vd.entLoc == ReadNC::ENTLOCSET)
+          vsetdatas.push_back(vd);
+        else
+          vdatas.push_back(vd);
+      }
+      else {
+        ERRORR(MB_FAILURE, "Couldn't find variable.");
+      }
+    }
+  }
+
+  if (tstep_nums.empty() && nTimeSteps > 0) {
+    // No timesteps input, get them all
+    for (int i = 0; i < nTimeSteps; i++)
+      tstep_nums.push_back(i);
+  }
+
+  if (!tstep_nums.empty()) {
+    for (unsigned int i = 0; i < vdatas.size(); i++) {
+      vdatas[i].varTags.resize(tstep_nums.size(), 0);
+      vdatas[i].varDatas.resize(tstep_nums.size());
+      vdatas[i].readStarts.resize(tstep_nums.size());
+      vdatas[i].readCounts.resize(tstep_nums.size());
+    }
+
+    for (unsigned int i = 0; i < vsetdatas.size(); i++) {
+      if ((std::find(vsetdatas[i].varDims.begin(), vsetdatas[i].varDims.end(), tDim) != vsetdatas[i].varDims.end())
+          && (vsetdatas[i].varDims.size() != 1)) {
+        vsetdatas[i].varTags.resize(tstep_nums.size(), 0);
+        vsetdatas[i].varDatas.resize(tstep_nums.size());
+        vsetdatas[i].readStarts.resize(tstep_nums.size());
+        vsetdatas[i].readCounts.resize(tstep_nums.size());
+      }
+      else {
+        vsetdatas[i].varTags.resize(1, 0);
+        vsetdatas[i].varDatas.resize(1);
+        vsetdatas[i].readStarts.resize(1);
+        vsetdatas[i].readCounts.resize(1);
+      }
+    }
+  }
+
+  return MB_SUCCESS;
+}
+
 ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   std::set<std::string>& dummyVarNames = _readNC->dummyVarNames;
@@ -367,7 +443,7 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
       rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
       ERRORR(rval, "Failed to set data for variable.");
 
-      if (vdatas[i].varDims.size() <= 1)
+      if (vdatas[i].varDims.size() <= 1 || !vdatas[i].has_t)
         break;
     }
   }
@@ -761,7 +837,7 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
           rval = MB_FAILURE;
       }
 
-      if (vdatas[i].varDims.size() <= 1)
+      if (vdatas[i].varDims.size() <= 1 || !vdatas[i].has_t)
         break;
     }
   }
@@ -913,7 +989,7 @@ ErrorCode ScdNCHelper::read_variables(std::vector<std::string>& var_names, std::
   std::vector<ReadNC::VarData> vdatas;
   std::vector<ReadNC::VarData> vsetdatas;
 
-  ErrorCode rval = read_scd_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
   // Create COORDS tag for quads
@@ -928,83 +1004,6 @@ ErrorCode ScdNCHelper::read_variables(std::vector<std::string>& var_names, std::
   if (!vdatas.empty()) {
     rval = read_scd_variable_to_nonset(vdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");
-  }
-
-  return MB_SUCCESS;
-}
-
-ErrorCode ScdNCHelper::read_scd_variable_setup(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
-                                               std::vector<ReadNC::VarData>& vdatas, std::vector<ReadNC::VarData>& vsetdatas)
-{
-  std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
-  std::map<std::string, ReadNC::VarData>::iterator mit;
-
-  // If empty read them all
-  if (var_names.empty()) {
-    for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
-      ReadNC::VarData vd = (*mit).second;
-      if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-          vd.varDims.end(), jCDim) != vd.varDims.end()))
-        vdatas.push_back(vd);
-      else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-         vd.varDims.end(), iCDim) != vd.varDims.end()))
-        vdatas.push_back(vd);
-      else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-          vd.varDims.end(), iDim) != vd.varDims.end()))
-        vdatas.push_back(vd);
-      else
-        vsetdatas.push_back(vd);
-    }
-  }
-  else {
-    for (unsigned int i = 0; i < var_names.size(); i++) {
-      mit = varInfo.find(var_names[i]);
-      if (mit != varInfo.end()) {
-        ReadNC::VarData vd = (*mit).second;
-        if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-           vd.varDims.end(), jCDim) != vd.varDims.end()))
-          vdatas.push_back(vd);
-        else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-            vd.varDims.end(), iCDim) != vd.varDims.end()))
-          vdatas.push_back(vd);
-        else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-            vd.varDims.end(), iDim) != vd.varDims.end()))
-          vdatas.push_back(vd);
-        else
-          vsetdatas.push_back(vd);
-      }
-      else ERRORR(MB_FAILURE, "Couldn't find variable.");
-    }
-  }
-
-  if (tstep_nums.empty() && nTimeSteps > 0) {
-    // No timesteps input, get them all
-    for (int i = 0; i < nTimeSteps; i++)
-      tstep_nums.push_back(i);
-  }
-  if (!tstep_nums.empty()) {
-    for (unsigned int i = 0; i < vdatas.size(); i++) {
-      vdatas[i].varTags.resize(tstep_nums.size(), 0);
-      vdatas[i].varDatas.resize(tstep_nums.size());
-      vdatas[i].readStarts.resize(tstep_nums.size());
-      vdatas[i].readCounts.resize(tstep_nums.size());
-    }
-
-    for (unsigned int i = 0; i < vsetdatas.size(); i++) {
-      if ((std::find(vsetdatas[i].varDims.begin(), vsetdatas[i].varDims.end(), tDim) != vsetdatas[i].varDims.end())
-          && (vsetdatas[i].varDims.size() != 1)) {
-        vsetdatas[i].varTags.resize(tstep_nums.size(), 0);
-        vsetdatas[i].varDatas.resize(tstep_nums.size());
-        vsetdatas[i].readStarts.resize(tstep_nums.size());
-        vsetdatas[i].readCounts.resize(tstep_nums.size());
-      }
-      else {
-        vsetdatas[i].varTags.resize(1, 0);
-        vsetdatas[i].varDatas.resize(1);
-        vsetdatas[i].readStarts.resize(1);
-        vsetdatas[i].readCounts.resize(1);
-      }
-    }
   }
 
   return MB_SUCCESS;
@@ -1322,7 +1321,7 @@ ErrorCode UcdNCHelper::read_variables(std::vector<std::string>& var_names, std::
   std::vector<ReadNC::VarData> vdatas;
   std::vector<ReadNC::VarData> vsetdatas;
 
-  ErrorCode rval = read_ucd_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
   if (!vsetdatas.empty()) {

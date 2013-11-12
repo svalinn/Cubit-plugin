@@ -33,11 +33,6 @@ private:
   //! Implementation of UcdNCHelper::read_ucd_variable_to_nonset_allocate()
   virtual ErrorCode read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
                                                          std::vector<int>& tstep_nums);
-  //! Implementation of UcdNCHelper::read_ucd_variable_setup()
-  virtual ErrorCode read_ucd_variable_setup(std::vector<std::string>& var_names,
-                                            std::vector<int>& tstep_nums,
-                                            std::vector<ReadNC::VarData>& vdatas,
-                                            std::vector<ReadNC::VarData>& vsetdatas);
 #ifdef PNETCDF_FILE
   //! Implementation of UcdNCHelper::read_ucd_variable_to_nonset_async()
   virtual ErrorCode read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas,
