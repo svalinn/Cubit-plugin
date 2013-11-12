@@ -790,16 +790,19 @@ ErrorCode ScdNCHelper::check_existing_mesh() {
 
   // Check the number of elements too
   int num_elems;
-  rval = mbImpl->get_number_entities_by_dimension(_fileSet, (-1 == lDims[2] ? 2 : 3), num_elems);
+  rval = mbImpl->get_number_entities_by_dimension(_fileSet, (-1 == lCDims[2] ? 2 : 3), num_elems);
   ERRORR(rval, "Trouble getting number of elements.");
 
+  /*
   // Check against parameters
+  // When ghosting is used, this check might fail (to be updated later)
   if (num_elems > 0) {
     int expected_elems = (lCDims[3] - lCDims[0] + 1) * (lCDims[4] - lCDims[1] + 1) * (-1 == lCDims[2] ? 1 : (lCDims[5] - lCDims[2] + 1));
     if (num_elems != expected_elems) {
       ERRORR(MB_FAILURE, "Number of elements doesn't match.");
     }
   }
+  */
 
   return MB_SUCCESS;
 }
