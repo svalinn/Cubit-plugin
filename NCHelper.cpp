@@ -10,10 +10,10 @@
 #include "MBTagConventions.hpp"
 
 #define ERRORR(rval, str) \
-    if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
+  if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
 
 #define ERRORS(err, str) \
-    if (err) {_readNC->readMeshIface->report_error("%s", str); return MB_FAILURE;}
+  if (err) {_readNC->readMeshIface->report_error("%s", str); return MB_FAILURE;}
 
 namespace moab {
 
@@ -893,7 +893,7 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
   ScdParData& parData = _readNC->parData;
 
   Range tmp_range;
-  ScdBox *scd_box;
+  ScdBox* scd_box;
 
   ErrorCode rval = scdi->construct_box(HomCoord(lDims[0], lDims[1], lDims[2], 1), HomCoord(lDims[3], lDims[4], lDims[5], 1), 
                                        NULL, 0, scd_box, locallyPeriodic, &parData, true);
@@ -1050,8 +1050,6 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
 #endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
-    vdatas[i].numLev = nLevels;
-
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
 
@@ -1074,17 +1072,14 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
       vdatas[i].readStarts[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
-      // Next: numLev
-      if (vdatas[i].numLev != 1) {
-        vdatas[i].readStarts[t].push_back(0);
-        vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
-      }
+      // Next: numLev, even if it is 1
+      vdatas[i].readStarts[t].push_back(0);
+      vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
 
       // Finally: y and x
       switch (vdatas[i].entLoc) {
         case ReadNC::ENTLOCVERT:
           // Vertices
-          // Only structured mesh has j parameter that multiplies i to get total # vertices
           vdatas[i].readStarts[t].push_back(lDims[1]);
           vdatas[i].readCounts[t].push_back(lDims[4] - lDims[1] + 1);
           vdatas[i].readStarts[t].push_back(lDims[0]);
@@ -1101,8 +1096,8 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
         case ReadNC::ENTLOCFACE:
           // Faces
           vdatas[i].readStarts[t].push_back(lCDims[1]);
-          vdatas[i].readStarts[t].push_back(lCDims[0]);
           vdatas[i].readCounts[t].push_back(lCDims[4] - lCDims[1] + 1);
+          vdatas[i].readStarts[t].push_back(lCDims[0]);
           vdatas[i].readCounts[t].push_back(lCDims[3] - lCDims[0] + 1);
           assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
 #ifdef USE_MPI
@@ -1245,6 +1240,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         rval = tmp_rval;
     }
   }
+
   // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());

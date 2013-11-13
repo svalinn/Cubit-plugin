@@ -151,13 +151,20 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
       tVals.push_back((double)t);
   }
 
-  // Determine the entity location type of a variable
+  // For each variable, determine the entity location type and number of levels
   std::map<std::string, ReadNC::VarData>::iterator mit;
   for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
     ReadNC::VarData& vd = (*mit).second;
-    if ((std::find(vd.varDims.begin(), vd.varDims.end(), vDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-        vd.varDims.end(), levDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCVERT;
+
+    vd.entLoc = ReadNC::ENTLOCSET;
+    if (std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) {
+      if (std::find(vd.varDims.begin(), vd.varDims.end(), vDim) != vd.varDims.end())
+        vd.entLoc = ReadNC::ENTLOCVERT;
+    }
+
+    vd.numLev = 1;
+    if (std::find(vd.varDims.begin(), vd.varDims.end(), levDim) != vd.varDims.end())
+      vd.numLev = nLevels;
   }
 
   // Hack: create dummy tags for dimensions (like ncol) with no corresponding coordinate variables
@@ -540,11 +547,9 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC
       vdatas[i].readStarts[t].push_back(tstep_nums[t]);
       vdatas[i].readCounts[t].push_back(1);
 
-      // Next: numLev
-      if (vdatas[i].numLev != 1) {
-        vdatas[i].readStarts[t].push_back(0);
-        vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
-      }
+      // Next: numLev, even if it is 1
+      vdatas[i].readStarts[t].push_back(0);
+      vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
 
       // Finally: nVertices
       switch (vdatas[i].entLoc) {

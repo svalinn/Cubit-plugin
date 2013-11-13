@@ -26,8 +26,22 @@ NCHelperMPAS::NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts, 
 , numCellGroups(0)
 , createGatherSet(false)
 {
-  // Hack: ignore 4D variable tracers(Time, nCells, nVertLevels, nTracers)
-  ignoredVarNames.insert("tracers");
+  // Ignore variables containing topological information
+  ignoredVarNames.insert("nEdgesOnEdge");
+  ignoredVarNames.insert("nEdgesOnCell");
+  ignoredVarNames.insert("edgesOnVertex");
+  ignoredVarNames.insert("cellsOnVertex");
+  ignoredVarNames.insert("verticesOnEdge");
+  ignoredVarNames.insert("edgesOnEdge");
+  ignoredVarNames.insert("cellsOnEdge");
+  ignoredVarNames.insert("verticesOnCell");
+  ignoredVarNames.insert("edgesOnCell");
+  ignoredVarNames.insert("cellsOnCell");
+
+  // Ignore variables for index conversion
+  ignoredVarNames.insert("indexToVertexID");
+  ignoredVarNames.insert("indexToEdgeID");
+  ignoredVarNames.insert("indexToCellID");
 }
 
 bool NCHelperMPAS::can_read_file(ReadNC* readNC)
@@ -144,38 +158,36 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     }
   }
 
-  // Determine the entity location type of a variable
+  // For each variable, determine the entity location type and number of levels
   for (vmit = varInfo.begin(); vmit != varInfo.end(); ++vmit) {
     ReadNC::VarData& vd = (*vmit).second;
+
     vd.entLoc = ReadNC::ENTLOCSET;
-
-    if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) &&
-      (std::find(vd.varDims.begin(), vd.varDims.end(), vDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCVERT;
-    else if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) &&
-      (std::find(vd.varDims.begin(), vd.varDims.end(), eDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCEDGE;
-    else if ((std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) &&
-      (std::find(vd.varDims.begin(), vd.varDims.end(), cDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCFACE;
-  }
-
-  // Determine number of levels of a variable
-  for (vmit = varInfo.begin(); vmit != varInfo.end(); ++vmit) {
-    ReadNC::VarData& vd = (*vmit).second;
-    vd.numLev = 1;
-
-    if (std::find(vd.varDims.begin(), vd.varDims.end(), levDim) != vd.varDims.end()) {
-      vd.numLev = nLevels;
-      continue;
+    if (std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) {
+      if (std::find(vd.varDims.begin(), vd.varDims.end(), vDim) != vd.varDims.end())
+        vd.entLoc = ReadNC::ENTLOCVERT;
+      else if (std::find(vd.varDims.begin(), vd.varDims.end(), eDim) != vd.varDims.end())
+        vd.entLoc = ReadNC::ENTLOCEDGE;
+      else if (std::find(vd.varDims.begin(), vd.varDims.end(), cDim) != vd.varDims.end())
+        vd.entLoc = ReadNC::ENTLOCFACE;
     }
 
-    for (unsigned int i = 0; i < opt_lev_dims.size(); i++) {
-      if (std::find(vd.varDims.begin(), vd.varDims.end(), opt_lev_dims[i]) != vd.varDims.end()) {
-        vd.numLev = dimLens[opt_lev_dims[i]];
-        break;
+    vd.numLev = 1;
+    if (std::find(vd.varDims.begin(), vd.varDims.end(), levDim) != vd.varDims.end())
+      vd.numLev = nLevels;
+    else {
+      // If nVertLevels dimension is not found, try other optional levels such as nVertLevelsP1
+      for (unsigned int i = 0; i < opt_lev_dims.size(); i++) {
+        if (std::find(vd.varDims.begin(), vd.varDims.end(), opt_lev_dims[i]) != vd.varDims.end()) {
+          vd.numLev = dimLens[opt_lev_dims[i]];
+          break;
+        }
       }
     }
+
+    // Hack: ignore variables with more than 3 dimensions, e.g. tracers(Time, nCells, nVertLevels, nTracers)
+    if (vd.varDims.size() > 3)
+      ignoredVarNames.insert(vd.varName);
   }
 
   // Hack: create dummy tags for dimensions (like nCells) with no corresponding coordinate variables

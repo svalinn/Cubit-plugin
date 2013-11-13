@@ -6,10 +6,10 @@
 #include <sstream>
 
 #define ERRORR(rval, str) \
-    if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
+  if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
 
 #define ERRORS(err, str) \
-    if (err) {_readNC->readMeshIface->report_error("%s", str); return MB_FAILURE;}
+  if (err) {_readNC->readMeshIface->report_error("%s", str); return MB_FAILURE;}
 
 namespace moab {
 
@@ -319,13 +319,21 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   dbgOut.tprintf(1, "%d elements, %d vertices\n", (lDims[3] - lDims[0]) * (lDims[4] - lDims[1]), (lDims[3] - lDims[0] + 1)
       * (lDims[4] - lDims[1] + 1));
 
-  // Determine the entity location type of a variable
+  // For each variable, determine the entity location type and number of levels
   std::map<std::string, ReadNC::VarData>::iterator mit;
   for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
     ReadNC::VarData& vd = (*mit).second;
-    if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-        vd.varDims.end(), jCDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCFACE;
+
+    vd.entLoc = ReadNC::ENTLOCSET;
+    if (std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) {
+      if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) &&
+          (std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()))
+        vd.entLoc = ReadNC::ENTLOCFACE;
+    }
+
+    vd.numLev = 1;
+    if (std::find(vd.varDims.begin(), vd.varDims.end(), levDim) != vd.varDims.end())
+      vd.numLev = nLevels;
   }
 
   // For Eul models, slon and slat are "virtual" dimensions (not defined in the file header)

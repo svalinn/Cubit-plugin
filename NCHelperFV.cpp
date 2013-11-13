@@ -6,7 +6,7 @@
 #include <sstream>
 
 #define ERRORR(rval, str) \
-    if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
+ if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
 
 namespace moab {
 
@@ -315,19 +315,27 @@ ErrorCode NCHelperFV::init_mesh_vals()
   dbgOut.tprintf(1, "%d elements, %d vertices\n", (lDims[3] - lDims[0]) * (lDims[4] - lDims[1]), (lDims[3] - lDims[0] + 1)
       * (lDims[4] - lDims[1] + 1));
 
-  // Determine the entity location type of a variable
+  // For each variable, determine the entity location type and number of levels
   std::map<std::string, ReadNC::VarData>::iterator mit;
   for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
     ReadNC::VarData& vd = (*mit).second;
-    if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-        vd.varDims.end(), jCDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCFACE;
-    else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-        vd.varDims.end(), iCDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCNSEDGE;
-    else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()) && (std::find(vd.varDims.begin(),
-        vd.varDims.end(), iDim) != vd.varDims.end()))
-      vd.entLoc = ReadNC::ENTLOCEWEDGE;
+
+    vd.entLoc = ReadNC::ENTLOCSET;
+    if (std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) {
+      if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) &&
+          (std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()))
+        vd.entLoc = ReadNC::ENTLOCFACE;
+      else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jDim) != vd.varDims.end()) &&
+          (std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()))
+        vd.entLoc = ReadNC::ENTLOCNSEDGE;
+      else if ((std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()) &&
+          (std::find(vd.varDims.begin(), vd.varDims.end(), iDim) != vd.varDims.end()))
+        vd.entLoc = ReadNC::ENTLOCEWEDGE;
+    }
+
+    vd.numLev = 1;
+    if (std::find(vd.varDims.begin(), vd.varDims.end(), levDim) != vd.varDims.end())
+      vd.numLev = nLevels;
   }
 
   std::vector<std::string> ijdimNames(4);
