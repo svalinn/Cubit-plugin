@@ -64,9 +64,9 @@ protected:
                                  std::string& attString,
                                  std::vector<int>& attLen);
 
-  //! Initialize information for dimensions that don't have corresponding
-  //! coordinate variables - this information is used for creating dummy tags
-  void init_dims_with_no_coord_vars_info();
+  //! For a dimension that does not have a corresponding coordinate variable (e.g. ncol for HOMME), create
+  //! a sparse tag with the dimension name to store the dimension length
+  ErrorCode create_tags_for_dims_with_no_coord_vars();
 
 private:
   //! Used by read_variable_to_set()

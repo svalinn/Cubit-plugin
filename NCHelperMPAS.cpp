@@ -190,8 +190,9 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
       ignoredVarNames.insert(vd.varName);
   }
 
-  // Hack: create dummy tags for dimensions (like nCells) with no corresponding coordinate variables
-  init_dims_with_no_coord_vars_info();
+  // Hack: create tags for dimensions (like nCells) with no corresponding coordinate variables
+  rval = create_tags_for_dims_with_no_coord_vars();
+  ERRORR(rval, "Failed to create tags for dimensions with no coordinate variables.");
 
   return MB_SUCCESS;
 }

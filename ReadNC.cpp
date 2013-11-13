@@ -302,7 +302,7 @@ ErrorCode ReadNC::read_header()
   ERRORR(result, "Getting attributes.");
   dbgOut.tprintf(1, "Read %u attributes\n", (unsigned int) globalAtts.size());
 
-  // Read in dimensions into dimVals
+  // Read in dimensions into dimNames and dimLens
   result = get_dimensions(fileId, dimNames, dimLens);
   ERRORR(result, "Getting dimensions.");
   dbgOut.tprintf(1, "Read %u dimensions\n", (unsigned int) dimNames.size());

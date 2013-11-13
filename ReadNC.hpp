@@ -165,9 +165,6 @@ private:
   //! Dimension lengths
   std::vector<int> dimLens;
 
-  //! These should be taken out when we fix the dummy var info things
-  std::set<std::string> dummyVarNames;
-
   //! Global attribs
   std::map<std::string, AttData> globalAtts;
 
