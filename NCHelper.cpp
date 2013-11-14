@@ -315,8 +315,10 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
     for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
       ReadNC::VarData vd = (*mit).second;
 
-      // This variable will not be read
-      if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end())
+      // No need to read ignored variables. Upon creation of dummy variables,
+      // tag values have already been set
+      if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
+          dummyVarNames.find(vd.varName) != dummyVarNames.end())
          continue;
 
       if (vd.entLoc == ReadNC::ENTLOCSET)
@@ -331,8 +333,10 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
       if (mit != varInfo.end()) {
         ReadNC::VarData vd = (*mit).second;
 
-        // This variable will not be read
-        if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end())
+        // No need to read ignored variables. Upon creation of dummy variables,
+        // tag values have already been set
+        if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
+            dummyVarNames.find(vd.varName) != dummyVarNames.end())
            continue;
 
         if (vd.entLoc == ReadNC::ENTLOCSET)
@@ -713,7 +717,7 @@ ErrorCode NCHelper::create_attrib_string(const std::map<std::string, ReadNC::Att
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelper::create_tags_for_dims_with_no_coord_vars()
+ErrorCode NCHelper::create_dummy_variables()
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<std::string>& dimNames = _readNC->dimNames;
@@ -723,12 +727,28 @@ ErrorCode NCHelper::create_tags_for_dims_with_no_coord_vars()
 
   // Hack: look at all dimensions, and see if we have one that does not appear in the list of varInfo names
   // Right now, candidates are from unstructured meshes, such as ncol (HOMME) and nCells (MPAS)
-  // For each of them, create a sparse tag with the dimension name to store the dimension length
+  // For each of them, create a dummy variable with a sparse tag to store the dimension length
   for (unsigned int i = 0; i < dimNames.size(); i++) {
     // If there is a variable with this dimension name, skip
     if (varInfo.find(dimNames[i]) != varInfo.end())
       continue;
 
+    // Create a dummy variable
+    int sizeTotalVar = varInfo.size();
+    std::string var_name(dimNames[i]);
+    ReadNC::VarData& data = varInfo[var_name];
+    data.varName = std::string(var_name);
+    data.varId = sizeTotalVar;
+    data.varTags.resize(1, 0);
+    data.varDataType = NC_INT;
+    data.varDims.resize(1);
+    data.varDims[0] = (int)i;
+    data.numAtts = 0;
+    data.entLoc = ReadNC::ENTLOCSET;
+    dummyVarNames.insert(dimNames[i]);
+    dbgOut.tprintf(2, "Dummy variable created for dimension %s\n", dimNames[i].c_str());
+
+    // Create a sparse tag to store the dimension length
     Tag tagh;
     ErrorCode rval = mbImpl->tag_get_handle(dimNames[i].c_str(), 1, MB_TYPE_INTEGER, tagh,
                                             MB_TAG_SPARSE | MB_TAG_CREAT | MB_TAG_EXCL);

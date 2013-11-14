@@ -132,16 +132,16 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
       return rval;
   }
   else {
-    // Read dimension variable by default, the ones that are also variables
-    std::vector<std::string> filteredDimNames;
+    // Read dimension variables by default (the dimensions that are also variables)
+    std::vector<std::string> dim_var_names;
     for (unsigned int i = 0; i < dimNames.size(); i++) {
       std::map<std::string, VarData>::iterator mit = varInfo.find(dimNames[i]);
       if (mit != varInfo.end())
-        filteredDimNames.push_back(dimNames[i]);
+        dim_var_names.push_back(dimNames[i]);
     }
 
-    if (!filteredDimNames.empty()) {
-      rval = myHelper->read_variables(filteredDimNames, tstep_nums);
+    if (!dim_var_names.empty()) {
+      rval = myHelper->read_variables(dim_var_names, tstep_nums);
       if (MB_FAILURE == rval)
         return rval;
     }

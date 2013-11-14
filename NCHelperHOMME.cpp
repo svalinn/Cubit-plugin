@@ -167,9 +167,9 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
       vd.numLev = nLevels;
   }
 
-  // Hack: create tags for dimensions (like ncol) with no corresponding coordinate variables
-  rval = create_tags_for_dims_with_no_coord_vars();
-  ERRORR(rval, "Failed to create tags for dimensions with no coordinate variables.");
+  // Hack: create dummy variables for dimensions (like ncol) with no corresponding coordinate variables
+  rval = create_dummy_variables();
+  ERRORR(rval, "Failed to create dummy variables.");
 
   return MB_SUCCESS;
 }

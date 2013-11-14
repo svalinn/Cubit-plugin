@@ -55,18 +55,18 @@ protected:
 
   ErrorCode get_tag_to_nonset(ReadNC::VarData& var_data, int tstep_num, Tag& tagh, int num_lev);
 
-  //! Create a character string attString of attMap.  with '\0'
+  //! Create a character string attString of attMap. with '\0'
   //! terminating each attribute name, ';' separating the data type
   //! and value, and ';' separating one name/data type/value from
-  //! the next'.  attLen stores the end position for each name/data
+  //! the next'. attLen stores the end position for each name/data
   //! type/ value.
   ErrorCode create_attrib_string(const std::map<std::string, ReadNC::AttData>& attMap,
                                  std::string& attString,
                                  std::vector<int>& attLen);
 
-  //! For a dimension that does not have a corresponding coordinate variable (e.g. ncol for HOMME), create
-  //! a sparse tag with the dimension name to store the dimension length
-  ErrorCode create_tags_for_dims_with_no_coord_vars();
+  //! For a dimension that does not have a corresponding coordinate variable (e.g. ncol for HOMME),
+  //! create a dummy variable with a sparse tag to store the dimension length
+  ErrorCode create_dummy_variables();
 
 private:
   //! Used by read_variable_to_set()
@@ -90,8 +90,11 @@ protected:
   //! Dimension numbers for time and level
   int tDim, levDim;
 
-  //! Skip unexpected variables
+  //! Ignored variables
   std::set<std::string> ignoredVarNames;
+
+  //! Dummy variables
+  std::set<std::string> dummyVarNames;
 };
 
 //! Child helper class for scd mesh, e.g. CAM_EL or CAM_FV
