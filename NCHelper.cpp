@@ -295,7 +295,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, meshTypeTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
   ERRORR(rval, "Trouble creating __MESH_TYPE tag.");
   ptr = meshTypeName.c_str();
-  int leng= meshTypeName.size();
+  int leng = meshTypeName.size();
   rval = mbImpl->tag_set_by_ptr(meshTypeTag, &_fileSet, 1, &ptr, &leng);
   ERRORR(rval, "Trouble setting data for __MESH_TYPE tag.");
   if (MB_SUCCESS == rval)
@@ -748,16 +748,20 @@ ErrorCode NCHelper::create_dummy_variables()
     dummyVarNames.insert(dimNames[i]);
     dbgOut.tprintf(2, "Dummy variable created for dimension %s\n", dimNames[i].c_str());
 
-    // Create a sparse tag to store the dimension length
+    // Create a corresponding sparse tag
     Tag tagh;
-    ErrorCode rval = mbImpl->tag_get_handle(dimNames[i].c_str(), 1, MB_TYPE_INTEGER, tagh,
-                                            MB_TAG_SPARSE | MB_TAG_CREAT | MB_TAG_EXCL);
+    ErrorCode rval = mbImpl->tag_get_handle(dimNames[i].c_str(), 0, MB_TYPE_INTEGER, tagh, MB_TAG_CREAT |
+                                            MB_TAG_SPARSE | MB_TAG_VARLEN | MB_TAG_EXCL);
     // If the tag already exists, skip
     if (MB_ALREADY_ALLOCATED == rval)
       continue;
-    ERRORR(rval, "Failed to create dimension tag.");
+    ERRORR(rval, "Failed to create tag for a dummy dimension variable.");
 
-    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &dimLens[i]);
+    // Tag value is the dimension length
+    const void* ptr = &dimLens[i];
+    // Tag size is 1
+    int size = 1;
+    rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &ptr, &size);
     ERRORR(rval, "Failed to set data for dimension tag.");
 
     dbgOut.tprintf(2, "Sparse tag created for dimension %s\n", dimNames[i].c_str());
