@@ -54,6 +54,7 @@ const EntityType ExoIIUtil::ExoIIElementMBEntity[] =
   MBQUAD, // SHELL9,
   MBTET, // TETRA,
   MBTET, // TETRA4,
+  MBTET, // TET4
   MBTET, // TETRA8,
   MBTET, // TETRA10,
   MBTET, // TETRA14,
@@ -102,7 +103,8 @@ const char* ExoIIUtil::ElementTypeNames[] =
   "SHELL8", 
   "SHELL9",
   "TETRA", 
-  "TETRA4", 
+  "TETRA4",
+  "TET4",
   "TETRA8", 
   "TETRA10", 
   "TETRA14",
@@ -151,6 +153,7 @@ const int ExoIIUtil::VerticesPerElement[] =
   9,  // SHELL
   4, 
   4,  
+  4,  // TET4
   8, 
   10, 
   14,  // TETRA
@@ -199,6 +202,7 @@ const int ExoIIUtil::HasMidNodes[][4] =
   {0, 1, 1, 0}, // SHELL9 - mid nodes on edges and faces
   {0, 0, 0, 0}, // TETRA - no mid nodes
   {0, 0, 0, 0}, // TETRA4 - no mid nodes
+  {0, 0, 0, 0}, // TET4 - no mid nodes
   {0, 0, 1, 0}, // TETRA8 - mid nodes on faces
   {0, 1, 0, 0}, // TETRA10 - mid nodes on edges
   {0, 1, 1, 0}, // TETRA14 - mid nodes on edges and faces
@@ -250,6 +254,7 @@ const int ExoIIUtil::ElementGeometricDimension[] =
   3, 
   3, 
   3, // TETRA
+  3,
   3, 
   3, 
   3, 
