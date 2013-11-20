@@ -139,7 +139,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
 
   // __<dim_name>_LOC_MINMAX (for time)
   for (unsigned int i = 0; i != dimNamesSz; i++) {
-    if (dimNames[i] == "time") {
+    if (dimNames[i] == "time" || dimNames[i] == "Time" || dimNames[i] == "t") {
       std::stringstream ss_tag_name;
       ss_tag_name << "__" << dimNames[i] << "_LOC_MINMAX";
       tag_name = ss_tag_name.str();
@@ -158,7 +158,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
 
   // __<dim_name>_LOC_VALS (for time)
   for (unsigned int i = 0; i != dimNamesSz; i++) {
-    if (dimNames[i] == "time") {
+    if (dimNames[i] == "time" || dimNames[i] == "Time" || dimNames[i] == "t") {
       std::vector<int> val;
       if (!tstep_nums.empty())
         val = tstep_nums;
