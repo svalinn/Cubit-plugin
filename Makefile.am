@@ -7,7 +7,7 @@ endif
 
 # Things to build
 noinst_LTLIBRARIES = libmoabio.la 
-libmoabio_la_LIBADD = $(NETCDF_LIBS) $(PNETCDF_LIBS) $(HDF5_LIBS) 
+libmoabio_la_LIBADD = $(NETCDF_LIBS) $(PNETCDF_LIBS) $(CGNS_LIBS) $(HDF5_LIBS) 
 
 AM_CPPFLAGS += -DIS_BUILDING_MB \
                -I..  -I$(srcdir)/.. -I$(srcdir)/../parallel
@@ -41,6 +41,13 @@ endif
 
 if ENABLE_mbzoltan
   AM_CPPFLAGS += -I$(srcdir)/../../tools/mbzoltan $(ZOLTAN_INC_FLAGS) 
+endif
+
+if CGNS_FILE
+  MOAB_CGNS_SRCS = ReadCGNS.cpp  ReadCGNS.hpp \
+                   WriteCGNS.cpp  WriteCGNS.hpp
+else
+  MOAB_CGNS_SRCS =
 endif
 
 if HDF5_FILE
@@ -139,6 +146,7 @@ libmoabio_la_SOURCES = \
   WriteVtk.cpp \
   WriteVtk.hpp \
   $(MOAB_NETCDF_SRCS) \
+  $(MOAB_CGNS_SRCS) \
   $(MOAB_HDF5_SRCS) \
   $(MOAB_CCMIO_SRCS) \
   $(MOAB_DAMSEL_SRCS) \
