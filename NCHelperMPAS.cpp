@@ -147,12 +147,14 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
 
   // Store time coordinate values in tVals
   if (nTimeSteps > 0) {
+    // Note, two possible types for xtime variable: double(Time) or char(Time, StrLen)
     if ((vmit = varInfo.find("xtime")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      // If xtime variable is double type, read time coordinate values to tVals
       rval = read_coordinate("xtime", 0, nTimeSteps - 1, tVals);
       ERRORR(rval, "Trouble reading 'xtime' variable.");
     }
     else {
-      // If expected time variable is not available, set dummy time coordinate values to tVals
+      // If xtime variable does not exist, or it is string type, set dummy values to tVals
       for (int t = 0; t < nTimeSteps; t++)
         tVals.push_back((double)t);
     }
