@@ -310,13 +310,13 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
   std::map<std::string, ReadNC::VarData>::iterator mit;
 
-  // If empty read them all
+  // If empty read them all (except ignored variables)
   if (var_names.empty()) {
     for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
       ReadNC::VarData vd = (*mit).second;
 
-      // No need to read ignored variables. Upon creation of dummy variables,
-      // tag values have already been set
+      // If read all variables at once, skip ignored ones
+      // Upon creation of dummy variables, tag values have already been set
       if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
           dummyVarNames.find(vd.varName) != dummyVarNames.end())
          continue;
@@ -328,15 +328,14 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
     }
   }
   else {
+    // Read specified variables (might include ignored ones)
     for (unsigned int i = 0; i < var_names.size(); i++) {
       mit = varInfo.find(var_names[i]);
       if (mit != varInfo.end()) {
         ReadNC::VarData vd = (*mit).second;
 
-        // No need to read ignored variables. Upon creation of dummy variables,
-        // tag values have already been set
-        if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
-            dummyVarNames.find(vd.varName) != dummyVarNames.end())
+        // Upon creation of dummy variables, tag values have already been set
+        if (dummyVarNames.find(vd.varName) != dummyVarNames.end())
            continue;
 
         if (vd.entLoc == ReadNC::ENTLOCSET)
