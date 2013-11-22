@@ -749,11 +749,8 @@ ErrorCode NCHelper::create_dummy_variables()
 
     // Create a corresponding sparse tag
     Tag tagh;
-    ErrorCode rval = mbImpl->tag_get_handle(dimNames[i].c_str(), 0, MB_TYPE_INTEGER, tagh, MB_TAG_CREAT |
-                                            MB_TAG_SPARSE | MB_TAG_VARLEN | MB_TAG_EXCL);
-    // If the tag already exists, skip
-    if (MB_ALREADY_ALLOCATED == rval)
-      continue;
+    ErrorCode rval = mbImpl->tag_get_handle(dimNames[i].c_str(), 0, MB_TYPE_INTEGER, tagh,
+                                            MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
     ERRORR(rval, "Failed to create tag for a dummy dimension variable.");
 
     // Tag value is the dimension length
