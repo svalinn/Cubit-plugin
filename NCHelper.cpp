@@ -409,12 +409,11 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
               (double*) data);
           ERRORS(success, "Failed to read double data.");
           break;
-        case NC_FLOAT: {
+        case NC_FLOAT:
           success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               (float*) data);
           ERRORS(success, "Failed to read float data.");
           break;
-        }
         case NC_INT:
           success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
               (int*) data);
@@ -437,8 +436,31 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
       ERRORR(rval, "Failed to convert variable.");
 
       dbgOut.tprintf(2, "Setting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
+      rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &data, &vdatas[i].sz);
       ERRORR(rval, "Failed to set data for variable.");
+
+      // Memory pointed by pointer data can be deleted, as tag_set_by_ptr() has already copied the tag values
+      switch (vdatas[i].varDataType) {
+        case NC_BYTE:
+        case NC_CHAR:
+          delete (char*) data;
+          break;
+        case NC_DOUBLE:
+          delete (double*) data;
+          break;
+        case NC_FLOAT:
+          delete (float*) data;
+          break;
+        case NC_INT:
+          delete (int*) data;
+          break;
+        case NC_SHORT:
+          delete (short*) data;
+          break;
+        default:
+          break;
+      }
+      vdatas[i].varDatas[t] = NULL;
 
       if (vdatas[i].varDims.size() <= 1 || !vdatas[i].has_t)
         break;
