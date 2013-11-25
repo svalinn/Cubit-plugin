@@ -446,16 +446,12 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
           delete[] (char*) data;
           break;
         case NC_DOUBLE:
+        case NC_FLOAT:
           delete[] (double*) data;
           break;
-        case NC_FLOAT:
-          delete[] (float*) data;
-          break;
         case NC_INT:
-          delete[] (int*) data;
-          break;
         case NC_SHORT:
-          delete[] (short*) data;
+          delete[] (int*) data;
           break;
         default:
           break;
@@ -860,7 +856,7 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
           vdatas[i].varDatas[t] = new int[sz];
           break;
         default:
-          std::cerr << "Unrecognized data type for tag " << std::endl;
+          std::cerr << "Unrecognized data type for set variable tag values" << std::endl;
           rval = MB_FAILURE;
       }
 
