@@ -16,6 +16,7 @@
 #pragma warning(disable:4786)
 #endif
 
+#include "cgm_version.h"
 #include "GeometryQueryTool.hpp"
 #include "ModelQueryEngine.hpp"
 #include "RefEntityName.hpp"
@@ -314,7 +315,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
 
     // create entity sets for all ref groups
   std::vector<Tag> extra_name_tags;
+#if  CGM_MAJOR_VERSION>13
+  DLIList<CubitString> name_list;
+#else
   DLIList<CubitString*> name_list;
+#endif
   entlist.clean_out();
   GeometryQueryTool::instance()->ref_entity_list( "group", entlist );
   entlist.reset();
@@ -325,7 +330,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     if (name_list.size() == 0)
       continue;
     name_list.reset();
+#if  CGM_MAJOR_VERSION>13
+    CubitString name1 = name_list.get();
+#else
     CubitString name1 = *name_list.get();
+#endif
     
     EntityHandle h;
     rval = mdbImpl->create_meshset( MESHSET_SET, h );
@@ -361,7 +370,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       }
         
       for (int j = 0; j < name_list.size(); ++j) {
+#if  CGM_MAJOR_VERSION>13
+        name1 = name_list.get_and_step();
+#else
         name1 = *name_list.get_and_step();
+#endif
         memset( namebuf, '\0', NAME_TAG_SIZE );
         strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
         if (name1.length() >= (unsigned)NAME_TAG_SIZE)
