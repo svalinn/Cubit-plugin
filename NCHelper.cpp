@@ -1170,9 +1170,11 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
 
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void* data = vdatas[i].varDatas[t];
-      size_t ni = vdatas[i].readCounts[t][2];
-      size_t nj = vdatas[i].readCounts[t][3];
-      size_t nk = vdatas[i].readCounts[t][1];
+      // A typical variable: float T(time, lev, lat, lon)
+      // For tag values, need transpose kji to jik, i.e. (lev, lat, lon) to (lat, lon, lev)
+      size_t ni = vdatas[i].readCounts[t][3]; // lon or slon
+      size_t nj = vdatas[i].readCounts[t][2]; // lat or slat
+      size_t nk = vdatas[i].readCounts[t][1]; // lev
 
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
