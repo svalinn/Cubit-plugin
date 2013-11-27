@@ -550,61 +550,78 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
 #endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    // Skip edge variables, if specified by the read options
     if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
       continue;
 
+    // Support non-set variables with 3 dimensions like (Time, nCells, nVertLevels), or
+    // 2 dimensions like (Time, nCells)
+    assert(3 == vdatas[i].varDims.size() || 2 == vdatas[i].varDims.size());
+
+    // For a non-set variable, time should be the first dimension
+    assert(tDim == vdatas[i].varDims[0]);
+
+    // Set up readStarts and readCounts
+    vdatas[i].readStarts.resize(3);
+    vdatas[i].readCounts.resize(3);
+
+    // First: Time
+    vdatas[i].readStarts[0] = 0; // This value is timestep dependent, will be set later
+    vdatas[i].readCounts[0] = 1;
+
+    // Next: nVertices / nCells / nEdges
+    switch (vdatas[i].entLoc) {
+      case ReadNC::ENTLOCVERT:
+        // Vertices
+        // Start from the first localGidVerts
+        // Actually, this will be reset later on in a loop
+        vdatas[i].readStarts[1] = localGidVerts[0] - 1;
+        vdatas[i].readCounts[1] = nLocalVertices;
+        range = &verts;
+        break;
+      case ReadNC::ENTLOCFACE:
+        // Faces
+        // Start from the first localGidCells
+        // Actually, this will be reset later on in a loop
+        vdatas[i].readStarts[1] = localGidCells[0] - 1;
+        vdatas[i].readCounts[1] = nLocalCells;
+        range = &facesOwned;
+        break;
+      case ReadNC::ENTLOCEDGE:
+        // Edges
+        // Start from the first localGidEdges
+        // Actually, this will be reset later on in a loop
+        vdatas[i].readStarts[1] = localGidEdges[0] - 1;
+        vdatas[i].readCounts[1] = nLocalEdges;
+        range = &edges;
+        break;
+      default:
+        ERRORR(MB_FAILURE, "Unexpected entity location type for MPAS non-set variable.");
+        break;
+    }
+
+    // Finally: nVertLevels or other optional levels, it is possible that there
+    // is no level dimension for this non-set variable
+    vdatas[i].readStarts[2] = 0;
+    vdatas[i].readCounts[2] = vdatas[i].numLev;
+
+    // Get variable size
+    vdatas[i].sz = 1;
+    for (std::size_t idx = 0; idx != 3; idx++)
+      vdatas[i].sz *= vdatas[i].readCounts[idx];
+
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+
+      if (tstep_nums[t] >= dimLens[tDim]) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for a timestep number.");
+      }
+
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
         rval = get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
         ERRORR(rval, "Trouble getting tag.");
       }
-
-      // Assume point-based values for now?
-      if (-1 == tDim || dimLens[tDim] <= (int) t) {
-        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
-      }
-      else if (vdatas[i].varDims[0] != tDim) {
-        ERRORR(MB_INDEX_OUT_OF_RANGE, "Non-default timestep number given for time-independent variable.");
-      }
-
-      // Set up the dimensions and counts
-      // First: Time
-      vdatas[i].readStarts[t].push_back(tstep_nums[t]);
-      vdatas[i].readCounts[t].push_back(1);
-
-      // Next: nCells or nEdges or nVertices
-      switch (vdatas[i].entLoc) {
-        case ReadNC::ENTLOCVERT:
-          // Vertices
-          vdatas[i].readStarts[t].push_back(localGidVerts[0] - 1);
-          vdatas[i].readCounts[t].push_back(nLocalVertices);
-          range = &verts;
-          break;
-        case ReadNC::ENTLOCFACE:
-          // Faces
-          vdatas[i].readStarts[t].push_back(localGidCells[0] - 1);
-          vdatas[i].readCounts[t].push_back(nLocalCells);
-          range = &facesOwned;
-          break;
-        case ReadNC::ENTLOCEDGE:
-          // Edges
-          vdatas[i].readStarts[t].push_back(localGidEdges[0] - 1);
-          vdatas[i].readCounts[t].push_back(nLocalEdges);
-          range = &edges;
-          break;
-        default:
-          ERRORR(MB_FAILURE, "Unexpected entity location type for MPAS non-set variable.");
-          break;
-      }
-
-      // Last, numLev, even if it is 1
-      vdatas[i].readStarts[t].push_back(0);
-      vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
-      // Some variables have no level dimension, e.g. surface_pressure(Time, nCells)
-      assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size() ||
-             vdatas[i].readStarts[t].size() == vdatas[i].varDims.size() + 1);
 
       // Get ptr to tag space
       if (vdatas[i].entLoc == ReadNC::ENTLOCFACE && numCellGroups > 1) {
@@ -621,12 +638,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
         vdatas[i].varDatas[t] = data;
       }
     }
-
-    // Calculate variable size
-    std::size_t sz = 1;
-    for (std::size_t idx = 0; idx != vdatas[i].readCounts[0].size(); idx++)
-      sz *= vdatas[i].readCounts[0][idx];
-    vdatas[i].sz = sz;
   }
 
   return rval;
@@ -647,6 +658,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
   Range* pLocalGid = NULL;
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    // Skip edge variables, if specified by the read options
     if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
       continue;
 
@@ -674,6 +686,9 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
       std::vector<int> requests(nb_reads), statuss(nb_reads);
       size_t idxReq = 0;
 
+      // Set readStart for each timestep along time dimension
+      vdatas[i].readStarts[0] = tstep_nums[t];
+
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR: {
@@ -688,9 +703,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readStarts[t].size();
 
-          // Assume that the last dimension is for the nVertLevels
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = pLocalGid->pair_begin();
@@ -698,13 +711,13 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // inclusive
-            vdatas[i].readStarts[t][nbDims - 2] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[t][nbDims - 2] = (NCDF_SIZE) (endh - starth + 1);
+            vdatas[i].readStarts[1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[1] = (NCDF_SIZE) (endh - starth + 1);
 
             // Do a partial read, in each subrange
             // wait outside this loop
             success = NCFUNCREQG(_vara_double)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
+                &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]), &requests[idxReq++]);
             ERRORS(success, "Failed to read double data in loop");
             // We need to increment the index in double array for the
@@ -802,6 +815,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
   Range* pLocalGid = NULL;
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    // Skip edge variables, if specified by the read options
     if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
       continue;
 
@@ -823,6 +837,9 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
     std::size_t sz = vdatas[i].sz;
 
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      // Set readStart for each timestep along time dimension
+      vdatas[i].readStarts[0] = tstep_nums[t];
+
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR: {
@@ -830,7 +847,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           break;
         }
         case NC_DOUBLE: {
-          // Copy from float case
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -838,9 +854,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readStarts[t].size();
-
-          // Assume that the last dimension is for the nVertLevels
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = pLocalGid->pair_begin();
@@ -848,11 +861,11 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
-            vdatas[i].readStarts[t][nbDims - 2] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[t][nbDims - 2] = (NCDF_SIZE) (endh - starth + 1);
+            vdatas[i].readStarts[1] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[1] = (NCDF_SIZE) (endh - starth + 1);
 
             success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
+                &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]));
             ERRORS(success, "Failed to read double data in loop");
             // We need to increment the index in double array for the
