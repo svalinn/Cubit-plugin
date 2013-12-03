@@ -474,7 +474,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     RefEdge* edge = dynamic_cast<RefEdge*>(ci->first);
     Curve* curve = edge->get_curve_ptr();
     data.clean_out();
+#if  CGM_MAJOR_VERSION>12
+    edge->get_graphics( data, norm_tol, faceting_tol);
+#else
     edge->get_graphics( data, norm_tol);
+#endif
     if (CUBIT_SUCCESS != s)
       return MB_FAILURE;
       
