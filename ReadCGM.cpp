@@ -474,7 +474,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     RefEdge* edge = dynamic_cast<RefEdge*>(ci->first);
     Curve* curve = edge->get_curve_ptr();
     data.clean_out();
-    edge->get_graphics( data, faceting_tol);
+    edge->get_graphics( data, norm_tol);
     if (CUBIT_SUCCESS != s)
       return MB_FAILURE;
       
