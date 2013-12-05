@@ -326,16 +326,23 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   for (int i = entlist.size(); i--; ) {
     RefEntity* grp = entlist.get_and_step();
     name_list.clean_out();
-    RefEntityName::instance()->get_refentity_name( grp, name_list, true );
+#if  CGM_MAJOR_VERSION>13
+    RefEntityName::instance()->get_refentity_name(grp, name_list);
+#else
+    //true argument is optional, but for large multi-names situation, it should save 
+    //some cpu time
+    RefEntityName::instance()->get_refentity_name(grp, name_list,true);
+#endif
     if (name_list.size() == 0)
       continue;
+
     name_list.reset();
 #if  CGM_MAJOR_VERSION>13
     CubitString name1 = name_list.get();
 #else
     CubitString name1 = *name_list.get();
 #endif
-    
+
     EntityHandle h;
     rval = mdbImpl->create_meshset( MESHSET_SET, h );
     if (MB_SUCCESS != rval)
