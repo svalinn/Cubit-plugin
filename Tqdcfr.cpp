@@ -49,6 +49,10 @@ static bool debug = false;
 //const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
 const char Tqdcfr::geom_categories[][CATEGORY_TAG_SIZE] = 
 {"Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
+
+// will be used in a static function, so declared outside class members :(
+// major/minor cubit version that wrote this file
+int major=-1, minor=-1;
 const EntityType Tqdcfr::group_type_to_mb_type[] = {
   MBENTITYSET, MBENTITYSET, MBENTITYSET, // group, body, volume
   MBENTITYSET, MBENTITYSET, MBENTITYSET, // surface, curve, vertex
@@ -316,7 +320,7 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
   else data_version = modelMetaData.metadataEntries[md_index].mdDblValue;
   
     // get the major/minor cubit version that wrote this file
-  int major = -1, minor = -1;
+//  int major = -1, minor = -1;
   md_index = modelMetaData.get_md_entry(2, "CubitVersion");
   if (md_index >= 0 && !modelMetaData.metadataEntries[md_index].mdStringValue.empty())
     sscanf( modelMetaData.metadataEntries[md_index].mdStringValue.c_str(), "%d.%d",
@@ -1501,7 +1505,8 @@ ErrorCode Tqdcfr::read_elements(Tqdcfr::ModelEntry *model,
 
       // get the connectivity array
     unsigned int total_conn = num_elem * nodes_per_elem;
-    
+    if(major >=14)
+      FREADI(num_elem);// we need to skip num_elem in advance, it looks like
     FREADI(total_conn);
 
       // post-process connectivity into handles
@@ -1825,7 +1830,12 @@ ErrorCode Tqdcfr::GeomHeader::read_info_header(const unsigned int model_offset,
       geom_headers[i].maxDim = std::max(geom_headers[i].maxDim, 
                                         (int)CN::Dimension(elem_type));
       if (j < geom_headers[i].elemTypeCt-1) 
-        instance->FREADI(num_elem + num_elem*nodes_per_elem);
+      {
+        int num_skipped_ints = num_elem + num_elem*nodes_per_elem;
+        if (major>=14)
+          num_skipped_ints+=num_elem;
+        instance->FREADI(num_skipped_ints);
+      }
     }
     
   }
