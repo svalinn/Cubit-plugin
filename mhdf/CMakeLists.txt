@@ -18,7 +18,11 @@ set ( mhdf_LIB_SRCS
 )
 
 add_library( mhdf STATIC ${mhdf_LIB_SRCS} )
-target_link_libraries( mhdf ${HDF5_LIBRARIES} )
+target_link_libraries( mhdf  ${HDF5_LIBRARIES} )
+install(TARGETS mhdf EXPORT MOABTargets
+                     RUNTIME DESTINATION bin
+                     LIBRARY DESTINATION lib
+                     ARCHIVE DESTINATION lib )
 
 add_executable( h5minfo include/mhdf.h example/info.c )
 target_link_libraries( h5minfo mhdf )

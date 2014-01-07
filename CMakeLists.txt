@@ -1,4 +1,5 @@
-include_directories(${MOAB_SOURCE_DIR}/src/io)
+include_directories( ${MOAB_SOURCE_DIR}/src/io
+                     ${MOAB_SOURCE_DIR}/src/mhdf )
 set( MOABIO_LIBS )
 set( MOABIO_DEFINES "-DIS_BUILDING_MB" )
 set( MOABIO_INSTALL_HEADERS moab/ExoIIInterface.hpp )
@@ -44,8 +45,6 @@ if( MOAB_USE_NETCDF )
           NCHelperHOMME.hpp NCHelperHOMME.cpp
           NCHelperMPAS.hpp  NCHelperMPAS.cpp
           ReadGCRM.hpp      ReadGCRM.cpp )
-  include_directories( ${NetCDF_INCLUDE_DIRECTORIES} )
-  set ( MOABIO_DEFINES "${MOABIO_DEFINES} -DNETCDF_FILE" )
   set( MOABIO_LIBS ${MOABIO_LIBS} ${NetCDF_LIBRARIES} )
 elseif( MOAB_USE_PNETCDF )
   set( MOAB_NETCDF_SRCS
@@ -56,17 +55,14 @@ elseif( MOAB_USE_PNETCDF )
           NCHelperHOMME.hpp NCHelperHOMME.cpp
           NCHelperMPAS.hpp  NCHelperMPAS.cpp
           ReadGCRM.hpp      ReadGCRM.cpp )
-  set( MOABIO_LIBS ${MOABIO_LIBS} ${PNetCDF_LIBRARIES} )
 endif()
 
 if ( MOAB_USE_CGNS )
   set( MOAB_CGNS_SRCS ReadCGNS.hpp ReadCGNS.cpp
                       WriteCGNS.hpp WriteCGNS.cpp)
-  set( MOABIO_LIBS ${MOABIO_LIBS} ${CGNS_LIBRARIES} )
 endif()
 
 if( MOAB_USE_HDF )
-  include_directories( ${HDF5_INCLUDE_DIR} mhdf/include )
   add_subdirectory( mhdf )
   set( MOAB_HDF5_SRCS
           HDF5Common.hpp HDF5Common.cpp
@@ -75,7 +71,6 @@ if( MOAB_USE_HDF )
           ReadHDF5VarLen.hpp ReadHDF5VarLen.cpp
           WriteHDF5.cpp WriteHDF5.hpp )
   set( MOABIO_LIBS ${MOABIO_LIBS} ${HDF5_LIBRARIES} mhdf )
-  set ( MOABIO_DEFINES "${MOABIO_DEFINES} -DHDF5_FILE" )
   check_function_exists( H5Pset_fapl_mpio MOAB_HDF_HAVE_PARALLEL )
 endif()
 
@@ -95,12 +90,11 @@ if( CGM_FOUND )
   set( MOAB_CGM_SRCS ReadCGM.hpp ReadCGM.cpp )
 endif()
 
-add_library( moabio STATIC
+add_library( moabio OBJECT
                 ${MOABIO_LIB_SRCS} ${MOAB_NETCDF_SRCS}
                 ${MOAB_CGNS_SRCS}  ${MOAB_HDF5_SRCS}
                 ${MOAB_CCMIO_SRCS} ${MOAB_DAMSEL_SRCS}
                 ${MOAB_CGM_SRCS}   ${MOABIO_INSTALL_HEADERS} )
-target_link_libraries( moabio ${MOABIO_LIBS} )
 set_target_properties( moabio PROPERTIES COMPILE_FLAGS "${MOABIO_DEFINES} ${MOAB_DEFINES}")
 include(AutoconfHeader)
 moab_install_headers(${MOABIO_INSTALL_HEADERS})
