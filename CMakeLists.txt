@@ -70,7 +70,8 @@ if( MOAB_USE_HDF )
           ReadHDF5Dataset.hpp ReadHDF5Dataset.cpp
           ReadHDF5VarLen.hpp ReadHDF5VarLen.cpp
           WriteHDF5.cpp WriteHDF5.hpp )
-  set( MOABIO_LIBS ${MOABIO_LIBS} ${HDF5_LIBRARIES} mhdf )
+  set( MDHF_OBJ $<TARGET_OBJECTS:mhdf> PARENT_SCOPE )
+  set( MOABIO_LIBS ${MOABIO_LIBS} ${HDF5_LIBRARIES} )
   check_function_exists( H5Pset_fapl_mpio MOAB_HDF_HAVE_PARALLEL )
 endif()
 
@@ -90,11 +91,10 @@ if( CGM_FOUND )
   set( MOAB_CGM_SRCS ReadCGM.hpp ReadCGM.cpp )
 endif()
 
-add_library( moabio OBJECT
-                ${MOABIO_LIB_SRCS} ${MOAB_NETCDF_SRCS}
-                ${MOAB_CGNS_SRCS}  ${MOAB_HDF5_SRCS}
-                ${MOAB_CCMIO_SRCS} ${MOAB_DAMSEL_SRCS}
-                ${MOAB_CGM_SRCS}   ${MOABIO_INSTALL_HEADERS} )
+add_library( moabio OBJECT ${MOABIO_LIB_SRCS} ${MOAB_NETCDF_SRCS}
+                           ${MOAB_CGNS_SRCS}  ${MOAB_HDF5_SRCS}
+                           ${MOAB_CCMIO_SRCS} ${MOAB_DAMSEL_SRCS}
+                           ${MOAB_CGM_SRCS}   ${MOABIO_INSTALL_HEADERS} )
 set_target_properties( moabio PROPERTIES COMPILE_FLAGS "${MOABIO_DEFINES} ${MOAB_DEFINES}")
 include(AutoconfHeader)
 moab_install_headers(${MOABIO_INSTALL_HEADERS})

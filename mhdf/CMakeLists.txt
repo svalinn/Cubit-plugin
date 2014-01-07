@@ -1,5 +1,3 @@
-project(mhdf)
-
 include_directories( ${HDF5_INCLUDE_DIR} )
 
 set ( mhdf_LIB_SRCS
@@ -17,21 +15,16 @@ set ( mhdf_LIB_SRCS
         src/util.h src/util.c
 )
 
-add_library( mhdf STATIC ${mhdf_LIB_SRCS} )
-target_link_libraries( mhdf  ${HDF5_LIBRARIES} )
-install(TARGETS mhdf EXPORT MOABTargets
-                     RUNTIME DESTINATION bin
-                     LIBRARY DESTINATION lib
-                     ARCHIVE DESTINATION lib )
+add_library( mhdf OBJECT ${mhdf_LIB_SRCS} )
 
-add_executable( h5minfo include/mhdf.h example/info.c )
-target_link_libraries( h5minfo mhdf )
+add_executable( h5minfo include/mhdf.h example/info.c $<TARGET_OBJECTS:mhdf> )
+target_link_libraries( h5minfo ${HDF5_LIBRARIES} )
 install(TARGETS h5minfo RUNTIME DESTINATION bin
                         LIBRARY DESTINATION lib
                         ARCHIVE DESTINATION lib )
 
-add_executable( h5mvalidate example/validate.c )
-target_link_libraries( h5mvalidate mhdf )
+add_executable( h5mvalidate example/validate.c $<TARGET_OBJECTS:mhdf> )
 install(TARGETS h5mvalidate RUNTIME DESTINATION bin
                             LIBRARY DESTINATION lib
                             ARCHIVE DESTINATION lib )
+target_link_libraries( h5mvalidate ${HDF5_LIBRARIES} )
