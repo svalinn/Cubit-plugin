@@ -114,6 +114,48 @@ ErrorCode ReadCGM::read_tag_values( const char* /* file_name */,
   return MB_NOT_IMPLEMENTED;
 }
 
+//Sets options passed into ReadCGM::load_file
+ErrorCode ReadCGM::set_options( const FileOptions& opts,
+                                int& norm_tol,
+                                double& faceting_tol,
+                                double& len_tol,
+                                bool& act_att,
+                                bool& verbose_warnings)
+{
+
+  ErrorCode rval;
+
+  //Default Values
+  int DEFAULT_NORM = 5;
+  double DEFAULT_FACET_TOL = 0.001;
+  double DEFAULT_LEN_TOL = 0.0;
+  act_att = true;
+
+  //check for the options.
+  if (MB_SUCCESS != opts.get_int_option( "FACET_NORMAL_TOLERANCE", norm_tol ))
+    norm_tol = DEFAULT_NORM;
+
+  if (MB_SUCCESS != opts.get_real_option("FACET_DISTANCE_TOLERANCE", faceting_tol))
+    faceting_tol = DEFAULT_FACET_TOL;
+
+  if (MB_SUCCESS != opts.get_real_option("MAX_FACET_EDGE_LENGTH", len_tol))
+    len_tol = DEFAULT_LEN_TOL;
+
+
+  if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_WARNINGS"))
+    verbose_warnings = true;
+
+  const char* name = "CGM_ATTRIBS";
+  const char* value = "no";
+  rval = opts.match_option(name,value); 
+  if(MB_SUCCESS == rval) 
+    act_att = false; 
+
+
+
+  return MB_SUCCESS;
+}
+
 
 
 // copy geometry into mesh database
@@ -132,8 +174,16 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   }
 
   int norm_tol, DEFAULT_NORM = 5;
-  double faceting_tol, DEFAULT_FACET_TOL = 0.001, len_tol, DEFAULT_LEN_TOL = 0.0;
+  double faceting_tol, DEFAULT_FACET_TOL = 0.001;
+  double len_tol, DEFAULT_LEN_TOL = 0.0;
   bool act_att = true;
+  bool verbose_warnings = false;
+
+  rval = set_options( opts, norm_tol, faceting_tol, len_tol, act_att, verbose_warnings);
+  
+
+
+  /*
   //check for the options.
   if (MB_SUCCESS != opts.get_int_option( "FACET_NORMAL_TOLERANCE", norm_tol ))
     norm_tol = DEFAULT_NORM;
@@ -144,7 +194,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (MB_SUCCESS != opts.get_real_option("MAX_FACET_EDGE_LENGTH", len_tol))
     len_tol = DEFAULT_LEN_TOL;
 
-  bool verbose_warnings = false;
+ 
   if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_WARNINGS"))
     verbose_warnings = true;
 
@@ -153,6 +203,8 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = opts.match_option(name,value); 
   if(MB_SUCCESS == rval) 
     act_att = false; 
+  */
+
 
   // always tag with the faceting_tol and geometry absolute resolution
   // if file_set is defined, use that, otherwise (file_set == NULL) tag the interface

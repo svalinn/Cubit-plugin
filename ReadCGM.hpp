@@ -70,6 +70,14 @@ public:
                              std::vector<int>& tag_values_out,
                              const SubsetList* subset_list = 0 );
 
+  ErrorCode set_options( const FileOptions& opts,
+                                int& norm_tol,
+                                double& faceting_tol,
+                                double& len_tol,
+			        bool& act_att,
+                                bool& verbose_warnings);
+
+
    //! Constructor
    ReadCGM(Interface* impl = NULL);
 
