@@ -180,30 +180,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   bool verbose_warnings = false;
 
   rval = set_options( opts, norm_tol, faceting_tol, len_tol, act_att, verbose_warnings);
-  
 
-
-  /*
-  //check for the options.
-  if (MB_SUCCESS != opts.get_int_option( "FACET_NORMAL_TOLERANCE", norm_tol ))
-    norm_tol = DEFAULT_NORM;
-
-  if (MB_SUCCESS != opts.get_real_option("FACET_DISTANCE_TOLERANCE", faceting_tol))
-    faceting_tol = DEFAULT_FACET_TOL;
-
-  if (MB_SUCCESS != opts.get_real_option("MAX_FACET_EDGE_LENGTH", len_tol))
-    len_tol = DEFAULT_LEN_TOL;
-
- 
-  if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_WARNINGS"))
-    verbose_warnings = true;
-
-  const char* name = "CGM_ATTRIBS";
-  const char* value = "no";
-  rval = opts.match_option(name,value); 
-  if(MB_SUCCESS == rval) 
-    act_att = false; 
-  */
 
 
   // always tag with the faceting_tol and geometry absolute resolution
