@@ -180,8 +180,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   bool verbose_warnings = false;
 
   rval = set_options( opts, norm_tol, faceting_tol, len_tol, act_att, verbose_warnings);
-
-
+  if(MB_SUCCESS != rval) return rval;  
 
   // always tag with the faceting_tol and geometry absolute resolution
   // if file_set is defined, use that, otherwise (file_set == NULL) tag the interface
