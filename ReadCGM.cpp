@@ -253,12 +253,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if(MB_SUCCESS != rval) return rval;
 
   // CGM data
-  std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
+ 
   std::map<RefEntity*,EntityHandle>::iterator ci;
   const char geom_categories[][CATEGORY_TAG_SIZE] = 
-    {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
-  const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
-  DLIList<RefEntity*> entlist;
+      {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+ 
   DLIList<ModelEntity*> me_list;
 
   // Initialize CGM
@@ -288,8 +287,9 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   }
 
   // create entity sets for all geometric entities
-  std::map<RefEntity*,EntityHandle>* entmap_ptr;
-  entmap_ptr = entmap;
+  DLIList<RefEntity*> entlist;
+  std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
+  std::map<RefEntity*,EntityHandle>* entmap_ptr= entmap;
   rval = create_entity_sets( mdbImpl, geom_tag, id_tag, category_tag, entlist, entmap_ptr );
   if (rval!=MB_SUCCESS) return rval;
 

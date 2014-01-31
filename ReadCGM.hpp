@@ -92,7 +92,7 @@ public:
                                 Tag id_tag,
                                 Tag category_tag,
                                 DLIList<RefEntity*>& entlist,
-                                std::map<RefEntity*,EntityHandle>* entmap_ptr);
+                                std::map<RefEntity*,EntityHandle>* entmap_ptr );
 
    //! Constructor
    ReadCGM(Interface* impl = NULL);
