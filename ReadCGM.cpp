@@ -173,7 +173,7 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
      GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
     
      entlist.reset();
-     for (int i = entlist.size(); i--; ) 
+     for(int i = entlist.size(); i--;) 
        {
           RefEntity* ent = entlist.get_and_step();
           EntityHandle handle;
@@ -196,8 +196,28 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
           if (MB_SUCCESS != rval)
             return rval;
        }
-
+     return MB_SUCCESS;
   }
+
+ErrorCode ReadCGM::create_entity_sets( Interface* moab,
+                                       Tag geom_tag,
+                                       Tag id_tag,
+                                       Tag category_tag,
+                                       DLIList<RefEntity*>& entlist,
+                                       std::map<RefEntity*,EntityHandle>* entmap_ptr)
+
+{
+  ErrorCode rval;
+  
+  for(int dim=0; dim<4; dim++)
+    {
+      rval = create_entity_sets_for_dim( moab, dim, geom_tag, id_tag, category_tag, entlist, *entmap_ptr );
+      if (rval!=MB_SUCCESS) return rval;
+      entmap_ptr++;
+    }
+  
+  return MB_SUCCESS;
+}
 
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
@@ -214,9 +234,9 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     return MB_UNSUPPORTED_OPERATION;
   }
 
-  int norm_tol, DEFAULT_NORM = 5;
-  double faceting_tol, DEFAULT_FACET_TOL = 0.001;
-  double len_tol, DEFAULT_LEN_TOL = 0.0;
+  int norm_tol;
+  double faceting_tol;
+  double len_tol;
   bool act_att = true;
   bool verbose_warnings = false;
 
@@ -268,12 +288,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   }
 
   // create entity sets for all geometric entities
-  for(int dim = 0; dim < 4; ++dim) 
-    {
-      rval = create_entity_sets_for_dim( mdbImpl, dim, geom_tag, id_tag, category_tag, entlist, entmap[dim] );
-      if ( rval!=MB_SUCCESS ) return rval;
-    }
-  
+  std::map<RefEntity*,EntityHandle>* entmap_ptr;
+  entmap_ptr = entmap;
+  rval = create_entity_sets( mdbImpl, geom_tag, id_tag, category_tag, entlist, entmap_ptr );
+  if (rval!=MB_SUCCESS) return rval;
+
     // create topology for all geometric entities
   for (int dim = 1; dim < 4; ++dim) {
     for (ci = entmap[dim].begin(); ci != entmap[dim].end(); ++ci) {
