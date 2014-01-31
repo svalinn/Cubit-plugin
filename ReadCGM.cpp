@@ -156,7 +156,47 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
   return MB_SUCCESS;
 }
 
+  ErrorCode ReadCGM::create_entity_sets_for_dim( Interface* moab, 
+                                                 int dim,
+                                                 Tag geom_tag, 
+                                                 Tag id_tag, 
+                                                 Tag category_tag, 
+                                                 DLIList<RefEntity*>& entlist,
+                                                 std::map<RefEntity*,EntityHandle>& entitymap )
+  {
+     ErrorCode rval;
+     const char geom_categories[][CATEGORY_TAG_SIZE] = 
+     {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+     const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
 
+     entlist.clean_out();
+    GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
+    
+    entlist.reset();
+    for (int i = entlist.size(); i--; ) {
+      RefEntity* ent = entlist.get_and_step();
+      EntityHandle handle;
+      rval = moab->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
+      if (MB_SUCCESS != rval)
+        return rval;
+
+      entitymap[ent] = handle;
+      
+      rval = moab->tag_set_data( geom_tag, &handle, 1, &dim );
+      if (MB_SUCCESS != rval)
+        return rval;
+
+      int id = ent->id();
+      rval = moab->tag_set_data( id_tag, &handle, 1, &id );
+      if (MB_SUCCESS != rval)
+        return rval;
+
+      rval = moab->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
+      if (MB_SUCCESS != rval)
+        return rval;
+    }
+
+  }
 
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
@@ -227,33 +267,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   }
 
   // create entity sets for all geometric entities
-  for (int dim = 0; dim < 4; ++dim) {
-    entlist.clean_out();
-    GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
-    
-    entlist.reset();
-    for (int i = entlist.size(); i--; ) {
-      RefEntity* ent = entlist.get_and_step();
-      EntityHandle handle;
-      rval = mdbImpl->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
-      if (MB_SUCCESS != rval)
-        return rval;
-
-      entmap[dim][ent] = handle;
-      
-      rval = mdbImpl->tag_set_data( geom_tag, &handle, 1, &dim );
-      if (MB_SUCCESS != rval)
-        return rval;
-      int id = ent->id();
-      rval = mdbImpl->tag_set_data( id_tag, &handle, 1, &id );
-      if (MB_SUCCESS != rval)
-        return rval;
-
-      rval = mdbImpl->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
-      if (MB_SUCCESS != rval)
-        return rval;
+  for (int dim = 0; dim < 4; ++dim) 
+    {
+      rval = create_entity_sets_for_dim( mdbImpl, dim, geom_tag, id_tag, category_tag, entlist, entmap[dim] );
+      if ( rval!=MB_SUCCESS ) return rval;
     }
-  }
   
     // create topology for all geometric entities
   for (int dim = 1; dim < 4; ++dim) {

@@ -35,6 +35,7 @@
 
 #include <string>
 #include "moab/ReaderIface.hpp"
+#include "RefEntityName.hpp"
 
 namespace moab {
 
@@ -77,6 +78,13 @@ public:
 			        bool& act_att,
                                 bool& verbose_warnings);
 
+  ErrorCode create_entity_sets_for_dim( Interface* moab, 
+                                        int dim,
+                                        Tag geom_tag, 
+                                        Tag id_tag, 
+                                        Tag category_tag, 
+                                        DLIList<RefEntity*>& entlist,
+                                        std::map<RefEntity*,EntityHandle>& entitymap );
 
    //! Constructor
    ReadCGM(Interface* impl = NULL);
