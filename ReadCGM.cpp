@@ -203,17 +203,17 @@ ErrorCode ReadCGM::create_entity_sets( Interface* moab,
                                        Tag geom_tag,
                                        Tag id_tag,
                                        Tag category_tag,
-                                       DLIList<RefEntity*>& entlist,
                                        std::map<RefEntity*,EntityHandle>* entmap_ptr)
 
 {
   ErrorCode rval;
-  
+  DLIList<RefEntity*> entlist;
   for(int dim=0; dim<4; dim++)
     {
       rval = create_entity_sets_for_dim( moab, dim, geom_tag, id_tag, category_tag, entlist, *entmap_ptr );
       if (rval!=MB_SUCCESS) return rval;
       entmap_ptr++;
+      entlist.clean_out();
     }
   
   return MB_SUCCESS;
@@ -290,7 +290,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   DLIList<RefEntity*> entlist;
   std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
   std::map<RefEntity*,EntityHandle>* entmap_ptr= entmap;
-  rval = create_entity_sets( mdbImpl, geom_tag, id_tag, category_tag, entlist, entmap_ptr );
+  rval = create_entity_sets( mdbImpl, geom_tag, id_tag, category_tag, entmap_ptr );
   if (rval!=MB_SUCCESS) return rval;
 
     // create topology for all geometric entities
