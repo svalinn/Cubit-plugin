@@ -237,7 +237,7 @@ ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityH
       }
     }
   }
-  
+  return MB_SUCCESS;
 }
 
 
@@ -316,22 +316,10 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (rval!=MB_SUCCESS) return rval;
 
     // create topology for all geometric entities
-  for (int dim = 1; dim < 4; ++dim) {
-    for (ci = entmap[dim].begin(); ci != entmap[dim].end(); ++ci) {
-      entlist.clean_out();
-      ci->first->get_child_ref_entities( entlist );
-    
-      entlist.reset();
-      for (int i = entlist.size(); i--; ) {
-        RefEntity* ent = entlist.get_and_step();
-        EntityHandle h = entmap[dim-1][ent];
-        rval = mdbImpl->add_parent_child( ci->second, h );
-        if (MB_SUCCESS != rval)
-          return rval;
-      }
-    }
-  }
-  
+
+  rval = create_topology( mdbImpl, entmap );
+  if (rval!=MB_SUCCESS) return rval;
+ 
     // store CoFace senses
   for (ci = entmap[2].begin(); ci != entmap[2].end(); ++ci) {
     RefFace* face = (RefFace*)(ci->first);
