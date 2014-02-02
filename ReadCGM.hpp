@@ -92,6 +92,8 @@ public:
                                 Tag category_tag,
                                 std::map<RefEntity*,EntityHandle>* entmap_ptr );
 
+  ErrorCode create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5]);
+
    //! Constructor
    ReadCGM(Interface* impl = NULL);
 

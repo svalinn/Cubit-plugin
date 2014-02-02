@@ -216,6 +216,31 @@ ErrorCode ReadCGM::create_entity_sets( Interface* moab,
   return MB_SUCCESS;
 }
 
+ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5])
+{
+  ErrorCode rval;
+  DLIList<RefEntity*> entitylist;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+
+  for (int dim = 1; dim < 4; ++dim) {
+    for (ci = entitymap[dim].begin(); ci != entitymap[dim].end(); ++ci) {
+      entitylist.clean_out();
+      ci->first->get_child_ref_entities( entitylist );
+    
+      entitylist.reset();
+      for (int i = entitylist.size(); i--; ) {
+        RefEntity* ent = entitylist.get_and_step();
+        EntityHandle h = entitymap[dim-1][ent];
+        rval = moab->add_parent_child( ci->second, h );
+        if (MB_SUCCESS != rval)
+          return rval;
+      }
+    }
+  }
+  
+}
+
+
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
                       const EntityHandle* file_set,
