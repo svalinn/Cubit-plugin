@@ -83,7 +83,6 @@ public:
                                         Tag geom_tag, 
                                         Tag id_tag, 
                                         Tag category_tag, 
-                                        DLIList<RefEntity*>& entlist,
                                         std::map<RefEntity*,EntityHandle>& entitymap );
 
 

@@ -161,14 +161,13 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
                                                  Tag geom_tag, 
                                                  Tag id_tag, 
                                                  Tag category_tag, 
-                                                 DLIList<RefEntity*>& entlist,
                                                  std::map<RefEntity*,EntityHandle>& entitymap )
   {
      ErrorCode rval;
      const char geom_categories[][CATEGORY_TAG_SIZE] = 
               {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
      const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
-
+     DLIList<RefEntity*> entlist;
      entlist.clean_out();
      GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
     
@@ -207,13 +206,11 @@ ErrorCode ReadCGM::create_entity_sets( Interface* moab,
 
 {
   ErrorCode rval;
-  DLIList<RefEntity*> entlist;
   for(int dim=0; dim<4; dim++)
     {
-      rval = create_entity_sets_for_dim( moab, dim, geom_tag, id_tag, category_tag, entlist, *entmap_ptr );
+      rval = create_entity_sets_for_dim( moab, dim, geom_tag, id_tag, category_tag, *entmap_ptr );
       if (rval!=MB_SUCCESS) return rval;
       entmap_ptr++;
-      entlist.clean_out();
     }
   
   return MB_SUCCESS;
