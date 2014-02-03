@@ -80,16 +80,10 @@ public:
 
   ErrorCode create_entity_sets_for_dim( Interface* moab, 
                                         int dim,
-                                        Tag geom_tag, 
-                                        Tag id_tag, 
-                                        Tag category_tag, 
                                         std::map<RefEntity*,EntityHandle>& entitymap );
 
 
   ErrorCode create_entity_sets( Interface* moab,
-                                Tag geom_tag,
-                                Tag id_tag,
-                                Tag category_tag,
                                 std::map<RefEntity*,EntityHandle>* entmap_ptr );
 
   ErrorCode create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5]);
