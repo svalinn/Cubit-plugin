@@ -245,10 +245,12 @@ ErrorCode ReadCGM::store_surface_senses( Interface* moab, std::map<RefEntity*,En
     for (SenseEntity* cf = face->get_first_sense_entity_ptr();
          cf; cf = cf->next_on_bte()) {
       BasicTopologyEntity* vol = cf->get_parent_basic_topology_entity_ptr();
+      // allocate vol to the proper topology entity (forward or reverse)
       if (cf->get_sense() == CUBIT_UNKNOWN || 
           cf->get_sense() != face->get_surface_ptr()->bridge_sense()) {
+        //check that each surface has a sense for only one volume
         if (reverse) {
-          std::cout << "Surface " << face->id() << " has reverse senes " <<
+          std::cout << "Surface " << face->id() << " has reverse sense " <<
                        "with multiple volume " << reverse->id() << " and " <<
                        "volume " << vol->id() << std::endl;
           return MB_FAILURE;
@@ -257,8 +259,9 @@ ErrorCode ReadCGM::store_surface_senses( Interface* moab, std::map<RefEntity*,En
       }
       if (cf->get_sense() == CUBIT_UNKNOWN || 
           cf->get_sense() == face->get_surface_ptr()->bridge_sense()) {
+        //check that each surface has a sense for only one volume
         if (forward) {
-          std::cout << "Surface " << face->id() << " has forward senes " <<
+          std::cout << "Surface " << face->id() << " has forward sense " <<
                        "with multiple volume " << forward->id() << " and " <<
                        "volume " << vol->id() << std::endl;
           return MB_FAILURE;
