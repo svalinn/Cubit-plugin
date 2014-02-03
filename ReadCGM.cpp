@@ -315,8 +315,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = create_entity_sets( mdbImpl, geom_tag, id_tag, category_tag, entmap_ptr );
   if (rval!=MB_SUCCESS) return rval;
 
-    // create topology for all geometric entities
-
+  // create topology for all geometric entities
   rval = create_topology( mdbImpl, entmap );
   if (rval!=MB_SUCCESS) return rval;
  
