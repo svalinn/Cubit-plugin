@@ -285,6 +285,40 @@ ErrorCode ReadCGM::store_surface_senses( Interface* moab, std::map<RefEntity*,En
   return MB_SUCCESS;
 }
 
+ErrorCode ReadCGM::store_curve_senses( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+{
+
+  ErrorCode rval;
+  std::vector<EntityHandle> ents;
+  std::vector<int> senses;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+  for (ci = entitymap[1].begin(); ci != entitymap[1].end(); ++ci) {
+    RefEdge* edge = (RefEdge*)(ci->first);
+    ents.clear();
+    senses.clear();
+    for (SenseEntity* ce = edge->get_first_sense_entity_ptr();
+         ce; ce = ce->next_on_bte()) {
+      BasicTopologyEntity* fac = ce->get_parent_basic_topology_entity_ptr();
+      EntityHandle face = entitymap[2][fac];
+      if (ce->get_sense() == CUBIT_UNKNOWN || 
+          ce->get_sense() != edge->get_curve_ptr()->bridge_sense()) {
+        ents.push_back(face);
+        senses.push_back(SENSE_REVERSE);
+      }
+      if (ce->get_sense() == CUBIT_UNKNOWN || 
+          ce->get_sense() == edge->get_curve_ptr()->bridge_sense()) {
+        ents.push_back(face);
+        senses.push_back(SENSE_FORWARD);
+      }
+    }
+    
+    rval = myGeomTool->set_senses( ci->second, ents, senses);
+    if (MB_SUCCESS != rval)
+      return rval;
+  }
+  return MB_SUCCESS;
+}
+
 
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
@@ -368,33 +402,9 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = store_surface_senses( mdbImpl, entmap );
   if (rval!=MB_SUCCESS) return rval;
 
-    // store CoEdge senses
-  std::vector<EntityHandle> ents;
-  std::vector<int> senses;
-  for (ci = entmap[1].begin(); ci != entmap[1].end(); ++ci) {
-    RefEdge* edge = (RefEdge*)(ci->first);
-    ents.clear();
-    senses.clear();
-    for (SenseEntity* ce = edge->get_first_sense_entity_ptr();
-         ce; ce = ce->next_on_bte()) {
-      BasicTopologyEntity* fac = ce->get_parent_basic_topology_entity_ptr();
-      EntityHandle face = entmap[2][fac];
-      if (ce->get_sense() == CUBIT_UNKNOWN || 
-          ce->get_sense() != edge->get_curve_ptr()->bridge_sense()) {
-        ents.push_back(face);
-        senses.push_back(SENSE_REVERSE);
-      }
-      if (ce->get_sense() == CUBIT_UNKNOWN || 
-          ce->get_sense() == edge->get_curve_ptr()->bridge_sense()) {
-        ents.push_back(face);
-        senses.push_back(SENSE_FORWARD);
-      }
-    }
-    
-    rval = myGeomTool->set_senses( ci->second, ents, senses);
-    if (MB_SUCCESS != rval)
-      return rval;
-  }
+  // store CoEdge senses
+  rval = store_curve_senses( mdbImpl, entmap);
+  if (rval!=MB_SUCCESS) return rval;
 
     // create entity sets for all ref groups
   std::vector<Tag> extra_name_tags;
