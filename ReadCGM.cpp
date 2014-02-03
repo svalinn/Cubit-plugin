@@ -354,7 +354,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   // create entity sets for all geometric entities
   DLIList<RefEntity*> entlist;
   std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
-  std::map<RefEntity*,EntityHandle>* entmap_ptr= entmap;
+  std::map<RefEntity*,EntityHandle>* entmap_ptr = entmap;
   rval = create_entity_sets( mdbImpl, entmap_ptr );
   if (rval!=MB_SUCCESS) return rval;
 
