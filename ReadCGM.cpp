@@ -282,7 +282,6 @@ ErrorCode ReadCGM::store_surface_senses( Interface* moab, std::map<RefEntity*,En
     }
   }
 
-
   return MB_SUCCESS;
 }
 
@@ -415,7 +414,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
 #else
     //true argument is optional, but for large multi-names situation, it should save 
     //some cpu time
-    RefEntityName::instance()->get_refentity_name(grp, name_list,true);
+    RefEntityName::instance()->get_refentity_name(grp, name_list, true);
 #endif
     if (name_list.size() == 0)
       continue;
