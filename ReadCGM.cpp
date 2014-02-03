@@ -234,6 +234,55 @@ ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityH
   return MB_SUCCESS;
 }
 
+ErrorCode ReadCGM::store_surface_senses( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+{
+  ErrorCode rval;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+
+  for (ci = entitymap[2].begin(); ci != entitymap[2].end(); ++ci) {
+    RefFace* face = (RefFace*)(ci->first);
+    BasicTopologyEntity *forward = 0, *reverse = 0;
+    for (SenseEntity* cf = face->get_first_sense_entity_ptr();
+         cf; cf = cf->next_on_bte()) {
+      BasicTopologyEntity* vol = cf->get_parent_basic_topology_entity_ptr();
+      if (cf->get_sense() == CUBIT_UNKNOWN || 
+          cf->get_sense() != face->get_surface_ptr()->bridge_sense()) {
+        if (reverse) {
+          std::cout << "Surface " << face->id() << " has reverse senes " <<
+                       "with multiple volume " << reverse->id() << " and " <<
+                       "volume " << vol->id() << std::endl;
+          return MB_FAILURE;
+        }
+        reverse = vol;
+      }
+      if (cf->get_sense() == CUBIT_UNKNOWN || 
+          cf->get_sense() == face->get_surface_ptr()->bridge_sense()) {
+        if (forward) {
+          std::cout << "Surface " << face->id() << " has forward senes " <<
+                       "with multiple volume " << forward->id() << " and " <<
+                       "volume " << vol->id() << std::endl;
+          return MB_FAILURE;
+        }
+        forward = vol;
+      }
+    }
+    
+    if (forward) {
+      rval = myGeomTool->set_sense( ci->second, entitymap[3][forward], SENSE_FORWARD );
+      if (MB_SUCCESS != rval)
+        return rval;
+    }
+    if (reverse) {
+      rval = myGeomTool->set_sense( ci->second, entitymap[3][reverse], SENSE_REVERSE );
+      if (MB_SUCCESS != rval)
+        return rval;
+    }
+  }
+
+
+  return MB_SUCCESS;
+}
+
 
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
@@ -313,46 +362,9 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = create_topology( mdbImpl, entmap );
   if (rval!=MB_SUCCESS) return rval;
  
-    // store CoFace senses
-  for (ci = entmap[2].begin(); ci != entmap[2].end(); ++ci) {
-    RefFace* face = (RefFace*)(ci->first);
-    BasicTopologyEntity *forward = 0, *reverse = 0;
-    for (SenseEntity* cf = face->get_first_sense_entity_ptr();
-         cf; cf = cf->next_on_bte()) {
-      BasicTopologyEntity* vol = cf->get_parent_basic_topology_entity_ptr();
-      if (cf->get_sense() == CUBIT_UNKNOWN || 
-          cf->get_sense() != face->get_surface_ptr()->bridge_sense()) {
-        if (reverse) {
-          std::cout << "Surface " << face->id() << " has reverse senes " <<
-                       "with multiple volume " << reverse->id() << " and " <<
-                       "volume " << vol->id() << std::endl;
-          return MB_FAILURE;
-        }
-        reverse = vol;
-      }
-      if (cf->get_sense() == CUBIT_UNKNOWN || 
-          cf->get_sense() == face->get_surface_ptr()->bridge_sense()) {
-        if (forward) {
-          std::cout << "Surface " << face->id() << " has forward senes " <<
-                       "with multiple volume " << forward->id() << " and " <<
-                       "volume " << vol->id() << std::endl;
-          return MB_FAILURE;
-        }
-        forward = vol;
-      }
-    }
-    
-    if (forward) {
-      rval = myGeomTool->set_sense( ci->second, entmap[3][forward], SENSE_FORWARD );
-      if (MB_SUCCESS != rval)
-        return rval;
-    }
-    if (reverse) {
-      rval = myGeomTool->set_sense( ci->second, entmap[3][reverse], SENSE_REVERSE );
-      if (MB_SUCCESS != rval)
-        return rval;
-    }
-  }
+  // store CoFace senses
+  rval = store_surface_senses( mdbImpl, entmap );
+  if (rval!=MB_SUCCESS) return rval;
 
     // store CoEdge senses
   std::vector<EntityHandle> ents;
