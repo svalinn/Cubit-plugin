@@ -234,7 +234,7 @@ ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityH
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::store_surface_senses( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
 {
   ErrorCode rval;
   std::map<RefEntity*,EntityHandle>::iterator ci;
@@ -399,7 +399,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (rval!=MB_SUCCESS) return rval;
  
   // store CoFace senses
-  rval = store_surface_senses( mdbImpl, entmap );
+  rval = store_surface_senses( entmap );
   if (rval!=MB_SUCCESS) return rval;
 
   // store CoEdge senses
