@@ -90,7 +90,7 @@ public:
 
   ErrorCode store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
-  ErrorCode store_curve_senses( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] );
+  ErrorCode store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
    //! Constructor
    ReadCGM(Interface* impl = NULL);

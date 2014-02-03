@@ -285,7 +285,7 @@ ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle> entit
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::store_curve_senses( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
 {
 
   ErrorCode rval;
@@ -403,7 +403,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (rval!=MB_SUCCESS) return rval;
 
   // store CoEdge senses
-  rval = store_curve_senses( mdbImpl, entmap);
+  rval = store_curve_senses( entmap );
   if (rval!=MB_SUCCESS) return rval;
 
     // create entity sets for all ref groups
