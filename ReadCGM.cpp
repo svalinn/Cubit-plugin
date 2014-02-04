@@ -414,11 +414,15 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   DLIList<CubitString*> name_list;
 #endif
   entlist.clean_out();
+  //get all entity groups from the CGM model
   GeometryQueryTool::instance()->ref_entity_list( "group", entlist );
   entlist.reset();
+  //loop over all groups
   for (int i = entlist.size(); i--; ) {
+    //take the next group
     RefEntity* grp = entlist.get_and_step();
     name_list.clean_out();
+//get the names of all entities in this group from the solid model
 #if  CGM_MAJOR_VERSION>13
     RefEntityName::instance()->get_refentity_name(grp, name_list);
 #else
@@ -428,19 +432,19 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
 #endif
     if (name_list.size() == 0)
       continue;
-
+    //set pointer to first name of the group and set the first name to name1
     name_list.reset();
 #if  CGM_MAJOR_VERSION>13
     CubitString name1 = name_list.get();
 #else
     CubitString name1 = *name_list.get();
 #endif
-
+    // create entity handle for the group
     EntityHandle h;
     rval = mdbImpl->create_meshset( MESHSET_SET, h );
     if (MB_SUCCESS != rval)
       return rval;
-    
+    //set tag data for the group
     char namebuf[NAME_TAG_SIZE];
     memset( namebuf, '\0', NAME_TAG_SIZE );
     strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
@@ -459,7 +463,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     rval = mdbImpl->tag_set_data( category_tag, &h, 1, &geom_categories[4] );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
-      
+    //check for extra group names  
     if (name_list.size() > 1) {
       for (int j = extra_name_tags.size(); j < name_list.size(); ++j) {
         sprintf( namebuf, "EXTRA_%s%d", NAME_TAG_NAME, j );
@@ -468,7 +472,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
         assert(!rval);
         extra_name_tags.push_back(t);
       }
-        
+      //add extra group names to the group handle  
       for (int j = 0; j < name_list.size(); ++j) {
 #if  CGM_MAJOR_VERSION>13
         name1 = name_list.get_and_step();
@@ -485,7 +489,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
           return MB_FAILURE;
       }
     }
-      
+    //add the group handle   
     entmap[4][grp] = h;
   }
   
