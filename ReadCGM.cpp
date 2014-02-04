@@ -319,6 +319,101 @@ ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitym
   return MB_SUCCESS;
 }
 
+ErrorCode ReadCGM::create_group_entities( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap )
+{
+
+  ErrorCode rval;
+  const char geom_categories[][CATEGORY_TAG_SIZE] = 
+      {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+   DLIList<RefEntity*> entitylist;
+ // create entity sets for all ref groups
+  std::vector<Tag> extra_name_tags;
+#if  CGM_MAJOR_VERSION>13
+  DLIList<CubitString> name_list;
+#else
+  DLIList<CubitString*> name_list;
+#endif
+  entitylist.clean_out();
+  //get all entity groups from the CGM model
+  GeometryQueryTool::instance()->ref_entity_list( "group", entitylist );
+  entitylist.reset();
+  //loop over all groups
+  for (int i = entitylist.size(); i--; ) {
+    //take the next group
+    RefEntity* grp = entitylist.get_and_step();
+    name_list.clean_out();
+//get the names of all entities in this group from the solid model
+#if  CGM_MAJOR_VERSION>13
+    RefEntityName::instance()->get_refentity_name(grp, name_list);
+#else
+    //true argument is optional, but for large multi-names situation, it should save 
+    //some cpu time
+    RefEntityName::instance()->get_refentity_name(grp, name_list, true);
+#endif
+    if (name_list.size() == 0)
+      continue;
+    //set pointer to first name of the group and set the first name to name1
+    name_list.reset();
+#if  CGM_MAJOR_VERSION>13
+    CubitString name1 = name_list.get();
+#else
+    CubitString name1 = *name_list.get();
+#endif
+    // create entity handle for the group
+    EntityHandle h;
+    rval = moab->create_meshset( MESHSET_SET, h );
+    if (MB_SUCCESS != rval)
+      return rval;
+    //set tag data for the group
+    char namebuf[NAME_TAG_SIZE];
+    memset( namebuf, '\0', NAME_TAG_SIZE );
+    strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
+    if (name1.length() >= (unsigned)NAME_TAG_SIZE)
+      std::cout << "WARNING: group name '" << name1.c_str()
+                << "' truncated to '" << namebuf << "'" << std::endl;
+    rval = moab->tag_set_data( name_tag, &h, 1, namebuf );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+      
+    int id = grp->id();
+    rval = moab->tag_set_data( id_tag, &h, 1, &id );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+      
+    rval = moab->tag_set_data( category_tag, &h, 1, &geom_categories[4] );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+    //check for extra group names  
+    if (name_list.size() > 1) {
+      for (int j = extra_name_tags.size(); j < name_list.size(); ++j) {
+        sprintf( namebuf, "EXTRA_%s%d", NAME_TAG_NAME, j );
+        Tag t;
+        rval = moab->tag_get_handle( namebuf, NAME_TAG_SIZE, MB_TYPE_OPAQUE, t, MB_TAG_SPARSE|MB_TAG_CREAT );
+        assert(!rval);
+        extra_name_tags.push_back(t);
+      }
+      //add extra group names to the group handle  
+      for (int j = 0; j < name_list.size(); ++j) {
+#if  CGM_MAJOR_VERSION>13
+        name1 = name_list.get_and_step();
+#else
+        name1 = *name_list.get_and_step();
+#endif
+        memset( namebuf, '\0', NAME_TAG_SIZE );
+        strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
+        if (name1.length() >= (unsigned)NAME_TAG_SIZE)
+          std::cout << "WARNING: group name '" << name1.c_str()
+                    << "' truncated to '" << namebuf << "'" << std::endl;
+        rval = moab->tag_set_data( extra_name_tags[j], &h, 1, namebuf );
+        if (MB_SUCCESS != rval)
+          return MB_FAILURE;
+      }
+    }
+    //add the group handle   
+    entitymap[4][grp] = h;
+  }
+  return MB_SUCCESS;
+}
 
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,

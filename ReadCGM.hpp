@@ -92,6 +92,9 @@ public:
 
   ErrorCode store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
+  ErrorCode create_group_entities( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
+
+
    //! Constructor
    ReadCGM(Interface* impl = NULL);
 
