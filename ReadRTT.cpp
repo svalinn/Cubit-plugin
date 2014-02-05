@@ -86,11 +86,8 @@ ErrorCode ReadRTT::load_file(const char                      *filename,
     return MB_UNSUPPORTED_OPERATION;
   }
 
-  nodeIdMap.clear();
-  elemIdMap.clear();
-
   return MB_SUCCESS;
 }
-
+ 
 
 } // namespace moab
