@@ -63,9 +63,18 @@ public:
   // destructor
   virtual ~ReadRTT();
 
+  ErrorCode read_tag_values( const char* file_name,
+                             const char* tag_name,
+                             const FileOptions& opts,
+                             std::vector<int>& tag_values_out,
+                             const SubsetList* subset_list = 0 );
+
 protected:
   
 private:  
+  // read mesh interface
+  ReadUtilIface* readMeshIface;
+  // Moab Interface
   Interface* MBI;
   
 };
