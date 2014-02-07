@@ -432,7 +432,6 @@ ErrorCode ReadCGM::store_group_content( Interface* moab, std::map<RefEntity*,Ent
       int dim = ent->dimension();
 
       if (dim < 0) {
-
 	Body* body;
         if (entitymap[4].find(ent) != entitymap[4].end()){
           // child is another group; examine its contents
@@ -471,9 +470,9 @@ ErrorCode ReadCGM::store_group_content( Interface* moab, std::map<RefEntity*,Ent
         return MB_FAILURE;
     }
   }
-  
-
+  return MB_SUCCESS;
 }
+
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
                       const EntityHandle* file_set,
@@ -564,65 +563,15 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = create_group_entities( mdbImpl, entmap[4] );
   if(rval!=MB_SUCCESS) return rval;
 
-    // store contents for each group
-  entlist.reset();
-  for (ci = entmap[4].begin(); ci != entmap[4].end(); ++ci) {
-    RefGroup* grp = (RefGroup*)(ci->first);
-    entlist.clean_out();
-    grp->get_child_ref_entities( entlist );
-    
-    Range entities;
-    while (entlist.size()) {
-      RefEntity* ent = entlist.pop();
-      int dim = ent->dimension();
-
-      if (dim < 0) {
-
-	Body* body;
-        if (entmap[4].find(ent) != entmap[4].end()){
-          // child is another group; examine its contents
-	  entities.insert( entmap[4][ent] );
-	}
-	else if( (body = dynamic_cast<Body*>(ent)) != NULL ){
-	  // Child is a CGM Body, which presumably comprises some volumes--
-	  // extract volumes as if they belonged to group.
-	  DLIList<RefVolume*> vols;
-	  body->ref_volumes( vols );
-	  for( int vi = vols.size(); vi--; ){
-	    RefVolume* vol = vols.get_and_step();
-	    if( entmap[3].find(vol) != entmap[3].end() ){
-	      entities.insert( entmap[3][vol] );
-	    }
-	    else{
-	      std::cerr << "Warning: CGM Body has orphan RefVolume" << std::endl;
-	    }
-	  }	  
-	}
-	else{
-	  // otherwise, warn user.
-	  std::cerr << "Warning: A dim<0 entity is being ignored by ReadCGM." << std::endl;
-	}
-
-      }
-      else if (dim < 4) {
-        if (entmap[dim].find(ent) != entmap[dim].end())
-          entities.insert( entmap[dim][ent] );
-      }
-    }
-    
-    if (!entities.empty()) {
-      rval = mdbImpl->add_entities( ci->second, entities );
-      if (MB_SUCCESS != rval)
-        return MB_FAILURE;
-    }
-  }
-  
-    // done with volumes and groups
+  rval = store_group_content( mdbImpl, entmap );
+  if(rval!=MB_SUCCESS) return rval;
+ 
+  // done with volumes and groups
   entmap[3].clear();
   entmap[4].clear();
   
-    // create geometry for all vertices and replace 
-    // vertex set handles with vertex handles in map
+  // create geometry for all vertices and replace 
+  // vertex set handles with vertex handles in map
   for (ci = entmap[0].begin(); ci != entmap[0].end(); ++ci) {
     CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
     double coords[3] = {pos.x(), pos.y(), pos.z()};
