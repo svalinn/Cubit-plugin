@@ -86,14 +86,15 @@ public:
   ErrorCode create_entity_sets( Interface* moab,
                                 std::map<RefEntity*,EntityHandle>* entmap_ptr );
 
-  ErrorCode create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] );
+  ErrorCode create_topology( Interface* moab, 
+                             std::map<RefEntity*,EntityHandle> entitymap[5] );
 
   ErrorCode store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
   ErrorCode store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
-  ErrorCode create_group_entities( Interface* moab, std::map<RefEntity*,EntityHandle>& entitymap );
-
+  ErrorCode create_group_entities( Interface* moab, 
+                                   std::map<RefEntity*,EntityHandle>& entitymap );
 
    //! Constructor
    ReadCGM(Interface* impl = NULL);
