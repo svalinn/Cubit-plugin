@@ -96,6 +96,8 @@ public:
   ErrorCode create_group_entities( Interface* moab, 
                                    std::map<RefEntity*,EntityHandle>& entitymap );
 
+  ErrorCode store_group_content( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
+
    //! Constructor
    ReadCGM(Interface* impl = NULL);
 

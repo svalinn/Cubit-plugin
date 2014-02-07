@@ -413,6 +413,67 @@ ErrorCode ReadCGM::create_group_entities( Interface* moab, std::map<RefEntity*,E
   return MB_SUCCESS;
 }
 
+ErrorCode ReadCGM::store_group_content( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap ) 
+{
+
+  ErrorCode rval;
+  DLIList<RefEntity*> entlist;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+    // store contents for each group
+  entlist.reset();
+  for (ci = entitymap[4].begin(); ci != entitymap[4].end(); ++ci) {
+    RefGroup* grp = (RefGroup*)(ci->first);
+    entlist.clean_out();
+    grp->get_child_ref_entities( entlist );
+    
+    Range entities;
+    while (entlist.size()) {
+      RefEntity* ent = entlist.pop();
+      int dim = ent->dimension();
+
+      if (dim < 0) {
+
+	Body* body;
+        if (entitymap[4].find(ent) != entitymap[4].end()){
+          // child is another group; examine its contents
+	  entities.insert( entitymap[4][ent] );
+	}
+	else if( (body = dynamic_cast<Body*>(ent)) != NULL ){
+	  // Child is a CGM Body, which presumably comprises some volumes--
+	  // extract volumes as if they belonged to group.
+	  DLIList<RefVolume*> vols;
+	  body->ref_volumes( vols );
+	  for( int vi = vols.size(); vi--; ){
+	    RefVolume* vol = vols.get_and_step();
+	    if( entitymap[3].find(vol) != entitymap[3].end() ){
+	      entities.insert( entitymap[3][vol] );
+	    }
+	    else{
+	      std::cerr << "Warning: CGM Body has orphan RefVolume" << std::endl;
+	    }
+	  }	  
+	}
+	else{
+	  // otherwise, warn user.
+	  std::cerr << "Warning: A dim<0 entity is being ignored by ReadCGM." << std::endl;
+	}
+
+      }
+      else if (dim < 4) {
+        if (entitymap[dim].find(ent) != entitymap[dim].end())
+          entities.insert( entitymap[dim][ent] );
+      }
+    }
+    
+    if (!entities.empty()) {
+      rval = mdbImpl->add_entities( ci->second, entities );
+      if (MB_SUCCESS != rval)
+        return MB_FAILURE;
+    }
+  }
+  
+
+}
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
                       const EntityHandle* file_set,
