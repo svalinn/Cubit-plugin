@@ -566,13 +566,8 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = create_topology( mdbImpl, entmap );
   if(rval!=MB_SUCCESS) return rval;
  
-  // store CoFace senses
-  rval = store_surface_senses( entmap );
-  if (rval!=MB_SUCCESS) return rval;
-
-  // store CoEdge senses
-  rval = store_curve_senses( entmap );
-  if (rval!=MB_SUCCESS) return rval;
+  rval = store_geom_senses( entmap );
+  if(rval!=MB_SUCCESS) return rval;
 
   // create eneity setes for all ref groups
   rval = create_group_entities( mdbImpl, entmap[4] );
