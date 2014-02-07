@@ -195,9 +195,7 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
      return MB_SUCCESS;
   }
 
-ErrorCode ReadCGM::create_entity_sets( Interface* moab,
-                                       std::map<RefEntity*,EntityHandle>* entmap_ptr)
-
+ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*,EntityHandle>* entmap_ptr )
 {
   ErrorCode rval;
   for(int dim=0; dim<4; dim++)
@@ -210,7 +208,7 @@ ErrorCode ReadCGM::create_entity_sets( Interface* moab,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5])
+ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
 {
   ErrorCode rval;
   DLIList<RefEntity*> entitylist;
