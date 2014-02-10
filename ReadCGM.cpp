@@ -586,12 +586,8 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = store_geom_senses( entmap );
   if(rval!=MB_SUCCESS) return rval;
 
-  // create eneity sets for all ref groups
-  rval = create_group_entities( mdbImpl, entmap[4] );
-  if(rval!=MB_SUCCESS) return rval;
-  
-  // store group names and entities in the mesh
-  rval = store_group_content( mdbImpl, entmap );
+  // get group information and store it in the mesh 
+  rval = store_groups( mdbImpl, entmap );
   if(rval!=MB_SUCCESS) return rval;
  
   // done with volumes and groups
