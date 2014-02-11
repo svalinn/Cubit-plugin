@@ -48,6 +48,9 @@ NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions&
   else {
     if (NCHelperMPAS::can_read_file(readNC))
       return new (std::nothrow) NCHelperMPAS(readNC, fileId, opts, fileSet);
+    // For a HOMME connectivity file, there might be no CF convention
+    else if (NCHelperHOMME::can_read_file(readNC, fileId))
+      return new (std::nothrow) NCHelperHOMME(readNC, fileId, opts, fileSet);
   }
 
   // Unknown NetCDF grid (will fill this in later for POP, CICE and CLM)

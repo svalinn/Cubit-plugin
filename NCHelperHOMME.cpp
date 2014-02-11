@@ -15,7 +15,7 @@ namespace moab {
 
 NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 : UcdNCHelper(readNC, fileId, opts, fileSet),
-_spectralOrder(-1), connectId(-1)
+_spectralOrder(-1), connectId(-1), isConnFile(false)
 {
   // Calculate spectral order
   std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("np");
@@ -25,6 +25,11 @@ _spectralOrder(-1), connectId(-1)
       readNC->readMeshIface->report_error("%s", "Failed to read np global attribute int data.");
     else
       _spectralOrder--; // Spectral order is one less than np
+  }
+  else {
+    // As can_read_file() returns true and there is no global attribute "np", it should be a connectivity file
+    isConnFile = true;
+    _spectralOrder = 3; // Assume np is 4
   }
 }
 
@@ -52,6 +57,15 @@ bool NCHelperHOMME::can_read_file(ReadNC* readNC, int fileId)
 
     return true;
   }
+  else {
+    // If dimension names "ncol" AND "ncorners" AND "ncells" exist, then it should be the HOMME connectivity file
+    // In this case, the mesh can still be created
+    std::vector<std::string>& dimNames = readNC->dimNames;
+    if ((std::find(dimNames.begin(), dimNames.end(), std::string("ncol")) != dimNames.end()) &&
+        (std::find(dimNames.begin(), dimNames.end(), std::string("ncorners")) != dimNames.end()) &&
+        (std::find(dimNames.begin(), dimNames.end(), std::string("ncells")) != dimNames.end()))
+      return true;
+  }
 
   return false;
 }
@@ -67,15 +81,20 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
   std::vector<std::string>::iterator vit;
 
   // Look for time dimension
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end())
-    idx = vit - dimNames.begin();
-  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
-    idx = vit - dimNames.begin();
-  else {
-    ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
+  if (isConnFile) {
+    // Connectivity file might not have time dimension
   }
-  tDim = idx;
-  nTimeSteps = dimLens[idx];
+  else {
+    if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end())
+      idx = vit - dimNames.begin();
+    else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
+      idx = vit - dimNames.begin();
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
+    }
+    tDim = idx;
+    nTimeSteps = dimLens[idx];
+  }
 
   // Get number of vertices (labeled as number of columns)
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "ncol")) != dimNames.end())
@@ -90,15 +109,20 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
   nCells = nVertices - 2;
 
   // Get number of levels
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
-    idx = vit - dimNames.begin();
-  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
-    idx = vit - dimNames.begin();
-  else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
+  if (isConnFile) {
+    // Connectivity file might not have level dimension
   }
-  levDim = idx;
-  nLevels = dimLens[idx];
+  else {
+    if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
+      idx = vit - dimNames.begin();
+    else if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
+      idx = vit - dimNames.begin();
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
+    }
+    levDim = idx;
+    nLevels = dimLens[idx];
+  }
 
   // Store lon values in xVertVals
   std::map<std::string, ReadNC::VarData>::iterator vmit;
@@ -120,35 +144,45 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
   }
 
   // Store lev values in levVals
-  if ((vmit = varInfo.find("lev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-    rval = read_coordinate("lev", 0, nLevels - 1, levVals);
-    ERRORR(rval, "Trouble reading 'lev' variable.");
-
-    // Decide whether down is positive
-    char posval[10];
-    int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
-    if (0 == success && !strcmp(posval, "down")) {
-      for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
-        (*dvit) *= -1.0;
-    }
+  if (isConnFile) {
+    // Connectivity file might not have level variable
   }
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lev' variable.");
+    if ((vmit = varInfo.find("lev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("lev", 0, nLevels - 1, levVals);
+      ERRORR(rval, "Trouble reading 'lev' variable.");
+
+      // Decide whether down is positive
+      char posval[10];
+      int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
+      if (0 == success && !strcmp(posval, "down")) {
+        for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
+          (*dvit) *= -1.0;
+      }
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find 'lev' variable.");
+    }
   }
 
   // Store time coordinate values in tVals
-  if ((vmit = varInfo.find("time")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-    rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);
-    ERRORR(rval, "Trouble reading 'time' variable.");
-  }
-  else if ((vmit = varInfo.find("t")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-    rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);
-    ERRORR(rval, "Trouble reading 't' variable.");
+  if (isConnFile) {
+    // Connectivity file might not have time variable
   }
   else {
-    // If expected time variable is not available, set dummy time coordinate values to tVals
-    for (int t = 0; t < nTimeSteps; t++)
-      tVals.push_back((double)t);
+    if ((vmit = varInfo.find("time")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);
+      ERRORR(rval, "Trouble reading 'time' variable.");
+    }
+    else if ((vmit = varInfo.find("t")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);
+      ERRORR(rval, "Trouble reading 't' variable.");
+    }
+    else {
+      // If expected time variable is not available, set dummy time coordinate values to tVals
+      for (int t = 0; t < nTimeSteps; t++)
+        tVals.push_back((double)t);
+    }
   }
 
   // For each variable, determine the entity location type and number of levels
@@ -225,23 +259,6 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   bool& spectralMesh = _readNC->spectralMesh;
   int& gatherSetRank = _readNC->gatherSetRank;
 
-  // Need to get/read connectivity data before creating elements
-  std::string conn_fname;
-
-  // Try to open the connectivity file through CONN option, if used
-  ErrorCode rval = _opts.get_str_option("CONN", conn_fname);
-  if (MB_SUCCESS != rval) {
-    // Default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
-    conn_fname = std::string(fileName);
-    size_t idx = conn_fname.find_last_of("/");
-    if (idx != std::string::npos)
-      conn_fname = conn_fname.substr(0, idx).append("/HommeMapping.nc");
-    else
-      conn_fname = "HommeMapping.nc";
-  }
-
-  int success = 0;
-
   int rank = 0;
   int procs = 1;
 #ifdef USE_MPI
@@ -253,19 +270,42 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   }
 #endif
 
+  ErrorCode rval;
+  int success = 0;
+
+  // Need to get/read connectivity data before creating elements
+  std::string conn_fname;
+
+  if (isConnFile) {
+    // Connectivity file has already been read
+    connectId = _readNC->fileId;
+  }
+  else {
+    // Try to open the connectivity file through CONN option, if used
+    rval = _opts.get_str_option("CONN", conn_fname);
+    if (MB_SUCCESS != rval) {
+      // Default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
+      conn_fname = std::string(fileName);
+      size_t idx = conn_fname.find_last_of("/");
+      if (idx != std::string::npos)
+        conn_fname = conn_fname.substr(0, idx).append("/HommeMapping.nc");
+      else
+        conn_fname = "HommeMapping.nc";
+    }
 #ifdef PNETCDF_FILE
 #ifdef USE_MPI
-  if (isParallel) {
-    ParallelComm*& myPcomm = _readNC->myPcomm;
-    success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
-  }
-  else
-    success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+    if (isParallel) {
+      ParallelComm*& myPcomm = _readNC->myPcomm;
+      success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+    }
+    else
+      success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
 #endif
 #else
-  success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
+    success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
 #endif
-  ERRORS(success, "Failed on open.");
+    ERRORS(success, "Failed on open.");
+  }
 
   std::vector<std::string> conn_names;
   std::vector<int> conn_vals;
@@ -286,7 +326,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     ERRORR(MB_FAILURE, "Failed to get number of quads.");
   }
   int num_quads = conn_vals[idx];
-  if (num_quads != nCells) {
+  if (!isConnFile && num_quads != nCells) {
     dbgOut.tprintf(1, "Warning: number of quads from %s and cells from %s are inconsistent; num_quads = %d, nCells = %d.\n",
         conn_fname.c_str(), fileName.c_str(), num_quads, nCells);
   }
@@ -300,8 +340,13 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   std::vector<int> tmp_conn(4 * num_quads), tmp_conn2(4 * num_quads);
   success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_starts, tmp_counts, &tmp_conn2[0]);
   ERRORS(success, "Failed to get temporary connectivity.");
-  success = NCFUNC(close)(connectId);
-  ERRORS(success, "Failed on close.");
+  if (isConnFile) {
+    // This data/connectivity file will be closed later in ReadNC::load_file()
+  }
+  else {
+    success = NCFUNC(close)(connectId);
+    ERRORS(success, "Failed on close.");
+  }
   // Permute the connectivity
   for (int i = 0; i < num_quads; i++) {
     tmp_conn[4 * i] = tmp_conn2[i];
@@ -383,12 +428,12 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 
   // Convert lon/lat/rad to x/y/z
   const double pideg = acos(-1.0) / 180.0;
+  double rad = (isConnFile) ? 8000.0 : 8000.0 + levVals[0];
   for (i = 0; i < nLocalVertices; i++) {
     double cosphi = cos(pideg * yptr[i]);
     double zmult = sin(pideg * yptr[i]);
     double xmult = cosphi * cos(xptr[i] * pideg);
     double ymult = cosphi * sin(xptr[i] * pideg);
-    double rad = 8000.0 + levVals[0];
     xptr[i] = rad * xmult;
     yptr[i] = rad * ymult;
     zptr[i] = rad * zmult;
@@ -463,7 +508,6 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
       double zmult = sin(pideg * yVertVals[i]);
       double xmult = cosphi * cos(xVertVals[i] * pideg);
       double ymult = cosphi * sin(xVertVals[i] * pideg);
-      double rad = 8000.0 + levVals[0];
       xptr[i] = rad * xmult;
       yptr[i] = rad * ymult;
       zptr[i] = rad * zmult;

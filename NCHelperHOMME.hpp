@@ -46,6 +46,7 @@ private:
 private:
   int _spectralOrder; // Read from variable 'np'
   int connectId; // For connectivity file
+  bool isConnFile; // Is the data file being read actually a connectivity file in disguise?
 };
 
 } // namespace moab
