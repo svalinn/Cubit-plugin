@@ -301,7 +301,6 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   int& gatherSetRank = _readNC->gatherSetRank;
   bool& noMixedElements = _readNC->noMixedElements;
   bool& noEdges = _readNC->noEdges;
-  DebugOutput& dbgOut = _readNC->dbgOut;
 
   int rank = 0;
   int procs = 1;
@@ -396,8 +395,10 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     MPI_Allreduce(&local_max_edges_per_cell, &global_max_edges_per_cell, 1, MPI_INTEGER, MPI_MAX, myPcomm->proc_config().proc_comm());
     assert(local_max_edges_per_cell <= global_max_edges_per_cell);
     maxEdgesPerCell = global_max_edges_per_cell;
-    if (0 == rank)
+    if (0 == rank) {
+      DebugOutput& dbgOut = _readNC->dbgOut;
       dbgOut.tprintf(1, "  global_max_edges_per_cell = %d\n", global_max_edges_per_cell);
+    }
   }
 #endif
 
@@ -416,7 +417,8 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     EntityHandle starth = pair_iter->first;
     EntityHandle endh = pair_iter->second;
     NCDF_SIZE read_starts[2] = {static_cast<NCDF_SIZE>(starth - 1), 0};
-    NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), maxEdgesPerCell};
+    NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), 
+                                static_cast<NCDF_SIZE>(maxEdgesPerCell)};
 
     // Do a partial read in each subrange
 #ifdef PNETCDF_FILE
