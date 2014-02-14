@@ -41,6 +41,27 @@
 #include "FileTokenizer.hpp"
 #include "moab/RangeMap.hpp"
 
+// structure to hold node data
+struct node {
+  int id;
+  double x,y,z;
+};
+
+// strucutre to hold facet data
+struct facet {
+  int id;
+  int connectivity[3];
+  int from;
+  int to;
+};
+
+// strucutre to hold tet data
+struct tet {
+  int id;
+  int connectivity[4];
+  int material_number;
+};
+
 namespace moab {
 
 class ReadUtilIface;
@@ -76,7 +97,21 @@ private:
   ReadUtilIface* readMeshIface;
   // Moab Interface
   Interface* MBI;
-  
+
+  ErrorCode build_moab(std::vector<node> node_data,
+		       std::vector<facet> facet_data,
+		       std::vector<tet> tet_data );
+
+
+  ErrorCode read_nodes(const char* filename, std::vector<node> &node_data);
+  ErrorCode read_facets(const char* filename, std::vector<facet> &facet_data);
+  ErrorCode read_tets(const char* filename, std::vector<tet> &tet_data);
+
+  node get_node_data(std::string nodedata);
+  facet get_facet_data(std::string facetdata);
+  tet get_tet_data(std::string tetdata);
+
+  std::vector<std::string> split_string(std::string string_to_split);
 };
 
 } // namespace moab
