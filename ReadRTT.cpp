@@ -147,6 +147,12 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
   // add tris to set
   rval = MBI->add_entities(file_set,mb_tris);
 
+  // create material number tag
+  Tag mat_num_tag;
+  //  int zero = 0;
+  rval = MBI->tag_get_handle( "MATERIAL_NUMBER", 1, MB_TYPE_INTEGER,
+			      mat_num_tag, MB_TAG_SPARSE|MB_TAG_CREAT); 
+
   // create the tets
   EntityHandle tetra;
   std::vector<tet>::iterator it_t;
@@ -154,10 +160,13 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
   for ( it_t = tet_data.begin() ; it_t != tet_data.end() ; ++it_t) {
     tet tmp = *it_t;
     EntityHandle tet_nodes[4]={mb_coords[tmp.connectivity[0]-1],
-			       mb_coords[tmp.connectivity[3]-1],
+			       mb_coords[tmp.connectivity[1]-1],
 			       mb_coords[tmp.connectivity[2]-1],
-			       mb_coords[tmp.connectivity[1]-1]};
+			       mb_coords[tmp.connectivity[3]-1]};
     rval = MBI->create_element(MBTET,tet_nodes,4,tetra);
+    int mat_number = tmp.material_number;
+    rval = MBI->tag_set_data(mat_num_tag,&tetra,1,&mat_number);
+    // set the tag data
     mb_tets.insert(tetra);
   }
   // add tris to set
@@ -333,11 +342,11 @@ tet ReadRTT::get_tet_data(std::string tetdata) {
   */
 
   new_tet.id = std::atoi(tokens[1].c_str());
-  new_tet.connectivity[0] = std::atoi(tokens[2].c_str());
-  new_tet.connectivity[1] = std::atoi(tokens[3].c_str());
-  new_tet.connectivity[2] = std::atoi(tokens[4].c_str());
-  new_tet.connectivity[3] = std::atoi(tokens[5].c_str());
-  new_tet.material_number = std::atoi(tokens[6].c_str());
+  new_tet.connectivity[0] = std::atoi(tokens[3].c_str());
+  new_tet.connectivity[1] = std::atoi(tokens[4].c_str());
+  new_tet.connectivity[2] = std::atoi(tokens[5].c_str());
+  new_tet.connectivity[3] = std::atoi(tokens[6].c_str());
+  new_tet.material_number = std::atoi(tokens[7].c_str());
   
   //  new_node.id=std::atoi(tokens[1].c_str());
   //  new_node.x=std::atof(tokens[2].c_str());
