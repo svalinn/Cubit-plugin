@@ -20,7 +20,7 @@
 //                                             
 // Creator       : Andrew Davis
 //                                   
-// Date          : 08/2009                
+// Date          : 02/2014                
 //                                                  
 //-------------------------------------------------------------------------     
                                     
@@ -40,6 +40,25 @@
 #include "moab/ReaderIface.hpp"
 #include "FileTokenizer.hpp"
 #include "moab/RangeMap.hpp"
+
+// structure to hold sense & vol data
+struct boundary {
+  int sense;
+  std::string name;
+};
+
+// structure to hold side data
+struct side {
+  int id;
+  int senses[2];
+  std::string names[2];
+};
+
+// structure to hold cell data
+struct cell {
+  int id;
+  std::string name;
+};
 
 // structure to hold node data
 struct node {
@@ -98,20 +117,31 @@ private:
   // Moab Interface
   Interface* MBI;
 
+  ErrorCode setup_basic_tags();
+
+  ErrorCode generate_topology(std::vector<side> side_data,
+			      std::vector<cell> cell_data);
+
   ErrorCode build_moab(std::vector<node> node_data,
 		       std::vector<facet> facet_data,
 		       std::vector<tet> tet_data );
 
-
+  ErrorCode read_sides(const char* filename, std::vector<side> &side_data);
+  ErrorCode read_cells(const char* filename, std::vector<cell> &cell_data);
   ErrorCode read_nodes(const char* filename, std::vector<node> &node_data);
   ErrorCode read_facets(const char* filename, std::vector<facet> &facet_data);
   ErrorCode read_tets(const char* filename, std::vector<tet> &tet_data);
 
+  cell get_cell_data(std::string celldata);
+  side get_side_data(std::string sidedata);
   node get_node_data(std::string nodedata);
   facet get_facet_data(std::string facetdata);
   tet get_tet_data(std::string tetdata);
 
-  std::vector<std::string> split_string(std::string string_to_split);
+  std::vector<std::string> split_string(std::string string_to_split, char split_char);
+  boundary split_name(std::string atilla_cellname);
+
+  Tag geom_tag,id_tag,name_tag,category_tag,faceting_tol_tag;
 };
 
 } // namespace moab
