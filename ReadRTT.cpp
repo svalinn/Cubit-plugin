@@ -31,6 +31,7 @@
 #include <fstream>
 #include <vector>
 #include <cstdlib>
+#include <map>
 #include <assert.h>
 #include <cmath>
 
@@ -45,16 +46,35 @@
 
 namespace moab {
 
-ReaderIface* ReadRTT::factory( Interface* iface ) { 
+  ReaderIface* ReadRTT::factory( Interface* iface ){
   return new ReadRTT( iface );
 }
 
 // constructor
 ReadRTT::ReadRTT(Interface* impl)
-  : MBI(impl) {
+  : MBI(impl),geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0) {
     assert(NULL != impl);
     MBI->query_interface(readMeshIface);
     assert(NULL != readMeshIface);
+    
+    // this section copied from ReadCGM initalisation
+    int negone = -1, zero = 0;
+    ErrorCode rval;
+    rval = MBI->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
+				geom_tag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
+    assert(!rval);
+    rval = MBI->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+				id_tag, MB_TAG_DENSE|MB_TAG_CREAT, &zero);
+    assert(!rval);
+    rval = MBI->tag_get_handle( NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
+				name_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
+    assert(!rval);
+    rval = MBI->tag_get_handle( CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, MB_TYPE_OPAQUE,
+				category_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
+    assert(!rval);
+    rval = MBI->tag_get_handle("FACETING_TOL", 1, MB_TYPE_DOUBLE, faceting_tol_tag,
+			     MB_TAG_SPARSE|MB_TAG_CREAT, &zero );
+    assert(!rval);
 }
 
 // destructor
@@ -80,16 +100,31 @@ ErrorCode ReadRTT::load_file(const char                      *filename,
                              const FileOptions             &,
                              const ReaderIface::SubsetList *subset_list,
                              const Tag*                     file_id_tag) {
-  std::cout << "Reading an RTT file" << std::endl;
+  ErrorCode rval;
+
   // at this time there is no support for reading a subset of the file
   if (subset_list) {
     readMeshIface->report_error( "Reading subset of files not supported for RTT." );
     return MB_UNSUPPORTED_OPERATION;
   }
   std::cout << "Reading an RTT file" << std::endl;
+  
+  // read the side_flag data
+  std::vector<side> side_data;
+  std::cout << "Reading the side data..." << std::endl;
+  rval = ReadRTT::read_sides(filename,side_data);
+  std::cout << side_data.size() << std::endl;
+
+  // read the cell data
+  std::vector<cell> cell_data;
+  std::cout << "Reading the cell data..." << std::endl;
+  rval = ReadRTT::read_cells(filename,cell_data);
+  std::cout << cell_data.size() << std::endl;
+
+  // read the node data
   std::vector<node> node_data;
   std::cout << "Reading node data..." << std::endl;
-  ErrorCode rval = ReadRTT::read_nodes(filename,node_data);
+  rval = ReadRTT::read_nodes(filename,node_data);
   std::cout << node_data.size() << std::endl;
 
   std::cout << "Reading facet data..." << std::endl;
@@ -102,10 +137,101 @@ ErrorCode ReadRTT::load_file(const char                      *filename,
   rval = ReadRTT::read_tets(filename,tet_data);
   std::cout << tet_data.size() << std::endl;
 
+  std::cout << "Generate topology ..." << std::endl;
+  rval = ReadRTT::generate_topology(side_data,cell_data);
+  
+  std::cout << "Generate MOAB Data ..." << std::endl;
   rval = ReadRTT::build_moab(node_data,facet_data,tet_data);
 
   return MB_SUCCESS;
 }
+
+/*
+ * builds the topology of the problem
+ */
+ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
+				     std::vector<cell> cell_data){
+  std::vector<EntityHandle> entmap[4]; // one for each dimension
+  ErrorCode rval;
+
+  const char geom_categories[][CATEGORY_TAG_SIZE] =
+    {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+  const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
+
+  //  rval = setup_basic_tags();
+
+  // loop over surfaces
+  int dim = 2;
+  for ( unsigned int i = 0 ; i != side_data.size() ; i++ ) {
+    EntityHandle handle;
+    rval = MBI->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
+    if (rval != MB_SUCCESS )
+      return rval;
+    // collect the entity handles
+    entmap[dim].push_back(handle);
+
+    rval = MBI->tag_set_data( geom_tag, &handle, 1, &dim );
+    if (MB_SUCCESS != rval)     
+      return rval;              
+    int id = side_data[i].id;         
+    rval = MBI->tag_set_data( id_tag, &handle, 1, &id );
+    if (MB_SUCCESS != rval)     
+      return rval;              
+    rval = MBI->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
+    if (MB_SUCCESS != rval)
+      return rval;
+  }
+
+  // loop over volumes
+  dim = 3;
+  for ( unsigned int i = 0 ; i != cell_data.size() ; i++ ) {
+    EntityHandle handle;
+    rval = MBI->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
+    if (rval != MB_SUCCESS )
+      return rval;
+    // collect the entity handles
+    entmap[dim].push_back(handle);
+
+    rval = MBI->tag_set_data( geom_tag, &handle, 1, &dim );
+    if (MB_SUCCESS != rval)     
+      return rval;              
+    int id = side_data[i].id;         
+    rval = MBI->tag_set_data( id_tag, &handle, 1, &id );
+    if (MB_SUCCESS != rval)     
+      return rval;              
+    rval = MBI->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
+    if (MB_SUCCESS != rval)
+      return rval;
+  }
+
+  // generate parent child links
+
+  return MB_SUCCESS;
+}
+
+/*
+ErrorCode setup_basic_tags(){
+  int negone = -1, zero = 0;
+  ErrorCode rval;
+  rval = MBI->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                  geom_tag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
+  assert(!rval);
+  rval = MBI->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
+                                  id_tag, MB_TAG_DENSE|MB_TAG_CREAT, &zero);
+  assert(!rval);
+  rval = MBI->tag_get_handle( NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
+                                  name_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
+  assert(!rval);
+  rval = MBI->tag_get_handle( CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, MB_TYPE_OPAQUE,
+                                  category_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
+  assert(!rval);
+  rval = MBI->tag_get_handle("FACETING_TOL", 1, MB_TYPE_DOUBLE, faceting_tol_tag,
+			     MB_TAG_SPARSE|MB_TAG_CREAT, &zero );
+  assert(!rval);
+
+  return rval;
+}
+*/
 
 /*
  * builds the moab representation of the mesh
@@ -132,6 +258,15 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
   // add verts to set
   rval = MBI->add_entities(file_set,mb_coords);
 
+
+  // create sense tag
+  Tag side_id_tag, surface_number_tag;
+  //  int zero = 0;
+  rval = MBI->tag_get_handle( "SIDEID_TAG", 1, MB_TYPE_INTEGER,
+			      side_id_tag, MB_TAG_SPARSE|MB_TAG_CREAT); 
+  rval = MBI->tag_get_handle( "SURFACE_NUMBER", 1, MB_TYPE_INTEGER,
+			      surface_number_tag, MB_TAG_SPARSE|MB_TAG_CREAT); 
+
   // create the facets
   EntityHandle triangle;
   std::vector<facet>::iterator it_f;
@@ -142,6 +277,11 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
 			       mb_coords[tmp.connectivity[1]-1],
 			       mb_coords[tmp.connectivity[2]-1]};
     rval = MBI->create_element(MBTRI,tri_nodes,3,triangle);
+    // tag in sense
+    rval = MBI->tag_set_data(side_id_tag,&triangle,1,&tmp.from);
+    // tag out sense
+    rval = MBI->tag_set_data(surface_number_tag,&triangle,1,&tmp.to);
+
     mb_tris.insert(triangle);
   }
   // add tris to set
@@ -172,6 +312,74 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
   // add tris to set
   rval = MBI->add_entities(file_set,mb_tets);
   
+  return MB_SUCCESS;
+}
+
+/*
+ * reads the side data from the filename pointed to
+ */
+ErrorCode ReadRTT::read_sides(const char* filename, std::vector<side> &side_data ){
+  std::string line; // the current line being read
+  std::ifstream input_file (filename); // filestream for rttfile
+  // file ok?
+  if ( !input_file.good() )
+    {
+      std::cout << "Problems reading file = " << filename << std::endl;
+      return MB_FAILURE;
+    }
+  // if it works
+  if (input_file.is_open())
+    {
+      while ( std::getline (input_file,line) )
+	{
+	  if(line.compare("  2 FACES\0") == 0)
+	    {
+	      // read lines until find end nodes
+	      while( std::getline( input_file,line)) 
+		{   
+		  if(line.compare("end_side_flags\0") == 0)
+		    break;
+		  side data = ReadRTT::get_side_data(line);
+		  side_data.push_back(data);
+		}
+	    }
+	}
+      input_file.close();
+    }
+  return MB_SUCCESS;
+}
+
+/*
+ * reads the cell data from the filename pointed to
+ */
+  ErrorCode ReadRTT::read_cells(const char* filename, std::vector<cell> &cell_data ){
+  std::string line; // the current line being read
+  std::ifstream input_file (filename); // filestream for rttfile
+  // file ok?
+  if ( !input_file.good() )
+    {
+      std::cout << "Problems reading file = " << filename << std::endl;
+      return MB_FAILURE;
+    }
+  // if it works
+  if (input_file.is_open())
+    {
+      while ( std::getline (input_file,line) )
+	{
+	  if(line.compare("  1 REGIONS\0") == 0)
+	    {
+	      // read lines until find end nodes
+	      while( std::getline( input_file,line)) 
+		{   
+		  if(line.compare("end_cell_flags\0") == 0)
+		    break;
+		  cell data = ReadRTT::get_cell_data(line);
+		  cell_data.push_back(data);
+		}
+	    }
+	}
+      input_file.close();
+    }
   return MB_SUCCESS;
 }
 
@@ -281,12 +489,61 @@ ErrorCode ReadRTT::read_tets(const char* filename, std::vector<tet> &tet_data ){
 }
 
 /*
+ * given the string sidedata, get the id number, senses and names of the sides
+ */
+side ReadRTT::get_side_data(std::string sidedata) {
+  side new_side;
+  std::vector<std::string> tokens;
+  tokens = ReadRTT::split_string(sidedata,' ');
+
+  std::vector<std::string>::iterator it;
+  //  for ( it = tokens.begin() ; it != tokens.end() ; ++it )
+  //    std::cout << *it << std::endl;
+
+  new_side.id = std::atoi(tokens[2].c_str());
+
+  std::vector<std::string> cell_names = ReadRTT::split_string(tokens[3],'/');
+  boundary new_bnd = ReadRTT::split_name(cell_names[0]);
+  new_side.senses[0]=new_bnd.sense;
+  new_side.names[0]=new_bnd.name;
+  if (cell_names.size() > 1 )
+    {
+      boundary new_bnd = ReadRTT::split_name(cell_names[1]);
+      new_side.senses[1]=new_bnd.sense;
+      new_side.names[1]=new_bnd.name;
+    }
+  else
+    {
+      new_side.senses[1]=0;
+      new_side.names[1]="\0";
+    }
+
+  return new_side;
+}
+
+/*
+ * given the string celldata, get the id number and name of each cell
+ */
+cell ReadRTT::get_cell_data(std::string celldata) {
+  cell new_cell;
+  std::vector<std::string> tokens;
+  tokens = ReadRTT::split_string(celldata,' ');
+
+  std::vector<std::string>::iterator it;
+
+  new_cell.id = std::atoi(tokens[2].c_str());
+  new_cell.name = tokens[3];
+
+  return new_cell;
+}
+
+/*
  * given the string nodedata, get the id number and coordinates of the node
  */
 node ReadRTT::get_node_data(std::string nodedata) {
   node new_node;
   std::vector<std::string> tokens;
-  tokens = ReadRTT::split_string(nodedata);
+  tokens = ReadRTT::split_string(nodedata,' ');
 
   std::vector<std::string>::iterator it;
   new_node.id=std::atoi(tokens[1].c_str());
@@ -302,7 +559,7 @@ node ReadRTT::get_node_data(std::string nodedata) {
 facet ReadRTT::get_facet_data(std::string facetdata) {
   facet new_facet;
   std::vector<std::string> tokens;
-  tokens = ReadRTT::split_string(facetdata);
+  tokens = ReadRTT::split_string(facetdata,' ');
   
   /*
   std::vector<std::string>::iterator it;
@@ -331,7 +588,7 @@ facet ReadRTT::get_facet_data(std::string facetdata) {
 tet ReadRTT::get_tet_data(std::string tetdata) {
   tet new_tet;
   std::vector<std::string> tokens;
-  tokens = ReadRTT::split_string(tetdata);
+  tokens = ReadRTT::split_string(tetdata,' ');
   
 
   /*
@@ -356,15 +613,43 @@ tet ReadRTT::get_tet_data(std::string tetdata) {
 }
 
 /*
+ * splits string into sense and name, to later facilitate the building
+ * of sense data, strips off the tailing @ if it exists
+ */
+boundary ReadRTT::split_name(std::string atilla_cellname) {
+  boundary new_boundary;
+  // default initialisation
+  new_boundary.sense = 0;
+  new_boundary.name = "\0";
+
+  if( atilla_cellname.find("+") != std::string::npos )
+    {			
+      new_boundary.sense = 1;
+      // look for the @# we do not want it
+      std::size_t found = atilla_cellname.find("@");
+      if(found != std::string::npos)
+	new_boundary.name=atilla_cellname.substr(3,found);
+      else
+	new_boundary.name=atilla_cellname.substr(3,atilla_cellname.length());
+    }
+  else if ( atilla_cellname.find("-") != std::string::npos )
+    {			
+      new_boundary.sense = -1;
+      new_boundary.name=atilla_cellname.substr(3,atilla_cellname.length());
+    }
+  return new_boundary;
+}
+
+/*
  * splits a string in a vector of strings split by spaces
  */
-std::vector<std::string> ReadRTT::split_string(std::string string_to_split) {
+  std::vector<std::string> ReadRTT::split_string(std::string string_to_split, char split_char) {
   std::istringstream ss( string_to_split );
   std::vector<std::string> tokens;
   while (!ss.eof())         // See the WARNING above for WHY we're doing this!
     {
       std::string x;               // here's a nice, empty string
-      std::getline( ss, x, ' ');  // try to read the next field into it
+      std::getline( ss, x, split_char);  // try to read the next field into it
       //      std::cout << x << std::endl;      // print it out, EVEN IF WE ALREADY HIT EOF
       tokens.push_back(x);
     }
