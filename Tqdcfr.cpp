@@ -2462,7 +2462,10 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
     }
     else if (strncmp(records[current_attrib].att_string.c_str(), "UNIQUE_ID", 9) == 0) {
         // parse uid
-      num_read = sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 1 0 1 %d", &uid);
+      if (major >=14) // change of format for cubit 14:
+        num_read =sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 0 1 %d", &uid);
+      else
+        num_read = sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 1 0 1 %d", &uid);
       if (1 != num_read) return MB_FAILURE;
     }
     else if (strncmp(records[current_attrib].att_string.c_str(), "COMPOSITE_ATTRIB @9 UNIQUE_ID", 29) == 0) {
