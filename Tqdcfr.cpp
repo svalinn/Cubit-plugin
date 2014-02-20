@@ -2321,6 +2321,8 @@ ErrorCode Tqdcfr::read_acis_records( const char* sat_filename )
       
         // get next occurrence of '#' (record terminator)
       ret = strchr(&(char_buf[buf_pos]), '#');
+      while (ret && ret+1-&char_buf[0] < bytes_left && *(ret+1) != '\n')
+        ret = strchr(ret+1, '#');
       if (NULL != ret) {
           // grab the string (inclusive of the record terminator and the line feed) and complete the record
         int num_chars = ret-&(char_buf[buf_pos])+2;
