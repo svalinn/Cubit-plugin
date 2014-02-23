@@ -106,6 +106,12 @@ public:
                                  double faceting_tol,
                                  bool verbose_warn = false );
 
+  ErrorCode create_surface_facets( Interface* moab, 
+                                   std::map<RefEntity*,EntityHandle> entitymap[5],
+                                   int norm_tol, 
+                                   double facet_tol, 
+                                   double length_tol );
+
    //! Constructor
    ReadCGM(Interface* impl = NULL);
 

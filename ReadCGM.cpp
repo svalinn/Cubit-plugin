@@ -652,6 +652,122 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
   return MB_SUCCESS;
 }
 
+ErrorCode ReadCGM::create_surface_facets( Interface* moab, 
+                                          std::map<RefEntity*,EntityHandle> entitymap[5],
+                                          int norm_tol, 
+                                          double facet_tol, 
+                                          double length_tol )
+{
+
+  ErrorCode rval;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+  CubitStatus s;
+  DLIList<ModelEntity*> me_list;
+  GMem data;
+    // create geometry for all surfaces
+  for (ci = entitymap[2].begin(); ci != entitymap[2].end(); ++ci) {
+    RefFace* face = dynamic_cast<RefFace*>(ci->first);
+
+    data.clean_out();
+    s = face->get_graphics( data, norm_tol, facet_tol, length_tol );
+
+    if (CUBIT_SUCCESS != s)
+      return MB_FAILURE;
+
+      // declare array of all vertex handles
+    std::vector<EntityHandle> verts( data.pointListCount, 0 );
+    
+      // get list of geometric vertices in surface
+    me_list.clean_out();
+    ModelQueryEngine::instance()->query_model( *face, DagType::ref_vertex_type(), me_list );
+
+      // for each geometric vertex, find a single coincident point in facets
+      // otherwise, print a warning
+    for (int i = me_list.size(); i--; ) {
+      //assign geometric vertex
+      RefVertex* vtx = dynamic_cast<RefVertex*>(me_list.get_and_step());
+      CubitVector pos = vtx->coordinates();
+
+      for (int j = 0; j < data.pointListCount; ++j) {
+        //assign facet vertex
+        CubitVector vpos( data.point_list()[j].x,
+                          data.point_list()[j].y,
+                          data.point_list()[j].z );
+        //check to see if they are considered coincident
+        if ((pos - vpos).length_squared() < GEOMETRY_RESABS*GEOMETRY_RESABS ) {
+          // if this facet vertex has already been found coincident, print warning
+          if (verts[j])
+            std::cerr << "Warning: Coincident vertices in surface " << face->id() << std::endl;
+          //if a coincidence is found, keep track of it in the verts vector
+          verts[j] = entitymap[0][vtx];
+          break;
+        }
+      }
+    }
+    
+      // now create vertices for the remaining points in the facetting
+    for (int i = 0; i < data.pointListCount; ++i) {
+      if (verts[i]) // if a geometric vertex
+        continue;
+      double coords[] = { data.point_list()[i].x,
+                          data.point_list()[i].y,
+                          data.point_list()[i].z };
+      // return vertex handle to verts to fill in all remaining facet
+      // vertices
+      rval = mdbImpl->create_vertex( coords, verts[i] );
+      if (MB_SUCCESS != rval)
+        return rval;
+    }
+    
+      // now create facets
+    Range facets;
+    std::vector<EntityHandle> corners;
+    for (int i = 0; i < data.fListCount; i += data.facet_list()[i]+1) {
+      // get number of facet verts
+      int* facet = data.facet_list() + i;
+      corners.resize( *facet );
+      for (int j = 1; j <= *facet; ++j) {
+        if (facet[j] >= (int)verts.size()) {
+          std::cerr << "ERROR: Invalid facet data for surface " << face->id() << std::endl;
+          return MB_FAILURE;
+        }
+        corners[j-1] = verts[facet[j]];
+      }
+      EntityType type;
+      if (*facet == 3)
+        type = MBTRI;
+      else {
+        std::cerr << "Warning: non-triangle facet in surface " << face->id() << std::endl;
+	std::cerr << "  entity has " << *facet << " edges" << std::endl;
+        if (*facet == 4)
+          type = MBQUAD;
+        else
+          type = MBPOLYGON;
+      }
+      
+      // if (surf->bridge_sense() == CUBIT_REVERSED)
+      //   std::reverse( corners.begin(), corners.end() );
+      
+      EntityHandle h;
+      rval = mdbImpl->create_element( type, &corners[0], corners.size(), h );
+      if (MB_SUCCESS != rval)
+        return MB_FAILURE;
+        
+      facets.insert( h );
+    }
+    
+      // add vertices and facets to surface set
+    rval = mdbImpl->add_entities( ci->second, &verts[0], verts.size() );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+    rval = mdbImpl->add_entities( ci->second, facets );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+  }
+
+  return MB_SUCCESS;
+}
+
 
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
@@ -750,6 +866,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = create_curve_facets( mdbImpl, entmap, norm_tol, faceting_tol, verbose_warnings );
   if(rval!=MB_SUCCESS) return rval;
   
+
   DLIList<ModelEntity*> me_list;
   GMem data;
     // create geometry for all surfaces
