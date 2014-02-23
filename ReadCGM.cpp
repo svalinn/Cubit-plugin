@@ -544,9 +544,13 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
   // create geometry for all curves
   GMem data;
   for (ci = entitymap[1].begin(); ci != entitymap[1].end(); ++ci) {
+    //get the start and end points of the curve in the form of a refernce edge
     RefEdge* edge = dynamic_cast<RefEdge*>(ci->first);
+    //get the edge's curve information
     Curve* curve = edge->get_curve_ptr();
+    //clean out previous curve information
     data.clean_out();
+    //facet curve accoring to parameters and CGM version
 #if  CGM_MAJOR_VERSION>12
     s = edge->get_graphics( data, norm_tol, faceting_tol);
 #else
@@ -557,6 +561,7 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
       
     std::vector<CubitVector> points;
     for (int i = 0; i < data.pointListCount; ++i)
+      //add Cubit vertext points to a list
       points.push_back( CubitVector( data.point_list()[i].x,
                                      data.point_list()[i].y,
                                      data.point_list()[i].z ) );
@@ -582,7 +587,8 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
         return MB_FAILURE;
       continue;
     }
-    
+    // check to see if the first and last interior vertices are considered to be 
+    // coincident by CUBIT
     const bool closed = (points.front() - points.back()).length() < GEOMETRY_RESABS;
     if (closed != (start_vtx == end_vtx)) {
       std::cerr << "Warning: topology and geometry inconsistant for possibly closed curve "
@@ -608,6 +614,7 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
     for (size_t i = 1; i < points.size() - 1; ++i) {
       double coords[] = { points[i].x(), points[i].y(), points[i].z() };
       EntityHandle h;
+      //create vertex entity
       rval = moab->create_vertex( coords, h );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
@@ -627,7 +634,7 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
       // if closed, remove duplicate
     if (verts.front() == verts.back())
       verts.pop_back();
-    
+    //Add entities to the curve meshset from entitymap
     rval = moab->add_entities( ci->second, &verts[0], verts.size() );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
@@ -744,7 +751,6 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   // create facets for all curves
   rval = create_curve_facets( mdbImpl, entmap, norm_tol, faceting_tol, verbose_warnings );
   if(rval!=MB_SUCCESS) return rval;
-
   
   GMem data;
     // create geometry for all surfaces
