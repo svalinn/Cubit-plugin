@@ -100,6 +100,11 @@ public:
 
   ErrorCode add_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entmap[5] );
 
+  ErrorCode create_curve_facets( Interface* moab, 
+                                 std::map<RefEntity*,EntityHandle> entitymap[5],
+                                 int norm_tol,
+                                 double faceting_tol,
+                                 bool verbose_warn = false );
 
    //! Constructor
    ReadCGM(Interface* impl = NULL);
