@@ -95,7 +95,11 @@ public:
 
   ErrorCode store_group_content( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
 
+
   void set_cgm_attributes(bool const act_attributes, bool const verbost);
+
+  ErrorCode add_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entmap[5] );
+
 
    //! Constructor
    ReadCGM(Interface* impl = NULL);

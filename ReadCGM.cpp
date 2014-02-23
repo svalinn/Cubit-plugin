@@ -484,6 +484,7 @@ ErrorCode ReadCGM::store_group_content( Interface* /* moab */, std::map<RefEntit
   return MB_SUCCESS;
 }
 
+
 void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
 {
 
@@ -499,6 +500,31 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
 
 
 }
+
+
+  ErrorCode ReadCGM::add_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+{
+
+ ErrorCode rval;
+ std::map<RefEntity*,EntityHandle>::iterator ci;
+ for (ci = entitymap[0].begin(); ci != entitymap[0].end(); ++ci) {
+    CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
+    double coords[3] = {pos.x(), pos.y(), pos.z()};
+    EntityHandle vh;
+    rval = moab->create_vertex( coords, vh );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+    
+    rval = moab->add_entities( ci->second, &vh, 1 );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+    
+    ci->second = vh;
+  }
+  return MB_SUCCESS;
+}
+
+
 
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
@@ -587,23 +613,12 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   entmap[3].clear();
   entmap[4].clear();
   
+
   // create geometry for all vertices and replace 
   // vertex set handles with vertex handles in map
-  for (ci = entmap[0].begin(); ci != entmap[0].end(); ++ci) {
-    CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
-    double coords[3] = {pos.x(), pos.y(), pos.z()};
-    EntityHandle vh;
-    rval = mdbImpl->create_vertex( coords, vh );
-    if (MB_SUCCESS != rval)
-      return MB_FAILURE;
-    
-    rval = mdbImpl->add_entities( ci->second, &vh, 1 );
-    if (MB_SUCCESS != rval)
-      return MB_FAILURE;
-    
-    ci->second = vh;
-  }
-
+  rval = add_vertices( mdbImpl, entmap );
+  if(rval!=MB_SUCCESS) return rval; 
+ 
   // maximum allowable curve-endpoint proximity warnings
   // if this integer becomes negative, then abs(curve_warnings) is the 
   // number of warnings that were suppressed.
