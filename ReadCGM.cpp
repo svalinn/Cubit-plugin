@@ -650,8 +650,6 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
 }
 
 
-
-
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
                       const EntityHandle* file_set,
@@ -690,7 +688,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   //const char geom_categories[][CATEGORY_TAG_SIZE] =
       //{"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
  
-  DLIList<ModelEntity*> me_list;
+
 
   // Initialize CGM
   InitCGMA::initialize_cgma();
@@ -749,6 +747,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = create_curve_facets( mdbImpl, entmap, norm_tol, faceting_tol, verbose_warnings );
   if(rval!=MB_SUCCESS) return rval;
   
+  DLIList<ModelEntity*> me_list;
   GMem data;
     // create geometry for all surfaces
   for (ci = entmap[2].begin(); ci != entmap[2].end(); ++ci) {
@@ -763,22 +762,28 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       // declare array of all vertex handles
     std::vector<EntityHandle> verts( data.pointListCount, 0 );
     
-      // get list of vertices in surface
+      // get list of geometric vertices in surface
     me_list.clean_out();
     ModelQueryEngine::instance()->query_model( *face, DagType::ref_vertex_type(), me_list );
 
-      // for each vertex, find coincident point in facets
+      // for each geometric vertex, find a single coincident point in facets
+      // otherwise, print a warning
     for (int i = me_list.size(); i--; ) {
+      //assign geometric vertex
       RefVertex* vtx = dynamic_cast<RefVertex*>(me_list.get_and_step());
       CubitVector pos = vtx->coordinates();
 
       for (int j = 0; j < data.pointListCount; ++j) {
+        //assign facet vertex
         CubitVector vpos( data.point_list()[j].x,
                           data.point_list()[j].y,
                           data.point_list()[j].z );
+        //check to see if they are considered coincident
         if ((pos - vpos).length_squared() < GEOMETRY_RESABS*GEOMETRY_RESABS ) {
+          // if this facet vertex has already been found coincident, print warning
           if (verts[j])
             std::cerr << "Warning: Coincident vertices in surface " << face->id() << std::endl;
+          //if a coincidence is found, keep track of it in the verts vector
           verts[j] = entmap[0][vtx];
           break;
         }
@@ -792,6 +797,8 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
       double coords[] = { data.point_list()[i].x,
                           data.point_list()[i].y,
                           data.point_list()[i].z };
+      // return vertex handle to verts to fill in all remaining facet
+      // vertices
       rval = mdbImpl->create_vertex( coords, verts[i] );
       if (MB_SUCCESS != rval)
         return rval;
@@ -801,6 +808,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     Range facets;
     std::vector<EntityHandle> corners;
     for (int i = 0; i < data.fListCount; i += data.facet_list()[i]+1) {
+      // get number of facet verts
       int* facet = data.facet_list() + i;
       corners.resize( *facet );
       for (int j = 1; j <= *facet; ++j) {
