@@ -2920,7 +2920,7 @@ int main(int argc, char* argv[])
   MPI_Init(&argc, &argv);
 #endif
     // Check command line arg
-  const char* file = STRINGIFY(SRCDIR) "/brick_cubit10.2.cub";
+  const char* file = STRINGIFY(MESHDIR) "/io/brick_cubit10.2.cub";
   if (argc < 2)
   {
     std::cout << "Usage: tqdcfr <cub_file_name>" << std::endl;
