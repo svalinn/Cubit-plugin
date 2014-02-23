@@ -738,113 +738,12 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = add_vertices( mdbImpl, entmap );
   if(rval!=MB_SUCCESS) return rval; 
 
-  // maximum allowable curve-endpoint proximity warningsg
-  // if this integer becomes negative, then abs(curve_warnings) is the 
-  // number of warnings that were suppressed.
-  int curve_warnings = 10;
+  // create facets for all curves
+  rval = create_curve_facets( mdbImpl, entmap, norm_tol, faceting_tol, verbose_warnings );
+  if(rval!=MB_SUCCESS) return rval;
+
   
-    // create geometry for all curves
   GMem data;
-  for (ci = entmap[1].begin(); ci != entmap[1].end(); ++ci) {
-    RefEdge* edge = dynamic_cast<RefEdge*>(ci->first);
-    Curve* curve = edge->get_curve_ptr();
-    data.clean_out();
-#if  CGM_MAJOR_VERSION>12
-    edge->get_graphics( data, norm_tol, faceting_tol);
-#else
-    edge->get_graphics( data, faceting_tol);
-#endif
-    if (CUBIT_SUCCESS != s)
-      return MB_FAILURE;
-      
-    std::vector<CubitVector> points;
-    for (int i = 0; i < data.pointListCount; ++i)
-      points.push_back( CubitVector( data.point_list()[i].x,
-                                     data.point_list()[i].y,
-                                     data.point_list()[i].z ) );
-
-      // need to reverse data?
-    if (curve->bridge_sense() == CUBIT_REVERSED) 
-      std::reverse( points.begin(), points.end() );
-    
-       // check for closed curve
-    RefVertex *start_vtx, *end_vtx;
-    start_vtx = edge->start_vertex();
-    end_vtx = edge->end_vertex();
-    
-      // Special case for point curve
-    if (points.size() < 2) {
-      if (start_vtx != end_vtx || curve->measure() > GEOMETRY_RESABS ) {
-        std::cerr << "Warning: No facetting for curve " << edge->id() << std::endl;
-        continue;
-      }
-      EntityHandle h = entmap[0][start_vtx];
-      rval = mdbImpl->add_entities( ci->second, &h, 1 );
-      if (MB_SUCCESS != rval)
-        return MB_FAILURE;
-      continue;
-    }
-    
-    const bool closed = (points.front() - points.back()).length() < GEOMETRY_RESABS;
-    if (closed != (start_vtx == end_vtx)) {
-      std::cerr << "Warning: topology and geometry inconsistant for possibly closed curve "
-                << edge->id() << std::endl;
-    }
-    
-      // check proximity of vertices to end coordinates
-    if ((start_vtx->coordinates() - points.front()).length() > GEOMETRY_RESABS
-     || (  end_vtx->coordinates() - points.back() ).length() > GEOMETRY_RESABS ) {
-
-      curve_warnings--;
-      if( curve_warnings >= 0 || verbose_warnings ){ 
-	std::cerr << "Warning: vertices not at ends of curve " << edge->id() << std::endl;
-	if( curve_warnings == 0 && !verbose_warnings ){
-	  std::cerr << "         further instances of this warning will be suppressed..." << std::endl;
-	}
-      }
-
-    }
-    
-      // create interior points
-    std::vector<EntityHandle> verts, edges;
-    verts.push_back( entmap[0][start_vtx] );
-    for (size_t i = 1; i < points.size() - 1; ++i) {
-      double coords[] = { points[i].x(), points[i].y(), points[i].z() };
-      EntityHandle h;
-      rval = mdbImpl->create_vertex( coords, h );
-      if (MB_SUCCESS != rval)
-        return MB_FAILURE;
-      verts.push_back( h );
-    }
-    verts.push_back( entmap[0][end_vtx] );
-    
-      // create edges
-    for (size_t i = 0; i < verts.size()-1; ++i) {
-      EntityHandle h;
-      rval = mdbImpl->create_element( MBEDGE, &verts[i], 2, h );
-      if (MB_SUCCESS != rval)
-        return MB_FAILURE;
-      edges.push_back( h );
-    }
-    
-      // if closed, remove duplicate
-    if (verts.front() == verts.back())
-      verts.pop_back();
-    
-    rval = mdbImpl->add_entities( ci->second, &verts[0], verts.size() );
-    if (MB_SUCCESS != rval)
-      return MB_FAILURE;
-    rval = mdbImpl->add_entities( ci->second, &edges[0], edges.size() );
-    if (MB_SUCCESS != rval)
-      return MB_FAILURE;
-  }
-
-  if( !verbose_warnings && curve_warnings < 0 ){
-    std::cerr << "Suppressed " << -curve_warnings 
-	      << " 'vertices not at ends of curve' warnings." << std::endl;
-    std::cerr << "To see all warnings, use reader param VERBOSE_CGM_WARNINGS." << std::endl;
-  }
-
     // create geometry for all surfaces
   for (ci = entmap[2].begin(); ci != entmap[2].end(); ++ci) {
     RefFace* face = dynamic_cast<RefFace*>(ci->first);
