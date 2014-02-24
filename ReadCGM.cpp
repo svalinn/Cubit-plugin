@@ -499,7 +499,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
 }
 
 
-  ErrorCode ReadCGM::add_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+  ErrorCode ReadCGM::create_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
 {
 
  ErrorCode rval;
@@ -854,7 +854,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   entmap[4].clear();
 
   // create geometry for all vertices and replace 
-  rval = add_vertices( mdbImpl, entmap );
+  rval = create_vertices( mdbImpl, entmap );
   if(rval!=MB_SUCCESS) return rval; 
 
   // create facets for all curves

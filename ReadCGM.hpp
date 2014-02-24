@@ -98,7 +98,9 @@ public:
 
   void set_cgm_attributes(bool const act_attributes, bool const verbost);
 
-  ErrorCode add_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entmap[5] );
+
+  ErrorCode create_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entmap[5] );
+
 
   ErrorCode create_curve_facets( Interface* moab, 
                                  std::map<RefEntity*,EntityHandle> entitymap[5],
