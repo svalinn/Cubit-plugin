@@ -2321,6 +2321,8 @@ ErrorCode Tqdcfr::read_acis_records( const char* sat_filename )
       
         // get next occurrence of '#' (record terminator)
       ret = strchr(&(char_buf[buf_pos]), '#');
+      while (ret && ret+1-&char_buf[0] < bytes_left && *(ret+1) != '\n')
+        ret = strchr(ret+1, '#');
       if (NULL != ret) {
           // grab the string (inclusive of the record terminator and the line feed) and complete the record
         int num_chars = ret-&(char_buf[buf_pos])+2;
@@ -2460,7 +2462,10 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
     }
     else if (strncmp(records[current_attrib].att_string.c_str(), "UNIQUE_ID", 9) == 0) {
         // parse uid
-      num_read = sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 1 0 1 %d", &uid);
+      if (major >=14) // change of format for cubit 14:
+        num_read =sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 0 1 %d", &uid);
+      else
+        num_read = sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 1 0 1 %d", &uid);
       if (1 != num_read) return MB_FAILURE;
     }
     else if (strncmp(records[current_attrib].att_string.c_str(), "COMPOSITE_ATTRIB @9 UNIQUE_ID", 29) == 0) {
@@ -2915,7 +2920,7 @@ int main(int argc, char* argv[])
   MPI_Init(&argc, &argv);
 #endif
     // Check command line arg
-  const char* file = STRINGIFY(SRCDIR) "/brick_cubit10.2.cub";
+  const char* file = STRINGIFY(MESHDIR) "/io/brick_cubit10.2.cub";
   if (argc < 2)
   {
     std::cout << "Usage: tqdcfr <cub_file_name>" << std::endl;
