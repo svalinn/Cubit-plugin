@@ -49,6 +49,10 @@ static bool debug = false;
 //const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
 const char Tqdcfr::geom_categories[][CATEGORY_TAG_SIZE] = 
 {"Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
+
+// will be used in a static function, so declared outside class members :(
+// major/minor cubit version that wrote this file
+int major=-1, minor=-1;
 const EntityType Tqdcfr::group_type_to_mb_type[] = {
   MBENTITYSET, MBENTITYSET, MBENTITYSET, // group, body, volume
   MBENTITYSET, MBENTITYSET, MBENTITYSET, // surface, curve, vertex
@@ -316,7 +320,7 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
   else data_version = modelMetaData.metadataEntries[md_index].mdDblValue;
   
     // get the major/minor cubit version that wrote this file
-  int major = -1, minor = -1;
+//  int major = -1, minor = -1;
   md_index = modelMetaData.get_md_entry(2, "CubitVersion");
   if (md_index >= 0 && !modelMetaData.metadataEntries[md_index].mdStringValue.empty())
     sscanf( modelMetaData.metadataEntries[md_index].mdStringValue.c_str(), "%d.%d",
@@ -1501,7 +1505,8 @@ ErrorCode Tqdcfr::read_elements(Tqdcfr::ModelEntry *model,
 
       // get the connectivity array
     unsigned int total_conn = num_elem * nodes_per_elem;
-    
+    if(major >=14)
+      FREADI(num_elem);// we need to skip num_elem in advance, it looks like
     FREADI(total_conn);
 
       // post-process connectivity into handles
@@ -1825,7 +1830,12 @@ ErrorCode Tqdcfr::GeomHeader::read_info_header(const unsigned int model_offset,
       geom_headers[i].maxDim = std::max(geom_headers[i].maxDim, 
                                         (int)CN::Dimension(elem_type));
       if (j < geom_headers[i].elemTypeCt-1) 
-        instance->FREADI(num_elem + num_elem*nodes_per_elem);
+      {
+        int num_skipped_ints = num_elem + num_elem*nodes_per_elem;
+        if (major>=14)
+          num_skipped_ints+=num_elem;
+        instance->FREADI(num_skipped_ints);
+      }
     }
     
   }
@@ -2311,6 +2321,8 @@ ErrorCode Tqdcfr::read_acis_records( const char* sat_filename )
       
         // get next occurrence of '#' (record terminator)
       ret = strchr(&(char_buf[buf_pos]), '#');
+      while (ret && ret+1-&char_buf[0] < bytes_left && *(ret+1) != '\n')
+        ret = strchr(ret+1, '#');
       if (NULL != ret) {
           // grab the string (inclusive of the record terminator and the line feed) and complete the record
         int num_chars = ret-&(char_buf[buf_pos])+2;
@@ -2450,7 +2462,10 @@ ErrorCode Tqdcfr::parse_acis_attribs(const unsigned int entity_rec_num,
     }
     else if (strncmp(records[current_attrib].att_string.c_str(), "UNIQUE_ID", 9) == 0) {
         // parse uid
-      num_read = sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 1 0 1 %d", &uid);
+      if (major >=14) // change of format for cubit 14:
+        num_read =sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 0 1 %d", &uid);
+      else
+        num_read = sscanf(records[current_attrib].att_string.c_str(), "UNIQUE_ID 1 0 1 %d", &uid);
       if (1 != num_read) return MB_FAILURE;
     }
     else if (strncmp(records[current_attrib].att_string.c_str(), "COMPOSITE_ATTRIB @9 UNIQUE_ID", 29) == 0) {
@@ -2905,7 +2920,7 @@ int main(int argc, char* argv[])
   MPI_Init(&argc, &argv);
 #endif
     // Check command line arg
-  const char* file = STRINGIFY(SRCDIR) "/brick_cubit10.2.cub";
+  const char* file = STRINGIFY(MESHDIR) "/io/brick_cubit10.2.cub";
   if (argc < 2)
   {
     std::cout << "Usage: tqdcfr <cub_file_name>" << std::endl;

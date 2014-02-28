@@ -48,6 +48,9 @@ NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions&
   else {
     if (NCHelperMPAS::can_read_file(readNC))
       return new (std::nothrow) NCHelperMPAS(readNC, fileId, opts, fileSet);
+    // For a HOMME connectivity file, there might be no CF convention
+    else if (NCHelperHOMME::can_read_file(readNC, fileId))
+      return new (std::nothrow) NCHelperHOMME(readNC, fileId, opts, fileSet);
   }
 
   // Unknown NetCDF grid (will fill this in later for POP, CICE and CLM)
@@ -139,7 +142,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
 
   // __<dim_name>_LOC_MINMAX (for time)
   for (unsigned int i = 0; i != dimNamesSz; i++) {
-    if (dimNames[i] == "time") {
+    if (dimNames[i] == "time" || dimNames[i] == "Time" || dimNames[i] == "t") {
       std::stringstream ss_tag_name;
       ss_tag_name << "__" << dimNames[i] << "_LOC_MINMAX";
       tag_name = ss_tag_name.str();
@@ -158,7 +161,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
 
   // __<dim_name>_LOC_VALS (for time)
   for (unsigned int i = 0; i != dimNamesSz; i++) {
-    if (dimNames[i] == "time") {
+    if (dimNames[i] == "time" || dimNames[i] == "Time" || dimNames[i] == "t") {
       std::vector<int> val;
       if (!tstep_nums.empty())
         val = tstep_nums;
@@ -310,13 +313,13 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
   std::map<std::string, ReadNC::VarData>::iterator mit;
 
-  // If empty read them all
+  // If empty read them all (except ignored variables)
   if (var_names.empty()) {
     for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
       ReadNC::VarData vd = (*mit).second;
 
-      // No need to read ignored variables. Upon creation of dummy variables,
-      // tag values have already been set
+      // If read all variables at once, skip ignored ones
+      // Upon creation of dummy variables, tag values have already been set
       if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
           dummyVarNames.find(vd.varName) != dummyVarNames.end())
          continue;
@@ -328,15 +331,14 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
     }
   }
   else {
+    // Read specified variables (might include ignored ones)
     for (unsigned int i = 0; i < var_names.size(); i++) {
       mit = varInfo.find(var_names[i]);
       if (mit != varInfo.end()) {
         ReadNC::VarData vd = (*mit).second;
 
-        // No need to read ignored variables. Upon creation of dummy variables,
-        // tag values have already been set
-        if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
-            dummyVarNames.find(vd.varName) != dummyVarNames.end())
+        // Upon creation of dummy variables, tag values have already been set
+        if (dummyVarNames.find(vd.varName) != dummyVarNames.end())
            continue;
 
         if (vd.entLoc == ReadNC::ENTLOCSET)
@@ -360,23 +362,24 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
     for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);
       vdatas[i].varDatas.resize(tstep_nums.size());
-      vdatas[i].readStarts.resize(tstep_nums.size());
-      vdatas[i].readCounts.resize(tstep_nums.size());
+      vdatas[i].has_tsteps = true;
     }
 
     for (unsigned int i = 0; i < vsetdatas.size(); i++) {
       if ((std::find(vsetdatas[i].varDims.begin(), vsetdatas[i].varDims.end(), tDim) != vsetdatas[i].varDims.end())
-          && (vsetdatas[i].varDims.size() != 1)) {
+          && (vsetdatas[i].varDims.size() > 1)) {
+        // Set variables with timesteps: time is the first dimension, followed
+        // by other dimensions, e.g. xtime(Time, StrLen)
         vsetdatas[i].varTags.resize(tstep_nums.size(), 0);
         vsetdatas[i].varDatas.resize(tstep_nums.size());
-        vsetdatas[i].readStarts.resize(tstep_nums.size());
-        vsetdatas[i].readCounts.resize(tstep_nums.size());
+        vsetdatas[i].has_tsteps = true;
       }
       else {
+        // Set variables without timesteps: no time dimension, or time is the only
+        // dimension, e.g. lev(lev), xtime(Time)
         vsetdatas[i].varTags.resize(1, 0);
         vsetdatas[i].varDatas.resize(1);
-        vsetdatas[i].readStarts.resize(1);
-        vsetdatas[i].readCounts.resize(1);
+        vsetdatas[i].has_tsteps = false;
       }
     }
   }
@@ -395,35 +398,41 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
   // Finally, read into that space
   int success;
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    // Note, for set variables without timesteps, loop one time and then break
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void* data = vdatas[i].varDatas[t];
+
+      // Set variables with timesteps, e.g. xtime(Time, StrLen)
+      if (vdatas[i].has_tsteps) {
+        // Set readStart for each timestep along time dimension
+        vdatas[i].readStarts[0] = tstep_nums[t];
+      }
 
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR:
-          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (char*) data);
+          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
+                                        &vdatas[i].readCounts[0], (char*) data);
           ERRORS(success, "Failed to read char data.");
           break;
         case NC_DOUBLE:
-          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (double*) data);
+          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
+                                        &vdatas[i].readCounts[0], (double*) data);
           ERRORS(success, "Failed to read double data.");
           break;
-        case NC_FLOAT: {
-          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (float*) data);
+        case NC_FLOAT:
+          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
+                                        &vdatas[i].readCounts[0], (float*) data);
           ERRORS(success, "Failed to read float data.");
           break;
-        }
         case NC_INT:
-          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (int*) data);
+          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
+                                        &vdatas[i].readCounts[0], (int*) data);
           ERRORS(success, "Failed to read int data.");
           break;
         case NC_SHORT:
-          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              (short*) data);
+          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
+                                        &vdatas[i].readCounts[0], (short*) data);
           ERRORS(success, "Failed to read short data.");
           break;
         default:
@@ -438,10 +447,30 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
       ERRORR(rval, "Failed to convert variable.");
 
       dbgOut.tprintf(2, "Setting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &(vdatas[i].varDatas[t]), &vdatas[i].sz);
+      rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &data, &vdatas[i].sz);
       ERRORR(rval, "Failed to set data for variable.");
 
-      if (vdatas[i].varDims.size() <= 1 || !vdatas[i].has_t)
+      // Memory pointed by pointer data can be deleted, as tag_set_by_ptr() has already copied the tag values
+      switch (vdatas[i].varDataType) {
+        case NC_BYTE:
+        case NC_CHAR:
+          delete[] (char*) data;
+          break;
+        case NC_DOUBLE:
+        case NC_FLOAT:
+          delete[] (double*) data;
+          break;
+        case NC_INT:
+        case NC_SHORT:
+          delete[] (int*) data;
+          break;
+        default:
+          break;
+      }
+      vdatas[i].varDatas[t] = NULL;
+
+      // Loop continues only for set variables with timesteps, e.g. xtime(Time, StrLen)
+      if (!vdatas[i].has_tsteps)
         break;
     }
   }
@@ -583,14 +612,11 @@ ErrorCode NCHelper::get_tag_to_set(ReadNC::VarData& var_data, int tstep_num, Tag
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   std::ostringstream tag_name;
-  if ((!var_data.has_t) || (var_data.varDims.size() <= 1))
-    tag_name << var_data.varName;
-  else if (!tstep_num) {
-    std::string tmp_name = var_data.varName + "0";
-    tag_name << tmp_name.c_str();
-  }
-  else
+  if (var_data.has_tsteps)
     tag_name << var_data.varName << tstep_num;
+  else
+    tag_name << var_data.varName;
+
   ErrorCode rval = MB_SUCCESS;
   tagh = 0;
   switch (var_data.varDataType) {
@@ -623,12 +649,8 @@ ErrorCode NCHelper::get_tag_to_nonset(ReadNC::VarData& var_data, int tstep_num, 
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   std::ostringstream tag_name;
-  if (!tstep_num) {
-    std::string tmp_name = var_data.varName + "0";
-    tag_name << tmp_name.c_str();
-  }
-  else
-    tag_name << var_data.varName << tstep_num;
+  tag_name << var_data.varName << tstep_num;
+
   ErrorCode rval = MB_SUCCESS;
   tagh = 0;
   switch (var_data.varDataType) {
@@ -750,11 +772,8 @@ ErrorCode NCHelper::create_dummy_variables()
 
     // Create a corresponding sparse tag
     Tag tagh;
-    ErrorCode rval = mbImpl->tag_get_handle(dimNames[i].c_str(), 0, MB_TYPE_INTEGER, tagh, MB_TAG_CREAT |
-                                            MB_TAG_SPARSE | MB_TAG_VARLEN | MB_TAG_EXCL);
-    // If the tag already exists, skip
-    if (MB_ALREADY_ALLOCATED == rval)
-      continue;
+    ErrorCode rval = mbImpl->tag_get_handle(dimNames[i].c_str(), 0, MB_TYPE_INTEGER, tagh,
+                                            MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
     ERRORR(rval, "Failed to create tag for a dummy dimension variable.");
 
     // Tag value is the dimension length
@@ -778,75 +797,71 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
   ErrorCode rval = MB_SUCCESS;
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
-    if ((std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), tDim) != vdatas[i].varDims.end()))
-      vdatas[i].has_t = true;
+    // Set up readStarts and readCounts
+    if (vdatas[i].has_tsteps) {
+      // First: time
+      vdatas[i].readStarts.push_back(0); // This value is timestep dependent, will be set later
+      vdatas[i].readCounts.push_back(1);
 
+      // Next: other dimensions
+      for (unsigned int idx = 1; idx != vdatas[i].varDims.size(); idx++){
+        vdatas[i].readStarts.push_back(0);
+        vdatas[i].readCounts.push_back(dimLens[vdatas[i].varDims[idx]]);
+      }
+    }
+    else {
+      if (vdatas[i].varDims.empty()) {
+        // Scalar variable
+        vdatas[i].readStarts.push_back(0);
+        vdatas[i].readCounts.push_back(1);
+      }
+      else {
+        for (unsigned int idx = 0; idx != vdatas[i].varDims.size(); idx++){
+          vdatas[i].readStarts.push_back(0);
+          vdatas[i].readCounts.push_back(dimLens[vdatas[i].varDims[idx]]);
+        }
+      }
+    }
+
+    // Get variable size
+    vdatas[i].sz = 1;
+    for (std::size_t idx = 0; idx != vdatas[i].readCounts.size(); idx++)
+      vdatas[i].sz *= vdatas[i].readCounts[idx];
+
+    // Note, for set variables without timesteps, loop one time and then break
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+
+      if (tstep_nums[t] >= dimLens[tDim]) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for a timestep number.");
+      }
 
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
         rval = get_tag_to_set(vdatas[i], tstep_nums[t], vdatas[i].varTags[t]);
-        ERRORR(rval, "Trouble getting tag.");
+        ERRORR(rval, "Trouble getting tag for a set variable.");
       }
-
-      // Assume point-based values for now?
-      if (-1 == tDim || dimLens[tDim] <= (int) t)
-        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
-
-      // Set up the dimensions and counts
-      // First variable dimension is time, if it exists
-      if (vdatas[i].has_t) {
-        if (vdatas[i].varDims.size() != 1) {
-          vdatas[i].readStarts[t].push_back(tstep_nums[t]);
-          vdatas[i].readCounts[t].push_back(1);
-        }
-        else {
-          vdatas[i].readStarts[t].push_back(0);
-          vdatas[i].readCounts[t].push_back(tstep_nums.size());
-        }
-      }
-
-      // Set up other dimensions and counts
-      if (vdatas[i].varDims.empty()) {
-        // Scalar variable
-        vdatas[i].readStarts[t].push_back(0);
-        vdatas[i].readCounts[t].push_back(1);
-      }
-      else {
-        for (unsigned int idx = 0; idx != vdatas[i].varDims.size(); idx++){
-          if (tDim != vdatas[i].varDims[idx]){
-            // Push other variable dimensions, except time, which was already pushed
-            vdatas[i].readStarts[t].push_back(0);
-            vdatas[i].readCounts[t].push_back(dimLens[vdatas[i].varDims[idx]]);
-          }
-        }
-      }
-
-      std::size_t sz = 1;
-      for (std::size_t idx = 0; idx != vdatas[i].readCounts[t].size(); idx++)
-        sz *= vdatas[i].readCounts[t][idx];
-      vdatas[i].sz = sz;
 
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR:
-          vdatas[i].varDatas[t] = new char[sz];
+          vdatas[i].varDatas[t] = new char[vdatas[i].sz];
           break;
         case NC_DOUBLE:
         case NC_FLOAT:
-          vdatas[i].varDatas[t] = new double[sz];
+          vdatas[i].varDatas[t] = new double[vdatas[i].sz];
           break;
         case NC_INT:
         case NC_SHORT:
-          vdatas[i].varDatas[t] = new int[sz];
+          vdatas[i].varDatas[t] = new int[vdatas[i].sz];
           break;
         default:
-          std::cerr << "Unrecognized data type for tag " << std::endl;
+          std::cerr << "Unrecognized data type for set variable tag values" << std::endl;
           rval = MB_FAILURE;
       }
 
-      if (vdatas[i].varDims.size() <= 1 || !vdatas[i].has_t)
+      // Loop continues only for set variables with timesteps, e.g. xtime(Time, StrLen)
+      if (!vdatas[i].has_tsteps)
         break;
     }
   }
@@ -1059,68 +1074,71 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
 #endif
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
+    // Support non-set variables with 4 dimensions like (time, lev, lat, lon)
+    assert(4 == vdatas[i].varDims.size());
+
+    // For a non-set variable, time should be the first dimension
+    assert(tDim == vdatas[i].varDims[0]);
+
+    // Set up readStarts and readCounts
+    vdatas[i].readStarts.resize(4);
+    vdatas[i].readCounts.resize(4);
+
+    // First: time
+    vdatas[i].readStarts[0] = 0; // This value is timestep dependent, will be set later
+    vdatas[i].readCounts[0] = 1;
+
+    // Next: lev
+    vdatas[i].readStarts[1] = 0;
+    vdatas[i].readCounts[1] = vdatas[i].numLev;
+
+    // Finally: lat (or slat) and lon (or slon)
+    switch (vdatas[i].entLoc) {
+      case ReadNC::ENTLOCVERT:
+        // Vertices
+        vdatas[i].readStarts[2] = lDims[1];
+        vdatas[i].readCounts[2] = lDims[4] - lDims[1] + 1;
+        vdatas[i].readStarts[3] = lDims[0];
+        vdatas[i].readCounts[3] = lDims[3] - lDims[0] + 1;
+        range = &verts;
+        break;
+      case ReadNC::ENTLOCNSEDGE:
+        ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
+        break;
+      case ReadNC::ENTLOCEWEDGE:
+        ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
+        break;
+      case ReadNC::ENTLOCFACE:
+        // Faces
+        vdatas[i].readStarts[2] = lCDims[1];
+        vdatas[i].readCounts[2] = lCDims[4] - lCDims[1] + 1;
+        vdatas[i].readStarts[3] = lCDims[0];
+        vdatas[i].readCounts[3] = lCDims[3] - lCDims[0] + 1;
+#ifdef USE_MPI
+        range = &faces_owned;
+#else
+        range = &faces;
+#endif
+        break;
+      case ReadNC::ENTLOCSET:
+        // Set
+        break;
+      default:
+        ERRORR(MB_FAILURE, "Unrecognized entity location type.");
+        break;
+    }
+
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+
+      if (tstep_nums[t] >= dimLens[tDim]) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for a timestep number.");
+      }
 
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
         rval = get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
         ERRORR(rval, "Trouble getting tag.");
-      }
-
-      // Assume point-based values for now?
-      if (-1 == tDim || dimLens[tDim] <= (int) t) {
-        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
-      }
-      else if (vdatas[i].varDims[0] != tDim) {
-        ERRORR(MB_INDEX_OUT_OF_RANGE, "Non-default timestep number given for time-independent variable.");
-      }
-
-      // Set up the dimensions and counts
-      // First: time
-      vdatas[i].readStarts[t].push_back(tstep_nums[t]);
-      vdatas[i].readCounts[t].push_back(1);
-
-      // Next: numLev, even if it is 1
-      vdatas[i].readStarts[t].push_back(0);
-      vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
-
-      // Finally: y and x
-      switch (vdatas[i].entLoc) {
-        case ReadNC::ENTLOCVERT:
-          // Vertices
-          vdatas[i].readStarts[t].push_back(lDims[1]);
-          vdatas[i].readCounts[t].push_back(lDims[4] - lDims[1] + 1);
-          vdatas[i].readStarts[t].push_back(lDims[0]);
-          vdatas[i].readCounts[t].push_back(lDims[3] - lDims[0] + 1);
-          assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
-          range = &verts;
-          break;
-        case ReadNC::ENTLOCNSEDGE:
-          ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
-          break;
-        case ReadNC::ENTLOCEWEDGE:
-          ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
-          break;
-        case ReadNC::ENTLOCFACE:
-          // Faces
-          vdatas[i].readStarts[t].push_back(lCDims[1]);
-          vdatas[i].readCounts[t].push_back(lCDims[4] - lCDims[1] + 1);
-          vdatas[i].readStarts[t].push_back(lCDims[0]);
-          vdatas[i].readCounts[t].push_back(lCDims[3] - lCDims[0] + 1);
-          assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
-#ifdef USE_MPI
-          range = &faces_owned;
-#else
-          range = &faces;
-#endif
-          break;
-        case ReadNC::ENTLOCSET:
-          // Set
-          break;
-        default:
-          ERRORR(MB_FAILURE, "Unrecognized entity location type.");
-          break;
       }
 
       // Get ptr to tag space
@@ -1132,11 +1150,10 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
       vdatas[i].varDatas[t] = data;
     }
 
-    // Calculate variable size
-    std::size_t sz = 1;
-    for (std::size_t idx = 0; idx != vdatas[i].readCounts[0].size(); idx++)
-      sz *= vdatas[i].readCounts[0][idx];
-    vdatas[i].sz = sz;
+    // Get variable size
+    vdatas[i].sz = 1;
+    for (std::size_t idx = 0; idx != vdatas[i].readCounts.size(); idx++)
+      vdatas[i].sz *= vdatas[i].readCounts[idx];
   }
 
   return rval;
@@ -1154,20 +1171,27 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     std::size_t sz = vdatas[i].sz;
 
+    // A typical supported variable: float T(time, lev, lat, lon)
+    // For tag values, need transpose (lev, lat, lon) to (lat, lon, lev)
+    size_t ni = vdatas[i].readCounts[3]; // lon or slon
+    size_t nj = vdatas[i].readCounts[2]; // lat or slat
+    size_t nk = vdatas[i].readCounts[1]; // lev
+
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      // Tag data for this timestep
       void* data = vdatas[i].varDatas[t];
-      size_t ni = vdatas[i].readCounts[t][2];
-      size_t nj = vdatas[i].readCounts[t][3];
-      size_t nk = vdatas[i].readCounts[t][1];
+
+      // Set readStart for each timestep along time dimension
+      vdatas[i].readStarts[0] = tstep_nums[t];
 
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
         case NC_CHAR: {
           std::vector<char> tmpchardata(sz);
-          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpchardata[0]);
+          success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
+                                        &tmpchardata[0]);
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpchardata.size(); idx++)
@@ -1178,10 +1202,10 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         }
         case NC_DOUBLE: {
           std::vector<double> tmpdoubledata(sz);
-          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpdoubledata[0]);
+          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
+                                          &tmpdoubledata[0]);
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
@@ -1192,10 +1216,10 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         }
         case NC_FLOAT: {
           std::vector<float> tmpfloatdata(sz);
-          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpfloatdata[0]);
+          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
+                                          &tmpfloatdata[0]);
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
@@ -1206,10 +1230,10 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         }
         case NC_INT: {
           std::vector<int> tmpintdata(sz);
-          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpintdata[0]);
+          success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
+                                        &tmpintdata[0]);
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpintdata.size(); idx++)
@@ -1220,10 +1244,10 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
         }
         case NC_SHORT: {
           std::vector<short> tmpshortdata(sz);
-          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[t][0], &vdatas[i].readCounts[t][0],
-              &tmpshortdata[0]);
+          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
+                                          &tmpshortdata[0]);
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpshortdata.size(); idx++)

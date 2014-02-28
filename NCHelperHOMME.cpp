@@ -15,7 +15,7 @@ namespace moab {
 
 NCHelperHOMME::NCHelperHOMME(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 : UcdNCHelper(readNC, fileId, opts, fileSet),
-_spectralOrder(-1), connectId(-1)
+_spectralOrder(-1), connectId(-1), isConnFile(false)
 {
   // Calculate spectral order
   std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("np");
@@ -25,6 +25,11 @@ _spectralOrder(-1), connectId(-1)
       readNC->readMeshIface->report_error("%s", "Failed to read np global attribute int data.");
     else
       _spectralOrder--; // Spectral order is one less than np
+  }
+  else {
+    // As can_read_file() returns true and there is no global attribute "np", it should be a connectivity file
+    isConnFile = true;
+    _spectralOrder = 3; // Assume np is 4
   }
 }
 
@@ -52,6 +57,15 @@ bool NCHelperHOMME::can_read_file(ReadNC* readNC, int fileId)
 
     return true;
   }
+  else {
+    // If dimension names "ncol" AND "ncorners" AND "ncells" exist, then it should be the HOMME connectivity file
+    // In this case, the mesh can still be created
+    std::vector<std::string>& dimNames = readNC->dimNames;
+    if ((std::find(dimNames.begin(), dimNames.end(), std::string("ncol")) != dimNames.end()) &&
+        (std::find(dimNames.begin(), dimNames.end(), std::string("ncorners")) != dimNames.end()) &&
+        (std::find(dimNames.begin(), dimNames.end(), std::string("ncells")) != dimNames.end()))
+      return true;
+  }
 
   return false;
 }
@@ -67,15 +81,20 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
   std::vector<std::string>::iterator vit;
 
   // Look for time dimension
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end())
-    idx = vit - dimNames.begin();
-  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
-    idx = vit - dimNames.begin();
-  else {
-    ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
+  if (isConnFile) {
+    // Connectivity file might not have time dimension
   }
-  tDim = idx;
-  nTimeSteps = dimLens[idx];
+  else {
+    if ((vit = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end())
+      idx = vit - dimNames.begin();
+    else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
+      idx = vit - dimNames.begin();
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
+    }
+    tDim = idx;
+    nTimeSteps = dimLens[idx];
+  }
 
   // Get number of vertices (labeled as number of columns)
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "ncol")) != dimNames.end())
@@ -90,15 +109,20 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
   nCells = nVertices - 2;
 
   // Get number of levels
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
-    idx = vit - dimNames.begin();
-  else if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
-    idx = vit - dimNames.begin();
-  else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
+  if (isConnFile) {
+    // Connectivity file might not have level dimension
   }
-  levDim = idx;
-  nLevels = dimLens[idx];
+  else {
+    if ((vit = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
+      idx = vit - dimNames.begin();
+    else if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
+      idx = vit - dimNames.begin();
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
+    }
+    levDim = idx;
+    nLevels = dimLens[idx];
+  }
 
   // Store lon values in xVertVals
   std::map<std::string, ReadNC::VarData>::iterator vmit;
@@ -120,35 +144,45 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
   }
 
   // Store lev values in levVals
-  if ((vmit = varInfo.find("lev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-    rval = read_coordinate("lev", 0, nLevels - 1, levVals);
-    ERRORR(rval, "Trouble reading 'lev' variable.");
-
-    // Decide whether down is positive
-    char posval[10];
-    int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
-    if (0 == success && !strcmp(posval, "down")) {
-      for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
-        (*dvit) *= -1.0;
-    }
+  if (isConnFile) {
+    // Connectivity file might not have level variable
   }
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lev' variable.");
+    if ((vmit = varInfo.find("lev")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("lev", 0, nLevels - 1, levVals);
+      ERRORR(rval, "Trouble reading 'lev' variable.");
+
+      // Decide whether down is positive
+      char posval[10];
+      int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
+      if (0 == success && !strcmp(posval, "down")) {
+        for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
+          (*dvit) *= -1.0;
+      }
+    }
+    else {
+      ERRORR(MB_FAILURE, "Couldn't find 'lev' variable.");
+    }
   }
 
   // Store time coordinate values in tVals
-  if ((vmit = varInfo.find("time")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-    rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);
-    ERRORR(rval, "Trouble reading 'time' variable.");
-  }
-  else if ((vmit = varInfo.find("t")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-    rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);
-    ERRORR(rval, "Trouble reading 't' variable.");
+  if (isConnFile) {
+    // Connectivity file might not have time variable
   }
   else {
-    // If expected time variable is not available, set dummy time coordinate values to tVals
-    for (int t = 0; t < nTimeSteps; t++)
-      tVals.push_back((double)t);
+    if ((vmit = varInfo.find("time")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);
+      ERRORR(rval, "Trouble reading 'time' variable.");
+    }
+    else if ((vmit = varInfo.find("t")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+      rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);
+      ERRORR(rval, "Trouble reading 't' variable.");
+    }
+    else {
+      // If expected time variable is not available, set dummy time coordinate values to tVals
+      for (int t = 0; t < nTimeSteps; t++)
+        tVals.push_back((double)t);
+    }
   }
 
   // For each variable, determine the entity location type and number of levels
@@ -225,23 +259,6 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   bool& spectralMesh = _readNC->spectralMesh;
   int& gatherSetRank = _readNC->gatherSetRank;
 
-  // Need to get/read connectivity data before creating elements
-  std::string conn_fname;
-
-  // Try to open the connectivity file through CONN option, if used
-  ErrorCode rval = _opts.get_str_option("CONN", conn_fname);
-  if (MB_SUCCESS != rval) {
-    // Default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
-    conn_fname = std::string(fileName);
-    size_t idx = conn_fname.find_last_of("/");
-    if (idx != std::string::npos)
-      conn_fname = conn_fname.substr(0, idx).append("/HommeMapping.nc");
-    else
-      conn_fname = "HommeMapping.nc";
-  }
-
-  int success = 0;
-
   int rank = 0;
   int procs = 1;
 #ifdef USE_MPI
@@ -253,19 +270,42 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   }
 #endif
 
+  ErrorCode rval;
+  int success = 0;
+
+  // Need to get/read connectivity data before creating elements
+  std::string conn_fname;
+
+  if (isConnFile) {
+    // Connectivity file has already been read
+    connectId = _readNC->fileId;
+  }
+  else {
+    // Try to open the connectivity file through CONN option, if used
+    rval = _opts.get_str_option("CONN", conn_fname);
+    if (MB_SUCCESS != rval) {
+      // Default convention for reading HOMME is a file HommeMapping.nc in same dir as data file
+      conn_fname = std::string(fileName);
+      size_t idx = conn_fname.find_last_of("/");
+      if (idx != std::string::npos)
+        conn_fname = conn_fname.substr(0, idx).append("/HommeMapping.nc");
+      else
+        conn_fname = "HommeMapping.nc";
+    }
 #ifdef PNETCDF_FILE
 #ifdef USE_MPI
-  if (isParallel) {
-    ParallelComm*& myPcomm = _readNC->myPcomm;
-    success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
-  }
-  else
-    success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+    if (isParallel) {
+      ParallelComm*& myPcomm = _readNC->myPcomm;
+      success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
+    }
+    else
+      success = NCFUNC(open)(MPI_COMM_SELF, conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
 #endif
 #else
-  success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
+    success = NCFUNC(open)(conn_fname.c_str(), 0, &connectId);
 #endif
-  ERRORS(success, "Failed on open.");
+    ERRORS(success, "Failed on open.");
+  }
 
   std::vector<std::string> conn_names;
   std::vector<int> conn_vals;
@@ -286,7 +326,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     ERRORR(MB_FAILURE, "Failed to get number of quads.");
   }
   int num_quads = conn_vals[idx];
-  if (num_quads != nCells) {
+  if (!isConnFile && num_quads != nCells) {
     dbgOut.tprintf(1, "Warning: number of quads from %s and cells from %s are inconsistent; num_quads = %d, nCells = %d.\n",
         conn_fname.c_str(), fileName.c_str(), num_quads, nCells);
   }
@@ -300,8 +340,13 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   std::vector<int> tmp_conn(4 * num_quads), tmp_conn2(4 * num_quads);
   success = NCFUNCAG(_vara_int)(connectId, cornerVarId, tmp_starts, tmp_counts, &tmp_conn2[0]);
   ERRORS(success, "Failed to get temporary connectivity.");
-  success = NCFUNC(close)(connectId);
-  ERRORS(success, "Failed on close.");
+  if (isConnFile) {
+    // This data/connectivity file will be closed later in ReadNC::load_file()
+  }
+  else {
+    success = NCFUNC(close)(connectId);
+    ERRORS(success, "Failed on close.");
+  }
   // Permute the connectivity
   for (int i = 0; i < num_quads; i++) {
     tmp_conn[4 * i] = tmp_conn2[i];
@@ -383,12 +428,12 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 
   // Convert lon/lat/rad to x/y/z
   const double pideg = acos(-1.0) / 180.0;
+  double rad = (isConnFile) ? 8000.0 : 8000.0 + levVals[0];
   for (i = 0; i < nLocalVertices; i++) {
     double cosphi = cos(pideg * yptr[i]);
     double zmult = sin(pideg * yptr[i]);
     double xmult = cosphi * cos(xptr[i] * pideg);
     double ymult = cosphi * sin(xptr[i] * pideg);
-    double rad = 8000.0 + levVals[0];
     xptr[i] = rad * xmult;
     yptr[i] = rad * ymult;
     zptr[i] = rad * zmult;
@@ -463,7 +508,6 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
       double zmult = sin(pideg * yVertVals[i]);
       double xmult = cosphi * cos(xVertVals[i] * pideg);
       double ymult = cosphi * sin(xVertVals[i] * pideg);
-      double rad = 8000.0 + levVals[0];
       xptr[i] = rad * xmult;
       yptr[i] = rad * ymult;
       zptr[i] = rad * zmult;
@@ -525,47 +569,55 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC
       verts.psize() == 1);
 
   for (unsigned int i = 0; i < vdatas.size(); i++) {
-    vdatas[i].numLev = nLevels;
+    // Support non-set variables with 3 dimensions like (time, lev, ncol)
+    assert(3 == vdatas[i].varDims.size());
+
+    // For a non-set variable, time should be the first dimension
+    assert(tDim == vdatas[i].varDims[0]);
+
+    // Set up readStarts and readCounts
+    vdatas[i].readStarts.resize(3);
+    vdatas[i].readCounts.resize(3);
+
+    // First: time
+    vdatas[i].readStarts[0] = 0; // This value is timestep dependent, will be set later
+    vdatas[i].readCounts[0] = 1;
+
+    // Next: lev
+    vdatas[i].readStarts[1] = 0;
+    vdatas[i].readCounts[1] = vdatas[i].numLev;
+
+    // Finally: ncol
+    switch (vdatas[i].entLoc) {
+      case ReadNC::ENTLOCVERT:
+        // Vertices
+        // Start from the first localGidVerts
+        // Actually, this will be reset later on in a loop
+        vdatas[i].readStarts[2] = localGidVerts[0] - 1;
+        vdatas[i].readCounts[2] = nLocalVertices;
+        range = &verts;
+        break;
+      default:
+        ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
+        break;
+    }
+
+    // Get variable size
+    vdatas[i].sz = 1;
+    for (std::size_t idx = 0; idx != 3; idx++)
+      vdatas[i].sz *= vdatas[i].readCounts[idx];
 
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
+
+      if (tstep_nums[t] >= dimLens[tDim]) {
+        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for a timestep number.");
+      }
+
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
         rval = get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);
         ERRORR(rval, "Trouble getting tag.");
-      }
-
-      // Assume point-based values for now?
-      if (-1 == tDim || dimLens[tDim] <= (int) t) {
-        ERRORR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number.");
-      }
-      else if (vdatas[i].varDims[0] != tDim) {
-        ERRORR(MB_INDEX_OUT_OF_RANGE, "Non-default timestep number given for time-independent variable.");
-      }
-
-      // Set up the dimensions and counts
-      // First: time
-      vdatas[i].readStarts[t].push_back(tstep_nums[t]);
-      vdatas[i].readCounts[t].push_back(1);
-
-      // Next: numLev, even if it is 1
-      vdatas[i].readStarts[t].push_back(0);
-      vdatas[i].readCounts[t].push_back(vdatas[i].numLev);
-
-      // Finally: nVertices
-      switch (vdatas[i].entLoc) {
-        case ReadNC::ENTLOCVERT:
-          // Vertices
-          // We will start from the first localGidVerts, actually; we will reset that
-          // later on, anyway, in a loop
-          vdatas[i].readStarts[t].push_back(localGidVerts[0] - 1);
-          vdatas[i].readCounts[t].push_back(nLocalVertices);
-          assert(vdatas[i].readStarts[t].size() == vdatas[i].varDims.size());
-          range = &verts;
-          break;
-        default:
-          ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
-          break;
       }
 
       // Get ptr to tag space
@@ -576,12 +628,6 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC
       assert((unsigned)count == range->size());
       vdatas[i].varDatas[t] = data;
     }
-
-    // Calculate variable size
-    std::size_t sz = 1;
-    for (std::size_t idx = 0; idx != vdatas[i].readCounts[0].size(); idx++)
-      sz *= vdatas[i].readCounts[0][idx];
-    vdatas[i].sz = sz;
   }
 
   return rval;
@@ -601,16 +647,24 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     std::size_t sz = vdatas[i].sz;
 
+    // A typical supported variable: float T(time, lev, ncol)
+    // For tag values, need transpose (lev, ncol) to (ncol, lev)
+    size_t ni = vdatas[i].readCounts[2]; // ncol
+    size_t nj = 1; // Here we should just set nj to 1
+    size_t nk = vdatas[i].readCounts[1]; // lev
+
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       // We will synchronize all these reads with the other processors,
       // so the wait will be inside this double loop; is it too much?
       size_t nb_reads = localGidVerts.psize();
       std::vector<int> requests(nb_reads), statuss(nb_reads);
       size_t idxReq = 0;
+
+      // Tag data for this timestep
       void* data = vdatas[i].varDatas[t];
-      size_t ni = vdatas[i].readCounts[t][2];
-      size_t nj = 1; // For HOMME, nj holds # quads, so here should set to 1
-      size_t nk = vdatas[i].readCounts[t][1];
+
+      // Set readStart for each timestep along time dimension
+      vdatas[i].readStarts[0] = tstep_nums[t];
 
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
@@ -619,7 +673,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
           break;
         }
         case NC_DOUBLE: {
-          // Copy from float case
+          // Copied from float case
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -627,10 +681,6 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
           // localGidVerts range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readStarts[t].size();
-          // assume that the last dimension is for the ncol,
-          // node varying variable
-
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
@@ -638,13 +688,13 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // inclusive
-            vdatas[i].readStarts[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
+            vdatas[i].readStarts[2] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[2] = (NCDF_SIZE) (endh - starth + 1);
 
             // Do a partial read, in each subrange
             // wait outside this loop
             success = NCFUNCREQG(_vara_double)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]), &requests[idxReq++]);
             ERRORS(success, "Failed to read double data in loop");
             // We need to increment the index in double array for the
@@ -657,7 +707,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
           ERRORS(success, "Failed on wait_all.");
 
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, ncol) to (ncol, lev)
             success = kji_to_jik_stride(ni, nj, nk, data, &tmpdoubledata[0], localGidVerts);
           else {
             for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
@@ -674,9 +724,6 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
           // localGidVerts range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readStarts[t].size();
-
-          // Assume that the last dimension is for the ncol, number of vertices
           size_t indexInFloatArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
@@ -684,13 +731,13 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // inclusive
-            vdatas[i].readStarts[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
+            vdatas[i].readStarts[2] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[2] = (NCDF_SIZE) (endh - starth + 1);
 
             // Do a partial read, in each subrange
             // wait outside this loop
             success = NCFUNCREQG(_vara_float)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpfloatdata[indexInFloatArray]), &requests[idxReq++]);
             ERRORS(success, "Failed to read float data in loop");
             // We need to increment the index in float array for the
@@ -703,7 +750,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
           ERRORS(success, "Failed on wait_all.");
 
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, ncol) to (ncol, lev)
             success = kji_to_jik_stride(ni, nj, nk, data, &tmpfloatdata[0], localGidVerts);
           else {
             for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
@@ -737,6 +784,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset_async(std::vector<ReadNC::V
         rval = tmp_rval;
     }
   }
+
   // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
@@ -760,11 +808,18 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     std::size_t sz = vdatas[i].sz;
 
+    // A typical supported variable: float T(time, lev, ncol)
+    // For tag values, need transpose (lev, ncol) to (ncol, lev)
+    size_t ni = vdatas[i].readCounts[2]; // ncol
+    size_t nj = 1; // Here we should just set nj to 1
+    size_t nk = vdatas[i].readCounts[1]; // lev
+
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+      // Tag data for this timestep
       void* data = vdatas[i].varDatas[t];
-      size_t ni = vdatas[i].readCounts[t][2];
-      size_t nj = 1; // For HOMME, nj holds # quads, so here should set to 1
-      size_t nk = vdatas[i].readCounts[t][1];
+
+      // Set readStart for each timestep along time dimension
+      vdatas[i].readStarts[0] = tstep_nums[t];
 
       switch (vdatas[i].varDataType) {
         case NC_BYTE:
@@ -773,7 +828,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
           break;
         }
         case NC_DOUBLE: {
-          // Copy from float case
+          // Copied from float case
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -781,9 +836,6 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
           // localGidVerts range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readStarts[t].size();
-
-          // Assume that the last dimension is for the ncol, number of vertices
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
@@ -791,11 +843,11 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
-            vdatas[i].readStarts[t][nbDims - 1] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[t][nbDims - 1] = (NCDF_SIZE) (endh - starth + 1);
+            vdatas[i].readStarts[2] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[2] = (NCDF_SIZE) (endh - starth + 1);
 
             success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]));
             ERRORS(success, "Failed to read float data in loop");
             // We need to increment the index in double array for the
@@ -805,7 +857,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
           assert(ic == localGidVerts.psize());
 
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, ncol) to (ncol, lev)
             success = kji_to_jik_stride(ni, nj, nk, data, &tmpdoubledata[0], localGidVerts);
           else {
             for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
@@ -822,9 +874,6 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
           // localGidVerts range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-          size_t nbDims = vdatas[i].readStarts[t].size();
-
-          // Assume that the last dimension is for the ncol
           size_t indexInFloatArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
@@ -832,11 +881,11 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
               pair_iter++, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
-            vdatas[i].readStarts[t][nbDims-1] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[t][nbDims-1] = (NCDF_SIZE) (endh - starth + 1);
+            vdatas[i].readStarts[2] = (NCDF_SIZE) (starth - 1);
+            vdatas[i].readCounts[2] = (NCDF_SIZE) (endh - starth + 1);
 
             success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId,
-                &(vdatas[i].readStarts[t][0]), &(vdatas[i].readCounts[t][0]),
+                            &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpfloatdata[indexInFloatArray]));
             ERRORS(success, "Failed to read float data in loop");
             // We need to increment the index in float array for the
@@ -846,7 +895,7 @@ ErrorCode NCHelperHOMME::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData
           assert(ic == localGidVerts.psize());
 
           if (vdatas[i].numLev != 1)
-            // Switch from k varying slowest to k varying fastest
+            // Transpose (lev, ncol) to (ncol, lev)
             success = kji_to_jik_stride(ni, nj, nk, data, &tmpfloatdata[0], localGidVerts);
           else {
             for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)

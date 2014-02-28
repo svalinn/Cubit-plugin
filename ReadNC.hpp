@@ -111,21 +111,21 @@ private:
   class VarData
   {
     public:
-    VarData() : varId(-1), numAtts(-1), entLoc(ENTLOCSET), numLev(1), sz(0), has_t(false) {}
+    VarData() : varId(-1), numAtts(-1), entLoc(ENTLOCSET), numLev(1), sz(0), has_tsteps(false) {}
     int varId;
     int numAtts;
     nc_type varDataType;
     std::vector<int> varDims; // The dimension indices making up this multi-dimensional variable
     std::map<std::string, AttData> varAtts;
     std::string varName;
-    std::vector<Tag> varTags; // One tag for each time step, varTags[t]
+    std::vector<Tag> varTags; // Tags created for this variable, e.g. one tag per timestep
     std::vector<void*> varDatas;
-    std::vector<std::vector<NCDF_SIZE> > readStarts; // Start value for this [t][dim]
-    std::vector<std::vector<NCDF_SIZE> > readCounts; // Number of data values for this [t][dim]
+    std::vector<NCDF_SIZE> readStarts; // Starting index for reading data values along each dimension
+    std::vector<NCDF_SIZE> readCounts; // Number of data values to be read along each dimension
     int entLoc;
     int numLev;
     int sz;
-    bool has_t;
+    bool has_tsteps; // Indicate whether timestep numbers are appended to tag names
   };
 
   ReadUtilIface* readMeshIface;
@@ -135,7 +135,7 @@ private:
 
   //! Get all global attributes in the file
   ErrorCode get_attributes(int var_id, int num_atts, std::map<std::string, AttData>& atts,
-                           const char *prefix = "");
+                           const char* prefix = "");
 
   //! Get all dimensions in the file
   ErrorCode get_dimensions(int file_id, std::vector<std::string>& dim_names, std::vector<int>& dim_lens);
