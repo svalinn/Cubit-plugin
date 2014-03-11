@@ -44,6 +44,8 @@
 #include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
 
+#include "moab/GeomTopoTool.hpp"
+
 namespace moab {
 
   ReaderIface* ReadRTT::factory( Interface* iface ){
@@ -54,6 +56,7 @@ namespace moab {
 ReadRTT::ReadRTT(Interface* impl)
   : MBI(impl),geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0) {
     assert(NULL != impl);
+    myGeomTool = new GeomTopoTool(impl);
     MBI->query_interface(readMeshIface);
     assert(NULL != readMeshIface);
     
@@ -137,11 +140,13 @@ ErrorCode ReadRTT::load_file(const char                      *filename,
   rval = ReadRTT::read_tets(filename,tet_data);
   std::cout << tet_data.size() << std::endl;
 
+  
+  std::map <int,EntityHandle> surface_map; // corrsespondance of surface number to entity handle
   std::cout << "Generate topology ..." << std::endl;
-  rval = ReadRTT::generate_topology(side_data,cell_data);
+  rval = ReadRTT::generate_topology(side_data,cell_data,surface_map);
   
   std::cout << "Generate MOAB Data ..." << std::endl;
-  rval = ReadRTT::build_moab(node_data,facet_data,tet_data);
+  rval = ReadRTT::build_moab(node_data,facet_data,tet_data,surface_map);
 
   return MB_SUCCESS;
 }
@@ -150,61 +155,63 @@ ErrorCode ReadRTT::load_file(const char                      *filename,
  * builds the topology of the problem
  */
 ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
-				     std::vector<cell> cell_data){
-  std::vector<EntityHandle> entmap[4]; // one for each dimension
+				     std::vector<cell> cell_data,
+				     std::map <int,EntityHandle> &surface_map){
+
   ErrorCode rval;
+  std::vector<EntityHandle> entmap[4];
+  int num_ents[4]; // number of entities in each dimension
 
   const char geom_categories[][CATEGORY_TAG_SIZE] =
     {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
   const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
 
+  std::vector<int> surface_numbers;
+
+  // corresponds to number of cad like surfaces and cad like volumes
+  std::cout << "count sides... " << std::endl;
+  num_ents[2] = side_data.size();
+  std::cout << " count tets... " << std::endl;
+  num_ents[3] = cell_data.size();
+
   //  rval = setup_basic_tags();
 
   // loop over surfaces
-  int dim = 2;
-  for ( unsigned int i = 0 ; i != side_data.size() ; i++ ) {
-    EntityHandle handle;
-    rval = MBI->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
-    if (rval != MB_SUCCESS )
-      return rval;
-    // collect the entity handles
-    entmap[dim].push_back(handle);
-
-    rval = MBI->tag_set_data( geom_tag, &handle, 1, &dim );
-    if (MB_SUCCESS != rval)     
-      return rval;              
-    int id = side_data[i].id;         
-    rval = MBI->tag_set_data( id_tag, &handle, 1, &id );
-    if (MB_SUCCESS != rval)     
-      return rval;              
-    rval = MBI->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
-    if (MB_SUCCESS != rval)
-      return rval;
+  for ( int dim = 2 ; dim <= 3 ; dim++ ) {
+    for ( unsigned int i = 0 ; i != num_ents[dim] ; i++ ) {
+      EntityHandle handle;
+      rval = MBI->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
+      if (rval != MB_SUCCESS )
+	return rval;
+      // collect the entity handles
+      entmap[dim].push_back(handle);
+      
+      rval = MBI->tag_set_data( geom_tag, &handle, 1, &dim );
+      if (MB_SUCCESS != rval)     
+	return rval;              
+      if(dim == 2 ) {
+	rval = MBI->tag_set_data( id_tag, &handle, 1, &side_data[i].id );
+	surface_map[side_data[i].id]=handle;
+      } else {
+	rval = MBI->tag_set_data( id_tag, &handle, 1, &cell_data[i].id );
+      }
+      if (MB_SUCCESS != rval)     
+	return rval;              
+      rval = MBI->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
+      if (MB_SUCCESS != rval)
+	return rval;
+    }
   }
-
-  // loop over volumes
-  dim = 3;
-  for ( unsigned int i = 0 ; i != cell_data.size() ; i++ ) {
-    EntityHandle handle;
-    rval = MBI->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
-    if (rval != MB_SUCCESS )
-      return rval;
-    // collect the entity handles
-    entmap[dim].push_back(handle);
-
-    rval = MBI->tag_set_data( geom_tag, &handle, 1, &dim );
-    if (MB_SUCCESS != rval)     
-      return rval;              
-    int id = side_data[i].id;         
-    rval = MBI->tag_set_data( id_tag, &handle, 1, &id );
-    if (MB_SUCCESS != rval)     
-      return rval;              
-    rval = MBI->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
-    if (MB_SUCCESS != rval)
-      return rval;
-  }
-
   // generate parent child links
+  // best to loop over the surfaces and assign them to volumes, we can then assign facets to
+  // to each surface
+  std::cout << " set parent child links " << std::endl;
+  generate_parent_child_links(num_ents,entmap,side_data,cell_data);
+
+  // set the surface senses
+  std::cout << " set surface senses " << std::endl;
+  set_surface_senses(num_ents,entmap,side_data,cell_data);
+
 
   return MB_SUCCESS;
 }
@@ -233,12 +240,15 @@ ErrorCode setup_basic_tags(){
 }
 */
 
+
 /*
  * builds the moab representation of the mesh
  */
 ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
 			      std::vector<facet> facet_data,
-			      std::vector<tet> tet_data ){
+			      std::vector<tet> tet_data,
+			      std::map<int,EntityHandle> surface_map )
+{
   ErrorCode rval;
   EntityHandle file_set;
   rval = MBI->create_meshset( MESHSET_SET, file_set );
@@ -281,6 +291,13 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
     rval = MBI->tag_set_data(side_id_tag,&triangle,1,&tmp.from);
     // tag out sense
     rval = MBI->tag_set_data(surface_number_tag,&triangle,1,&tmp.to);
+
+    // insert vertices and triangles into the appropriate surface meshset
+    EntityHandle meshset_handle = surface_map[tmp.to];
+    // add vertices
+    rval = MBI->add_entities(meshset_handle,&(*tri_nodes),3);
+    // add triangles
+    rval = MBI->add_entities(meshset_handle,&triangle,1);
 
     mb_tris.insert(triangle);
   }
@@ -663,6 +680,63 @@ boundary ReadRTT::split_name(std::string atilla_cellname) {
       tokens.erase(it);
   }
   return tokens;
+}
+
+void ReadRTT::generate_parent_child_links(int num_ents[4],std::vector<EntityHandle> entity_map[4],
+					    std::vector<side> side_data, std::vector<cell> cell_data)
+{
+  ErrorCode rval; // return value
+  // loop over the number of surfaces
+  for ( unsigned int i = 0 ; i < num_ents[2] ; i++ ) {
+    EntityHandle surf_handle = entity_map[2][i];
+    // there are volumes that share this face
+    for ( unsigned int shared = 0 ; shared <= 1 ; shared++ ) {
+      std::string parent_name = side_data[i].names[shared];
+      //  std::cout << i << " " << num_ents[2] << " " << side_data[i].id << " " << parent_name << std::endl;
+      // loop over tets looking for matching name
+      for ( unsigned int j = 0 ; j < num_ents[3] ; j++ ) {
+	// if match found 
+	if(cell_data[j].name.compare(parent_name) == 0) { 
+	  EntityHandle cell_handle = entity_map[3][j];
+	  // parent
+	  rval = MBI->add_parent_child(cell_handle,surf_handle);
+	  //	  std::cout << "cell data = " << cell_data[j].id << " " 
+	  //	    << cell_data[j].name << " side = " << side_data[i].id 
+	  //	    << " "  << side_data[i].names[0] << std::endl;
+	}
+      }
+    }
+  }
+  return;
+}
+
+/* sets the sense of the surfaces wrt to volumes */
+void ReadRTT::set_surface_senses(int num_ents[4], std::vector<EntityHandle> entity_map[4],
+				 std::vector<side> side_data, std::vector<cell> cell_data)
+{
+  ErrorCode rval; // return value
+  // loop over the number of surfaces
+  for ( unsigned int i = 0 ; i < num_ents[2] ; i++ ) {
+    EntityHandle surf_handle = entity_map[2][i];
+    // there are 2 volumes that share this face
+    for ( unsigned int shared = 0 ; shared <= 1 ; shared++ ) {
+      std::string parent_name = side_data[i].names[shared];
+      // loop over tets looking for matching name
+      for ( unsigned int j = 0 ; j < num_ents[3] ; j++ ) {
+	// if match found 
+	if(cell_data[j].name.compare(parent_name) == 0) { 
+	  EntityHandle cell_handle = entity_map[3][j];
+	  //
+	  if( side_data[i].senses[shared] == 1 )
+	    rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_FORWARD);
+	  else if ( side_data[i].senses[shared] == -1 )
+	    rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_REVERSE);
+
+	}
+      }
+    }
+  }  
+  return;
 }
 
 } // namespace moab
