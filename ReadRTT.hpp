@@ -34,6 +34,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <map>
 #include <vector>
 
 #include "moab/Interface.hpp"
@@ -84,6 +85,7 @@ struct tet {
 namespace moab {
 
 class ReadUtilIface;
+class GeomTopoTool;
 
 class ReadRTT : public ReaderIface
 {
@@ -116,15 +118,23 @@ private:
   ReadUtilIface* readMeshIface;
   // Moab Interface
   Interface* MBI;
+  // geom tool instance 
+  GeomTopoTool* myGeomTool;
 
   ErrorCode setup_basic_tags();
 
   ErrorCode generate_topology(std::vector<side> side_data,
-			      std::vector<cell> cell_data);
+			      std::vector<cell> cell_data,
+			      std::map <int,EntityHandle> &surface_map);
 
+  void generate_parent_child_links(int num_ents[4],std::vector<EntityHandle> entity_map[4],
+					    std::vector<side> side_data, std::vector<cell> cell_data);
+  void set_surface_senses(int num_ents[4], std::vector<EntityHandle> entity_map[4],
+					    std::vector<side> side_data, std::vector<cell> cell_data);
   ErrorCode build_moab(std::vector<node> node_data,
 		       std::vector<facet> facet_data,
-		       std::vector<tet> tet_data );
+		       std::vector<tet> tet_data,
+		       std::map <int,EntityHandle> surface_map);
 
   ErrorCode read_sides(const char* filename, std::vector<side> &side_data);
   ErrorCode read_cells(const char* filename, std::vector<cell> &cell_data);
@@ -140,6 +150,16 @@ private:
 
   std::vector<std::string> split_string(std::string string_to_split, char split_char);
   boundary split_name(std::string atilla_cellname);
+
+  /**
+   * Count the number of unique surface numbers in the dataset, also get list of surface numbers
+   * @param side_data, collection of all the side data in the mesh
+   * @param surface_numbers, collection of surface numbers
+   * returns the number of surface numbers
+   */
+  int count_sides(std::vector<side> side_data,
+		  std::vector<int> &surface_numbers);
+
 
   Tag geom_tag,id_tag,name_tag,category_tag,faceting_tol_tag;
 };
