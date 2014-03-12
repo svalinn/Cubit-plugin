@@ -959,7 +959,7 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
      
     FREADD(blockh->attribOrder); num_read += sizeof(double);
     void const* tag_data[] = { &dbl_buf[0] };
-    int tag_sizes[] = { blockh->attribOrder };
+    int tag_sizes[] = { static_cast<int>(blockh->attribOrder) };
     result = mdbImpl->tag_set_by_ptr(block_attribs,&(blockh->setHandle),1,tag_data,tag_sizes);
     if (MB_SUCCESS != result) return result;
   }
@@ -1932,7 +1932,8 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
       result = instance->mdbImpl->tag_get_handle(BLOCK_HEADER,3*sizeof(unsigned int),MB_TYPE_INTEGER,
 	bhTag_header,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_BYTES,&def_uint_zero[0]); 
       if (MB_SUCCESS != result) return result;
-      int block_header_data[] = { block_headers[i].blockCol, block_headers[i].blockMat, block_headers[i].blockDim }; 
+      int block_header_data[] = { static_cast<int>(block_headers[i].blockCol), static_cast<int>(block_headers[i].blockMat), 
+                                  static_cast<int>(block_headers[i].blockDim) }; 
       result = instance->mdbImpl->tag_set_data(bhTag_header,&(block_headers[i].setHandle), 1,
 					      block_header_data);
     }
