@@ -164,7 +164,6 @@ ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
 
   const char geom_categories[][CATEGORY_TAG_SIZE] =
     {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
-  const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
 
   std::vector<int> surface_numbers;
 
@@ -202,6 +201,7 @@ ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
 	return rval;
     }
   }
+
   // generate parent child links
   // best to loop over the surfaces and assign them to volumes, we can then assign facets to
   // to each surface
@@ -692,6 +692,21 @@ void ReadRTT::generate_parent_child_links(int num_ents[4],std::vector<EntityHand
     // there are volumes that share this face
     for ( unsigned int shared = 0 ; shared <= 1 ; shared++ ) {
       std::string parent_name = side_data[i].names[shared];
+      // find the @ sign
+      unsigned pos = parent_name.find("@");
+      parent_name = parent_name.substr(0,pos);
+      /*
+      if( side_data[i].id == 10431 )
+	{
+	  std::cout << "parent = " << parent_name << std::endl;
+	  for ( unsigned int j = 0 ; j < num_ents[3] ; j++ ) {
+	    // if match found 
+	    std::cout << "cell data = " << cell_data[j].name << std::endl;
+	    if(cell_data[j].name.compare(parent_name) == 0) 
+	      std::cout << "match" << std::endl;
+	    }
+	}
+      */
       //  std::cout << i << " " << num_ents[2] << " " << side_data[i].id << " " << parent_name << std::endl;
       // loop over tets looking for matching name
       for ( unsigned int j = 0 ; j < num_ents[3] ; j++ ) {
@@ -721,17 +736,21 @@ void ReadRTT::set_surface_senses(int num_ents[4], std::vector<EntityHandle> enti
     // there are 2 volumes that share this face
     for ( unsigned int shared = 0 ; shared <= 1 ; shared++ ) {
       std::string parent_name = side_data[i].names[shared];
+      unsigned pos = parent_name.find("@");
+      parent_name = parent_name.substr(0,pos);
       // loop over tets looking for matching name
       for ( unsigned int j = 0 ; j < num_ents[3] ; j++ ) {
 	// if match found 
 	if(cell_data[j].name.compare(parent_name) == 0) { 
 	  EntityHandle cell_handle = entity_map[3][j];
-	  //
+	  // in rtt mesh +represents the inside and - represents outside
+	  // in moab reverse is outside and forward is inside
 	  if( side_data[i].senses[shared] == 1 )
 	    rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_FORWARD);
 	  else if ( side_data[i].senses[shared] == -1 )
 	    rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_REVERSE);
-
+	  else 
+	    rval = myGeomTool->set_sense(surf_handle,NULL,SENSE_REVERSE);
 	}
       }
     }
