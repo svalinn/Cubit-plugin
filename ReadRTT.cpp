@@ -212,33 +212,12 @@ ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
   std::cout << " set surface senses " << std::endl;
   set_surface_senses(num_ents,entmap,side_data,cell_data);
 
+  // set the group data
+  std::cout << " set group data " << std::endl;
+  rval = setup_group_data(num_ents,entmap,side_data,cell_data);
 
   return MB_SUCCESS;
 }
-
-/*
-ErrorCode setup_basic_tags(){
-  int negone = -1, zero = 0;
-  ErrorCode rval;
-  rval = MBI->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                  geom_tag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
-  assert(!rval);
-  rval = MBI->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                  id_tag, MB_TAG_DENSE|MB_TAG_CREAT, &zero);
-  assert(!rval);
-  rval = MBI->tag_get_handle( NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
-                                  name_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
-  assert(!rval);
-  rval = MBI->tag_get_handle( CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, MB_TYPE_OPAQUE,
-                                  category_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
-  assert(!rval);
-  rval = MBI->tag_get_handle("FACETING_TOL", 1, MB_TYPE_DOUBLE, faceting_tol_tag,
-			     MB_TAG_SPARSE|MB_TAG_CREAT, &zero );
-  assert(!rval);
-
-  return rval;
-}
-*/
 
 
 /*
@@ -578,13 +557,6 @@ facet ReadRTT::get_facet_data(std::string facetdata) {
   std::vector<std::string> tokens;
   tokens = ReadRTT::split_string(facetdata,' ');
   
-  /*
-  std::vector<std::string>::iterator it;
-  for ( it = tokens.begin() ; it != tokens.end() ; ++it )
-    std::cout << "a"<<*it<<"a"<<std::endl;
-  exit(1);
-  */
-
   new_facet.id = std::atoi(tokens[1].c_str());
   new_facet.connectivity[0] = std::atoi(tokens[3].c_str());
   new_facet.connectivity[1] = std::atoi(tokens[4].c_str());
@@ -592,10 +564,6 @@ facet ReadRTT::get_facet_data(std::string facetdata) {
   new_facet.from = std::atoi(tokens[6].c_str());
   new_facet.to = std::atoi(tokens[7].c_str());
 
-  //  new_node.id=std::atoi(tokens[1].c_str());
-  //  new_node.x=std::atof(tokens[2].c_str());
-  //  new_node.y=std::atof(tokens[3].c_str());
-  //  new_node.z=std::atof(tokens[4].c_str());
   return new_facet;
 }
 
@@ -607,14 +575,6 @@ tet ReadRTT::get_tet_data(std::string tetdata) {
   std::vector<std::string> tokens;
   tokens = ReadRTT::split_string(tetdata,' ');
   
-
-  /*
-  std::vector<std::string>::iterator it;
-  for ( it = tokens.begin() ; it != tokens.end() ; ++it )
-    std::cout << "a"<<*it<<"a"<<std::endl;
-  exit(1);
-  */
-
   new_tet.id = std::atoi(tokens[1].c_str());
   new_tet.connectivity[0] = std::atoi(tokens[3].c_str());
   new_tet.connectivity[1] = std::atoi(tokens[4].c_str());
@@ -622,10 +582,6 @@ tet ReadRTT::get_tet_data(std::string tetdata) {
   new_tet.connectivity[3] = std::atoi(tokens[6].c_str());
   new_tet.material_number = std::atoi(tokens[7].c_str());
   
-  //  new_node.id=std::atoi(tokens[1].c_str());
-  //  new_node.x=std::atof(tokens[2].c_str());
-  //  new_node.y=std::atof(tokens[3].c_str());
-  //  new_node.z=std::atof(tokens[4].c_str());
   return new_tet;
 }
 
@@ -695,19 +651,7 @@ void ReadRTT::generate_parent_child_links(int num_ents[4],std::vector<EntityHand
       // find the @ sign
       unsigned pos = parent_name.find("@");
       parent_name = parent_name.substr(0,pos);
-      /*
-      if( side_data[i].id == 10431 )
-	{
-	  std::cout << "parent = " << parent_name << std::endl;
-	  for ( unsigned int j = 0 ; j < num_ents[3] ; j++ ) {
-	    // if match found 
-	    std::cout << "cell data = " << cell_data[j].name << std::endl;
-	    if(cell_data[j].name.compare(parent_name) == 0) 
-	      std::cout << "match" << std::endl;
-	    }
-	}
-      */
-      //  std::cout << i << " " << num_ents[2] << " " << side_data[i].id << " " << parent_name << std::endl;
+
       // loop over tets looking for matching name
       for ( unsigned int j = 0 ; j < num_ents[3] ; j++ ) {
 	// if match found 
@@ -715,9 +659,6 @@ void ReadRTT::generate_parent_child_links(int num_ents[4],std::vector<EntityHand
 	  EntityHandle cell_handle = entity_map[3][j];
 	  // parent
 	  rval = MBI->add_parent_child(cell_handle,surf_handle);
-	  //	  std::cout << "cell data = " << cell_data[j].id << " " 
-	  //	    << cell_data[j].name << " side = " << side_data[i].id 
-	  //	    << " "  << side_data[i].names[0] << std::endl;
 	}
       }
     }
@@ -756,6 +697,46 @@ void ReadRTT::set_surface_senses(int num_ents[4], std::vector<EntityHandle> enti
     }
   }  
   return;
+
+}
+
+ErrorCode ReadRTT::setup_group_data(int num_ents[4], std::vector<EntityHandle> entity_map[4],
+				    std::vector<side> side_data, std::vector<cell> cell_data) 
+{
+  ErrorCode rval; // error codes
+  EntityHandle handle;
+  handle = create_group("graveyard_comp",1);
+  
+  // add any volume to group graveyard, it is ignored by dag
+  EntityHandle vol_handle = entity_map[3][0];
+  rval = MBI->add_entities( handle, &vol_handle, 1);
+  return rval;
+}
+
+EntityHandle ReadRTT::create_group(std::string group_name, int id)
+{
+  ErrorCode rval;
+  const char geom_categories[][CATEGORY_TAG_SIZE] =
+    {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+
+  EntityHandle handle;
+  rval = MBI->create_meshset( MESHSET_SET, handle );
+  if (MB_SUCCESS != rval)
+    return rval;
+  
+  rval = MBI->tag_set_data( name_tag, &handle, 1, group_name.c_str() );
+  if (MB_SUCCESS != rval)
+    return MB_FAILURE;
+  
+  rval = MBI->tag_set_data( id_tag, &handle, 1, &id );
+  if (MB_SUCCESS != rval)
+    return MB_FAILURE;
+  
+  rval = MBI->tag_set_data( category_tag, &handle, 1, &geom_categories[4] );
+  if (MB_SUCCESS != rval)
+    return MB_FAILURE;
+
+  return handle;
 }
 
 } // namespace moab
