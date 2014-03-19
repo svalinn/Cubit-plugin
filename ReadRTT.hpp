@@ -128,9 +128,30 @@ private:
 			      std::map <int,EntityHandle> &surface_map);
 
   void generate_parent_child_links(int num_ents[4],std::vector<EntityHandle> entity_map[4],
-					    std::vector<side> side_data, std::vector<cell> cell_data);
+				   std::vector<side> side_data, std::vector<cell> cell_data);
   void set_surface_senses(int num_ents[4], std::vector<EntityHandle> entity_map[4],
-					    std::vector<side> side_data, std::vector<cell> cell_data);
+			  std::vector<side> side_data, std::vector<cell> cell_data);
+
+  /**
+   * creates the group data requried for dagmc, reflecting planes, material assignments etc
+   * @param num_ents, vector of the number of entities in each dimension
+   * @param entity_map, vector of vector of entitiy handles for each dimension
+   * @param side_data, vector of side data
+   * @param cell_data, vector of cell data
+   */
+  ErrorCode setup_group_data(int num_ents[4], std::vector<EntityHandle> entity_map[4],
+			std::vector<side> side_data, std::vector<cell> cell_data);
+
+
+  /**
+   * create a group of a given name, mustkeep track of id
+   * @param group_name, name of the group
+   * @param id, integer id number
+   * returns the entity handle of the group
+   */
+  EntityHandle create_group(std::string group_name, int id);
+
+
   ErrorCode build_moab(std::vector<node> node_data,
 		       std::vector<facet> facet_data,
 		       std::vector<tet> tet_data,
