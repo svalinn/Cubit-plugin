@@ -273,6 +273,9 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
 
     // insert vertices and triangles into the appropriate surface meshset
     EntityHandle meshset_handle = surface_map[tmp.to];
+    // also set surface tags
+    rval = MBI->tag_set_data(side_id_tag,&meshset_handle,1,&tmp.from);
+    rval = MBI->tag_set_data(surface_number_tag,&meshset_handle,1,&tmp.to);
     // add vertices
     rval = MBI->add_entities(meshset_handle,&(*tri_nodes),3);
     // add triangles
