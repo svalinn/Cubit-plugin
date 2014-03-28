@@ -114,7 +114,395 @@ ErrorCode ReadCGM::read_tag_values( const char* /* file_name */,
   return MB_NOT_IMPLEMENTED;
 }
 
+//Sets options passed into ReadCGM::load_file
+ErrorCode ReadCGM::set_options( const FileOptions& opts,
+                                int& norm_tol,
+                                double& faceting_tol,
+                                double& len_tol,
+                                bool& act_att,
+                                bool& verbose_warnings)
+{
 
+  ErrorCode rval;
+
+  //Default Values
+  int DEFAULT_NORM = 5;
+  double DEFAULT_FACET_TOL = 0.001;
+  double DEFAULT_LEN_TOL = 0.0;
+  act_att = true;
+
+  //check for the options.
+  if (MB_SUCCESS != opts.get_int_option( "FACET_NORMAL_TOLERANCE", norm_tol ))
+    norm_tol = DEFAULT_NORM;
+
+  if (MB_SUCCESS != opts.get_real_option("FACET_DISTANCE_TOLERANCE", faceting_tol))
+    faceting_tol = DEFAULT_FACET_TOL;
+
+  if (MB_SUCCESS != opts.get_real_option("MAX_FACET_EDGE_LENGTH", len_tol))
+    len_tol = DEFAULT_LEN_TOL;
+
+
+  if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_WARNINGS"))
+    verbose_warnings = true;
+
+  const char* name = "CGM_ATTRIBS";
+  const char* value = "no";
+  rval = opts.match_option(name,value); 
+  if(MB_SUCCESS == rval) 
+    act_att = false; 
+
+
+
+  return MB_SUCCESS;
+}
+
+  ErrorCode ReadCGM::create_entity_sets_for_dim( Interface* moab, 
+                                                 int dim,
+                                                 std::map<RefEntity*,EntityHandle>& entitymap )
+  {
+     ErrorCode rval;
+     const char geom_categories[][CATEGORY_TAG_SIZE] = 
+              {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+     const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
+     DLIList<RefEntity*> entlist;
+     entlist.clean_out();
+     GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
+    
+     entlist.reset();
+     for(int i = entlist.size(); i--;) 
+       {
+          RefEntity* ent = entlist.get_and_step();
+          EntityHandle handle;
+          rval = moab->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
+          if (MB_SUCCESS != rval)
+            return rval;
+
+          entitymap[ent] = handle;
+      
+          rval = moab->tag_set_data( geom_tag, &handle, 1, &dim );
+          if (MB_SUCCESS != rval)
+            return rval;
+
+          int id = ent->id();
+          rval = moab->tag_set_data( id_tag, &handle, 1, &id );
+          if (MB_SUCCESS != rval)
+            return rval;
+
+          rval = moab->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
+          if (MB_SUCCESS != rval)
+            return rval;
+       }
+     return MB_SUCCESS;
+  }
+
+ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*,EntityHandle>* entmap_ptr )
+{
+  ErrorCode rval;
+  for(int dim=0; dim<4; dim++)
+    {
+      rval = create_entity_sets_for_dim( moab, dim, *entmap_ptr );
+      if (rval!=MB_SUCCESS) return rval;
+      entmap_ptr++;
+    }
+  
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+{
+  ErrorCode rval;
+  DLIList<RefEntity*> entitylist;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+
+  for (int dim = 1; dim < 4; ++dim) {
+    for (ci = entitymap[dim].begin(); ci != entitymap[dim].end(); ++ci) {
+      entitylist.clean_out();
+      ci->first->get_child_ref_entities( entitylist );
+    
+      entitylist.reset();
+      for (int i = entitylist.size(); i--; ) {
+        RefEntity* ent = entitylist.get_and_step();
+        EntityHandle h = entitymap[dim-1][ent];
+        rval = moab->add_parent_child( ci->second, h );
+        if (MB_SUCCESS != rval)
+          return rval;
+      }
+    }
+  }
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCGM::store_geom_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
+{
+  ErrorCode rval;
+  // store CoFace senses
+  rval = store_surface_senses( entitymap );
+  if (rval!=MB_SUCCESS) return rval;
+
+  // store CoEdge senses
+  rval = store_curve_senses( entitymap );
+  if (rval!=MB_SUCCESS) return rval;
+
+  return MB_SUCCESS;
+  
+}
+
+ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
+{
+  ErrorCode rval;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+
+  for (ci = entitymap[2].begin(); ci != entitymap[2].end(); ++ci) {
+    RefFace* face = (RefFace*)(ci->first);
+    BasicTopologyEntity *forward = 0, *reverse = 0;
+    for (SenseEntity* cf = face->get_first_sense_entity_ptr();
+         cf; cf = cf->next_on_bte()) {
+      BasicTopologyEntity* vol = cf->get_parent_basic_topology_entity_ptr();
+      // allocate vol to the proper topology entity (forward or reverse)
+      if (cf->get_sense() == CUBIT_UNKNOWN || 
+          cf->get_sense() != face->get_surface_ptr()->bridge_sense()) {
+        //check that each surface has a sense for only one volume
+        if (reverse) {
+          std::cout << "Surface " << face->id() << " has reverse sense " <<
+                       "with multiple volume " << reverse->id() << " and " <<
+                       "volume " << vol->id() << std::endl;
+          return MB_FAILURE;
+        }
+        reverse = vol;
+      }
+      if (cf->get_sense() == CUBIT_UNKNOWN || 
+          cf->get_sense() == face->get_surface_ptr()->bridge_sense()) {
+        //check that each surface has a sense for only one volume
+        if (forward) {
+          std::cout << "Surface " << face->id() << " has forward sense " <<
+                       "with multiple volume " << forward->id() << " and " <<
+                       "volume " << vol->id() << std::endl;
+          return MB_FAILURE;
+        }
+        forward = vol;
+      }
+    }
+    
+    if (forward) {
+      rval = myGeomTool->set_sense( ci->second, entitymap[3][forward], SENSE_FORWARD );
+      if (MB_SUCCESS != rval)
+        return rval;
+    }
+    if (reverse) {
+      rval = myGeomTool->set_sense( ci->second, entitymap[3][reverse], SENSE_REVERSE );
+      if (MB_SUCCESS != rval)
+        return rval;
+    }
+  }
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
+{
+
+  ErrorCode rval;
+  std::vector<EntityHandle> ents;
+  std::vector<int> senses;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+  for (ci = entitymap[1].begin(); ci != entitymap[1].end(); ++ci) {
+    RefEdge* edge = (RefEdge*)(ci->first);
+    ents.clear();
+    senses.clear();
+    for (SenseEntity* ce = edge->get_first_sense_entity_ptr();
+         ce; ce = ce->next_on_bte()) {
+      BasicTopologyEntity* fac = ce->get_parent_basic_topology_entity_ptr();
+      EntityHandle face = entitymap[2][fac];
+      if (ce->get_sense() == CUBIT_UNKNOWN || 
+          ce->get_sense() != edge->get_curve_ptr()->bridge_sense()) {
+        ents.push_back(face);
+        senses.push_back(SENSE_REVERSE);
+      }
+      if (ce->get_sense() == CUBIT_UNKNOWN || 
+          ce->get_sense() == edge->get_curve_ptr()->bridge_sense()) {
+        ents.push_back(face);
+        senses.push_back(SENSE_FORWARD);
+      }
+    }
+    
+    rval = myGeomTool->set_senses( ci->second, ents, senses);
+    if (MB_SUCCESS != rval)
+      return rval;
+  }
+  return MB_SUCCESS;
+}
+
+  ErrorCode ReadCGM::store_groups( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap )
+{
+  ErrorCode rval;
+
+  // create eneity sets for all ref groups
+  rval = create_group_entities( moab, entitymap[4] );
+  if(rval!=MB_SUCCESS) return rval;
+  
+  // store group names and entities in the mesh
+  rval = store_group_content( moab, entitymap );
+  if(rval!=MB_SUCCESS) return rval;
+ 
+
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCGM::create_group_entities( Interface* moab, std::map<RefEntity*,EntityHandle>& entitymap )
+{
+
+  ErrorCode rval;
+  const char geom_categories[][CATEGORY_TAG_SIZE] = 
+      {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+   DLIList<RefEntity*> entitylist;
+ // create entity sets for all ref groups
+  std::vector<Tag> extra_name_tags;
+#if  CGM_MAJOR_VERSION>13
+  DLIList<CubitString> name_list;
+#else
+  DLIList<CubitString*> name_list;
+#endif
+  entitylist.clean_out();
+  //get all entity groups from the CGM model
+  GeometryQueryTool::instance()->ref_entity_list( "group", entitylist );
+  entitylist.reset();
+  //loop over all groups
+  for (int i = entitylist.size(); i--; ) {
+    //take the next group
+    RefEntity* grp = entitylist.get_and_step();
+    name_list.clean_out();
+//get the names of all entities in this group from the solid model
+#if  CGM_MAJOR_VERSION>13
+    RefEntityName::instance()->get_refentity_name(grp, name_list);
+#else
+    //true argument is optional, but for large multi-names situation, it should save 
+    //some cpu time
+    RefEntityName::instance()->get_refentity_name(grp, name_list, true);
+#endif
+    if (name_list.size() == 0)
+      continue;
+    //set pointer to first name of the group and set the first name to name1
+    name_list.reset();
+#if  CGM_MAJOR_VERSION>13
+    CubitString name1 = name_list.get();
+#else
+    CubitString name1 = *name_list.get();
+#endif
+    // create entity handle for the group
+    EntityHandle h;
+    rval = moab->create_meshset( MESHSET_SET, h );
+    if (MB_SUCCESS != rval)
+      return rval;
+    //set tag data for the group
+    char namebuf[NAME_TAG_SIZE];
+    memset( namebuf, '\0', NAME_TAG_SIZE );
+    strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
+    if (name1.length() >= (unsigned)NAME_TAG_SIZE)
+      std::cout << "WARNING: group name '" << name1.c_str()
+                << "' truncated to '" << namebuf << "'" << std::endl;
+    rval = moab->tag_set_data( name_tag, &h, 1, namebuf );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+      
+    int id = grp->id();
+    rval = moab->tag_set_data( id_tag, &h, 1, &id );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+      
+    rval = moab->tag_set_data( category_tag, &h, 1, &geom_categories[4] );
+    if (MB_SUCCESS != rval)
+      return MB_FAILURE;
+    //check for extra group names  
+    if (name_list.size() > 1) {
+      for (int j = extra_name_tags.size(); j < name_list.size(); ++j) {
+        sprintf( namebuf, "EXTRA_%s%d", NAME_TAG_NAME, j );
+        Tag t;
+        rval = moab->tag_get_handle( namebuf, NAME_TAG_SIZE, MB_TYPE_OPAQUE, t, MB_TAG_SPARSE|MB_TAG_CREAT );
+        assert(!rval);
+        extra_name_tags.push_back(t);
+      }
+      //add extra group names to the group handle  
+      for (int j = 0; j < name_list.size(); ++j) {
+#if  CGM_MAJOR_VERSION>13
+        name1 = name_list.get_and_step();
+#else
+        name1 = *name_list.get_and_step();
+#endif
+        memset( namebuf, '\0', NAME_TAG_SIZE );
+        strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
+        if (name1.length() >= (unsigned)NAME_TAG_SIZE)
+          std::cout << "WARNING: group name '" << name1.c_str()
+                    << "' truncated to '" << namebuf << "'" << std::endl;
+        rval = moab->tag_set_data( extra_name_tags[j], &h, 1, namebuf );
+        if (MB_SUCCESS != rval)
+          return MB_FAILURE;
+      }
+    }
+    //add the group handle   
+    entitymap[grp] = h;
+  }
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadCGM::store_group_content( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap ) 
+{
+
+  ErrorCode rval;
+  DLIList<RefEntity*> entlist;
+  std::map<RefEntity*,EntityHandle>::iterator ci;
+    // store contents for each group
+  entlist.reset();
+  for (ci = entitymap[4].begin(); ci != entitymap[4].end(); ++ci) {
+    RefGroup* grp = (RefGroup*)(ci->first);
+    entlist.clean_out();
+    grp->get_child_ref_entities( entlist );
+    
+    Range entities;
+    while (entlist.size()) {
+      RefEntity* ent = entlist.pop();
+      int dim = ent->dimension();
+
+      if (dim < 0) {
+	Body* body;
+        if (entitymap[4].find(ent) != entitymap[4].end()){
+          // child is another group; examine its contents
+	  entities.insert( entitymap[4][ent] );
+	}
+	else if( (body = dynamic_cast<Body*>(ent)) != NULL ){
+	  // Child is a CGM Body, which presumably comprises some volumes--
+	  // extract volumes as if they belonged to group.
+	  DLIList<RefVolume*> vols;
+	  body->ref_volumes( vols );
+	  for( int vi = vols.size(); vi--; ){
+	    RefVolume* vol = vols.get_and_step();
+	    if( entitymap[3].find(vol) != entitymap[3].end() ){
+	      entities.insert( entitymap[3][vol] );
+	    }
+	    else{
+	      std::cerr << "Warning: CGM Body has orphan RefVolume" << std::endl;
+	    }
+	  }	  
+	}
+	else{
+	  // otherwise, warn user.
+	  std::cerr << "Warning: A dim<0 entity is being ignored by ReadCGM." << std::endl;
+	}
+
+      }
+      else if (dim < 4) {
+        if (entitymap[dim].find(ent) != entitymap[dim].end())
+          entities.insert( entitymap[dim][ent] );
+      }
+    }
+    
+    if (!entities.empty()) {
+      rval = mdbImpl->add_entities( ci->second, entities );
+      if (MB_SUCCESS != rval)
+        return MB_FAILURE;
+    }
+  }
+  return MB_SUCCESS;
+}
 
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
@@ -131,28 +519,14 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     return MB_UNSUPPORTED_OPERATION;
   }
 
-  int norm_tol, DEFAULT_NORM = 5;
-  double faceting_tol, DEFAULT_FACET_TOL = 0.001, len_tol, DEFAULT_LEN_TOL = 0.0;
+  int norm_tol;
+  double faceting_tol;
+  double len_tol;
   bool act_att = true;
-  //check for the options.
-  if (MB_SUCCESS != opts.get_int_option( "FACET_NORMAL_TOLERANCE", norm_tol ))
-    norm_tol = DEFAULT_NORM;
-
-  if (MB_SUCCESS != opts.get_real_option("FACET_DISTANCE_TOLERANCE", faceting_tol))
-    faceting_tol = DEFAULT_FACET_TOL;
-
-  if (MB_SUCCESS != opts.get_real_option("MAX_FACET_EDGE_LENGTH", len_tol))
-    len_tol = DEFAULT_LEN_TOL;
-
   bool verbose_warnings = false;
-  if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_WARNINGS"))
-    verbose_warnings = true;
 
-  const char* name = "CGM_ATTRIBS";
-  const char* value = "no";
-  rval = opts.match_option(name,value); 
-  if(MB_SUCCESS == rval) 
-    act_att = false; 
+  rval = set_options( opts, norm_tol, faceting_tol, len_tol, act_att, verbose_warnings);
+  if(MB_SUCCESS != rval) return rval;  
 
   // always tag with the faceting_tol and geometry absolute resolution
   // if file_set is defined, use that, otherwise (file_set == NULL) tag the interface
@@ -164,12 +538,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if(MB_SUCCESS != rval) return rval;
 
   // CGM data
-  std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
+ 
   std::map<RefEntity*,EntityHandle>::iterator ci;
   const char geom_categories[][CATEGORY_TAG_SIZE] = 
-    {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
-  const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
-  DLIList<RefEntity*> entlist;
+      {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+ 
   DLIList<ModelEntity*> me_list;
 
   // Initialize CGM
@@ -199,262 +572,30 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   }
 
   // create entity sets for all geometric entities
-  for (int dim = 0; dim < 4; ++dim) {
-    entlist.clean_out();
-    GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
-    
-    entlist.reset();
-    for (int i = entlist.size(); i--; ) {
-      RefEntity* ent = entlist.get_and_step();
-      EntityHandle handle;
-      rval = mdbImpl->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
-      if (MB_SUCCESS != rval)
-        return rval;
+  DLIList<RefEntity*> entlist;
+  std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
+  std::map<RefEntity*,EntityHandle>* entmap_ptr = entmap;
+  rval = create_entity_sets( mdbImpl, entmap_ptr );
+  if (rval!=MB_SUCCESS) return rval;
 
-      entmap[dim][ent] = handle;
-      
-      rval = mdbImpl->tag_set_data( geom_tag, &handle, 1, &dim );
-      if (MB_SUCCESS != rval)
-        return rval;
-      int id = ent->id();
-      rval = mdbImpl->tag_set_data( id_tag, &handle, 1, &id );
-      if (MB_SUCCESS != rval)
-        return rval;
+  // create topology for all geometric entities
+  rval = create_topology( mdbImpl, entmap );
+  if(rval!=MB_SUCCESS) return rval;
 
-      rval = mdbImpl->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
-      if (MB_SUCCESS != rval)
-        return rval;
-    }
-  }
-  
-    // create topology for all geometric entities
-  for (int dim = 1; dim < 4; ++dim) {
-    for (ci = entmap[dim].begin(); ci != entmap[dim].end(); ++ci) {
-      entlist.clean_out();
-      ci->first->get_child_ref_entities( entlist );
-    
-      entlist.reset();
-      for (int i = entlist.size(); i--; ) {
-        RefEntity* ent = entlist.get_and_step();
-        EntityHandle h = entmap[dim-1][ent];
-        rval = mdbImpl->add_parent_child( ci->second, h );
-        if (MB_SUCCESS != rval)
-          return rval;
-      }
-    }
-  }
-  
-    // store CoFace senses
-  for (ci = entmap[2].begin(); ci != entmap[2].end(); ++ci) {
-    RefFace* face = (RefFace*)(ci->first);
-    BasicTopologyEntity *forward = 0, *reverse = 0;
-    for (SenseEntity* cf = face->get_first_sense_entity_ptr();
-         cf; cf = cf->next_on_bte()) {
-      BasicTopologyEntity* vol = cf->get_parent_basic_topology_entity_ptr();
-      if (cf->get_sense() == CUBIT_UNKNOWN || 
-          cf->get_sense() != face->get_surface_ptr()->bridge_sense()) {
-        if (reverse) {
-          std::cout << "Surface " << face->id() << " has reverse senes " <<
-                       "with multiple volume " << reverse->id() << " and " <<
-                       "volume " << vol->id() << std::endl;
-          return MB_FAILURE;
-        }
-        reverse = vol;
-      }
-      if (cf->get_sense() == CUBIT_UNKNOWN || 
-          cf->get_sense() == face->get_surface_ptr()->bridge_sense()) {
-        if (forward) {
-          std::cout << "Surface " << face->id() << " has forward senes " <<
-                       "with multiple volume " << forward->id() << " and " <<
-                       "volume " << vol->id() << std::endl;
-          return MB_FAILURE;
-        }
-        forward = vol;
-      }
-    }
-    
-    if (forward) {
-      rval = myGeomTool->set_sense( ci->second, entmap[3][forward], SENSE_FORWARD );
-      if (MB_SUCCESS != rval)
-        return rval;
-    }
-    if (reverse) {
-      rval = myGeomTool->set_sense( ci->second, entmap[3][reverse], SENSE_REVERSE );
-      if (MB_SUCCESS != rval)
-        return rval;
-    }
-  }
+  // store the curve to surface senses and the surface to volume senses 
+  rval = store_geom_senses( entmap );
+  if(rval!=MB_SUCCESS) return rval;
 
-    // store CoEdge senses
-  std::vector<EntityHandle> ents;
-  std::vector<int> senses;
-  for (ci = entmap[1].begin(); ci != entmap[1].end(); ++ci) {
-    RefEdge* edge = (RefEdge*)(ci->first);
-    ents.clear();
-    senses.clear();
-    for (SenseEntity* ce = edge->get_first_sense_entity_ptr();
-         ce; ce = ce->next_on_bte()) {
-      BasicTopologyEntity* fac = ce->get_parent_basic_topology_entity_ptr();
-      EntityHandle face = entmap[2][fac];
-      if (ce->get_sense() == CUBIT_UNKNOWN || 
-          ce->get_sense() != edge->get_curve_ptr()->bridge_sense()) {
-        ents.push_back(face);
-        senses.push_back(SENSE_REVERSE);
-      }
-      if (ce->get_sense() == CUBIT_UNKNOWN || 
-          ce->get_sense() == edge->get_curve_ptr()->bridge_sense()) {
-        ents.push_back(face);
-        senses.push_back(SENSE_FORWARD);
-      }
-    }
-    
-    rval = myGeomTool->set_senses( ci->second, ents, senses);
-    if (MB_SUCCESS != rval)
-      return rval;
-  }
-
-    // create entity sets for all ref groups
-  std::vector<Tag> extra_name_tags;
-#if  CGM_MAJOR_VERSION>13
-  DLIList<CubitString> name_list;
-#else
-  DLIList<CubitString*> name_list;
-#endif
-  entlist.clean_out();
-  GeometryQueryTool::instance()->ref_entity_list( "group", entlist );
-  entlist.reset();
-  for (int i = entlist.size(); i--; ) {
-    RefEntity* grp = entlist.get_and_step();
-    name_list.clean_out();
-#if  CGM_MAJOR_VERSION>13
-    RefEntityName::instance()->get_refentity_name(grp, name_list);
-#else
-    //true argument is optional, but for large multi-names situation, it should save 
-    //some cpu time
-    RefEntityName::instance()->get_refentity_name(grp, name_list,true);
-#endif
-    if (name_list.size() == 0)
-      continue;
-
-    name_list.reset();
-#if  CGM_MAJOR_VERSION>13
-    CubitString name1 = name_list.get();
-#else
-    CubitString name1 = *name_list.get();
-#endif
-
-    EntityHandle h;
-    rval = mdbImpl->create_meshset( MESHSET_SET, h );
-    if (MB_SUCCESS != rval)
-      return rval;
-    
-    char namebuf[NAME_TAG_SIZE];
-    memset( namebuf, '\0', NAME_TAG_SIZE );
-    strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
-    if (name1.length() >= (unsigned)NAME_TAG_SIZE)
-      std::cout << "WARNING: group name '" << name1.c_str()
-                << "' truncated to '" << namebuf << "'" << std::endl;
-    rval = mdbImpl->tag_set_data( name_tag, &h, 1, namebuf );
-    if (MB_SUCCESS != rval)
-      return MB_FAILURE;
-      
-    int id = grp->id();
-    rval = mdbImpl->tag_set_data( id_tag, &h, 1, &id );
-    if (MB_SUCCESS != rval)
-      return MB_FAILURE;
-      
-    rval = mdbImpl->tag_set_data( category_tag, &h, 1, &geom_categories[4] );
-    if (MB_SUCCESS != rval)
-      return MB_FAILURE;
-      
-    if (name_list.size() > 1) {
-      for (int j = extra_name_tags.size(); j < name_list.size(); ++j) {
-        sprintf( namebuf, "EXTRA_%s%d", NAME_TAG_NAME, j );
-        Tag t;
-        rval = mdbImpl->tag_get_handle( namebuf, NAME_TAG_SIZE, MB_TYPE_OPAQUE, t, MB_TAG_SPARSE|MB_TAG_CREAT );
-        assert(!rval);
-        extra_name_tags.push_back(t);
-      }
-        
-      for (int j = 0; j < name_list.size(); ++j) {
-#if  CGM_MAJOR_VERSION>13
-        name1 = name_list.get_and_step();
-#else
-        name1 = *name_list.get_and_step();
-#endif
-        memset( namebuf, '\0', NAME_TAG_SIZE );
-        strncpy( namebuf, name1.c_str(), NAME_TAG_SIZE - 1 );
-        if (name1.length() >= (unsigned)NAME_TAG_SIZE)
-          std::cout << "WARNING: group name '" << name1.c_str()
-                    << "' truncated to '" << namebuf << "'" << std::endl;
-        rval = mdbImpl->tag_set_data( extra_name_tags[j], &h, 1, namebuf );
-        if (MB_SUCCESS != rval)
-          return MB_FAILURE;
-      }
-    }
-      
-    entmap[4][grp] = h;
-  }
-  
-    // store contents for each group
-  entlist.reset();
-  for (ci = entmap[4].begin(); ci != entmap[4].end(); ++ci) {
-    RefGroup* grp = (RefGroup*)(ci->first);
-    entlist.clean_out();
-    grp->get_child_ref_entities( entlist );
-    
-    Range entities;
-    while (entlist.size()) {
-      RefEntity* ent = entlist.pop();
-      int dim = ent->dimension();
-
-      if (dim < 0) {
-
-	Body* body;
-        if (entmap[4].find(ent) != entmap[4].end()){
-          // child is another group; examine its contents
-	  entities.insert( entmap[4][ent] );
-	}
-	else if( (body = dynamic_cast<Body*>(ent)) != NULL ){
-	  // Child is a CGM Body, which presumably comprises some volumes--
-	  // extract volumes as if they belonged to group.
-	  DLIList<RefVolume*> vols;
-	  body->ref_volumes( vols );
-	  for( int vi = vols.size(); vi--; ){
-	    RefVolume* vol = vols.get_and_step();
-	    if( entmap[3].find(vol) != entmap[3].end() ){
-	      entities.insert( entmap[3][vol] );
-	    }
-	    else{
-	      std::cerr << "Warning: CGM Body has orphan RefVolume" << std::endl;
-	    }
-	  }	  
-	}
-	else{
-	  // otherwise, warn user.
-	  std::cerr << "Warning: A dim<0 entity is being ignored by ReadCGM." << std::endl;
-	}
-
-      }
-      else if (dim < 4) {
-        if (entmap[dim].find(ent) != entmap[dim].end())
-          entities.insert( entmap[dim][ent] );
-      }
-    }
-    
-    if (!entities.empty()) {
-      rval = mdbImpl->add_entities( ci->second, entities );
-      if (MB_SUCCESS != rval)
-        return MB_FAILURE;
-    }
-  }
-  
-    // done with volumes and groups
+  // get group information and store it in the mesh 
+  rval = store_groups( mdbImpl, entmap );
+  if(rval!=MB_SUCCESS) return rval;
+ 
+  // done with volumes and groups
   entmap[3].clear();
   entmap[4].clear();
   
-    // create geometry for all vertices and replace 
-    // vertex set handles with vertex handles in map
+  // create geometry for all vertices and replace 
+  // vertex set handles with vertex handles in map
   for (ci = entmap[0].begin(); ci != entmap[0].end(); ++ci) {
     CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
     double coords[3] = {pos.x(), pos.y(), pos.z()};

@@ -35,6 +35,7 @@
 
 #include <string>
 #include "moab/ReaderIface.hpp"
+#include "RefEntityName.hpp"
 
 namespace moab {
 
@@ -69,6 +70,37 @@ public:
                              const FileOptions& opts,
                              std::vector<int>& tag_values_out,
                              const SubsetList* subset_list = 0 );
+
+  ErrorCode set_options( const FileOptions& opts,
+                                int& norm_tol,
+                                double& faceting_tol,
+                                double& len_tol,
+			        bool& act_att,
+                                bool& verbose_warnings);
+
+  ErrorCode create_entity_sets_for_dim( Interface* moab, 
+                                        int dim,
+                                        std::map<RefEntity*,EntityHandle>& entitymap );
+
+
+  ErrorCode create_entity_sets( Interface* moab,
+                                std::map<RefEntity*,EntityHandle>* entmap_ptr );
+
+  ErrorCode create_topology( Interface* moab, 
+                             std::map<RefEntity*,EntityHandle> entitymap[5] );
+
+  ErrorCode store_geom_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
+  
+  ErrorCode store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
+
+  ErrorCode store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
+
+  ErrorCode store_groups( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
+
+  ErrorCode create_group_entities( Interface* moab, 
+                                   std::map<RefEntity*,EntityHandle>& entitymap );
+
+  ErrorCode store_group_content( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
 
    //! Constructor
    ReadCGM(Interface* impl = NULL);
