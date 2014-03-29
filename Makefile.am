@@ -15,6 +15,9 @@ AM_CPPFLAGS += -DIS_BUILDING_MB \
 if NETCDF_FILE
   MOAB_NETCDF_SRCS = ReadNCDF.cpp  ReadNCDF.hpp \
                      WriteNCDF.cpp WriteNCDF.hpp \
+                     WriteNC.cpp WriteNC.hpp \
+                     NCWriteHelper.cpp NCWriteHelper.hpp \
+                     NCWriteEuler.cpp NCWriteEuler.hpp \
                      WriteSLAC.cpp WriteSLAC.hpp \
                      ReadNC.cpp ReadNC.hpp \
                      NCHelper.cpp NCHelper.hpp \
