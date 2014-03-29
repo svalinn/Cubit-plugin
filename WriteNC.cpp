@@ -333,15 +333,21 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   data = NULL;
   int num_vars = 0;
   rval = mbImpl->tag_get_by_ptr(tagVarNames, &fileSet, 1, &data, &num_vars);
+  dbgOut.tprintf(2, "var names  has %d names \n", num_vars );
   ERRORR(rval, "Failed getting values for conventional tag __VAR_NAMES.");
   p = static_cast<const char *>(data);
   start = 0;
+  int idxVar=0;
   for (std::size_t i = 0; i != static_cast<std::size_t>(num_vars); ++i)
   {
     if (p[i] == '\0')
     {
       std::string var_name(&p[start], i - start);
 
+      dbgOut.tprintf(2, "var name: %s index %d \n", var_name.c_str(), idxVar);
+      // process var name:
+      // this will create/initiate map; we will populate variableDataStruct wit info about dims, tags, etc
+      VarData  variableDataStruct = varInfo[var_name];
       sz = 0;
       Tag dims_tag = 0;
       std::string dim_names = "__" + var_name + "_DIMS";
@@ -358,6 +364,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       rval = mbImpl->tag_get_length(dims_tag, sz);
       ERRORR(rval, " size of dimensions for variable");
       dbgOut.tprintf(2, "var name: %s has %d dimensions \n", var_name.c_str(), sz);
+
       //std::vector<const pcdim*> dims(sz, NULL);
       const void* ptr = NULL;
       rval = mbImpl->tag_get_by_ptr(dims_tag, &fileSet, 1, &ptr);
@@ -368,13 +375,14 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
         std::string dim_name;
         rval = mbImpl->tag_get_name(ptags[j], dim_name);
         ERRORR(rval, "name of tag for dimension");
-        dbgOut.tprintf(2, "var name: %s has %d dimensions \n", var_name.c_str(), sz);
+        dbgOut.tprintf(2, "var name: %s has %s as dimension \n", var_name.c_str(), dim_name.c_str() );
         //dims[j] = &(get_dim(dim_name));
       }
       /*insert(var_name,
           *(new fvar(var_name, moab::MB_TYPE_DOUBLE, dims,
               locmap[varLoc[nthVar++]])));*/
       start = i + 1;
+      idxVar++;
     }
   }
 
