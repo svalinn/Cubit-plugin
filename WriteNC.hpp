@@ -110,7 +110,7 @@ private:
     NCDF_SIZE attLen;
     int attVarId;
     nc_type attDataType;
-    std::string attName;
+    std::string attValue;
   };
 
   class VarData
@@ -152,6 +152,9 @@ private:
    * ErrorCode NCHelper::create_conventional_tags
    */
   ErrorCode process_conventional_tags(EntityHandle fileSet);
+
+  ErrorCode process_concatenated_attribute(const void * gattptr, int globalAttSz, std::vector<int> & gattLen,
+      std::map<std::string, AttData> & globalAtts);
     // interface instance
   Interface *mbImpl;
   WriteUtilIface* mWriteIface;

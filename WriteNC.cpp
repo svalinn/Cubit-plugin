@@ -13,6 +13,7 @@
 #include <set>
 
 #include <iostream>
+#include <sstream>
 
 #define ERRORR(rval, str) \
   if (MB_SUCCESS != rval) { mWriteIface->report_error("%s", str); return rval; }
@@ -365,6 +366,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       ERRORR(rval, " size of dimensions for variable");
       dbgOut.tprintf(2, "var name: %s has %d dimensions \n", var_name.c_str(), sz);
 
+      variableDataStruct.varDims.resize(sz);
       //std::vector<const pcdim*> dims(sz, NULL);
       const void* ptr = NULL;
       rval = mbImpl->tag_get_by_ptr(dims_tag, &fileSet, 1, &ptr);
@@ -376,123 +378,124 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
         rval = mbImpl->tag_get_name(ptags[j], dim_name);
         ERRORR(rval, "name of tag for dimension");
         dbgOut.tprintf(2, "var name: %s has %s as dimension \n", var_name.c_str(), dim_name.c_str() );
+        std::vector<std::string>::iterator vit=std::find(dimNames.begin(), dimNames.end(), dim_name);
+        if (vit==dimNames.end())
+          ERRORR(MB_FAILURE, "dimension not found\n");
+        variableDataStruct.varDims[j]=(int)(vit-dimNames.begin()); // will be used for writing
+        // do we have a variable for each dimension? I mean, a tag?
         //dims[j] = &(get_dim(dim_name));
       }
-      /*insert(var_name,
-          *(new fvar(var_name, moab::MB_TYPE_DOUBLE, dims,
-              locmap[varLoc[nthVar++]])));*/
+
+      // attributes for this variable
+      std::stringstream ssTagName;
+      ssTagName << "__" << var_name << "_ATTRIBS";
+      tag_name = ssTagName.str();
+      Tag varAttTag = 0;
+      rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varAttTag, MB_TAG_SPARSE | MB_TAG_VARLEN);
+      ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS tag.");
+      std::string varAttVal;
+      std::vector<int> varAttLen;
+      const void* varAttPtr = 0;
+      int varAttSz = 0;
+      rval = mbImpl->tag_get_by_ptr(varAttTag, &fileSet, 1, &varAttPtr, &varAttSz);
+      ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS tag.");
+      if (MB_SUCCESS == rval)
+        dbgOut.tprintf(2, "Tag retrieved for variable %s\n", tag_name.c_str());
+
+      ssTagName << "_LEN";
+      tag_name = ssTagName.str();
+      Tag varAttLenTag = 0;
+      rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, varAttLenTag, MB_TAG_ANY);
+      ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS_LEN tag.");
+      int varAttLenSz=0;
+      rval = mbImpl->tag_get_length(varAttLenTag, varAttLenSz);
+      ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS_LEN length.");
+      varAttLen.resize(varAttLenSz);
+
+      rval = mbImpl->tag_get_data(varAttLenTag, &fileSet, 1, &varAttLen[0]);
+      ERRORR(rval, "Trouble getting data for __<var_name>_ATTRIBS_LEN tag.");
+
+      rval = process_concatenated_attribute(varAttPtr, varAttSz, varAttLen, variableDataStruct.varAtts);
+      ERRORR(rval, " trouble processing global attributes ");
+
+      if (MB_SUCCESS == rval)
+        dbgOut.tprintf(2, "Tag metadata for variable %s\n", tag_name.c_str());
+      // end attribute
       start = i + 1;
       idxVar++;
     }
   }
 
   // attributes
-#if 0
-  std::vector<std::string> nameVec(num_vars+1);
-        nameVec[0] = "GLOBAL";
-        std::map<std::string, const fvar*>::iterator it = m_vars.begin();
-        for (std::size_t i=1; it != m_vars.end(); ++it, ++i)
-          nameVec[i] = it->first;
+  tag_name = "__GLOBAL_ATTRIBS";
+  Tag globalAttTag = 0;
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, globalAttTag, MB_TAG_SPARSE | MB_TAG_VARLEN);
+  ERRORR(rval, "Trouble getting __GLOBAL_ATTRIBS tag.");
+  std::string gattVal;
+  std::vector<int> gattLen;
 
-        for (std::size_t vec_counter = 0; vec_counter != nameVec.size(); ++vec_counter)
-          {
-      // read __<var_name>_ATTRIBS tag
-      moab::Tag tag = 0;
-      std::string tag_name = "__"+nameVec[vec_counter]+"_ATTRIBS";
-      const void * data = NULL;
-      int sz = 0;
-      moab::ErrorCode rval = m_mb.tag_get_handle(tag_name.c_str(), 0, moab::MB_TYPE_OPAQUE, tag, moab::MB_TAG_ANY);
-      if (rval != moab::MB_SUCCESS)
-        throw pargal_except("Error: " + m_mb.get_error_string(rval),
-                __FILE__, __LINE__, __PRETTY_FUNCTION__);
+  const void* gattptr;
+  int globalAttSz=0;
+  rval = mbImpl->tag_get_by_ptr(globalAttTag, &fileSet, 1, &gattptr, &globalAttSz);
+  ERRORR(rval, "Trouble getting data for __GLOBAL_ATTRIBS tag.");
 
-      rval = m_mb.tag_get_by_ptr(tag, &m_file_set, 1, &data, &sz);
-      const char * p = static_cast<const char *>(data);
-      std::string att_val(&p[0], sz);
-      if (vec_counter == 0) nameVec[0]="MOAB_GLOBAL";
-      const std::string& var_name = nameVec[vec_counter];
+  if (MB_SUCCESS == rval)
+      dbgOut.tprintf(2, "Tag value retrieved for %s size %d\n", tag_name.c_str(), globalAttSz);
 
-      // read __<var_name>_ATTRIBS_LEN tag
-      moab::Tag attLenTag = 0;
-      tag_name = tag_name + "_LEN";
-      const void * len_data = NULL;
-      int len_sz = 0;
-      rval = m_mb.tag_get_handle(tag_name.c_str(), 0, moab::MB_TYPE_INTEGER, attLenTag, moab::MB_TAG_ANY);
-      rval = m_mb.tag_get_by_ptr(attLenTag, &m_file_set, 1, &len_data, &len_sz);
-      const int * len_p = static_cast<const int *>(len_data);
-      std::vector<int> attLen(len_sz);
-      std::copy(len_p, len_p+len_sz, attLen.begin());
+    // <__GLOBAL_ATTRIBS_LEN>
+  tag_name = "__GLOBAL_ATTRIBS_LEN";
+  Tag globalAttLenTag = 0;
 
-      // create attribute
-      insert(var_name, *(new pcatt(var_name, att_val, attLen)));
-#endif
-  return MB_SUCCESS;
-}
-#if 0
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, globalAttLenTag, MB_TAG_ANY);
+  ERRORR(rval, "Trouble getting __GLOBAL_ATTRIBS_LEN tag.");
+  int sizeGAtt =0;
+  rval = mbImpl->tag_get_length(globalAttLenTag, sizeGAtt);
+  ERRORR(rval, "Trouble getting length of __GLOBAL_ATTRIBS_LEN tag ");
+  gattLen.resize(sizeGAtt);
+  rval = mbImpl->tag_get_data(globalAttLenTag, &fileSet, 1, &gattLen[0]);
+  ERRORR(rval, "Trouble setting data for __GLOBAL_ATTRIBS_LEN tag.");
+  if (MB_SUCCESS == rval)
+    dbgOut.tprintf(2, "Tag retrieved for variable %s\n", tag_name.c_str());
 
-
-    void
-    fileinfo::init_atts()
-    {
-      std::vector<std::string> nameVec(m_vars.size()+1);
-      nameVec[0] = "GLOBAL";
-      std::map<std::string, const fvar*>::iterator it = m_vars.begin();
-      for (std::size_t i=1; it != m_vars.end(); ++it, ++i)
-        nameVec[i] = it->first;
-
-      for (std::size_t vec_counter = 0; vec_counter != nameVec.size(); ++vec_counter)
-        {
-    // read __<var_name>_ATTRIBS tag
-    moab::Tag tag = 0;
-    std::string tag_name = "__"+nameVec[vec_counter]+"_ATTRIBS";
-    const void * data = NULL;
-    int sz = 0;
-    moab::ErrorCode rval = m_mb.tag_get_handle(tag_name.c_str(), 0, moab::MB_TYPE_OPAQUE, tag, moab::MB_TAG_ANY);
-    if (rval != moab::MB_SUCCESS)
-      throw pargal_except("Error: " + m_mb.get_error_string(rval),
-              __FILE__, __LINE__, __PRETTY_FUNCTION__);
-
-    rval = m_mb.tag_get_by_ptr(tag, &m_file_set, 1, &data, &sz);
-    const char * p = static_cast<const char *>(data);
-    std::string att_val(&p[0], sz);
-    if (vec_counter == 0) nameVec[0]="MOAB_GLOBAL";
-    const std::string& var_name = nameVec[vec_counter];
-
-    // read __<var_name>_ATTRIBS_LEN tag
-    moab::Tag attLenTag = 0;
-    tag_name = tag_name + "_LEN";
-    const void * len_data = NULL;
-    int len_sz = 0;
-    rval = m_mb.tag_get_handle(tag_name.c_str(), 0, moab::MB_TYPE_INTEGER, attLenTag, moab::MB_TAG_ANY);
-    rval = m_mb.tag_get_by_ptr(attLenTag, &m_file_set, 1, &len_data, &len_sz);
-    const int * len_p = static_cast<const int *>(len_data);
-    std::vector<int> attLen(len_sz);
-    std::copy(len_p, len_p+len_sz, attLen.begin());
-
-    // create attribute
-    insert(var_name, *(new pcatt(var_name, att_val, attLen)));
-        }
-    }
-
-    void
-    fileinfo::init_grid_type()
-    {
-      moab::Tag tag = 0;
-      std::string tag_name = "__MESH_TYPE";
-      const void * data = NULL;
-      int sz = 0;
-      moab::ErrorCode rval;
-      rval = m_mb.tag_get_handle(tag_name.c_str(), 0, moab::MB_TYPE_OPAQUE, tag, moab::MB_TAG_ANY);
-      rval = m_mb.tag_get_by_ptr(tag, &m_file_set, 1, &data, &sz);
-      if (rval != moab::MB_SUCCESS)
-        throw pargal_except("Error: " + m_mb.get_error_string(rval),
-          __FILE__, __LINE__, __PRETTY_FUNCTION__);
-      const char * p = static_cast<const char *>(data);
-      m_grid_type = std::string(&p[0], sz);
-    }
+  rval = process_concatenated_attribute(gattptr, globalAttSz, gattLen, globalAtts);
+  ERRORR(rval, " trouble processing global attributes ");
 
   return MB_SUCCESS;
 }
-#endif
+
+ErrorCode WriteNC::process_concatenated_attribute(const void * gattptr, int globalAttSz, std::vector<int> & gattLen,
+      std::map<std::string, AttData> & attributes)
+{
+
+  std::size_t start = 0;
+  std::size_t att_counter = 0;
+  std::string concatString( (char*)gattptr, (char*)gattptr+globalAttSz);
+
+  for (std::size_t i = 0; i != (size_t)globalAttSz; ++i)
+  {
+    if (concatString[i] == '\0')
+    {
+      std::string att_name(&concatString[start], i - start);
+      start = i + 1;
+      while (concatString[i] != ';')
+        ++i;
+      std::string data_type(&concatString[start], i - start);
+      ++i;
+      start = i;
+      i = gattLen[att_counter];
+      if (concatString[i] != ';')
+        ERRORR(MB_FAILURE, "Error parsing attributes ");
+
+      std::string data_val(&concatString[start], i - start);
+      start = i + 1;
+      AttData attrib = attributes[att_name];
+      attrib.attValue = data_val;
+      ++att_counter;
+      dbgOut.tprintf(2, "       Process attribute %s with value %s \n",att_name.c_str(), data_val.c_str() );
+    }
+  }
+
+  return MB_SUCCESS;
+}
 
 } // end moab namespace
