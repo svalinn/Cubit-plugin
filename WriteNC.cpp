@@ -122,6 +122,9 @@ ErrorCode WriteNC::write_file(const char *file_name,
                             const size_t count[], const double *dp);
    */
 
+  //
+  rval = collect_variable_data(var_names, tstep_nums, tstep_vals, *file_set);
+  ERRORR(rval, "Trouble collecting data.");
 
   return MB_SUCCESS;
 }
@@ -348,7 +351,11 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       dbgOut.tprintf(2, "var name: %s index %d \n", var_name.c_str(), idxVar);
       // process var name:
       // this will create/initiate map; we will populate variableDataStruct wit info about dims, tags, etc
-      VarData  variableDataStruct = varInfo[var_name];
+      // reference & is important; otherwise variableDataStruct will go out of scope, and deleted :(
+      VarData  & variableDataStruct = varInfo[var_name];
+
+      dbgOut.tprintf(2, "at var name %s varInfo size %d \n", var_name.c_str(), varInfo.size() );
+
       sz = 0;
       Tag dims_tag = 0;
       std::string dim_names = "__" + var_name + "_DIMS";
@@ -371,6 +378,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       const void* ptr = NULL;
       rval = mbImpl->tag_get_by_ptr(dims_tag, &fileSet, 1, &ptr);
       //
+
       const Tag * ptags = static_cast<const moab::Tag*>(ptr);
       for (std::size_t j = 0; j != static_cast<std::size_t>(sz); ++j)
       {
@@ -381,7 +389,8 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
         std::vector<std::string>::iterator vit=std::find(dimNames.begin(), dimNames.end(), dim_name);
         if (vit==dimNames.end())
           ERRORR(MB_FAILURE, "dimension not found\n");
-        variableDataStruct.varDims[j]=(int)(vit-dimNames.begin()); // will be used for writing
+        variableDataStruct.varDims[j]= (int)(vit-dimNames.begin()) ; // will be used for writing
+
         // do we have a variable for each dimension? I mean, a tag?
         //dims[j] = &(get_dim(dim_name));
       }
@@ -462,7 +471,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
 
   return MB_SUCCESS;
 }
-
+// reverse process from create_attrib_string
 ErrorCode WriteNC::process_concatenated_attribute(const void * gattptr, int globalAttSz, std::vector<int> & gattLen,
       std::map<std::string, AttData> & attributes)
 {
@@ -495,6 +504,108 @@ ErrorCode WriteNC::process_concatenated_attribute(const void * gattptr, int glob
     }
   }
 
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteNC::collect_variable_data( std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
+     std::vector<double>& tstep_vals, EntityHandle fileSet)
+{
+  // in general, in netcdf, variables that have the same name as their only dimension are called
+  // coordinate variables
+  // for the time being, check if all dimensions for variables are coordinate variables
+  ErrorCode rval;
+
+  usedCoordinates.clear();
+
+  for (size_t i=0; i<var_names.size(); i++)
+  {
+    std::string varname=var_names[i];
+    std::map<std::string, VarData>::iterator vit = varInfo.find(varname);
+    if (vit==varInfo.end())
+      ERRORR(MB_FAILURE, "can't find one variable");
+
+    size_t sizeVar = 1;// get multiplied by dim lengths
+    VarData  & currentVarData = vit->second;
+    dbgOut.tprintf(2, "    for variable %s varDims.size %d \n", varname.c_str(), (int)currentVarData.varDims.size() );
+    for (size_t j =0; j<currentVarData.varDims.size(); j++)
+    {
+      std::string dimName= dimNames[ currentVarData.varDims[j] ];
+      vit = varInfo.find(dimName);
+      if (vit==varInfo.end())
+        ERRORR(MB_FAILURE, "can't find one coordinate variable");
+
+      if( (dimName == "time" || dimName == "Time" || dimName == "t") &&
+          currentVarData.varDims.size()>1 ) // so it is not time itself
+        currentVarData.has_tsteps=true;
+
+      // probably will have to look at tstep_vals to match them
+      sizeVar *= dimLens[j];
+      usedCoordinates.insert(dimName); // collect those used, we will need to write them to the file
+      dbgOut.tprintf(2, "    for variable %s need dimension %s with length %d\n", varname.c_str(), dimName.c_str(), dimLens[j] );
+    }
+
+    currentVarData.sz=sizeVar;
+
+    if (currentVarData.has_tsteps)
+    {
+
+      int index=0;
+      while(1)
+      {
+        Tag indexedTag;
+        std::stringstream ssTagNameWithIndex;
+        ssTagNameWithIndex << varname << index;
+        rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);
+        if (rval!=MB_SUCCESS)
+          break;
+        dbgOut.tprintf(2, "    found indexed tag %d with name %s\n", index,  ssTagNameWithIndex.str().c_str());
+        currentVarData.varTags.push_back(indexedTag);
+        index++; // we should get out of the loop at some point
+        // we will have to collect data for these tags; maybe even allocate memory again
+      }
+    }
+    else
+    {
+      // get the tag with varname
+      Tag coordtag=0;
+      rval = mbImpl->tag_get_handle(varname.c_str(), coordtag);
+      ERRORR(rval, "can't find one tag");
+      currentVarData.varTags.push_back(coordtag); // really, only one for these
+      const void * data;
+      int sizeCoordinate;
+      rval = mbImpl->tag_get_by_ptr(coordtag, &fileSet, 1, &data, &sizeCoordinate);
+      ERRORR(rval, "can't get coordinate values");
+      assert(currentVarData.memoryHogs.size()==0);// nothing so far
+      currentVarData.memoryHogs.push_back((void*)data);
+    }
+
+  }
+
+  // check that for used coordinates we have found the tags
+  for (std::set<std::string>::iterator setIt = usedCoordinates.begin(); setIt!=usedCoordinates.end(); setIt++)
+  {
+    std::string coordName=*setIt; // a deep copy ; is it needed?
+
+    std::map<std::string, VarData>::iterator vit = varInfo.find(coordName);
+    if (vit==varInfo.end())
+      ERRORR(MB_FAILURE, "can't find one coordinate variable");
+
+    VarData & varCoordData = vit->second;
+    Tag coordtag=0;
+    rval = mbImpl->tag_get_handle(coordName.c_str(), coordtag);
+    ERRORR(rval, "can't find one tag");
+    varCoordData.varTags.push_back(coordtag); // really, only one for these
+
+    const void * data;
+    int sizeCoordinate;
+    rval = mbImpl->tag_get_by_ptr(coordtag, &fileSet, 1, &data, &sizeCoordinate);
+    ERRORR(rval, "can't get coordinate values");
+    dbgOut.tprintf(2, "    found coordinate tag with name %s and length %d\n", coordName.c_str(),
+        sizeCoordinate);
+
+    assert(varCoordData.memoryHogs.size()==0);// nothing so far
+    varCoordData.memoryHogs.push_back((void*)data);
+  }
   return MB_SUCCESS;
 }
 

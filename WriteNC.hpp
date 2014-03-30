@@ -139,6 +139,9 @@ private:
   //! Dimension lengths
   std::vector<int> dimLens;
 
+  // will collect used dimensions (ccordinate variables)
+  std::set<std::string> usedCoordinates;
+
   //! Global attribs
   std::map<std::string, AttData> globalAtts;
 
@@ -155,6 +158,11 @@ private:
 
   ErrorCode process_concatenated_attribute(const void * gattptr, int globalAttSz, std::vector<int> & gattLen,
       std::map<std::string, AttData> & globalAtts);
+
+  // will collect data; it should be only on gather processor, but for the time being, collect
+  // for everybody
+  ErrorCode collect_variable_data( std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
+      std::vector<double>& tstep_vals, EntityHandle fileSet);
     // interface instance
   Interface *mbImpl;
   WriteUtilIface* mWriteIface;
