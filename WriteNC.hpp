@@ -42,6 +42,9 @@
 //! Collective I/O mode get
 #define NCFUNCAG(func) ncmpi_get ## func ## _all
 
+//! Collective I/O mode put
+#define NCFUNCAP(func) ncmpi_put ## func ## _all
+
 //! Independent I/O mode get
 #define NCFUNCG(func) ncmpi_get ## func
 
@@ -54,6 +57,7 @@
 #include "netcdf.h"
 #define NCFUNC(func) nc_ ## func
 #define NCFUNCAG(func) nc_get ## func
+#define NCFUNCAP(func) nc_put ## func
 #define NCFUNCG(func) nc_get ## func
 #define NCDF_SIZE size_t
 #define NCDF_DIFF ptrdiff_t
@@ -163,6 +167,13 @@ private:
   // for everybody
   ErrorCode collect_variable_data( std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
       std::vector<double>& tstep_vals, EntityHandle fileSet);
+
+  // initialize file: this is where all defines are done
+  // the VarData dimension ids are filled up after define
+  ErrorCode initialize_file( std::vector<std::string> & var_names); // these are from options
+
+  // take the info from VarData and write first the coordinates, then the actual variables
+  ErrorCode write_values(std::vector<std::string> & var_names, EntityHandle fileSet);
     // interface instance
   Interface *mbImpl;
   WriteUtilIface* mWriteIface;

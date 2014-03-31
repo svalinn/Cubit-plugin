@@ -101,30 +101,18 @@ ErrorCode WriteNC::write_file(const char *file_name,
   success = NCFUNC(create)(file_name,  overwrite ? NC_CLOBBER : NC_NOCLOBBER, &fileId);
 #endif
   ERRORS(success, "failed to create file");
-
-  /* int nc_def_dim (int ncid, const char *name, size_t len, int *dimidp);
-   * example:  status = nc_def_dim(fileId, "lat", 18L, &latid);
-   * */
-
-  /*
-   * int nc_def_var (int ncid, const char *name, nc_type xtype,
-                     int ndims, const int dimids[], int *varidp);
-     example: http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-c/nc_005fdef_005fvar.html#nc_005fdef_005fvar
-   */
-
-    /*
-     * Write an Entire Variable: nc_put_var_ type (double, int)
-     * int nc_put_var_double(int ncid, int varid, const double *dp);
-     */
-  /*
-   * Write an Array of Values: nc_put_vara_ type
-   * int nc_put_vara_double(int ncid, int varid, const size_t start[],
-                            const size_t count[], const double *dp);
-   */
-
   //
   rval = collect_variable_data(var_names, tstep_nums, tstep_vals, *file_set);
   ERRORR(rval, "Trouble collecting data.");
+
+  rval = initialize_file(var_names);
+  ERRORR(rval, "failed to initialize file.");
+
+  rval = write_values( var_names, *file_set);
+  ERRORR(rval, "failed to write values ");
+
+  success =  NCFUNC(close)(fileId);
+  ERRORS(success, "failed to close file");
 
   return MB_SUCCESS;
 }
@@ -390,6 +378,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
         if (vit==dimNames.end())
           ERRORR(MB_FAILURE, "dimension not found\n");
         variableDataStruct.varDims[j]= (int)(vit-dimNames.begin()) ; // will be used for writing
+        // this will have to change to actual file dimension, for writing
 
         // do we have a variable for each dimension? I mean, a tag?
         //dims[j] = &(get_dim(dim_name));
@@ -541,7 +530,7 @@ ErrorCode WriteNC::collect_variable_data( std::vector<std::string>& var_names, s
       // probably will have to look at tstep_vals to match them
       sizeVar *= dimLens[j];
       usedCoordinates.insert(dimName); // collect those used, we will need to write them to the file
-      dbgOut.tprintf(2, "    for variable %s need dimension %s with length %d\n", varname.c_str(), dimName.c_str(), dimLens[j] );
+      dbgOut.tprintf(2, "    for variable %s need dimension %s with length %d\n", varname.c_str(), dimName.c_str(), dimLens[ currentVarData.varDims[j] ] );
     }
 
     currentVarData.sz=sizeVar;
@@ -562,6 +551,15 @@ ErrorCode WriteNC::collect_variable_data( std::vector<std::string>& var_names, s
         currentVarData.varTags.push_back(indexedTag);
         index++; // we should get out of the loop at some point
         // we will have to collect data for these tags; maybe even allocate memory again
+
+        // the type of the tag is fixed though
+        DataType type;
+        rval = mbImpl->tag_get_data_type(indexedTag, type);
+        ERRORR(rval, "can't get tag type");
+
+        currentVarData.varDataType = NC_DOUBLE;
+        if (type==MB_TYPE_INTEGER)
+          currentVarData.varDataType = NC_INT;
       }
     }
     else
@@ -584,7 +582,7 @@ ErrorCode WriteNC::collect_variable_data( std::vector<std::string>& var_names, s
   // check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin(); setIt!=usedCoordinates.end(); setIt++)
   {
-    std::string coordName=*setIt; // a deep copy ; is it needed?
+    std::string coordName=*setIt; // deep copy
 
     std::map<std::string, VarData>::iterator vit = varInfo.find(coordName);
     if (vit==varInfo.end())
@@ -602,10 +600,213 @@ ErrorCode WriteNC::collect_variable_data( std::vector<std::string>& var_names, s
     ERRORR(rval, "can't get coordinate values");
     dbgOut.tprintf(2, "    found coordinate tag with name %s and length %d\n", coordName.c_str(),
         sizeCoordinate);
+    // this is the length
+    varCoordData.sz = sizeCoordinate;
+    varCoordData.writeStarts.resize(1);
+    varCoordData.writeStarts[0]=0;
+    varCoordData.writeCounts.resize(1);
+    varCoordData.writeCounts[0]=sizeCoordinate;
+    // find the type of tag, and use it
+    DataType type;
+    rval = mbImpl->tag_get_data_type(coordtag, type);
+    ERRORR(rval, "can't get tag type");
+
+    varCoordData.varDataType = NC_DOUBLE;
+    if (type==MB_TYPE_INTEGER)
+      varCoordData.varDataType = NC_INT;
 
     assert(varCoordData.memoryHogs.size()==0);// nothing so far
     varCoordData.memoryHogs.push_back((void*)data);
   }
+  return MB_SUCCESS;
+}
+
+ErrorCode WriteNC::initialize_file( std::vector<std::string> & var_names)
+{
+  // first initialize all coordinates, then fill VarData for actual variables (and dimensions)
+  // check that for used coordinates we have found the tags
+  for (std::set<std::string>::iterator setIt = usedCoordinates.begin(); setIt!=usedCoordinates.end(); setIt++)
+  {
+    std::string  coordName=*setIt; // deep copy
+
+    std::map<std::string, VarData>::iterator vit = varInfo.find(coordName);
+    if (vit==varInfo.end())
+      ERRORR(MB_FAILURE, "can't find one coordinate variable");
+
+    VarData & varCoordData = vit->second;
+
+    varCoordData.varDims.resize(1);
+
+    /* int nc_def_dim (int ncid, const char *name, size_t len, int *dimidp);
+       * example:  status = nc_def_dim(fileId, "lat", 18L, &latid);
+    */
+
+
+    // actually define a dimension
+    if (NCFUNC(def_dim)(fileId, coordName.c_str() , (size_t)varCoordData.sz ,
+        &varCoordData.varDims[0]) != NC_NOERR)
+     ERRORR(MB_FAILURE, "failed to generate dimension");
+
+    dbgOut.tprintf(2, "    for coordName %s dim id is %d \n", coordName.c_str(), (int)varCoordData.varDims[0] );
+
+    // create a variable with the same name, and its only dimension the one we just defined
+    /*
+     * int nc_def_var (int ncid, const char *name, nc_type xtype,
+                       int ndims, const int dimids[], int *varidp);
+       example: http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-c/nc_005fdef_005fvar.html#nc_005fdef_005fvar
+     */
+
+    if (NCFUNC(def_var)(fileId, coordName.c_str(), varCoordData.varDataType,
+        1, &(varCoordData.varDims[0]), &varCoordData.varId) != NC_NOERR)
+      ERRORR(MB_FAILURE, "failed to create coordinate variable");
+
+    dbgOut.tprintf(2, "    for coordName %s variable id is %d \n", coordName.c_str(), varCoordData.varId );
+
+  }
+  // now look at requested variables, and update from the index in dimNames to the actual dimension id
+
+  for (size_t i=0; i<var_names.size(); i++)
+  {
+    std::map<std::string, VarData>::iterator vit = varInfo.find(var_names[i]);
+    if (vit==varInfo.end())
+      ERRORR(MB_FAILURE, "can't find variable requested");
+
+    VarData & variableData = vit->second;
+    int numDims = (int) variableData.varDims.size();
+    // the index is for dimNames; we need to find out the actual dimension id (from above)
+    for (int j=0; j< numDims; j++)
+    {
+      std::string dimName = dimNames[variableData.varDims[j]];
+      std::map<std::string, VarData>::iterator vit2 = varInfo.find(dimName);
+      if (vit2==varInfo.end())
+        ERRORR(MB_FAILURE, "can't find coordinate variable requested");
+
+      VarData & coordData = vit2->second;
+      variableData.varDims[j] = coordData.varDims[0]; // this one, being a coordinate, is the only one
+      dbgOut.tprintf(2, "          dimension with index %d name %s has ID %d \n",
+          j, dimName.c_str(), variableData.varDims[j]);
+
+      variableData.writeStarts.push_back(0); // assume we will write all, so start at 0 for all dimensions
+      variableData.writeCounts.push_back(coordData.sz); // again, write all; times will be one at a time
+    }
+    // define the variable now :
+    if (NCFUNC(def_var)(fileId, var_names[i].c_str(), variableData.varDataType,
+            (int)variableData.varDims.size() , &(variableData.varDims[0]),
+            &variableData.varId) != NC_NOERR)
+    ERRORR(MB_FAILURE, "failed to create coordinate variable");
+
+    dbgOut.tprintf(2, "    for variable %s variable id is %d \n", var_names[i].c_str(), variableData.varId );
+    // now define the variable, with all dimensions
+  }
+
+  // take it out of define mode
+  if (NC_NOERR != NCFUNC(enddef)(fileId))
+    ERRORR(MB_FAILURE, "failed to close define mode");
+
+  return MB_SUCCESS;
+}
+ErrorCode WriteNC::write_values(std::vector<std::string> & var_names, EntityHandle fileSet)
+{
+
+  /*
+  * Write an Array of Values: nc_put_vara_ type
+  * int nc_put_vara_double(int ncid, int varid, const size_t start[],
+                           const size_t count[], const double *dp);
+  */
+  // start with coordinates
+  for (std::set<std::string>::iterator setIt = usedCoordinates.begin(); setIt!=usedCoordinates.end(); setIt++)
+ {
+   std::string  coordName=*setIt; // deep copy
+
+   std::map<std::string, VarData>::iterator vit = varInfo.find(coordName);
+   if (vit==varInfo.end())
+     ERRORR(MB_FAILURE, "can't find one coordinate variable");
+
+   VarData & varCoordData = vit->second;
+
+   int success =0;
+   switch (varCoordData.varDataType) {
+      case NC_DOUBLE:
+        success = NCFUNCAP(_vara_double)(fileId, varCoordData.varId,  &varCoordData.writeStarts[0],
+            &varCoordData.writeCounts[0], (double*) (varCoordData.memoryHogs[0])  );
+        ERRORS(success, "Failed to write double data.");
+        break;
+      case NC_INT:
+        success = NCFUNCAP(_vara_int)(fileId, varCoordData.varId,  &varCoordData.writeStarts[0],
+            &varCoordData.writeCounts[0], (int*) (varCoordData.memoryHogs[0]) );
+        ERRORS(success, "Failed to write int data.");
+        break;
+      default:
+        success = 1;
+        break;
+   }
+
+ }
+   // now look at requested var_names; if they have time, we will have a list, and write one at a time
+  // we may also need to gather, and transpose stuff
+  Range ents2d;
+  // get all entities of dimension 2 from set; assume now location is on cells;
+  // need to reorder stuff in the order from the file, also transpose from lev dimension
+  ErrorCode rval = mbImpl->get_entities_by_dimension(fileSet, 2, ents2d);
+  ERRORR(rval, "can't get entities for 2d");
+
+  // for each variabletag in the indexed lists, write a time step data
+  // assume the first dimension is time (need to check); if not, just write regularly
+  //
+  for (size_t i=0; i<var_names.size(); i++)
+  {
+    std::map<std::string, VarData>::iterator vit = varInfo.find(var_names[i]);
+    if (vit==varInfo.end())
+      ERRORR(MB_FAILURE, "can't find variable requested");
+
+    VarData & variableData = vit->second;
+    int numTimeSteps = (int)variableData.varTags.size();
+    if (variableData.has_tsteps)
+    {
+      variableData.writeCounts[0] = 1; // we will write one time step
+      for(int j=0; j<numTimeSteps; j++)
+      {
+        // we will write one time step, and count will be one; start will be different
+        // we will write values directly from tag_iterate, but we should also transpose for level
+        // so that means deep copy for transpose
+        // !!!!!!!!!!!!!!
+        //
+        //  FIXME !!!!!!!!!!!
+        variableData.writeStarts[0] = j; // this is time, again
+        int count;
+        void * dataptr;
+        rval = mbImpl->tag_iterate(variableData.varTags[j], ents2d.begin(), ents2d.end(), count, dataptr );
+        assert(count == ents2d.size());
+
+        // now write from memory directly   FIXME: we need to transpose and gather for multiple processors
+        int success = 0;
+        switch (variableData.varDataType)
+        {
+        case NC_DOUBLE:
+          success = NCFUNCAP(_vara_double)(fileId, variableData.varId,
+              &variableData.writeStarts[0], &variableData.writeCounts[0],
+              (double*) (dataptr));
+          ERRORS(success, "Failed to write double data.");
+          break;
+        case NC_INT:
+          success =NCFUNCAP(_vara_int)(fileId, variableData.varId,
+              &variableData.writeStarts[0], &variableData.writeCounts[0],
+              (int*) (dataptr));
+          ERRORS(success, "Failed to write int data.");
+          break;
+        default:
+          success = 1;
+          break;
+        }
+
+      }
+    }
+    else
+    {
+      // FIXME
+    }
+  }
+
   return MB_SUCCESS;
 }
 
