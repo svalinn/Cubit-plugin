@@ -100,6 +100,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   success = NCFUNC(create)(file_name, overwrite ? NC_CLOBBER : NC_NOCLOBBER, &fileId);
 #endif
   ERRORS(success, "Failed to create file.");
+
   rval = collect_variable_data(var_names, tstep_nums, tstep_vals, *file_set);
   ERRORR(rval, "Trouble collecting data.");
 
@@ -334,7 +335,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       // reference & is important; otherwise variableDataStruct will go out of scope, and deleted :(
       VarData& variableDataStruct = varInfo[var_name];
 
-      dbgOut.tprintf(2, "at var name %s varInfo size %d \n", var_name.c_str(), varInfo.size());
+      dbgOut.tprintf(2, "at var name %s varInfo size %d \n", var_name.c_str(), (int)varInfo.size());
 
       sz = 0;
       Tag dims_tag = 0;
@@ -521,7 +522,7 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
 
     if (currentVarData.has_tsteps) {
       int index = 0;
-      while(true) {
+      while (true) {
         Tag indexedTag;
         std::stringstream ssTagNameWithIndex;
         ssTagNameWithIndex << varname << index;
@@ -553,6 +554,16 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
       int sizeCoordinate;
       rval = mbImpl->tag_get_by_ptr(coordtag, &fileSet, 1, &data, &sizeCoordinate);
       ERRORR(rval, "Can't get coordinate values.");
+
+      // Find the type of tag, and use it
+      DataType type;
+      rval = mbImpl->tag_get_data_type(coordtag, type);
+      ERRORR(rval, "Can't get tag type.");
+
+      currentVarData.varDataType = NC_DOUBLE;
+      if (MB_TYPE_INTEGER == type)
+        currentVarData.varDataType = NC_INT;
+
       assert(currentVarData.memoryHogs.size() == 0); // Nothing so far
       currentVarData.memoryHogs.push_back((void*)data);
     }
@@ -579,12 +590,14 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
     ERRORR(rval, "Can't get coordinate values.");
     dbgOut.tprintf(2, "    found coordinate tag with name %s and length %d\n", coordName.c_str(),
         sizeCoordinate);
+
     // This is the length
     varCoordData.sz = sizeCoordinate;
     varCoordData.writeStarts.resize(1);
     varCoordData.writeStarts[0] = 0;
     varCoordData.writeCounts.resize(1);
     varCoordData.writeCounts[0] = sizeCoordinate;
+
     // Find the type of tag, and use it
     DataType type;
     rval = mbImpl->tag_get_data_type(coordtag, type);
@@ -650,14 +663,13 @@ ErrorCode WriteNC::initialize_file(std::vector<std::string>& var_names)
     VarData& variableData = vit->second;
     int numDims = (int)variableData.varDims.size();
     // The index is for dimNames; we need to find out the actual dimension id (from above)
-    for (int j = 0; j < numDims; j++)
-    {
+    for (int j = 0; j < numDims; j++) {
       std::string dimName = dimNames[variableData.varDims[j]];
       std::map<std::string, VarData>::iterator vit2 = varInfo.find(dimName);
       if (vit2 == varInfo.end())
         ERRORR(MB_FAILURE, "Can't find coordinate variable requested.");
 
-      VarData & coordData = vit2->second;
+      VarData& coordData = vit2->second;
       variableData.varDims[j] = coordData.varDims[0]; // this one, being a coordinate, is the only one
       dbgOut.tprintf(2, "          dimension with index %d name %s has ID %d \n",
           j, dimName.c_str(), variableData.varDims[j]);
@@ -665,6 +677,7 @@ ErrorCode WriteNC::initialize_file(std::vector<std::string>& var_names)
       variableData.writeStarts.push_back(0); // assume we will write all, so start at 0 for all dimensions
       variableData.writeCounts.push_back(coordData.sz); // again, write all; times will be one at a time
     }
+
     // Define the variable now:
     if (NCFUNC(def_var)(fileId, var_names[i].c_str(), variableData.varDataType,
         (int)variableData.varDims.size(), &(variableData.varDims[0]),
@@ -733,7 +746,7 @@ ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandl
     if (vit == varInfo.end())
       ERRORR(MB_FAILURE, "Can't find variable requested.");
 
-    VarData & variableData = vit->second;
+    VarData& variableData = vit->second;
     int numTimeSteps = (int)variableData.varTags.size();
     if (variableData.has_tsteps) {
       variableData.writeCounts[0] = 1; // we will write one time step
@@ -773,7 +786,22 @@ ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandl
       }
     }
     else {
-      // FIXME
+      int success = 0;
+      switch (variableData.varDataType) {
+        case NC_DOUBLE:
+          success = NCFUNCAP(_vara_double)(fileId, variableData.varId, &variableData.writeStarts[0],
+                    &variableData.writeCounts[0], (double*)(variableData.memoryHogs[0]));
+          ERRORS(success, "Failed to write double data.");
+          break;
+        case NC_INT:
+          success = NCFUNCAP(_vara_int)(fileId, variableData.varId, &variableData.writeStarts[0],
+                    &variableData.writeCounts[0], (int*)(variableData.memoryHogs[0]));
+          ERRORS(success, "Failed to write int data.");
+          break;
+        default:
+          success = 1;
+          break;
+      }
     }
   }
 
