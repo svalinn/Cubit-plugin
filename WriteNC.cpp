@@ -413,7 +413,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
     }
   }
 
-  // Attributes
+  // Global attributes
   tag_name = "__GLOBAL_ATTRIBS";
   Tag globalAttTag = 0;
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, globalAttTag, MB_TAG_SPARSE | MB_TAG_VARLEN);
@@ -450,7 +450,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   return MB_SUCCESS;
 }
 
-// reverse process from create_attrib_string
+// Reverse process from create_attrib_string
 ErrorCode WriteNC::process_concatenated_attribute(const void* gattptr, int globalAttSz, std::vector<int>& gattLen,
                                                   std::map<std::string, AttData>& attributes)
 {
@@ -473,8 +473,22 @@ ErrorCode WriteNC::process_concatenated_attribute(const void* gattptr, int globa
 
       std::string data_val(&concatString[start], i - start);
       start = i + 1;
-      AttData attrib = attributes[att_name];
+
+      AttData& attrib = attributes[att_name];
       attrib.attValue = data_val;
+      attrib.attLen = data_val.size();
+
+      if (data_type == "char")
+        attrib.attDataType = NC_CHAR;
+      else if (data_type == "double")
+        attrib.attDataType = NC_DOUBLE;
+      else if (data_type == "float")
+        attrib.attDataType = NC_FLOAT;
+      else if (data_type == "int")
+        attrib.attDataType = NC_INT;
+      else if (data_type == "short")
+        attrib.attDataType = NC_SHORT;
+
       ++att_counter;
       dbgOut.tprintf(2, "       Process attribute %s with value %s \n", att_name.c_str(), data_val.c_str());
     }
@@ -571,7 +585,7 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
 
   // Check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
-      setIt != usedCoordinates.end(); setIt++) {
+      setIt != usedCoordinates.end(); ++setIt) {
     std::string coordName = *setIt; // Deep copy
 
     std::map<std::string, VarData>::iterator vit = varInfo.find(coordName);
@@ -682,10 +696,47 @@ ErrorCode WriteNC::initialize_file(std::vector<std::string>& var_names)
     if (NCFUNC(def_var)(fileId, var_names[i].c_str(), variableData.varDataType,
         (int)variableData.varDims.size(), &(variableData.varDims[0]),
         &variableData.varId) != NC_NOERR)
-    ERRORR(MB_FAILURE, "Failed to create coordinate variable.");
+      ERRORR(MB_FAILURE, "Failed to create coordinate variable.");
 
     dbgOut.tprintf(2, "    for variable %s variable id is %d \n", var_names[i].c_str(), variableData.varId);
     // Now define the variable, with all dimensions
+  }
+
+  // Define global attributes (exactly copied from the original file for the time being)
+  // Should we modify some of them (e.g. revision_Id) later?
+  std::map<std::string, WriteNC::AttData>::iterator attIt;
+  for (attIt = globalAtts.begin(); attIt != globalAtts.end(); ++attIt) {
+    const std::string& attName = attIt->first;
+    WriteNC::AttData& attData = attIt->second;
+    NCDF_SIZE& attLen = attData.attLen;
+    nc_type& attDataType = attData.attDataType;
+    const std::string& attValue = attData.attValue;
+
+    switch (attDataType) {
+      case NC_BYTE:
+      case NC_CHAR:
+        if (NC_NOERR != NCFUNC(put_att_text)(fileId, NC_GLOBAL, attName.c_str(), attLen, attValue.c_str()))
+          ERRORR(MB_FAILURE, "Failed to define text type attribute.");
+        break;
+      case NC_DOUBLE:
+        if (NC_NOERR != NCFUNC(put_att_double)(fileId, NC_GLOBAL, attName.c_str(), NC_DOUBLE, 1, (double*)attValue.c_str()))
+          ERRORR(MB_FAILURE, "Failed to define double type attribute.");
+        break;
+      case NC_FLOAT:
+        if (NC_NOERR != NCFUNC(put_att_float)(fileId, NC_GLOBAL, attName.c_str(), NC_FLOAT, 1, (float*)attValue.c_str()))
+          ERRORR(MB_FAILURE, "Failed to define float type attribute.");
+        break;
+      case NC_INT:
+        if (NC_NOERR != NCFUNC(put_att_int)(fileId, NC_GLOBAL, attName.c_str(), NC_INT, 1, (int*)attValue.c_str()))
+          ERRORR(MB_FAILURE, "Failed to define int type attribute.");
+        break;
+      case NC_SHORT:
+        if (NC_NOERR != NCFUNC(put_att_short)(fileId, NC_GLOBAL, attName.c_str(), NC_SHORT, 1, (short*)attValue.c_str()))
+          ERRORR(MB_FAILURE, "Failed to define short type attribute.");
+        break;
+      default:
+        ERRORR(MB_FAILURE, "Unknown attribute data type.");
+    }
   }
 
   // Take it out of define mode
