@@ -16,9 +16,8 @@
 #ifndef WRITENC_HPP_
 #define WRITENC_HPP_
 
-
 #ifndef IS_BUILDING_MB
-//#error "ReadNC.hpp isn't supposed to be included into an application"
+//#error "WriteNC.hpp isn't supposed to be included into an application"
 #endif
 
 #include <vector>
@@ -39,26 +38,15 @@
 #include "pnetcdf.h"
 #define NCFUNC(func) ncmpi_ ## func
 
-//! Collective I/O mode get
-#define NCFUNCAG(func) ncmpi_get ## func ## _all
-
 //! Collective I/O mode put
 #define NCFUNCAP(func) ncmpi_put ## func ## _all
-
-//! Independent I/O mode get
-#define NCFUNCG(func) ncmpi_get ## func
-
-//! Nonblocking get (request aggregation), used so far only for ucd mesh
-#define NCFUNCREQG(func) ncmpi_iget ## func
 
 #define NCDF_SIZE MPI_Offset
 #define NCDF_DIFF MPI_Offset
 #else
 #include "netcdf.h"
 #define NCFUNC(func) nc_ ## func
-#define NCFUNCAG(func) nc_get ## func
 #define NCFUNCAP(func) nc_put ## func
-#define NCFUNCG(func) nc_get ## func
 #define NCDF_SIZE size_t
 #define NCDF_DIFF ptrdiff_t
 #endif
@@ -72,7 +60,6 @@ class NCWriteHelper;
 /**
  * \brief Export NC files.
  */
-
 class WriteNC : public WriterIface
 {
   friend class NCWriteHelper;
@@ -80,36 +67,36 @@ class WriteNC : public WriterIface
 
 public:
 
-    //! factory method
-  static WriterIface* factory( Interface* );
+  //! Factory method
+  static WriterIface* factory(Interface*);
 
-   //! Constructor
-  WriteNC(Interface *impl);
+  //! Constructor
+  WriteNC(Interface* impl = NULL);
 
-   //! Destructor
+  //! Destructor
   virtual ~WriteNC();
 
-
-    //! writes out a file
-  ErrorCode write_file(const char *file_name,
-                         const bool overwrite,
-                         const FileOptions& opts,
-                         const EntityHandle *output_list,
-                         const int num_sets,
-                         const std::vector<std::string>& qa_list,
-                         const Tag* tag_list = NULL,
-                         int num_tags = 0,
-                         int export_dimension = 3);
-
+  //! Writes out a file
+  ErrorCode write_file(const char* file_name,
+                       const bool overwrite,
+                       const FileOptions& opts,
+                       const EntityHandle* output_list,
+                       const int num_sets,
+                       const std::vector<std::string>& qa_list,
+                       const Tag* tag_list = NULL,
+                       int num_tags = 0,
+                       int export_dimension = 3);
 
 private:
 
+  //! ENTLOCNSEDGE for north/south edge
+  //! ENTLOCWEEDGE for west/east edge
   enum EntityLocation {ENTLOCVERT = 0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCFACE, ENTLOCSET, ENTLOCEDGE, ENTLOCREGION};
 
   class AttData
   {
     public:
-    AttData() : attId(-1), attLen(0), attVarId(-2) {}
+    AttData() : attId(-1), attLen(0), attVarId(-2), attDataType(NC_NAT) {}
     int attId;
     NCDF_SIZE attLen;
     int attVarId;
@@ -127,23 +114,23 @@ private:
     std::map<std::string, AttData> varAtts;
     std::string varName;
     std::vector<Tag> varTags; // Tags created for this variable, e.g. one tag per timestep
-    std::vector<void*> memoryHogs; // these will point to the real data; fill before writing the data
-    std::vector<NCDF_SIZE> writeStarts; // Starting index for reading data values along each dimension
-    std::vector<NCDF_SIZE> writeCounts; // Number of data values to be read along each dimension
+    std::vector<void*> memoryHogs; // These will point to the real data; fill before writing the data
+    std::vector<NCDF_SIZE> writeStarts; // Starting index for writing data values along each dimension
+    std::vector<NCDF_SIZE> writeCounts; // Number of data values to be written along each dimension
     int entLoc;
     int numLev;
     int sz;
     bool has_tsteps; // Indicate whether timestep numbers are appended to tag names
   };
 
-  // this info will be reconstructed from metadata stored on conventional fileSet tags
+  // This info will be reconstructed from metadata stored on conventional fileSet tags
   //! Dimension names
   std::vector<std::string> dimNames;
 
   //! Dimension lengths
   std::vector<int> dimLens;
 
-  // will collect used dimensions (ccordinate variables)
+  // Will collect used dimensions (coordinate variables)
   std::set<std::string> usedCoordinates;
 
   //! Global attribs
@@ -152,38 +139,50 @@ private:
   //! Variable info
   std::map<std::string, VarData> varInfo;
 
-  ErrorCode parse_options(const FileOptions& opts, std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
-                                  std::vector<double>& tstep_vals);
+  ErrorCode parse_options(const FileOptions& opts,
+                          std::vector<std::string>& var_names,
+                          std::vector<int>& tstep_nums,
+                          std::vector<double>& tstep_vals);
   /*
-   * map out the header, from tags on file set; it is the inverse process from
+   * Map out the header, from tags on file set; it is the inverse process from
    * ErrorCode NCHelper::create_conventional_tags
    */
   ErrorCode process_conventional_tags(EntityHandle fileSet);
 
-  ErrorCode process_concatenated_attribute(const void * gattptr, int globalAttSz, std::vector<int> & gattLen,
-      std::map<std::string, AttData> & globalAtts);
+  ErrorCode process_concatenated_attribute(const void* gattptr, int globalAttSz,
+                                           std::vector<int>& gattLen,
+                                           std::map<std::string, AttData>& globalAtts);
 
-  // will collect data; it should be only on gather processor, but for the time being, collect
+  // Will collect data; it should be only on gather processor, but for the time being, collect
   // for everybody
-  ErrorCode collect_variable_data( std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
-      std::vector<double>& tstep_vals, EntityHandle fileSet);
+  ErrorCode collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
+                                  std::vector<double>& tstep_vals, EntityHandle fileSet);
 
-  // initialize file: this is where all defines are done
+  // Initialize file: this is where all defines are done
   // the VarData dimension ids are filled up after define
-  ErrorCode initialize_file( std::vector<std::string> & var_names); // these are from options
+  ErrorCode initialize_file(std::vector<std::string>& var_names); // These are from options
 
-  // take the info from VarData and write first the coordinates, then the actual variables
-  ErrorCode write_values(std::vector<std::string> & var_names, EntityHandle fileSet);
-    // interface instance
-  Interface *mbImpl;
+  // Take the info from VarData and write first the coordinates, then the actual variables
+  ErrorCode write_values(std::vector<std::string>& var_names, EntityHandle fileSet);
+
+  template <typename T> void jik_to_kji(size_t ni, size_t nj, size_t nk, T* dest, T* source)
+  {
+    size_t nik = ni * nk, nij = ni * nj;
+    for (std::size_t k = 0; k != nk; k++)
+      for (std::size_t j = 0; j != nj; j++)
+        for (std::size_t i = 0; i != ni; i++)
+          dest[k*nij + j*ni + i] = source[j*nik + i*nk + k];
+  }
+
+  // Interface instance
+  Interface* mbImpl;
   WriteUtilIface* mWriteIface;
 
-  // File var
-  const char *fileName;
+  //! File var
+  const char* fileName;
   int IndexFile;
   //! File numbers assigned by (p)netcdf
   int fileId;
-
 
   //! Debug stuff
   DebugOutput dbgOut;
@@ -200,29 +199,29 @@ private:
 #ifdef USE_MPI
   ParallelComm* myPcomm;
 #endif
-  //! write options
-  //
+
+  //! Write options
   bool noMesh;
   bool noVars;
+
   /*
-   *  not used yet, maybe later
+   *  Not used yet, maybe later
   bool spectralMesh;
   bool noMixedElements;
   bool noEdges;*/
   int gatherSetRank;
 
   //! Cached tags for writing. this will be important for ordering the data, in parallel
-  //
   Tag mGlobalIdTag;
 
   //! Are we writing in parallel? (probably in the future)
   bool isParallel;
 
-  // CAM Euler, etc,
+  //! CAM Euler, etc,
   std::string grid_type;
+
   //! Helper class instance
   NCWriteHelper* myHelper;
-
 };
 
 } // namespace moab

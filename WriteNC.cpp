@@ -277,7 +277,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   rval = mbImpl->tag_get_by_ptr(tagMeshType, &fileSet, 1, &data, &sz);
   ERRORR(rval, "Trouble getting values for conventional tag __MESH_TYPE.");
 
-  p = static_cast<const char *>(data);
+  p = static_cast<const char*>(data);
   grid_type = std::string(&p[0], sz);
   dbgOut.tprintf(2, "mesh type: %s \n", grid_type.c_str());
 
@@ -596,7 +596,7 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
     Tag coordtag = 0;
     rval = mbImpl->tag_get_handle(coordName.c_str(), coordtag);
     ERRORR(rval, "Can't find one tag.");
-    varCoordData.varTags.push_back(coordtag); // really, only one for these
+    varCoordData.varTags.push_back(coordtag); // Really, only one for these
 
     const void* data;
     int sizeCoordinate;
@@ -684,12 +684,12 @@ ErrorCode WriteNC::initialize_file(std::vector<std::string>& var_names)
         ERRORR(MB_FAILURE, "Can't find coordinate variable requested.");
 
       VarData& coordData = vit2->second;
-      variableData.varDims[j] = coordData.varDims[0]; // this one, being a coordinate, is the only one
+      variableData.varDims[j] = coordData.varDims[0]; // This one, being a coordinate, is the only one
       dbgOut.tprintf(2, "          dimension with index %d name %s has ID %d \n",
           j, dimName.c_str(), variableData.varDims[j]);
 
-      variableData.writeStarts.push_back(0); // assume we will write all, so start at 0 for all dimensions
-      variableData.writeCounts.push_back(coordData.sz); // again, write all; times will be one at a time
+      variableData.writeStarts.push_back(0); // Assume we will write all, so start at 0 for all dimensions
+      variableData.writeCounts.push_back(coordData.sz); // Again, write all; times will be one at a time
     }
 
     // Define the variable now:
@@ -785,7 +785,8 @@ ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandl
   // Now look at requested var_names; if they have time, we will have a list, and write one at a time
   // We may also need to gather, and transpose stuff
   Range ents2d;
-  // Get all entities of dimension 2 from set; assume now location is on cells;
+  // Get all entities of dimension 2 from set
+  // FIXME: assume now location is on cells (for variable T of CAM-EUL it is the case)
   // Need to reorder stuff in the order from the file, also transpose from lev dimension
   ErrorCode rval = mbImpl->get_entities_by_dimension(fileSet, 2, ents2d);
   ERRORR(rval, "Can't get entities for 2d.");
@@ -800,14 +801,18 @@ ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandl
     VarData& variableData = vit->second;
     int numTimeSteps = (int)variableData.varTags.size();
     if (variableData.has_tsteps) {
-      variableData.writeCounts[0] = 1; // we will write one time step
+      // FIXME: assume now the variable has 4 dimensions as (time, lev, lat, lon)
+      // At each timestep, we need to transpose tag format (lat, lon, lev) back
+      // to NC format (lev, lat, lon) for writing
+      size_t ni = variableData.writeCounts[3]; // lon
+      size_t nj = variableData.writeCounts[2]; // lat
+      size_t nk = variableData.writeCounts[1]; // lev
+
+      variableData.writeCounts[0] = 1; // We will write one time step
       for (int j = 0; j < numTimeSteps; j++) {
         // We will write one time step, and count will be one; start will be different
         // We will write values directly from tag_iterate, but we should also transpose for level
-        // So that means deep copy for transpose
-        // !!!!!!!!!!!!!!
-        //
-        // FIXME !!!!!!!!!!!
+        // so that means deep copy for transpose
         variableData.writeStarts[0] = j; // This is time, again
         int count;
         void* dataptr;
@@ -815,21 +820,29 @@ ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandl
         assert(count == (int)ents2d.size());
 
         // Now write from memory directly
-        // FIXME: we need to transpose and gather for multiple processors
+        // FIXME: we need to gather for multiple processors
         int success = 0;
         switch (variableData.varDataType) {
-          case NC_DOUBLE:
+          case NC_DOUBLE: {
+            std::vector<double> tmpdoubledata(ni*nj*nk);
+            // Transpose (lat, lon, lev) back to (lev, lat, lon)
+            jik_to_kji(ni, nj, nk, &tmpdoubledata[0], (double*)(dataptr));
             success = NCFUNCAP(_vara_double)(fileId, variableData.varId,
                       &variableData.writeStarts[0], &variableData.writeCounts[0],
-                      (double*)(dataptr));
+                      &tmpdoubledata[0]);
             ERRORS(success, "Failed to write double data.");
             break;
-          case NC_INT:
+          }
+          case NC_INT: {
+            std::vector<int> tmpintdata(ni*nj*nk);
+            // Transpose (lat, lon, lev) back to (lev, lat, lon)
+            jik_to_kji(ni, nj, nk, &tmpintdata[0], (int*)(dataptr));
             success = NCFUNCAP(_vara_int)(fileId, variableData.varId,
                       &variableData.writeStarts[0], &variableData.writeCounts[0],
-                      (int*)(dataptr));
+                      &tmpintdata[0]);
             ERRORS(success, "Failed to write int data.");
             break;
+          }
           default:
             success = 1;
             break;
