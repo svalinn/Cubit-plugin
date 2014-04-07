@@ -166,7 +166,6 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
   
   for(int dim=0; dim<4; dim++)
     {
-      //dim_map.clear();
       entlist.clean_out();
       GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
       entlist.reset();
