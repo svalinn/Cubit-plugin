@@ -233,21 +233,6 @@ ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityH
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::store_geom_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
-{
-  ErrorCode rval;
-  // store CoFace senses
-  rval = store_surface_senses( entitymap );
-  if (rval!=MB_SUCCESS) return rval;
-
-  // store CoEdge senses
-  rval = store_curve_senses( entitymap );
-  if (rval!=MB_SUCCESS) return rval;
-
-  return MB_SUCCESS;
-  
-}
-
 ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
 {
   ErrorCode rval;
@@ -583,9 +568,13 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = create_topology( mdbImpl, entmap );
   if(rval!=MB_SUCCESS) return rval;
 
-  // store the curve to surface senses and the surface to volume senses 
-  rval = store_geom_senses( entmap );
-  if(rval!=MB_SUCCESS) return rval;
+  // store CoFace senses
+  rval = store_surface_senses( entmap );
+  if (rval!=MB_SUCCESS) return rval;
+
+  // store CoEdge senses
+  rval = store_curve_senses( entmap );
+  if (rval!=MB_SUCCESS) return rval;
 
   // get group information and store it in the mesh 
   rval = store_groups( mdbImpl, entmap );

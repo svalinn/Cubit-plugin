@@ -84,8 +84,6 @@ public:
   ErrorCode create_topology( Interface* moab, 
                              std::map<RefEntity*,EntityHandle> entitymap[5] );
 
-  ErrorCode store_geom_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
-  
   ErrorCode store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
   ErrorCode store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
