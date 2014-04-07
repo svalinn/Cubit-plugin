@@ -323,7 +323,7 @@ ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitym
   ErrorCode rval;
 
   // create eneity sets for all ref groups
-  rval = create_group_entities( moab, entitymap[4] );
+  rval = create_group_entsets( moab, entitymap[4] );
   if(rval!=MB_SUCCESS) return rval;
   
   // store group names and entities in the mesh
@@ -334,7 +334,7 @@ ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitym
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_group_entities( Interface* moab, std::map<RefEntity*,EntityHandle>& entitymap )
+ErrorCode ReadCGM::create_group_entsets( Interface* moab, std::map<RefEntity*,EntityHandle>& entitymap )
 {
 
   ErrorCode rval;

@@ -90,7 +90,7 @@ public:
 
   ErrorCode store_groups( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
 
-  ErrorCode create_group_entities( Interface* moab, 
+  ErrorCode create_group_entsets( Interface* moab, 
                                    std::map<RefEntity*,EntityHandle>& entitymap );
 
   ErrorCode store_group_content( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
