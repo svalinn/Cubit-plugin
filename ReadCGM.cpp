@@ -156,57 +156,58 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
   return MB_SUCCESS;
 }
 
-  ErrorCode ReadCGM::create_entity_sets_for_dim( Interface* moab, 
-                                                 int dim,
-                                                 std::map<RefEntity*,EntityHandle>& entitymap )
-  {
-     ErrorCode rval;
-     const char geom_categories[][CATEGORY_TAG_SIZE] = 
-              {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
-     const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
-     DLIList<RefEntity*> entlist;
-     entlist.clean_out();
-     GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
-    
-     entlist.reset();
-     for(int i = entlist.size(); i--;) 
-       {
-          RefEntity* ent = entlist.get_and_step();
-          EntityHandle handle;
-          rval = moab->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle );
-          if (MB_SUCCESS != rval)
-            return rval;
-
-          entitymap[ent] = handle;
-      
-          rval = moab->tag_set_data( geom_tag, &handle, 1, &dim );
-          if (MB_SUCCESS != rval)
-            return rval;
-
-          int id = ent->id();
-          rval = moab->tag_set_data( id_tag, &handle, 1, &id );
-          if (MB_SUCCESS != rval)
-            return rval;
-
-          rval = moab->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
-          if (MB_SUCCESS != rval)
-            return rval;
-       }
-     return MB_SUCCESS;
-  }
-
-ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*,EntityHandle>* entmap_ptr )
+ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*, EntityHandle>* entmap_ptr )
 {
-  ErrorCode rval;
+  ErrorCode rval; 
+  const char geom_categories[][CATEGORY_TAG_SIZE] = 
+              {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+  const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
+  DLIList<RefEntity*> entlist;
+  // create a temporary map for storing entities of dim
+  std::map<RefEntity*,EntityHandle> dim_map;
+  
   for(int dim=0; dim<4; dim++)
     {
-      rval = create_entity_sets_for_dim( moab, dim, *entmap_ptr );
-      if (rval!=MB_SUCCESS) return rval;
+      dim_map.clear();
+      entlist.clean_out();
+      GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
+      entlist.reset();
+     
+     for(int i = entlist.size(); i--;) 
+       {
+         RefEntity* ent = entlist.get_and_step(); 
+         EntityHandle handle;  
+         // create the new meshset
+         rval = moab->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle);
+         if (MB_SUCCESS != rval) return rval; 
+
+         // map the geom reference entity to the corresponding moab meshset
+         dim_map[ent] = handle; 
+
+         // create tags for the new meshset
+         rval = moab->tag_set_data( geom_tag, &handle, 1, &dim ); 
+         if (MB_SUCCESS != rval) return rval; 
+
+         int id = ent->id();
+         rval = moab->tag_set_data( id_tag, &handle, 1, &id );
+         if (MB_SUCCESS != rval) return rval;
+
+         rval = moab->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
+         if (MB_SUCCESS != rval) return rval;
+ 
+       }
+     // hand the 
+     *entmap_ptr = dim_map;
       entmap_ptr++;
     }
-  
+
+
+
+
   return MB_SUCCESS;
 }
+
+
 
 ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
 {

@@ -78,11 +78,6 @@ public:
 			        bool& act_att,
                                 bool& verbose_warnings);
 
-  ErrorCode create_entity_sets_for_dim( Interface* moab, 
-                                        int dim,
-                                        std::map<RefEntity*,EntityHandle>& entitymap );
-
-
   ErrorCode create_entity_sets( Interface* moab,
                                 std::map<RefEntity*,EntityHandle>* entmap_ptr );
 
