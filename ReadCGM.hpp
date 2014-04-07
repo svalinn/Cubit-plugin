@@ -79,7 +79,7 @@ public:
                                 bool& verbose_warnings);
 
   ErrorCode create_entity_sets( Interface* moab,
-                                std::map<RefEntity*,EntityHandle>* entmap_ptr );
+                                std::map<RefEntity*,EntityHandle> (&entmap)[5] );
 
   ErrorCode create_topology( Interface* moab, 
                              std::map<RefEntity*,EntityHandle> entitymap[5] );

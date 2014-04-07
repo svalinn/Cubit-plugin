@@ -156,19 +156,17 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*, EntityHandle>* entmap_ptr )
+  ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*, EntityHandle> (&entmap)[5] )
 {
   ErrorCode rval; 
   const char geom_categories[][CATEGORY_TAG_SIZE] = 
               {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
   const char* const names[] = { "Vertex", "Curve", "Surface", "Volume"};
   DLIList<RefEntity*> entlist;
-  // create a temporary map for storing entities of dim
-  std::map<RefEntity*,EntityHandle> dim_map;
   
   for(int dim=0; dim<4; dim++)
     {
-      dim_map.clear();
+      //dim_map.clear();
       entlist.clean_out();
       GeometryQueryTool::instance()->ref_entity_list( names[dim], entlist, true );
       entlist.reset();
@@ -182,7 +180,7 @@ ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*, Ent
          if (MB_SUCCESS != rval) return rval; 
 
          // map the geom reference entity to the corresponding moab meshset
-         dim_map[ent] = handle; 
+         entmap[dim][ent] = handle; 
 
          // create tags for the new meshset
          rval = moab->tag_set_data( geom_tag, &handle, 1, &dim ); 
@@ -196,13 +194,7 @@ ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*, Ent
          if (MB_SUCCESS != rval) return rval;
  
        }
-     // hand the 
-     *entmap_ptr = dim_map;
-      entmap_ptr++;
     }
-
-
-
 
   return MB_SUCCESS;
 }
@@ -524,7 +516,6 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if(MB_SUCCESS != rval) return rval;
 
   // CGM data
- 
   std::map<RefEntity*,EntityHandle>::iterator ci;
   const char geom_categories[][CATEGORY_TAG_SIZE] = 
       {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
@@ -561,7 +552,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   DLIList<RefEntity*> entlist;
   std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
   std::map<RefEntity*,EntityHandle>* entmap_ptr = entmap;
-  rval = create_entity_sets( mdbImpl, entmap_ptr );
+  rval = create_entity_sets( mdbImpl, entmap );
   if (rval!=MB_SUCCESS) return rval;
 
   // create topology for all geometric entities
