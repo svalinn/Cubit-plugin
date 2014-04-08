@@ -221,111 +221,95 @@ ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::strin
 ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
 {
   ErrorCode rval;
+
   // Start copy
-  Tag tag = 0;
+  Tag dimNamesTag = 0;
   std::string tag_name = "__DIM_NAMES";
   const void* data = NULL;
-  int num_dims = 0;
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, tag, MB_TAG_ANY);
+  int dimNamesSz = 0;
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, dimNamesTag, MB_TAG_ANY);
   ERRORR(rval, "Trouble getting conventional tag __DIM_NAMES.");
-  rval = mbImpl->tag_get_by_ptr(tag, &fileSet, 1, &data, &num_dims);
+  rval = mbImpl->tag_get_by_ptr(dimNamesTag, &fileSet, 1, &data, &dimNamesSz);
   ERRORR(rval, "Trouble getting values for conventional tag __DIM_NAMES.");
-
-  dbgOut.tprintf(1, "dim names size: %d\n", num_dims);
+  const char* p = static_cast<const char*>(data);
+  dbgOut.tprintf(1, "__DIM_NAMES tag has string length %d\n", dimNamesSz);
 
   std::size_t start = 0;
-  const char* p = static_cast<const char*>(data);
-  Tag dimValsTag = 0;
+
+  Tag dimLensTag = 0;
   tag_name = "__DIM_LENS";
-  const void* valdata = NULL;
-  int num_vals = 0;
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, dimValsTag, MB_TAG_ANY);
+  data = NULL;
+  int dimLensSz = 0;
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, dimLensTag, MB_TAG_ANY);
   ERRORR(rval, "Trouble getting conventional tag __DIM_LENS.");
-
-  rval = mbImpl->tag_get_by_ptr(dimValsTag, &fileSet, 1, &valdata, &num_vals);
+  rval = mbImpl->tag_get_by_ptr(dimLensTag, &fileSet, 1, &data, &dimLensSz);
   ERRORR(rval, "Trouble getting values for conventional tag __DIM_LENS.");
+  const int* int_p = static_cast<const int*>(data);
+  dbgOut.tprintf(1, "__DIM_LENS tag has %d values\n", dimLensSz);
 
-  dbgOut.tprintf(1, "num vals in dim lens tag %d\n", num_vals);
-  const int* intp = static_cast<const int*>(valdata);
-  int idx = -1;
-
-  for (std::size_t i = 0; i != static_cast<std::size_t>(num_dims); i++) {
+  int idxDim = 0;
+  // Dim names are separated by '\0' in the string of __DIM_NAMES tag
+  for (std::size_t i = 0; i != static_cast<std::size_t>(dimNamesSz); i++) {
     if (p[i] == '\0') {
       std::string dim_name(&p[start], i - start);
-      ++idx;
-      int sz = intp[idx];
+      int len = int_p[idxDim];
       dimNames.push_back(dim_name);
-      dimLens.push_back(sz);
-      dbgOut.tprintf(2, "dimension %s has length %d\n", dim_name.c_str(), sz);
-      // FIXME: need info from moab to set unlimited dimension
+      dimLens.push_back(len);
+      dbgOut.tprintf(2, "Dimension %s has length %d\n", dim_name.c_str(), len);
+      // FIXME: Need info from moab to set unlimited dimension
       // Currently assume each file has the same number of time dimensions
       /*if ((dim_name == "time") || (dim_name == "Time"))
-        insert(dim_name,
-            *(new pcdim(dim_name, sz * m_file_names.size(), true)));
+        insert(dim_name, *(new pcdim(dim_name, len * m_file_names.size(), true)));
       else
-        insert(dim_name, *(new pcdim(dim_name, sz)));*/
+        insert(dim_name, *(new pcdim(dim_name, len)));*/
       start = i + 1;
+      idxDim++;
     }
   }
 
-  Tag tagMeshType = 0;
+  Tag meshTypeTag = 0;
   tag_name = "__MESH_TYPE";
   data = NULL;
-  int sz = 0;
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, tagMeshType, MB_TAG_ANY);
+  int meshTypeSz = 0;
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, meshTypeTag, MB_TAG_ANY);
   ERRORR(rval, "Trouble getting conventional tag __MESH_TYPE.");
-  rval = mbImpl->tag_get_by_ptr(tagMeshType, &fileSet, 1, &data, &sz);
+  rval = mbImpl->tag_get_by_ptr(meshTypeTag, &fileSet, 1, &data, &meshTypeSz);
   ERRORR(rval, "Trouble getting values for conventional tag __MESH_TYPE.");
-
   p = static_cast<const char*>(data);
-  grid_type = std::string(&p[0], sz);
-  dbgOut.tprintf(2, "mesh type: %s \n", grid_type.c_str());
+  grid_type = std::string(&p[0], meshTypeSz);
+  dbgOut.tprintf(2, "Mesh type: %s\n", grid_type.c_str());
 
   // Read <__VAR_NAMES_LOCATIONS> tag
-  Tag varLocTag = 0;
+  Tag varNamesLocsTag = 0;
   tag_name = "__VAR_NAMES_LOCATIONS";
-  const void* loc_data = NULL;
-  int loc_sz = 0;
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, varLocTag, MB_TAG_ANY);
+  data = NULL;
+  int varNamesLocsSz = 0;
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, varNamesLocsTag, MB_TAG_ANY);
   ERRORR(rval, "Trouble getting conventional tag __VAR_NAMES_LOCATIONS.");
-  rval = mbImpl->tag_get_by_ptr(varLocTag, &fileSet, 1, &loc_data, &loc_sz);
+  rval = mbImpl->tag_get_by_ptr(varNamesLocsTag, &fileSet, 1, &data, &varNamesLocsSz);
   ERRORR(rval, "Trouble getting values for conventional tag __VAR_NAMES_LOCATIONS.");
-  const int* loc_p = static_cast<const int*>(loc_data);
-  std::vector<int> varLoc(loc_sz);
-  std::copy(loc_p, loc_p + loc_sz, varLoc.begin());
+  int_p = static_cast<const int*>(data);
+  std::vector<int> varNamesLocs(varNamesLocsSz);
+  std::copy(int_p, int_p + varNamesLocsSz, varNamesLocs.begin());
 
- /*
-  std::map<int, std::string> locmap;
-  locmap[0] = "VERTEX";
-  locmap[1] = "NSEDGE";
-  locmap[2] = "EWEDGE";
-  if (grid_type == "MPAS")
-  {
-    locmap[3] = "POLYGON";
-  }
-  else
-  {
-    locmap[3] = "QUAD";
-  }
-  locmap[4] = "SET";
-  locmap[5] = "EDGE";
-  locmap[6] = "REGION";
-  */
   int nthVar = 0;
 
-  Tag tagVarNames = 0;
+  Tag varNamesTag = 0;
   tag_name = "__VAR_NAMES";
-  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, tagVarNames, MB_TAG_ANY);
+  rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varNamesTag, MB_TAG_ANY);
   ERRORR(rval, "Trouble getting conventional tag __VAR_NAMES.");
   data = NULL;
-  int num_vars = 0;
-  rval = mbImpl->tag_get_by_ptr(tagVarNames, &fileSet, 1, &data, &num_vars);
-  dbgOut.tprintf(2, "var names has %d names \n", num_vars);
+  int varNamesSz = 0;
+  rval = mbImpl->tag_get_by_ptr(varNamesTag, &fileSet, 1, &data, &varNamesSz);
+  dbgOut.tprintf(2, "__VAR_NAMES tag has string length %d\n", varNamesSz);
   ERRORR(rval, "Trouble getting values for conventional tag __VAR_NAMES.");
   p = static_cast<const char*>(data);
+
   start = 0;
   int idxVar = 0;
-  for (std::size_t i = 0; i != static_cast<std::size_t>(num_vars); i++) {
+  int sz;
+  // Var names are separated by '\0' in the string of __VAR_NAMES tag
+  for (std::size_t i = 0; i != static_cast<std::size_t>(varNamesSz); i++) {
     if (p[i] == '\0') {
       std::string var_name(&p[start], i - start);
 
@@ -334,6 +318,8 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       // This will create/initiate map; we will populate variableDataStruct wit info about dims, tags, etc
       // reference & is important; otherwise variableDataStruct will go out of scope, and deleted :(
       VarData& variableDataStruct = varInfo[var_name];
+      variableDataStruct.varName = var_name;
+      variableDataStruct.entLoc = varNamesLocs[idxVar];
 
       dbgOut.tprintf(2, "at var name %s varInfo size %d \n", var_name.c_str(), (int)varInfo.size());
 
@@ -342,7 +328,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       std::string dim_names = "__" + var_name + "_DIMS";
       rval = mbImpl->tag_get_handle(dim_names.c_str(), 0, MB_TYPE_OPAQUE, dims_tag, MB_TAG_ANY);
       ERRORR(rval, "Failed to get tag for a variable dimensions.");
-      // FIXME: doesn't handle variables have 0 dimension
+      // FIXME: Doesn't handle variables have 0 dimension
       if (MB_SUCCESS != rval) {
         start = i + 1;
         ++nthVar;
@@ -382,7 +368,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS tag.");
       std::string varAttVal;
       std::vector<int> varAttLen;
-      const void* varAttPtr = 0;
+      const void* varAttPtr = NULL;
       int varAttSz = 0;
       rval = mbImpl->tag_get_by_ptr(varAttTag, &fileSet, 1, &varAttPtr, &varAttSz);
       ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS tag.");
@@ -410,7 +396,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       // End attribute
       start = i + 1;
       idxVar++;
-    }
+    } // if (p[i] == '\0')
   }
 
   // Global attributes
@@ -421,7 +407,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   std::string gattVal;
   std::vector<int> gattLen;
 
-  const void* gattptr;
+  const void* gattptr = NULL;
   int globalAttSz = 0;
   rval = mbImpl->tag_get_by_ptr(globalAttTag, &fileSet, 1, &gattptr, &globalAttSz);
   ERRORR(rval, "Trouble getting data for __GLOBAL_ATTRIBS tag.");
@@ -784,12 +770,9 @@ ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandl
 
   // Now look at requested var_names; if they have time, we will have a list, and write one at a time
   // We may also need to gather, and transpose stuff
-  Range ents2d;
   // Get all entities of dimension 2 from set
-  // FIXME: assume now location is on cells (for variable T of CAM-EUL it is the case)
   // Need to reorder stuff in the order from the file, also transpose from lev dimension
-  ErrorCode rval = mbImpl->get_entities_by_dimension(fileSet, 2, ents2d);
-  ERRORR(rval, "Can't get entities for 2d.");
+  ErrorCode rval;
 
   // For each variable tag in the indexed lists, write a time step data
   // Assume the first dimension is time (need to check); if not, just write regularly
@@ -801,6 +784,30 @@ ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandl
     VarData& variableData = vit->second;
     int numTimeSteps = (int)variableData.varTags.size();
     if (variableData.has_tsteps) {
+      // Get entities of this variable
+      Range ents;
+      switch (variableData.entLoc) {
+        case WriteNC::ENTLOCVERT:
+          // Vertices
+          rval = mbImpl->get_entities_by_dimension(fileSet, 0, ents);
+          ERRORR(rval, "Can't get entities for vertices.");
+          break;
+        case WriteNC::ENTLOCFACE:
+          // Faces
+          rval = mbImpl->get_entities_by_dimension(fileSet, 2, ents);
+          ERRORR(rval, "Can't get entities for faces.");
+          break;
+        case WriteNC::ENTLOCNSEDGE:
+        case WriteNC::ENTLOCEWEDGE:
+        case WriteNC::ENTLOCEDGE:
+          // Edges
+          rval = mbImpl->get_entities_by_dimension(fileSet, 1, ents);
+          ERRORR(rval, "Can't get entities for edges.");
+          break;
+        default:
+          break;
+      }
+
       // FIXME: assume now the variable has 4 dimensions as (time, lev, lat, lon)
       // At each timestep, we need to transpose tag format (lat, lon, lev) back
       // to NC format (lev, lat, lon) for writing
@@ -816,8 +823,8 @@ ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandl
         variableData.writeStarts[0] = j; // This is time, again
         int count;
         void* dataptr;
-        rval = mbImpl->tag_iterate(variableData.varTags[j], ents2d.begin(), ents2d.end(), count, dataptr);
-        assert(count == (int)ents2d.size());
+        rval = mbImpl->tag_iterate(variableData.varTags[j], ents.begin(), ents.end(), count, dataptr);
+        assert(count == (int)ents.size());
 
         // Now write from memory directly
         // FIXME: we need to gather for multiple processors
