@@ -20,8 +20,8 @@ public:
     nTimeSteps(0), nLevels(1), tDim(-1), levDim(-1) {}
   virtual ~NCWriteHelper() {};
 
-  //! Get appropriate helper instance for WriteNC class; based on some info in the
-  static NCWriteHelper* get_nc_helper(WriteNC* readNC, const FileOptions& opts, EntityHandle fileSet);
+  //! Get appropriate helper instance for WriteNC class; based on some info in the file set
+  static NCWriteHelper* get_nc_helper(WriteNC* writeNC, const FileOptions& opts, EntityHandle fileSet);
 
   //! process NC conventional tags
   ErrorCode process_conventional_tags(EntityHandle fileSet);

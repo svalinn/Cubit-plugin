@@ -101,6 +101,15 @@ ErrorCode WriteNC::write_file(const char* file_name,
 #endif
   ERRORS(success, "Failed to create file.");
 
+  if (NULL != myHelper)
+    delete myHelper;
+
+  // Get appropriate helper instance for WriteNC class based on some info in the file set
+  myHelper = NCWriteHelper::get_nc_helper(this, options, *file_set);
+  if (NULL == myHelper) {
+    ERRORR(MB_FAILURE, "Failed to get NCWriteHelper class instance.");
+  }
+
   rval = collect_variable_data(var_names, tstep_nums, tstep_vals, *file_set);
   ERRORR(rval, "Trouble collecting data.");
 
