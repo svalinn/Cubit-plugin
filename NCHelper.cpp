@@ -192,16 +192,16 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
     unsigned int varDimSz = varInfo[mapIter->first].varDims.size();
     if (varDimSz == 0)
       continue;
-    varInfo[mapIter->first].varTags.resize(varDimSz, 0);
+    std::vector<Tag> varDimTags(varDimSz);
     for (unsigned int i = 0; i != varDimSz; i++) {
       Tag tmptag = 0;
       std::string tmptagname = dimNames[varInfo[mapIter->first].varDims[i]];
       mbImpl->tag_get_handle(tmptagname.c_str(), 0, MB_TYPE_OPAQUE, tmptag, MB_TAG_ANY);
-      varInfo[mapIter->first].varTags[i] = tmptag;
+      varDimTags[i] = tmptag;
     }
     rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
-    rval = mbImpl->tag_set_data(varNamesDimsTag, &_fileSet, 1, &(varInfo[mapIter->first].varTags[0]));
+    rval = mbImpl->tag_set_data(varNamesDimsTag, &_fileSet, 1, &(varDimTags[0]));
     ERRORR(rval, "Trouble setting data for __<var_name>_DIMS tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -323,6 +323,11 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
       if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
           dummyVarNames.find(vd.varName) != dummyVarNames.end())
          continue;
+
+      // Dimension variables were read before creating conventional tags
+      std::vector<std::string>& dimNames = _readNC->dimNames;
+      if (std::find(dimNames.begin(), dimNames.end(), vd.varName) != dimNames.end())
+        continue;
 
       if (vd.entLoc == ReadNC::ENTLOCSET)
         vsetdatas.push_back(vd);
