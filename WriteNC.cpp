@@ -105,7 +105,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
     delete myHelper;
 
   // Get appropriate helper instance for WriteNC class based on some info in the file set
-  myHelper = NCWriteHelper::get_nc_helper(this, options, *file_set);
+  myHelper = NCWriteHelper::get_nc_helper(this, fileId, options, *file_set);
   if (NULL == myHelper) {
     ERRORR(MB_FAILURE, "Failed to get NCWriteHelper class instance.");
   }
@@ -116,7 +116,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   rval = initialize_file(var_names);
   ERRORR(rval, "Failed to initialize file.");
 
-  rval = write_values(var_names, *file_set);
+  rval = myHelper->write_values(var_names, *file_set);
   ERRORR(rval, "Failed to write values.");
 
   success = NCFUNC(close)(fileId);
@@ -737,153 +737,6 @@ ErrorCode WriteNC::initialize_file(std::vector<std::string>& var_names)
   // Take it out of define mode
   if (NC_NOERR != NCFUNC(enddef)(fileId))
     ERRORR(MB_FAILURE, "Failed to close define mode.");
-
-  return MB_SUCCESS;
-}
-
-ErrorCode WriteNC::write_values(std::vector<std::string>& var_names, EntityHandle fileSet)
-{
-  /*
-  * Write an Array of Values: nc_put_vara_ type
-  * int nc_put_vara_double(int ncid, int varid, const size_t start[],
-                           const size_t count[], const double *dp);
-  */
-  // Start with coordinates
-  for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
-      setIt != usedCoordinates.end(); setIt++) {
-    std::string coordName = *setIt; // Deep copy
-
-    std::map<std::string, VarData>::iterator vit = varInfo.find(coordName);
-    if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
-
-    VarData& varCoordData = vit->second;
-
-    int success = 0;
-    switch (varCoordData.varDataType) {
-      case NC_DOUBLE:
-        success = NCFUNCAP(_vara_double)(fileId, varCoordData.varId, &varCoordData.writeStarts[0],
-                  &varCoordData.writeCounts[0], (double*)(varCoordData.memoryHogs[0]));
-        ERRORS(success, "Failed to write double data.");
-        break;
-      case NC_INT:
-        success = NCFUNCAP(_vara_int)(fileId, varCoordData.varId, &varCoordData.writeStarts[0],
-                  &varCoordData.writeCounts[0], (int*)(varCoordData.memoryHogs[0]));
-        ERRORS(success, "Failed to write int data.");
-        break;
-      default:
-        success = 1;
-        break;
-    }
- }
-
-  // Now look at requested var_names; if they have time, we will have a list, and write one at a time
-  // We may also need to gather, and transpose stuff
-  // Get all entities of dimension 2 from set
-  // Need to reorder stuff in the order from the file, also transpose from lev dimension
-  ErrorCode rval;
-
-  // For each variable tag in the indexed lists, write a time step data
-  // Assume the first dimension is time (need to check); if not, just write regularly
-  for (size_t i = 0; i < var_names.size(); i++) {
-    std::map<std::string, VarData>::iterator vit = varInfo.find(var_names[i]);
-    if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find variable requested.");
-
-    VarData& variableData = vit->second;
-    int numTimeSteps = (int)variableData.varTags.size();
-    if (variableData.has_tsteps) {
-      // Get entities of this variable
-      Range ents;
-      switch (variableData.entLoc) {
-        case WriteNC::ENTLOCVERT:
-          // Vertices
-          rval = mbImpl->get_entities_by_dimension(fileSet, 0, ents);
-          ERRORR(rval, "Can't get entities for vertices.");
-          break;
-        case WriteNC::ENTLOCFACE:
-          // Faces
-          rval = mbImpl->get_entities_by_dimension(fileSet, 2, ents);
-          ERRORR(rval, "Can't get entities for faces.");
-          break;
-        case WriteNC::ENTLOCNSEDGE:
-        case WriteNC::ENTLOCEWEDGE:
-        case WriteNC::ENTLOCEDGE:
-          // Edges
-          rval = mbImpl->get_entities_by_dimension(fileSet, 1, ents);
-          ERRORR(rval, "Can't get entities for edges.");
-          break;
-        default:
-          break;
-      }
-
-      // FIXME: assume now the variable has 4 dimensions as (time, lev, lat, lon)
-      // At each timestep, we need to transpose tag format (lat, lon, lev) back
-      // to NC format (lev, lat, lon) for writing
-      size_t ni = variableData.writeCounts[3]; // lon
-      size_t nj = variableData.writeCounts[2]; // lat
-      size_t nk = variableData.writeCounts[1]; // lev
-
-      variableData.writeCounts[0] = 1; // We will write one time step
-      for (int j = 0; j < numTimeSteps; j++) {
-        // We will write one time step, and count will be one; start will be different
-        // We will write values directly from tag_iterate, but we should also transpose for level
-        // so that means deep copy for transpose
-        variableData.writeStarts[0] = j; // This is time, again
-        int count;
-        void* dataptr;
-        rval = mbImpl->tag_iterate(variableData.varTags[j], ents.begin(), ents.end(), count, dataptr);
-        assert(count == (int)ents.size());
-
-        // Now write from memory directly
-        // FIXME: we need to gather for multiple processors
-        int success = 0;
-        switch (variableData.varDataType) {
-          case NC_DOUBLE: {
-            std::vector<double> tmpdoubledata(ni*nj*nk);
-            // Transpose (lat, lon, lev) back to (lev, lat, lon)
-            jik_to_kji(ni, nj, nk, &tmpdoubledata[0], (double*)(dataptr));
-            success = NCFUNCAP(_vara_double)(fileId, variableData.varId,
-                      &variableData.writeStarts[0], &variableData.writeCounts[0],
-                      &tmpdoubledata[0]);
-            ERRORS(success, "Failed to write double data.");
-            break;
-          }
-          case NC_INT: {
-            std::vector<int> tmpintdata(ni*nj*nk);
-            // Transpose (lat, lon, lev) back to (lev, lat, lon)
-            jik_to_kji(ni, nj, nk, &tmpintdata[0], (int*)(dataptr));
-            success = NCFUNCAP(_vara_int)(fileId, variableData.varId,
-                      &variableData.writeStarts[0], &variableData.writeCounts[0],
-                      &tmpintdata[0]);
-            ERRORS(success, "Failed to write int data.");
-            break;
-          }
-          default:
-            success = 1;
-            break;
-        }
-      }
-    }
-    else {
-      int success = 0;
-      switch (variableData.varDataType) {
-        case NC_DOUBLE:
-          success = NCFUNCAP(_vara_double)(fileId, variableData.varId, &variableData.writeStarts[0],
-                    &variableData.writeCounts[0], (double*)(variableData.memoryHogs[0]));
-          ERRORS(success, "Failed to write double data.");
-          break;
-        case NC_INT:
-          success = NCFUNCAP(_vara_int)(fileId, variableData.varId, &variableData.writeStarts[0],
-                    &variableData.writeCounts[0], (int*)(variableData.memoryHogs[0]));
-          ERRORS(success, "Failed to write int data.");
-          break;
-        default:
-          success = 1;
-          break;
-      }
-    }
-  }
 
   return MB_SUCCESS;
 }

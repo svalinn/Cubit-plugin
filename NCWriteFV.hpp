@@ -16,11 +16,15 @@ namespace moab {
 class NCWriteFV: public NCWriteHelper
 {
 public:
-  NCWriteFV(WriteNC* writeNC,  const FileOptions& opts, EntityHandle fileSet) :
-    NCWriteHelper(writeNC, opts, fileSet) {};
+  NCWriteFV(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet) :
+    NCWriteHelper(writeNC, fileId, opts, fileSet) {}
 
   virtual ~NCWriteFV();
+
+private:
+  ErrorCode write_values(std::vector<std::string>& var_names, EntityHandle fileSet);
 };
 
-} /* namespace moab */
-#endif /* NCWRITEFV_HPP_ */
+} // namespace moab
+
+#endif // NCWRITEFV_HPP_

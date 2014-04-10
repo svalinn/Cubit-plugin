@@ -3,7 +3,7 @@
  * storing and accessing finite element mesh data.
  *
  * Copyright 2004 Sandia Corporation.  Under the terms of Contract
- * DE-AC04-94AL85000 with Sandia Coroporation, the U.S. Government
+ * DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government
  * retains certain rights in this software.
  *
  * This library is free software; you can redistribute it and/or
@@ -64,6 +64,9 @@ class WriteNC : public WriterIface
 {
   friend class NCWriteHelper;
   friend class NCWriteEuler;
+  friend class NCWriteFV;
+  friend class NCWriteHOMME;
+  friend class NCWriteMPAS;
 
 public:
 
@@ -161,18 +164,6 @@ private:
   // Initialize file: this is where all defines are done
   // the VarData dimension ids are filled up after define
   ErrorCode initialize_file(std::vector<std::string>& var_names); // These are from options
-
-  // Take the info from VarData and write first the coordinates, then the actual variables
-  ErrorCode write_values(std::vector<std::string>& var_names, EntityHandle fileSet);
-
-  template <typename T> void jik_to_kji(size_t ni, size_t nj, size_t nk, T* dest, T* source)
-  {
-    size_t nik = ni * nk, nij = ni * nj;
-    for (std::size_t k = 0; k != nk; k++)
-      for (std::size_t j = 0; j != nj; j++)
-        for (std::size_t i = 0; i != ni; i++)
-          dest[k*nij + j*ni + i] = source[j*nik + i*nk + k];
-  }
 
   // Interface instance
   Interface* mbImpl;
