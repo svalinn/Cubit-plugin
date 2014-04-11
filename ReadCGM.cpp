@@ -481,6 +481,22 @@ ErrorCode ReadCGM::store_group_content( Interface* moab, std::map<RefEntity*,Ent
   return MB_SUCCESS;
 }
 
+void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
+{
+
+  
+  if (act_attributes) {
+    CGMApp::instance()->attrib_manager()->set_all_auto_read_flags( act_attributes );
+    CGMApp::instance()->attrib_manager()->set_all_auto_actuate_flags( act_attributes );
+  }
+
+  if( !verbose ){
+    CGMApp::instance()->attrib_manager()->silent_flag( true );
+  }
+
+
+}
+
 // copy geometry into mesh database
 ErrorCode ReadCGM::load_file(const char *cgm_file_name,
                       const EntityHandle* file_set,
@@ -500,7 +516,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   double faceting_tol;
   double len_tol;
   bool act_att = true;
-  bool verbose_warnings = false;
+  bool verbose_warnings = true;
 
   rval = set_options( opts, norm_tol, faceting_tol, len_tol, act_att, verbose_warnings);
   if(MB_SUCCESS != rval) return rval;  
@@ -524,14 +540,8 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   // Initialize CGM
   InitCGMA::initialize_cgma();
 
-  if (act_att) {
-    CGMApp::instance()->attrib_manager()->set_all_auto_read_flags( act_att );
-    CGMApp::instance()->attrib_manager()->set_all_auto_actuate_flags( act_att );
-  }
-
-  if( !verbose_warnings ){
-    CGMApp::instance()->attrib_manager()->silent_flag( true );
-  }
+  //determine cgm settings and amount of output
+  set_cgm_attributes(act_att,verbose_warnings);
 
   CubitStatus s;
 
