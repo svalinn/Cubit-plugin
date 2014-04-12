@@ -375,34 +375,44 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       Tag varAttTag = 0;
       rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varAttTag, MB_TAG_SPARSE | MB_TAG_VARLEN);
       ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS tag.");
-      std::string varAttVal;
-      std::vector<int> varAttLen;
       const void* varAttPtr = NULL;
       int varAttSz = 0;
       rval = mbImpl->tag_get_by_ptr(varAttTag, &fileSet, 1, &varAttPtr, &varAttSz);
-      ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS tag.");
+      ERRORR(rval, "Trouble getting data for __<var_name>_ATTRIBS tag.");
       if (MB_SUCCESS == rval)
         dbgOut.tprintf(2, "Tag retrieved for variable %s\n", tag_name.c_str());
 
-      ssTagName << "_LEN";
-      tag_name = ssTagName.str();
-      Tag varAttLenTag = 0;
-      rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, varAttLenTag, MB_TAG_ANY);
-      ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS_LEN tag.");
-      int varAttLenSz = 0;
-      rval = mbImpl->tag_get_length(varAttLenTag, varAttLenSz);
-      ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS_LEN length.");
-      varAttLen.resize(varAttLenSz);
+      std::string attribString((char*)varAttPtr, (char*)varAttPtr + varAttSz);
+      if (attribString == "NO_ATTRIBS") {
+        // This variable has no attributes
+        variableDataStruct.numAtts = 0;
+      }
+      else if (attribString == "DUMMY_VAR") {
+        // This variable is a dummy dimension variable
+        variableDataStruct.numAtts = 0;
+        dummyVarNames.insert(variableDataStruct.varName);
+      }
+      else {
+        ssTagName << "_LEN";
+        tag_name = ssTagName.str();
+        Tag varAttLenTag = 0;
+        rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, varAttLenTag, MB_TAG_ANY);
+        ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS_LEN tag.");
+        int varAttLenSz = 0;
+        rval = mbImpl->tag_get_length(varAttLenTag, varAttLenSz);
+        ERRORR(rval, "Trouble getting __<var_name>_ATTRIBS_LEN length.");
+        std::vector<int> varAttLen(varAttLenSz);
+        rval = mbImpl->tag_get_data(varAttLenTag, &fileSet, 1, &varAttLen[0]);
+        ERRORR(rval, "Trouble getting data for __<var_name>_ATTRIBS_LEN tag.");
 
-      rval = mbImpl->tag_get_data(varAttLenTag, &fileSet, 1, &varAttLen[0]);
-      ERRORR(rval, "Trouble getting data for __<var_name>_ATTRIBS_LEN tag.");
+        rval = process_concatenated_attribute(varAttPtr, varAttSz, varAttLen, variableDataStruct.varAtts);
+        ERRORR(rval, "Trouble processing a variable's attributes.");
 
-      rval = process_concatenated_attribute(varAttPtr, varAttSz, varAttLen, variableDataStruct.varAtts);
-      ERRORR(rval, "Trouble processing global attributes.");
-
-      if (MB_SUCCESS == rval)
-        dbgOut.tprintf(2, "Tag metadata for variable %s\n", tag_name.c_str());
+        if (MB_SUCCESS == rval)
+          dbgOut.tprintf(2, "Tag metadata for variable %s\n", tag_name.c_str());
+      }
       // End attribute
+
       start = i + 1;
       idxVar++;
     } // if (p[i] == '\0')
@@ -446,14 +456,15 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
 }
 
 // Reverse process from create_attrib_string
-ErrorCode WriteNC::process_concatenated_attribute(const void* gattptr, int globalAttSz, std::vector<int>& gattLen,
+ErrorCode WriteNC::process_concatenated_attribute(const void* attPtr, int attSz,
+                                                  std::vector<int>& attLen,
                                                   std::map<std::string, AttData>& attributes)
 {
   std::size_t start = 0;
   std::size_t att_counter = 0;
-  std::string concatString((char*)gattptr, (char*)gattptr + globalAttSz);
+  std::string concatString((char*)attPtr, (char*)attPtr + attSz);
 
-  for (std::size_t i = 0; i != (size_t)globalAttSz; i++) {
+  for (std::size_t i = 0; i != (size_t)attSz; i++) {
     if (concatString[i] == '\0') {
       std::string att_name(&concatString[start], i - start);
       start = i + 1;
@@ -462,7 +473,7 @@ ErrorCode WriteNC::process_concatenated_attribute(const void* gattptr, int globa
       std::string data_type(&concatString[start], i - start);
       ++i;
       start = i;
-      i = gattLen[att_counter];
+      i = attLen[att_counter];
       if (concatString[i] != ';')
         ERRORR(MB_FAILURE, "Error parsing attributes.");
 

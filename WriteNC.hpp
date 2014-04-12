@@ -126,15 +126,18 @@ private:
     bool has_tsteps; // Indicate whether timestep numbers are appended to tag names
   };
 
-  // This info will be reconstructed from metadata stored on conventional fileSet tags
+  //! This info will be reconstructed from metadata stored on conventional fileSet tags
   //! Dimension names
   std::vector<std::string> dimNames;
 
   //! Dimension lengths
   std::vector<int> dimLens;
 
-  // Will collect used dimensions (coordinate variables)
+  //! Will collect used dimensions (coordinate variables)
   std::set<std::string> usedCoordinates;
+
+  //! Dummy variables (for dimensions that have no corresponding coordinate variables)
+  std::set<std::string> dummyVarNames;
 
   //! Global attribs
   std::map<std::string, AttData> globalAtts;
@@ -152,20 +155,20 @@ private:
    */
   ErrorCode process_conventional_tags(EntityHandle fileSet);
 
-  ErrorCode process_concatenated_attribute(const void* gattptr, int globalAttSz,
-                                           std::vector<int>& gattLen,
-                                           std::map<std::string, AttData>& globalAtts);
+  ErrorCode process_concatenated_attribute(const void* attPtr, int attSz,
+                                           std::vector<int>& attLen,
+                                           std::map<std::string, AttData>& attributes);
 
-  // Will collect data; it should be only on gather processor, but for the time being, collect
-  // for everybody
+  //! Will collect data; it should be only on gather processor, but for the time being, collect
+  //! for everybody
   ErrorCode collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
                                   std::vector<double>& tstep_vals, EntityHandle fileSet);
 
-  // Initialize file: this is where all defines are done
-  // the VarData dimension ids are filled up after define
+  //! Initialize file: this is where all defines are done
+  //! the VarData dimension ids are filled up after define
   ErrorCode initialize_file(std::vector<std::string>& var_names); // These are from options
 
-  // Interface instance
+  //! Interface instance
   Interface* mbImpl;
   WriteUtilIface* mWriteIface;
 

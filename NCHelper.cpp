@@ -252,21 +252,37 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
     Tag varAttTag = 0;
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varAttTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
     ERRORR(rval, "Trouble creating __<var_name>_ATTRIBS tag.");
+
     std::string varAttVal;
     std::vector<int> varAttLen;
-    rval = create_attrib_string(mapIter->second.varAtts, varAttVal, varAttLen);
-    ERRORR(rval, "Trouble creating attribute strings.");
+    if (mapIter->second.numAtts < 1) {
+      if (dummyVarNames.find(mapIter->first) != dummyVarNames.end()) {
+        // This variable is a dummy dimension variable
+        varAttVal = "DUMMY_VAR";
+      }
+      else {
+        // This variable has no attributes
+        varAttVal = "NO_ATTRIBS";
+      }
+    }
+    else {
+      rval = create_attrib_string(mapIter->second.varAtts, varAttVal, varAttLen);
+      ERRORR(rval, "Trouble creating attribute string.");
+    }
     const void* varAttPtr = varAttVal.c_str();
     int varAttSz = varAttVal.size();
+    if (0 == varAttSz)
+      varAttSz = 1;
     rval = mbImpl->tag_set_by_ptr(varAttTag, &_fileSet, 1, &varAttPtr, &varAttSz);
     ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
-    if (varAttLen.size() == 0)
-      varAttLen.push_back(0);
+
     ssTagName << "_LEN";
     tag_name = ssTagName.str();
     Tag varAttLenTag = 0;
+    if (0 == varAttLen.size())
+      varAttLen.push_back(0);
     rval = mbImpl->tag_get_handle(tag_name.c_str(), varAttLen.size(), MB_TYPE_INTEGER, varAttLenTag, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<var_name>_ATTRIBS_LEN tag.");
     rval = mbImpl->tag_set_data(varAttLenTag, &_fileSet, 1, &varAttLen[0]);
