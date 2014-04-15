@@ -116,7 +116,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   rval = initialize_file(var_names);
   ERRORR(rval, "Failed to initialize file.");
 
-  rval = myHelper->write_values(var_names, *file_set);
+  rval = myHelper->write_values(var_names);
   ERRORR(rval, "Failed to write values.");
 
   success = NCFUNC(close)(fileId);

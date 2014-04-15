@@ -20,7 +20,7 @@ NCWriteEuler::~NCWriteEuler()
   // TODO Auto-generated destructor stub
 }
 
-ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names, EntityHandle fileSet)
+ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
   std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
@@ -79,7 +79,7 @@ ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names, Entity
       switch (variableData.entLoc) {
         case WriteNC::ENTLOCFACE:
           // Faces
-          rval = mbImpl->get_entities_by_dimension(fileSet, 2, ents);
+          rval = mbImpl->get_entities_by_dimension(_fileSet, 2, ents);
           ERRORR(rval, "Can't get entities for faces.");
           break;
         default:
@@ -117,19 +117,8 @@ ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names, Entity
             ERRORS(success, "Failed to write double data.");
             break;
           }
-          case NC_INT: {
-            std::vector<int> tmpintdata(ni*nj*nk);
-            // Transpose (lat, lon, lev) back to (lev, lat, lon)
-            jik_to_kji(ni, nj, nk, &tmpintdata[0], (int*)(dataptr));
-            success = NCFUNCAP(_vara_int)(_fileId, variableData.varId,
-                      &variableData.writeStarts[0], &variableData.writeCounts[0],
-                      &tmpintdata[0]);
-            ERRORS(success, "Failed to write int data.");
-            break;
-          }
           default:
-            success = 1;
-            break;
+            ERRORR(MB_FAILURE, "Not implemented yet.");
         }
       }
     }
@@ -141,14 +130,8 @@ ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names, Entity
                     &variableData.writeCounts[0], (double*)(variableData.memoryHogs[0]));
           ERRORS(success, "Failed to write double data.");
           break;
-        case NC_INT:
-          success = NCFUNCAP(_vara_int)(_fileId, variableData.varId, &variableData.writeStarts[0],
-                    &variableData.writeCounts[0], (int*)(variableData.memoryHogs[0]));
-          ERRORS(success, "Failed to write int data.");
-          break;
         default:
-          success = 1;
-          break;
+          ERRORR(MB_FAILURE, "Not implemented yet.");
       }
     }
   }

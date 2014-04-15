@@ -20,7 +20,7 @@ NCWriteFV::~NCWriteFV()
   // TODO Auto-generated destructor stub
 }
 
-ErrorCode NCWriteFV::write_values(std::vector<std::string>& var_names, EntityHandle fileSet)
+ErrorCode NCWriteFV::write_values(std::vector<std::string>& var_names)
 {
   return MB_NOT_IMPLEMENTED;
 }

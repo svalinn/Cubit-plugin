@@ -24,7 +24,7 @@ public:
   static NCWriteHelper* get_nc_helper(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet);
 
   //! Take the info from VarData and write first the coordinates, then the actual variables
-  virtual ErrorCode write_values(std::vector<std::string>& var_names, EntityHandle fileSet) = 0;
+  virtual ErrorCode write_values(std::vector<std::string>& var_names) = 0;
 
 protected:
   template <typename T> void jik_to_kji(size_t ni, size_t nj, size_t nk, T* dest, T* source)

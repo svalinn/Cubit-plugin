@@ -20,7 +20,7 @@ NCWriteMPAS::~NCWriteMPAS()
   // TODO Auto-generated destructor stub
 }
 
-ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& var_names, EntityHandle fileSet)
+ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& var_names)
 {
   return MB_NOT_IMPLEMENTED;
 }

@@ -41,6 +41,9 @@
 //! Collective I/O mode put
 #define NCFUNCAP(func) ncmpi_put ## func ## _all
 
+//! Nonblocking put (request aggregation), used so far only for ucd mesh
+#define NCFUNCREQP(func) ncmpi_iput ## func
+
 #define NCDF_SIZE MPI_Offset
 #define NCDF_DIFF MPI_Offset
 #else

@@ -22,7 +22,7 @@ public:
   virtual ~NCWriteHOMME();
 
 private:
-  ErrorCode write_values(std::vector<std::string>& var_names, EntityHandle fileSet);
+  ErrorCode write_values(std::vector<std::string>& var_names);
 };
 
 } // namespace moab
