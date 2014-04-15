@@ -24,12 +24,17 @@ ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names, Entity
 {
   Interface*& mbImpl = _writeNC->mbImpl;
   std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
+  std::set<std::string>& dummyVarNames = _writeNC->dummyVarNames;
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
   // Start with coordinates
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
       setIt != usedCoordinates.end(); ++setIt) {
     std::string coordName = *setIt; // Deep copy
+
+    // Skip dummy coordinate variables (if any)
+    if (dummyVarNames.find(coordName) != dummyVarNames.end())
+      continue;
 
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
     if (vit == varInfo.end())
@@ -56,9 +61,7 @@ ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names, Entity
  }
 
   // Now look at requested var_names; if they have time, we will have a list, and write one at a time
-  // We may also need to gather, and transpose stuff
-  // Get all entities of dimension 2 from set
-  // Need to reorder stuff in the order from the file, also transpose from lev dimension
+  // Need to transpose from lev dimension
   ErrorCode rval;
 
   // For each variable tag in the indexed lists, write a time step data
@@ -74,28 +77,16 @@ ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names, Entity
       // Get entities of this variable
       Range ents;
       switch (variableData.entLoc) {
-        case WriteNC::ENTLOCVERT:
-          // Vertices
-          rval = mbImpl->get_entities_by_dimension(fileSet, 0, ents);
-          ERRORR(rval, "Can't get entities for vertices.");
-          break;
         case WriteNC::ENTLOCFACE:
           // Faces
           rval = mbImpl->get_entities_by_dimension(fileSet, 2, ents);
           ERRORR(rval, "Can't get entities for faces.");
           break;
-        case WriteNC::ENTLOCNSEDGE:
-        case WriteNC::ENTLOCEWEDGE:
-        case WriteNC::ENTLOCEDGE:
-          // Edges
-          rval = mbImpl->get_entities_by_dimension(fileSet, 1, ents);
-          ERRORR(rval, "Can't get entities for edges.");
-          break;
         default:
-          break;
+          ERRORR(MB_FAILURE, "Unexpected entity location type for CAM-EUL non-set variable.");
       }
 
-      // FIXME: assume now the variable has 4 dimensions as (time, lev, lat, lon)
+      // A typical variable has 4 dimensions as (time, lev, lat, lon)
       // At each timestep, we need to transpose tag format (lat, lon, lev) back
       // to NC format (lev, lat, lon) for writing
       size_t ni = variableData.writeCounts[3]; // lon
@@ -114,7 +105,6 @@ ErrorCode NCWriteEuler::write_values(std::vector<std::string>& var_names, Entity
         assert(count == (int)ents.size());
 
         // Now write from memory directly
-        // FIXME: we need to gather for multiple processors
         int success = 0;
         switch (variableData.varDataType) {
           case NC_DOUBLE: {

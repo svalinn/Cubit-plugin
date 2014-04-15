@@ -533,7 +533,7 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
         currentVarData.has_tsteps = true;
 
       // Probably will have to look at tstep_vals to match them
-      sizeVar *= dimLens[j];
+      sizeVar *= dimLens[currentVarData.varDims[j]];
       usedCoordinates.insert(dimName); // Collect those used, we will need to write them to the file
       dbgOut.tprintf(2, "    for variable %s need dimension %s with length %d\n", varname.c_str(), dimName.c_str(), dimLens[currentVarData.varDims[j]]);
     }
@@ -543,7 +543,7 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
     if (currentVarData.has_tsteps) {
       int index = 0;
       while (true) {
-        Tag indexedTag;
+        Tag indexedTag = 0;
         std::stringstream ssTagNameWithIndex;
         ssTagNameWithIndex << varname << index;
         rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);
@@ -566,18 +566,18 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
     }
     else {
       // Get the tag with varname
-      Tag coordtag = 0;
-      rval = mbImpl->tag_get_handle(varname.c_str(), coordtag);
+      Tag tag = 0;
+      rval = mbImpl->tag_get_handle(varname.c_str(), tag);
       ERRORR(rval, "Can't find one tag.");
-      currentVarData.varTags.push_back(coordtag); // Really, only one for these
+      currentVarData.varTags.push_back(tag); // Really, only one for these
       const void* data;
-      int sizeCoordinate;
-      rval = mbImpl->tag_get_by_ptr(coordtag, &fileSet, 1, &data, &sizeCoordinate);
-      ERRORR(rval, "Can't get coordinate values.");
+      int size;
+      rval = mbImpl->tag_get_by_ptr(tag, &fileSet, 1, &data, &size);
+      ERRORR(rval, "Can't get tag values.");
 
       // Find the type of tag, and use it
       DataType type;
-      rval = mbImpl->tag_get_data_type(coordtag, type);
+      rval = mbImpl->tag_get_data_type(tag, type);
       ERRORR(rval, "Can't get tag type.");
 
       currentVarData.varDataType = NC_DOUBLE;
@@ -599,17 +599,32 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
       ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
 
     VarData& varCoordData = vit->second;
-    Tag coordtag = 0;
-    rval = mbImpl->tag_get_handle(coordName.c_str(), coordtag);
+    Tag coordTag = 0;
+    rval = mbImpl->tag_get_handle(coordName.c_str(), coordTag);
     ERRORR(rval, "Can't find one tag.");
-    varCoordData.varTags.push_back(coordtag); // Really, only one for these
+    varCoordData.varTags.push_back(coordTag); // Really, only one for these
 
     const void* data;
     int sizeCoordinate;
-    rval = mbImpl->tag_get_by_ptr(coordtag, &fileSet, 1, &data, &sizeCoordinate);
+    rval = mbImpl->tag_get_by_ptr(coordTag, &fileSet, 1, &data, &sizeCoordinate);
     ERRORR(rval, "Can't get coordinate values.");
     dbgOut.tprintf(2, "    found coordinate tag with name %s and length %d\n", coordName.c_str(),
         sizeCoordinate);
+
+    // Get dimension length (the only dimension of this coordinate variable, with the same name)
+    assert(1 == varCoordData.varDims.size());
+    int coordDimLen = dimLens[varCoordData.varDims[0]];
+
+    if (dummyVarNames.find(coordName) != dummyVarNames.end()) {
+      // For a dummy coordinate variable, the tag size is always 1
+      // The number of coordinates should be set to dimension length, instead of 1
+      assert(1 == sizeCoordinate);
+      sizeCoordinate = coordDimLen;
+    }
+    else {
+      // The number of coordinates should be exactly the same as dimension length
+      assert(sizeCoordinate == coordDimLen);
+    }
 
     // This is the length
     varCoordData.sz = sizeCoordinate;
@@ -620,7 +635,7 @@ ErrorCode WriteNC::collect_variable_data(std::vector<std::string>& var_names, st
 
     // Find the type of tag, and use it
     DataType type;
-    rval = mbImpl->tag_get_data_type(coordtag, type);
+    rval = mbImpl->tag_get_data_type(coordTag, type);
     ERRORR(rval, "Can't get tag type.");
 
     varCoordData.varDataType = NC_DOUBLE;
@@ -639,7 +654,7 @@ ErrorCode WriteNC::initialize_file(std::vector<std::string>& var_names)
   // First initialize all coordinates, then fill VarData for actual variables (and dimensions)
   // Check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
-      setIt != usedCoordinates.end(); setIt++) {
+      setIt != usedCoordinates.end(); ++setIt) {
     std::string coordName = *setIt; // Deep copy
 
     std::map<std::string, VarData>::iterator vit = varInfo.find(coordName);
@@ -667,6 +682,11 @@ ErrorCode WriteNC::initialize_file(std::vector<std::string>& var_names)
        example: http://www.unidata.ucar.edu/software/netcdf/docs/netcdf-c/nc_005fdef_005fvar.html#nc_005fdef_005fvar
      */
 
+    // Skip dummy coordinate variables (e.g. ncol)
+    if (dummyVarNames.find(coordName) != dummyVarNames.end())
+      continue;
+
+    // Define a coordinate variable
     if (NCFUNC(def_var)(fileId, coordName.c_str(), varCoordData.varDataType,
         1, &(varCoordData.varDims[0]), &varCoordData.varId) != NC_NOERR)
       ERRORR(MB_FAILURE, "Failed to create coordinate variable.");
