@@ -13,16 +13,13 @@
 
 namespace moab {
 
-class NCWriteFV: public NCWriteHelper
+class NCWriteFV: public ScdNCWriteHelper
 {
 public:
-  NCWriteFV(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet) :
-    NCWriteHelper(writeNC, fileId, opts, fileSet) {}
+  NCWriteFV(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+: ScdNCWriteHelper(writeNC, fileId, opts, fileSet) {}
 
   virtual ~NCWriteFV();
-
-private:
-  ErrorCode write_values(std::vector<std::string>& var_names);
 };
 
 } // namespace moab

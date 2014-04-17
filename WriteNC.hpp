@@ -57,7 +57,6 @@
 namespace moab {
 
 class WriteUtilIface;
-class ScdInterface;
 class NCWriteHelper;
 
 /**
@@ -66,13 +65,14 @@ class NCWriteHelper;
 class WriteNC : public WriterIface
 {
   friend class NCWriteHelper;
+  friend class ScdNCWriteHelper;
+  friend class UcdNCWriteHelper;
   friend class NCWriteEuler;
   friend class NCWriteFV;
   friend class NCWriteHOMME;
   friend class NCWriteMPAS;
 
 public:
-
   //! Factory method
   static WriterIface* factory(Interface*);
 
@@ -94,7 +94,6 @@ public:
                        int export_dimension = 3);
 
 private:
-
   //! ENTLOCNSEDGE for north/south edge
   //! ENTLOCWEEDGE for west/east edge
   enum EntityLocation {ENTLOCVERT = 0, ENTLOCNSEDGE, ENTLOCEWEDGE, ENTLOCFACE, ENTLOCSET, ENTLOCEDGE, ENTLOCREGION};
@@ -162,36 +161,18 @@ private:
                                            std::vector<int>& attLen,
                                            std::map<std::string, AttData>& attributes);
 
-  //! Will collect data; it should be only on gather processor, but for the time being, collect
-  //! for everybody
-  ErrorCode collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
-                                  std::vector<double>& tstep_vals, EntityHandle fileSet);
-
-  //! Initialize file: this is where all defines are done
-  //! the VarData dimension ids are filled up after define
-  ErrorCode initialize_file(std::vector<std::string>& var_names); // These are from options
-
   //! Interface instance
   Interface* mbImpl;
   WriteUtilIface* mWriteIface;
 
   //! File var
   const char* fileName;
-  int IndexFile;
+
   //! File numbers assigned by (p)netcdf
   int fileId;
 
   //! Debug stuff
   DebugOutput dbgOut;
-
-  //! Partitioning method
-  int partMethod;
-
-  //! Scd interface
-  ScdInterface* scdi;
-
-  //! Parallel data object, to be cached with ScdBox
-  ScdParData parData;
 
 #ifdef USE_MPI
   ParallelComm* myPcomm;
@@ -201,14 +182,7 @@ private:
   bool noMesh;
   bool noVars;
 
-  /*
-   *  Not used yet, maybe later
-  bool spectralMesh;
-  bool noMixedElements;
-  bool noEdges;*/
-  int gatherSetRank;
-
-  //! Cached tags for writing. this will be important for ordering the data, in parallel
+  //! Cached tags for writing. This will be important for ordering the data, in parallel
   Tag mGlobalIdTag;
 
   //! Are we writing in parallel? (probably in the future)

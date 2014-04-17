@@ -20,18 +20,116 @@ NCWriteHOMME::~NCWriteHOMME()
   // TODO Auto-generated destructor stub
 }
 
+ErrorCode NCWriteHOMME::collect_mesh_info()
+{
+  Interface*& mbImpl = _writeNC->mbImpl;
+  std::vector<std::string>& dimNames = _writeNC->dimNames;
+  std::vector<int>& dimLens = _writeNC->dimLens;
+  Tag& mGlobalIdTag = _writeNC->mGlobalIdTag;
+
+  ErrorCode rval;
+
+  // Look for time dimension
+  std::vector<std::string>::iterator vecIt;
+  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end())
+    tDim = vecIt - dimNames.begin();
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find 'time' dimension.");
+  }
+  nTimeSteps = dimLens[tDim];
+
+  // Get number of levels
+  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
+    levDim = vecIt - dimNames.begin();
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find 'lev' dimension.");
+  }
+  nLevels = dimLens[levDim];
+
+  Range local_verts;
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);
+  ERRORR(rval, "Trouble getting local vertices in current file set.");
+  assert(!local_verts.empty());
+
+  std::vector<int> gids(local_verts.size());
+  rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
+  ERRORR(rval, "Trouble getting global IDs on local vertices.");
+
+  // Restore localGidVerts
+  std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVerts));
+  nLocalVertices = localGidVerts.size();
+
+  return MB_SUCCESS;
+}
+
+ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_names)
+{
+  NCWriteHelper::collect_variable_data(var_names);
+
+  std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
+
+  for (size_t i = 0; i < var_names.size(); i++) {
+    std::string varname = var_names[i];
+    std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(varname);
+    if (vit == varInfo.end())
+      ERRORR(MB_FAILURE, "Can't find one variable.");
+
+    WriteNC::VarData& currentVarData = vit->second;
+    if (currentVarData.has_tsteps) {
+      // Support non-set variables with 3 dimensions like (time, lev, ncol)
+      assert(3 == currentVarData.varDims.size());
+
+      // Time should be the first dimension
+      assert(tDim == currentVarData.varDims[0]);
+
+      // Set up writeStarts and writeCounts
+      currentVarData.writeStarts.resize(3);
+      currentVarData.writeCounts.resize(3);
+
+      // First: time
+      currentVarData.writeStarts[0] = 0; // This value is timestep dependent, will be set later
+      currentVarData.writeCounts[0] = 1;
+
+      // Next: lev
+      currentVarData.writeStarts[1] = 0;
+      currentVarData.writeCounts[1] = currentVarData.numLev;
+
+      // Finally: ncol
+      switch (currentVarData.entLoc) {
+        case WriteNC::ENTLOCVERT:
+          // Vertices
+          // Start from the first localGidVerts
+          // Actually, this will be reset later for writing
+          currentVarData.writeStarts[2] = localGidVerts[0] - 1;
+          currentVarData.writeCounts[2] = nLocalVertices;
+          break;
+        default:
+          ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
+      }
+    }
+
+    // Get variable size
+    currentVarData.sz = 1;
+    for (std::size_t idx = 0; idx != currentVarData.writeCounts.size(); idx++)
+      currentVarData.sz *= currentVarData.writeCounts[idx];
+  }
+
+  return MB_SUCCESS;
+}
+
 ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
-  Tag& mGlobalIdTag = _writeNC->mGlobalIdTag;
   std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
   std::set<std::string>& dummyVarNames = _writeNC->dummyVarNames;
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
+  ErrorCode rval;
+
   // Start with coordinates
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
       setIt != usedCoordinates.end(); ++setIt) {
-    std::string coordName = *setIt; // Deep copy
+    const std::string& coordName = *setIt;
 
     // Skip dummy coordinate variables (e.g. ncol)
     if (dummyVarNames.find(coordName) != dummyVarNames.end())
@@ -59,25 +157,10 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
         success = 1;
         break;
     }
- }
+  }
 
   // Now look at requested var_names; if they have time, we will have a list, and write one at a time
   // Need to transpose from lev dimension
-  Range localGidVerts;
-  Range local_verts;
-  ErrorCode rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);
-  ERRORR(rval, "Trouble getting local vertices in current file set.");
-
-  if (!local_verts.empty()) {
-    std::vector<int> gids(local_verts.size());
-
-    rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
-    ERRORR(rval, "Trouble getting global IDs on local vertices.");
-
-    // Restore localGidVerts
-    std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVerts));
-  }
-
   // For each variable tag in the indexed lists, write a time step data
   // Assume the first dimension is time (need to check); if not, just write regularly
   for (size_t i = 0; i < var_names.size(); i++) {
@@ -103,10 +186,7 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
       // A typical variable has 3 dimensions as (time, lev, ncol)
       // At each timestep, we need to transpose tag format (ncol, lev) back
       // to NC format (lev, ncol) for writing
-      int nLocalVertices = localGidVerts.size(); // ncol
-      size_t numLev = variableData.writeCounts[1]; // lev
-
-      variableData.writeCounts[0] = 1; // We will write one time step
+      // FIXME: Should use tstep_nums (from writing options) later
       for (int j = 0; j < numTimeSteps; j++) {
         // We will write one time step, and count will be one; start will be different
         // We will write values directly from tag_iterate, but we should also transpose for level
@@ -127,9 +207,9 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
         int success = 0;
         switch (variableData.varDataType) {
           case NC_DOUBLE: {
-            std::vector<double> tmpdoubledata(nLocalVertices * numLev);
+            std::vector<double> tmpdoubledata(nLocalVertices * variableData.numLev);
             // Transpose (ncol, lev) back to (lev, ncol)
-            jik_to_kji(nLocalVertices, 1, numLev, &tmpdoubledata[0], (double*)(dataptr));
+            jik_to_kji(nLocalVertices, 1, variableData.numLev, &tmpdoubledata[0], (double*)(dataptr));
 
             size_t indexInDoubleArray = 0;
             size_t ic = 0;
@@ -154,7 +234,7 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
               ERRORS(success, "Failed to read double data in loop");
               // We need to increment the index in double array for the
               // next subrange
-              indexInDoubleArray += (endh - starth + 1) * numLev;
+              indexInDoubleArray += (endh - starth + 1) * variableData.numLev;
             }
             assert(ic == localGidVerts.psize());
 #ifdef PNETCDF_FILE

@@ -20,7 +20,12 @@ NCWriteMPAS::~NCWriteMPAS()
   // TODO Auto-generated destructor stub
 }
 
-ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& var_names)
+ErrorCode NCWriteMPAS::collect_mesh_info()
+{
+  return MB_NOT_IMPLEMENTED;
+}
+
+ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& /* var_names */)
 {
   return MB_NOT_IMPLEMENTED;
 }

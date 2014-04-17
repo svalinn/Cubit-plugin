@@ -13,16 +13,20 @@
 
 namespace moab {
 
-class NCWriteMPAS: public NCWriteHelper
+class NCWriteMPAS: public UcdNCWriteHelper
 {
 public:
-  NCWriteMPAS(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet) :
-    NCWriteHelper(writeNC, fileId, opts, fileSet) {}
+  NCWriteMPAS(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+: UcdNCWriteHelper(writeNC, fileId, opts, fileSet) {}
 
   virtual ~NCWriteMPAS();
 
 private:
-  ErrorCode write_values(std::vector<std::string>& var_names);
+  //! Implementation of NCWriteHelper::collect_mesh_info()
+  virtual ErrorCode collect_mesh_info();
+
+  //! Collect data for specified variables
+  virtual ErrorCode write_values(std::vector<std::string>& var_names);
 };
 
 } // namespace moab

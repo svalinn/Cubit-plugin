@@ -13,16 +13,13 @@
 
 namespace moab {
 
-class NCWriteEuler: public NCWriteHelper
+class NCWriteEuler: public ScdNCWriteHelper
 {
 public:
-  NCWriteEuler(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet) :
-    NCWriteHelper(writeNC, fileId, opts, fileSet) {}
+  NCWriteEuler(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+: ScdNCWriteHelper(writeNC, fileId, opts, fileSet) {}
 
   virtual ~NCWriteEuler();
-
-private:
-  ErrorCode write_values(std::vector<std::string>& var_names);
 };
 
 } // namespace moab
