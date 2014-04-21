@@ -68,7 +68,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       currentVarData.has_tsteps = true;
 
     currentVarData.numLev = 1;
-    if ((std::find(currentVarData.varDims.begin(), currentVarData.varDims.end(), tDim) != currentVarData.varDims.end()))
+    if ((std::find(currentVarData.varDims.begin(), currentVarData.varDims.end(), levDim) != currentVarData.varDims.end()))
       currentVarData.numLev = nLevels;
 
     dbgOut.tprintf(2, "    for variable %s varDims.size %d \n", varname.c_str(), (int)currentVarData.varDims.size());
@@ -82,6 +82,11 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       dbgOut.tprintf(2, "    for variable %s need dimension %s with length %d\n", varname.c_str(), dimName.c_str(), dimLens[currentVarData.varDims[j]]);
     }
 
+    // Process coordinate variables later
+    if (usedCoordinates.find(varname) != usedCoordinates.end())
+      continue;
+
+    // Process non-set variables with time steps
     if (currentVarData.has_tsteps) {
       int index = 0;
       // FIXME: Should use tstep_nums (from writing options) later
@@ -106,6 +111,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
           currentVarData.varDataType = NC_INT;
       }
     }
+    // Process set variables that are not coordinate variables
     else {
       // Get the tag with varname
       Tag tag = 0;
@@ -126,7 +132,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       if (MB_TYPE_INTEGER == type)
         currentVarData.varDataType = NC_INT;
 
-      assert(currentVarData.memoryHogs.size() == 0); // Nothing so far
+      assert(0 == currentVarData.memoryHogs.size()); // Nothing so far
       currentVarData.memoryHogs.push_back((void*)data);
 
       if (currentVarData.varDims.empty()) {
@@ -135,14 +141,14 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
         currentVarData.writeCounts.push_back(1);
       }
       else {
-        for (unsigned int idx = 0; idx != currentVarData.varDims.size(); idx++){
-          currentVarData.writeStarts.push_back(0);
-          currentVarData.writeCounts.push_back(dimLens[currentVarData.varDims[idx]]);
-        }
+        assert(1 == currentVarData.varDims.size());
+        currentVarData.writeStarts.push_back(0);
+        currentVarData.writeCounts.push_back(dimLens[currentVarData.varDims[0]]);
       }
     }
   }
 
+  // Process coordinate variables
   // Check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
       setIt != usedCoordinates.end(); ++setIt) {
@@ -212,6 +218,9 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names)
   std::map<std::string, WriteNC::AttData>& globalAtts = _writeNC->globalAtts;
   DebugOutput& dbgOut = _writeNC->dbgOut;
 
+  int tDim_in_dimNames = tDim;
+  int levDim_in_dimNames = levDim;
+
   // First initialize all coordinates, then fill VarData for actual variables (and dimensions)
   // Check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
@@ -235,6 +244,12 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names)
      ERRORR(MB_FAILURE, "Failed to generate dimension.");
 
     dbgOut.tprintf(2, "    for coordName %s dim id is %d \n", coordName.c_str(), (int)varCoordData.varDims[0]);
+
+    // Update tDim and levDim to actual dimension id
+    if (coordName == dimNames[tDim_in_dimNames])
+      tDim = varCoordData.varDims[0];
+    else if (coordName == dimNames[levDim_in_dimNames])
+      levDim = varCoordData.varDims[0];
 
     // Create a variable with the same name, and its only dimension the one we just defined
     /*
@@ -260,6 +275,10 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names)
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(var_names[i]);
     if (vit == varInfo.end())
       ERRORR(MB_FAILURE, "Can't find variable requested.");
+
+    // Skip coordinate variables
+    if (usedCoordinates.find(var_names[i]) != usedCoordinates.end())
+      continue;
 
     WriteNC::VarData& variableData = vit->second;
     int numDims = (int)variableData.varDims.size();
