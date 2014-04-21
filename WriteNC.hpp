@@ -41,7 +41,10 @@
 //! Collective I/O mode put
 #define NCFUNCAP(func) ncmpi_put ## func ## _all
 
-//! Nonblocking put (request aggregation), used so far only for ucd mesh
+//! Independent I/O mode put
+#define NCFUNCP(func) ncmpi_put ## func
+
+//! Nonblocking put (request aggregation)
 #define NCFUNCREQP(func) ncmpi_iput ## func
 
 #define NCDF_SIZE MPI_Offset
@@ -50,6 +53,7 @@
 #include "netcdf.h"
 #define NCFUNC(func) nc_ ## func
 #define NCFUNCAP(func) nc_put ## func
+#define NCFUNCP(func) nc_put ## func
 #define NCDF_SIZE size_t
 #define NCDF_DIFF ptrdiff_t
 #endif

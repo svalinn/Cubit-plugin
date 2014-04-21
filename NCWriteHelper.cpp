@@ -457,42 +457,15 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
   ErrorCode rval;
-
-  // Start with coordinates
-  for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
-      setIt != usedCoordinates.end(); ++setIt) {
-    const std::string& coordName = *setIt;
-
-    // Skip dummy coordinate variables (if any)
-    if (dummyVarNames.find(coordName) != dummyVarNames.end())
-      continue;
-
-    std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
-    if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
-
-    WriteNC::VarData& varCoordData = vit->second;
-
-    int success = 0;
-    switch (varCoordData.varDataType) {
-      case NC_DOUBLE:
-        success = NCFUNCAP(_vara_double)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
-                  &varCoordData.writeCounts[0], (double*)(varCoordData.memoryHogs[0]));
-        ERRORS(success, "Failed to write double data.");
-        break;
-      case NC_INT:
-        success = NCFUNCAP(_vara_int)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
-                  &varCoordData.writeCounts[0], (int*)(varCoordData.memoryHogs[0]));
-        ERRORS(success, "Failed to write int data.");
-        break;
-      default:
-        success = 1;
-        break;
-    }
- }
+  int success;
 
   // Now look at requested var_names; if they have time, we will have a list, and write one at a time
-  // if not, just write regularly
+  // If not, just write regularly
+  // For parallel write, we assume that the data ranges do not overlap across processors (this is true
+  // for Euler and FV variables on quads)
+  // While overlapped writing might still work, we should better not take that risk
+  // Use collective I/O mode put (synchronous write) for the time being, we can try nonblocking put
+  // (request aggregation) later
   for (size_t i = 0; i < var_names.size(); i++) {
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(var_names[i]);
     if (vit == varInfo.end())
@@ -536,7 +509,6 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
         assert(count == (int)ents.size());
 
         // Now write from memory directly
-        int success = 0;
         switch (variableData.varDataType) {
           case NC_DOUBLE: {
             std::vector<double> tmpdoubledata(ni*nj*nk);
@@ -554,7 +526,6 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
       }
     }
     else {
-      int success = 0;
       switch (variableData.varDataType) {
         case NC_DOUBLE:
           success = NCFUNCAP(_vara_double)(_fileId, variableData.varId, &variableData.writeStarts[0],
@@ -566,6 +537,62 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
       }
     }
   }
+
+  // Write coordinates used by requested var_names
+  // Use independent I/O mode put, since this write is only for the root processor
+  // CAUTION: if the NetCDF ID is from a previous call to ncmpi_create rather than ncmpi_open,
+  // all processors need to call ncmpi_begin_indep_data(). If only the root processor does so,
+  // ncmpi_begin_indep_data() will be blocked forever, :(
+
+  // Enter independent I/O mode
+  success = NCFUNC(begin_indep_data)(_fileId);
+  ERRORS(success, "Failed to begin independent I/O mode.");
+
+  int rank = 0;
+#ifdef USE_MPI
+  bool& isParallel = _writeNC->isParallel;
+  if (isParallel) {
+    ParallelComm*& myPcomm = _writeNC->myPcomm;
+    rank = myPcomm->proc_config().proc_rank();
+  }
+#endif
+  if (0 == rank) {
+    for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
+        setIt != usedCoordinates.end(); ++setIt) {
+      const std::string& coordName = *setIt;
+
+      // Skip dummy coordinate variables (if any)
+      if (dummyVarNames.find(coordName) != dummyVarNames.end())
+        continue;
+
+      std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
+      if (vit == varInfo.end())
+        ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
+
+      WriteNC::VarData& varCoordData = vit->second;
+
+      switch (varCoordData.varDataType) {
+        case NC_DOUBLE:
+          // Independent I/O mode put
+          success = NCFUNCP(_vara_double)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
+                    &varCoordData.writeCounts[0], (double*)(varCoordData.memoryHogs[0]));
+          ERRORS(success, "Failed to write double data.");
+          break;
+        case NC_INT:
+          // Independent I/O mode put
+          success = NCFUNCP(_vara_int)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
+                    &varCoordData.writeCounts[0], (int*)(varCoordData.memoryHogs[0]));
+          ERRORS(success, "Failed to write int data.");
+          break;
+        default:
+          ERRORR(MB_FAILURE, "Not implemented yet.");
+      }
+    }
+  }
+
+  // End independent I/O mode
+  success = NCFUNC(end_indep_data)(_fileId);
+  ERRORS(success, "Failed to end independent I/O mode.");
 
   return MB_SUCCESS;
 }
