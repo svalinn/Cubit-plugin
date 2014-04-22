@@ -561,11 +561,12 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
   // Use independent I/O mode put, since this write is only for the root processor
   // CAUTION: if the NetCDF ID is from a previous call to ncmpi_create rather than ncmpi_open,
   // all processors need to call ncmpi_begin_indep_data(). If only the root processor does so,
-  // ncmpi_begin_indep_data() will be blocked forever, :(
-
+  // ncmpi_begin_indep_data() call will be blocked forever :(
+#ifdef PNETCDF_FILE
   // Enter independent I/O mode
   success = NCFUNC(begin_indep_data)(_fileId);
   ERRORS(success, "Failed to begin independent I/O mode.");
+#endif
 
   int rank = 0;
 #ifdef USE_MPI
@@ -609,9 +610,11 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
     }
   }
 
+#ifdef PNETCDF_FILE
   // End independent I/O mode
   success = NCFUNC(end_indep_data)(_fileId);
   ERRORS(success, "Failed to end independent I/O mode.");
+#endif
 
   return MB_SUCCESS;
 }
