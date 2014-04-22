@@ -185,10 +185,19 @@ ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::strin
     mWriteIface->report_error("Invalid value for PARALLEL_COMM option.");
     return rval;
   }
+
   myPcomm = ParallelComm::get_pcomm(mbImpl, pcomm_no);
   if (0 == myPcomm) {
     myPcomm = new ParallelComm(mbImpl, MPI_COMM_WORLD);
   }
+
+#ifndef PNETCDF_FILE
+  const int procs = myPcomm->proc_config().proc_size();
+  if (procs > 1) {
+    ERRORR(MB_UNSUPPORTED_OPERATION, "Attempt to launch NC writer in parallel without pnetcdf support.");
+  }
+#endif
+
   const int rank = myPcomm->proc_config().proc_rank();
   dbgOut.set_rank(rank);
 #endif
