@@ -6,6 +6,7 @@
 
 #include "NCWriteHOMME.hpp"
 #include "moab/WriteUtilIface.hpp"
+#include "MBTagConventions.hpp"
 
 #define ERRORR(rval, str) \
   if (MB_SUCCESS != rval) { _writeNC->mWriteIface->report_error("%s", str); return rval; }
@@ -51,13 +52,36 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
   ERRORR(rval, "Trouble getting local vertices in current file set.");
   assert(!local_verts.empty());
 
-  std::vector<int> gids(local_verts.size());
-  rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
+#ifdef USE_MPI
+  bool& isParallel = _writeNC->isParallel;
+  if (isParallel) {
+    ParallelComm*& myPcomm = _writeNC->myPcomm;
+    int rank = myPcomm->proc_config().proc_rank();
+    int procs = myPcomm->proc_config().proc_size();
+    if (procs > 1) {
+      rval = myPcomm->filter_pstatus(local_verts, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &localVertsOwned);
+      ERRORR(rval, "Trouble getting owned vertices in set.");
+      // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
+      // We should avoid writing in parallel with overlapped data
+      if (rank > 0)
+        assert("PARALLEL_RESOLVE_SHARED_ENTS option is set" && localVertsOwned.size() < local_verts.size());
+    }
+    else
+      localVertsOwned = local_verts;
+  }
+  else
+    localVertsOwned = local_verts; // Not running in parallel, but still with MPI
+#else
+  localVertsOwned = local_verts;
+#endif
+
+  std::vector<int> gids(localVertsOwned.size());
+  rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);
   ERRORR(rval, "Trouble getting global IDs on local vertices.");
 
   // Restore localGidVerts
-  std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVerts));
-  nLocalVertices = localGidVerts.size();
+  std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVertsOwned));
+  nLocalVerticesOwned = localGidVertsOwned.size();
 
   return MB_SUCCESS;
 }
@@ -100,8 +124,8 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
           // Vertices
           // Start from the first localGidVerts
           // Actually, this will be reset later for writing
-          currentVarData.writeStarts[2] = localGidVerts[0] - 1;
-          currentVarData.writeCounts[2] = nLocalVertices;
+          currentVarData.writeStarts[2] = localGidVertsOwned[0] - 1;
+          currentVarData.writeCounts[2] = nLocalVerticesOwned;
           break;
         default:
           ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
@@ -123,8 +147,6 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
   std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
   std::set<std::string>& dummyVarNames = _writeNC->dummyVarNames;
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
-
-  ErrorCode rval;
 
   // Start with coordinates
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
@@ -172,12 +194,9 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
     int numTimeSteps = (int)variableData.varTags.size();
     if (variableData.has_tsteps) {
       // Get entities of this variable
-      Range ents;
       switch (variableData.entLoc) {
         case WriteNC::ENTLOCVERT:
           // Vertices
-          rval = mbImpl->get_entities_by_dimension(_fileSet, 0, ents);
-          ERRORR(rval, "Can't get entities for vertices.");
           break;
         default:
           ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
@@ -189,16 +208,16 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
       // FIXME: Should use tstep_nums (from writing options) later
       for (int j = 0; j < numTimeSteps; j++) {
         // We will write one time step, and count will be one; start will be different
-        // We will write values directly from tag_iterate, but we should also transpose for level
-        // so that means deep copy for transpose
+        // Use tag_get_data instead of tag_iterate to get values, as localVertsOwned
+        // might not be contiguous. We should also transpose for level so that means
+        // deep copy for transpose
         variableData.writeStarts[0] = j; // This is time, again
-        int count;
-        void* dataptr;
-        rval = mbImpl->tag_iterate(variableData.varTags[j], ents.begin(), ents.end(), count, dataptr);
-        assert(count == (int)ents.size());
+        std::vector<double> tag_data(nLocalVerticesOwned * variableData.numLev);
+        ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[j], localVertsOwned, &tag_data[0]);
+        ERRORR(rval, "Trouble getting tag data on owned vertices.");
 
 #ifdef PNETCDF_FILE
-        size_t nb_writes = localGidVerts.psize();
+        size_t nb_writes = localGidVertsOwned.psize();
         std::vector<int> requests(nb_writes), statuss(nb_writes);
         size_t idxReq = 0;
 #endif
@@ -207,14 +226,14 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
         int success = 0;
         switch (variableData.varDataType) {
           case NC_DOUBLE: {
-            std::vector<double> tmpdoubledata(nLocalVertices * variableData.numLev);
+            std::vector<double> tmpdoubledata(nLocalVerticesOwned * variableData.numLev);
             // Transpose (ncol, lev) back to (lev, ncol)
-            jik_to_kji(nLocalVertices, 1, variableData.numLev, &tmpdoubledata[0], (double*)(dataptr));
+            jik_to_kji(nLocalVerticesOwned, 1, variableData.numLev, &tmpdoubledata[0], &tag_data[0]);
 
             size_t indexInDoubleArray = 0;
             size_t ic = 0;
-            for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
-                pair_iter != localGidVerts.pair_end(); ++pair_iter, ic++) {
+            for (Range::pair_iterator pair_iter = localGidVertsOwned.pair_begin();
+                pair_iter != localGidVertsOwned.pair_end(); ++pair_iter, ic++) {
               EntityHandle starth = pair_iter->first;
               EntityHandle endh = pair_iter->second;
               variableData.writeStarts[2] = (NCDF_SIZE)(starth - 1);
@@ -236,7 +255,7 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
               // next subrange
               indexInDoubleArray += (endh - starth + 1) * variableData.numLev;
             }
-            assert(ic == localGidVerts.psize());
+            assert(ic == localGidVertsOwned.psize());
 #ifdef PNETCDF_FILE
             success = ncmpi_wait_all(_fileId, requests.size(), &requests[0], &statuss[0]);
             ERRORS(success, "Failed on wait_all.");
