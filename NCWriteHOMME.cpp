@@ -148,38 +148,7 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
   std::set<std::string>& dummyVarNames = _writeNC->dummyVarNames;
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
-  // Start with coordinates
-  for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
-      setIt != usedCoordinates.end(); ++setIt) {
-    const std::string& coordName = *setIt;
-
-    // Skip dummy coordinate variables (e.g. ncol)
-    if (dummyVarNames.find(coordName) != dummyVarNames.end())
-      continue;
-
-    std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
-    if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
-
-    WriteNC::VarData& varCoordData = vit->second;
-
-    int success = 0;
-    switch (varCoordData.varDataType) {
-      case NC_DOUBLE:
-        success = NCFUNCAP(_vara_double)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
-                  &varCoordData.writeCounts[0], (double*)(varCoordData.memoryHogs[0]));
-        ERRORS(success, "Failed to write double data.");
-        break;
-      case NC_INT:
-        success = NCFUNCAP(_vara_int)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
-                  &varCoordData.writeCounts[0], (int*)(varCoordData.memoryHogs[0]));
-        ERRORS(success, "Failed to write int data.");
-        break;
-      default:
-        success = 1;
-        break;
-    }
-  }
+  int success;
 
   // Now look at requested var_names; if they have time, we will have a list, and write one at a time
   // Need to transpose from lev dimension
@@ -193,7 +162,10 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
     WriteNC::VarData& variableData = vit->second;
     int numTimeSteps = (int)variableData.varTags.size();
     if (variableData.has_tsteps) {
-      // Get entities of this variable
+      // Time should be the first dimension
+      assert(tDim == variableData.varDims[0]);
+
+      // Assume this variable is on vertices for the time being
       switch (variableData.entLoc) {
         case WriteNC::ENTLOCVERT:
           // Vertices
@@ -223,7 +195,6 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
 #endif
 
         // Now write from memory directly
-        int success = 0;
         switch (variableData.varDataType) {
           case NC_DOUBLE: {
             std::vector<double> tmpdoubledata(nLocalVerticesOwned * variableData.numLev);
@@ -268,7 +239,6 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
       }
     } // if (variableData.has_tsteps)
     else {
-      int success = 0;
       switch (variableData.varDataType) {
         case NC_DOUBLE:
           success = NCFUNCAP(_vara_double)(_fileId, variableData.varId, &variableData.writeStarts[0],
@@ -280,6 +250,65 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
       }
     }
   }
+
+  // Write coordinates used by requested var_names
+  // Use independent I/O mode put, since this write is only for the root processor
+  // CAUTION: if the NetCDF ID is from a previous call to ncmpi_create rather than ncmpi_open,
+  // all processors need to call ncmpi_begin_indep_data(). If only the root processor does so,
+  // ncmpi_begin_indep_data() call will be blocked forever :(
+#ifdef PNETCDF_FILE
+  // Enter independent I/O mode
+  success = NCFUNC(begin_indep_data)(_fileId);
+  ERRORS(success, "Failed to begin independent I/O mode.");
+#endif
+
+  int rank = 0;
+#ifdef USE_MPI
+  bool& isParallel = _writeNC->isParallel;
+  if (isParallel) {
+    ParallelComm*& myPcomm = _writeNC->myPcomm;
+    rank = myPcomm->proc_config().proc_rank();
+  }
+#endif
+  if (0 == rank) {
+    for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
+        setIt != usedCoordinates.end(); ++setIt) {
+      const std::string& coordName = *setIt;
+
+      // Skip dummy coordinate variables (e.g. ncol)
+      if (dummyVarNames.find(coordName) != dummyVarNames.end())
+        continue;
+
+      std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
+      if (vit == varInfo.end())
+        ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
+
+      WriteNC::VarData& varCoordData = vit->second;
+
+      switch (varCoordData.varDataType) {
+        case NC_DOUBLE:
+          // Independent I/O mode put
+          success = NCFUNCP(_vara_double)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
+                    &varCoordData.writeCounts[0], (double*)(varCoordData.memoryHogs[0]));
+          ERRORS(success, "Failed to write double data.");
+          break;
+        case NC_INT:
+          // Independent I/O mode put
+          success = NCFUNCP(_vara_int)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
+                    &varCoordData.writeCounts[0], (int*)(varCoordData.memoryHogs[0]));
+          ERRORS(success, "Failed to write int data.");
+          break;
+        default:
+          ERRORR(MB_FAILURE, "Not implemented yet.");
+      }
+    }
+  }
+
+#ifdef PNETCDF_FILE
+  // End independent I/O mode
+  success = NCFUNC(end_indep_data)(_fileId);
+  ERRORS(success, "Failed to end independent I/O mode.");
+#endif
 
   return MB_SUCCESS;
 }
