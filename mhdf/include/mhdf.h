@@ -67,7 +67,7 @@ extern "C" {
  * named \c max_id .  This attribute, if present, should contain the
  * value of the largest entity ID used internally to the file.  It can
  * be used to verify that the code reading the file is using an integer
- * type of sufficient size to accomodate the entity IDs.  
+ * type of sufficient size to accommodate the entity IDs.
  *
  * The \c tstt group contains four sub-groups, a datatype object, and a 
  * dataset object.  The four sub-groups are: \c nodes, \c elements,
@@ -101,12 +101,12 @@ extern "C" {
  *
  * The \c coordinates
  * DataSet contains the coordinates of all vertices in the mesh.
- * The DataSet should contain floating point values and have a dimenions 
+ * The DataSet should contain floating point values and have a dimensions
  * \f$ n \times d \f$, where \c n is the number of vertices and \c d
  * is the number of coordinate values for each vertex.
  *
- * The \c coodinates DataSet must have an integer attribute named \c start_id .
- * The vertices are then defined to have IDs begining with this value
+ * The \c coordinates DataSet must have an integer attribute named \c start_id .
+ * The vertices are then defined to have IDs beginning with this value
  * and increasing sequentially in the order that they are defined in the
  * \c coordinates table.
  *
@@ -128,7 +128,7 @@ extern "C" {
  * optional subgroup named \c tags.  The \c tags subgroup is described in the 
  * \ref Dense "section on dense tag storage". 
  *
- * The \c connectivty DataSet is an \f$ n \times m \f$ array of integer
+ * The \c connectivity DataSet is an \f$ n \times m \f$ array of integer
  * values.  The DataSet contains one row for each of the \c n contained
  * elements, where the connectivity of each element contains \c m IDs.  For
  * all element types supported by MOAB, with the exception of polyhedra,
@@ -146,14 +146,14 @@ extern "C" {
  * The \c sets group contains the definitions of any entity sets stored
  * in the file.  It contains 1 to 4 DataSets and the optional \c tags 
  * subgroup.  The \c contents, \c parents, and \c children data sets
- * are one dimensional arrays containing the concatenation of of the
+ * are one dimensional arrays containing the concatenation of the
  * corresponding lists for all of the sets represented in the file.
  *
  * The \c lists DataSet is a \f$ n \times 4 \f$ table, having one
  * row of four integer values for each set.  The first three values
  * for each set are the indices into the \c contents, \c children, 
  * and \c parents DataSets, respectively, at which the \em last value
- * for the set is stored.  The contents, child, and parent lists for
+ * for set is stored.  The contents, child, and parent lists for
  * sets are stored in the corresponding datasets in the same order as
  * the sets are listed in the \c lists DataSet, such that the index of
  * the first value in one of those tables is one greater than the 
@@ -168,7 +168,7 @@ extern "C" {
  * stored at position 0 of the \c parents DataSet and the second at position
  * 1.
  *
- * The fourth colum of the \c lists DataSet is a series of bit flags
+ * The fourth column of the \c lists DataSet is a series of bit flags
  * defining some properties of the sets.  The four bit values currently
  * defined are:
  *  - 0x1 owner
@@ -180,7 +180,7 @@ extern "C" {
  * data set, that the contents list for the corresponding set is stored
  * using a single range compression.  Rather than storing the IDs of the
  * contained entities individually, each ID \c i is followed by a count 
- * \c n indicating that the set contains the cotiguous range of IDs
+ * \c n indicating that the set contains the contiguous range of IDs
  * \f$ [i, i+n-1] \f$.
  *
  * The three least significant bits specify intended properties of the
@@ -208,16 +208,16 @@ extern "C" {
  * may also be stored in the "dense" format as described in the 
  * \ref Dense "section on dense tag storage".
  *
- * Each sub-group of the \c tags group contains the defintion for
+ * Each sub-group of the \c tags group contains the definition for
  * a single tag.  The name of each sub-group is the name of the 
  * corresponding tag.  Non-printable characters, characters
  * prohibited in group names in the HDF5 file format, and the
  * backslash ('\') character are encoded
  * in the name string by a backslash ('\') character followed by
- * the ASCII value of the character expressed as a pair of hexidecimal
+ * the ASCII value of the character expressed as a pair of hexadecimal
  * digits.  Thus the backslash character would be represented as \c \5C .
  * Each tag group should also contain a comment which contains the
- * unenconded tag name.
+ * unencoded tag name.
  *
  * The tag sub-group may have any or all of the following four attributes:
  * \c default, \c global, \c is_handle, and \c variable_length.  
