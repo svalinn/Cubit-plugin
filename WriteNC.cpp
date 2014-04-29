@@ -33,7 +33,7 @@ WriteNC::WriteNC(Interface* impl) :
 #ifdef USE_MPI
   myPcomm(NULL),
 #endif
-  noMesh(false), noVars(false),
+  noMesh(false), noVars(false), append(false),
   mGlobalIdTag(0), isParallel(false),
   myHelper(NULL)
 {
@@ -84,23 +84,42 @@ ErrorCode WriteNC::write_file(const char* file_name,
   rval = process_conventional_tags(*file_set);
   ERRORR(rval, "Trouble processing conventional tags.");
 
-  // Create the file ; assume we will overwrite always, for the time being
-  dbgOut.tprintf(1, "creating file %s\n", file_name);
+  // Create or append the file
+  if (append)
+    dbgOut.tprintf(1, "opening file %s for appending \n", file_name);
+  else
+    dbgOut.tprintf(1, "creating file %s\n", file_name);
   fileName = file_name;
   int success;
 
+  if (append)
+  {
 #ifdef PNETCDF_FILE
-  int cmode = overwrite ? NC_CLOBBER : NC_NOCLOBBER;
-  if (isParallel)
-    success = NCFUNC(create)(myPcomm->proc_config().proc_comm(), file_name, cmode, MPI_INFO_NULL, &fileId);
-  else
-    success = NCFUNC(create)(MPI_COMM_SELF, file_name, cmode, MPI_INFO_NULL, &fileId);
+    int omode = NC_WRITE;
+    if (isParallel)
+      success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), file_name, omode, MPI_INFO_NULL, &fileId);
+    else
+      success = NCFUNC(open)(MPI_COMM_SELF, file_name, omode, MPI_INFO_NULL, &fileId);
 #else
-  // This is a regular netcdf file
-  success = NCFUNC(create)(file_name, overwrite ? NC_CLOBBER : NC_NOCLOBBER, &fileId);
+    // This is a regular netcdf file
+    success = NCFUNC(open)(file_name, overwrite ? NC_CLOBBER : NC_NOCLOBBER, &fileId);
 #endif
-  ERRORS(success, "Failed to create file.");
-
+    ERRORS(success, "Failed to open file for appending.");
+  }
+  else // case when the file is new, will be overwritten, most likely
+  {
+#ifdef PNETCDF_FILE
+    int cmode = overwrite ? NC_CLOBBER : NC_NOCLOBBER;
+    if (isParallel)
+      success = NCFUNC(create)(myPcomm->proc_config().proc_comm(), file_name, cmode, MPI_INFO_NULL, &fileId);
+    else
+      success = NCFUNC(create)(MPI_COMM_SELF, file_name, cmode, MPI_INFO_NULL, &fileId);
+#else
+    // This is a regular netcdf file
+    success = NCFUNC(create)(file_name, overwrite ? NC_CLOBBER : NC_NOCLOBBER, &fileId);
+#endif
+    ERRORS(success, "Failed to create file.");
+  }
   if (NULL != myHelper)
     delete myHelper;
 
@@ -116,7 +135,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   rval = myHelper->collect_variable_data(var_names);
   ERRORR(rval, "Trouble collecting variable data.");
 
-  rval = myHelper->init_file(var_names);
+  rval = myHelper->init_file(var_names, append);
   ERRORR(rval, "Failed to initialize file.");
 
   rval = myHelper->write_values(var_names);
@@ -147,6 +166,10 @@ ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::strin
   rval = opts.get_null_option("NOMESH");
   if (MB_SUCCESS == rval)
     noMesh = true;
+
+  rval = opts.get_null_option("APPEND");
+  if (MB_SUCCESS == rval)
+    append = true;
 
   if (2 <= dbgOut.get_verbosity()) {
     if (!var_names.empty()) {

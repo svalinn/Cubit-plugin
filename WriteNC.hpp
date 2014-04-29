@@ -185,6 +185,7 @@ private:
   //! Write options
   bool noMesh;
   bool noVars;
+  bool append;
 
   //! Cached tags for writing. This will be important for ordering the data, in parallel
   Tag mGlobalIdTag;

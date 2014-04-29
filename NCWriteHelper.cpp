@@ -209,7 +209,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
   return MB_SUCCESS;
 }
 
-ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names)
+ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, bool append)
 {
   std::vector<std::string>& dimNames = _writeNC->dimNames;
   std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
@@ -221,6 +221,9 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names)
   int tDim_in_dimNames = tDim;
   int levDim_in_dimNames = levDim;
 
+  // if append mode, make sure we are in define mode; a simple open will not allow creation of new variables
+  if (append)
+    NCFUNC(redef)(_fileId);
   // First initialize all coordinates, then fill VarData for actual variables (and dimensions)
   // Check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
@@ -234,6 +237,40 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names)
     WriteNC::VarData& varCoordData = vit->second;
     varCoordData.varDims.resize(1);
 
+    // if not append, create it for sure
+    // if append, we might already have it, including the tag / variable with the same name
+    /*
+     * int ncmpi_inq_dimid(int ncid, const char *name, int *idp);
+     */
+    if (append)
+    {
+      int dimId;
+      if (NCFUNC(inq_dimid)(_fileId, coordName.c_str(), &dimId) == NC_NOERR)
+        // if not found, create it later
+      {
+        varCoordData.varDims[0] = dimId;
+        // check that the coordinate is a variable too
+        // Skip dummy coordinate variables (e.g. ncol)
+        dbgOut.tprintf(2, "    file already has coordName %s dim id is %d \n", coordName.c_str(), (int)varCoordData.varDims[0]);
+        if (dummyVarNames.find(coordName) != dummyVarNames.end())
+          continue;
+        // inquire for a variable with the same name
+
+        int varId;
+        if (NCFUNC(inq_varid)(_fileId, coordName.c_str(), &varId) != NC_NOERR)
+          ERRORR(MB_FAILURE, "we do not have a variable with the same name.");
+        // we should also check that this variable has one dimension, and it is dimId
+        varCoordData.varId = varId;
+        dbgOut.tprintf(2, "    file already has coordinate %s and varId is %d \n", coordName.c_str(), varId);
+        // Update tDim and levDim to actual dimension id
+        if (coordName == dimNames[tDim_in_dimNames])
+          tDim = varCoordData.varDims[0];
+        else if (coordName == dimNames[levDim_in_dimNames])
+          levDim = varCoordData.varDims[0];
+        continue; // maybe more checks are needed here
+      }
+
+    }
     /* int nc_def_dim (int ncid, const char *name, size_t len, int *dimidp);
        * example:  status = nc_def_dim(fileId, "lat", 18L, &latid);
     */
@@ -297,9 +334,10 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names)
     }
 
     // Define the variable now:
-    if (NCFUNC(def_var)(_fileId, var_names[i].c_str(), variableData.varDataType,
+    int errCode = NCFUNC(def_var)(_fileId, var_names[i].c_str(), variableData.varDataType,
         (int)variableData.varDims.size(), &(variableData.varDims[0]),
-        &variableData.varId) != NC_NOERR)
+        &variableData.varId);
+    if ( errCode != NC_NOERR)
       ERRORR(MB_FAILURE, "Failed to create coordinate variable.");
 
     dbgOut.tprintf(2, "    for variable %s variable id is %d \n", var_names[i].c_str(), variableData.varId);
