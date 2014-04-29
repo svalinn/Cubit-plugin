@@ -209,7 +209,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
   return MB_SUCCESS;
 }
 
-ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, bool append)
+ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vector<std::string>& desired_names, bool append)
 {
   std::vector<std::string>& dimNames = _writeNC->dimNames;
   std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
@@ -334,13 +334,14 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, bool app
     }
 
     // Define the variable now:
-    int errCode = NCFUNC(def_var)(_fileId, var_names[i].c_str(), variableData.varDataType,
+    int errCode = NCFUNC(def_var)(_fileId, desired_names[i].c_str(), variableData.varDataType,
         (int)variableData.varDims.size(), &(variableData.varDims[0]),
         &variableData.varId);
     if ( errCode != NC_NOERR)
       ERRORR(MB_FAILURE, "Failed to create coordinate variable.");
 
-    dbgOut.tprintf(2, "    for variable %s variable id is %d \n", var_names[i].c_str(), variableData.varId);
+    dbgOut.tprintf(2, "    for variable %s with desired name %s variable id is %d \n", var_names[i].c_str(),
+        desired_names[i].c_str(), variableData.varId);
     // Now define the variable, with all dimensions
   }
 

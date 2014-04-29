@@ -62,6 +62,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   ErrorCode rval;
   // See if opts has variable(s) specified
   std::vector<std::string> var_names;
+  std::vector<std::string> desired_names;
   std::vector<int> tstep_nums;
   std::vector<double> tstep_vals;
 
@@ -75,7 +76,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   if (num_set != 1)
     ERRORR(MB_FAILURE, "We should write only one set, the file set used to read data into.");
 
-  rval = parse_options(options, var_names, tstep_nums, tstep_vals);
+  rval = parse_options(options, var_names, desired_names, tstep_nums, tstep_vals);
   ERRORR(rval, "Trouble parsing option string.");
 
   // Important to create some data that will be used to write the file; dimensions, variables, etc
@@ -135,7 +136,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   rval = myHelper->collect_variable_data(var_names);
   ERRORR(rval, "Trouble collecting variable data.");
 
-  rval = myHelper->init_file(var_names, append);
+  rval = myHelper->init_file(var_names, desired_names, append);
   ERRORR(rval, "Failed to initialize file.");
 
   rval = myHelper->write_values(var_names);
@@ -147,7 +148,8 @@ ErrorCode WriteNC::write_file(const char* file_name,
   return MB_SUCCESS;
 }
 
-ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
+ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::string>& var_names,
+    std::vector<std::string>& desired_names, std::vector<int>& tstep_nums,
                                 std::vector<double>& tstep_vals)
 {
   int tmpval;
@@ -161,6 +163,20 @@ ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::strin
     noVars = true;
   else
     noVars = false;
+
+
+  rval = opts.get_strs_option("RENAME", desired_names);
+  if (MB_ENTITY_NOT_FOUND == rval)
+  {
+    if(!noVars)
+    {
+      desired_names.resize(var_names.size());
+      std::copy(var_names.begin(), var_names.end(), desired_names.begin());
+    }
+  }
+  // either way
+  assert(desired_names.size() == var_names.size());
+
   opts.get_ints_option("TIMESTEP", tstep_nums);
   opts.get_reals_option("TIMEVAL", tstep_vals);
   rval = opts.get_null_option("NOMESH");

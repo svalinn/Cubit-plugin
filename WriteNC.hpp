@@ -153,6 +153,7 @@ private:
 
   ErrorCode parse_options(const FileOptions& opts,
                           std::vector<std::string>& var_names,
+                          std::vector<std::string>& desired_names,
                           std::vector<int>& tstep_nums,
                           std::vector<double>& tstep_vals);
   /*
