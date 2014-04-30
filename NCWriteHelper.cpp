@@ -12,6 +12,7 @@
 #include "NCWriteMPAS.hpp"
 
 #include "moab/WriteUtilIface.hpp"
+#include "MBTagConventions.hpp"
 
 #include <sstream>
 
@@ -540,8 +541,18 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
       switch (variableData.entLoc) {
         case WriteNC::ENTLOCFACE:
           // Faces
+        {
           rval = mbImpl->get_entities_by_dimension(_fileSet, 2, ents);
           ERRORR(rval, "Can't get entities for faces.");
+#ifdef USE_MPI
+          bool &isParallel = _writeNC->isParallel;
+          if (isParallel) {
+            ParallelComm*& myPcomm = _writeNC->myPcomm;
+            rval = myPcomm->filter_pstatus(ents, PSTATUS_NOT_OWNED, PSTATUS_NOT);
+            ERRORR(rval, "Can't get filter for owned entities");
+          }
+#endif
+        }
           break;
         default:
           ERRORR(MB_FAILURE, "Not implemented yet.");
