@@ -95,15 +95,15 @@ ErrorCode WriteNC::write_file(const char* file_name,
 
   if (append)
   {
-#ifdef PNETCDF_FILE
     int omode = NC_WRITE;
+#ifdef PNETCDF_FILE
     if (isParallel)
       success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), file_name, omode, MPI_INFO_NULL, &fileId);
     else
       success = NCFUNC(open)(MPI_COMM_SELF, file_name, omode, MPI_INFO_NULL, &fileId);
 #else
-    // This is a regular netcdf file
-    success = NCFUNC(open)(file_name, overwrite ? NC_CLOBBER : NC_NOCLOBBER, &fileId);
+    // This is a regular netcdf file, open in write mode
+    success = NCFUNC(open)(file_name, omode, &fileId);
 #endif
     ERRORS(success, "Failed to open file for appending.");
   }

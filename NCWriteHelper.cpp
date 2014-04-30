@@ -224,7 +224,11 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
 
   // if append mode, make sure we are in define mode; a simple open will not allow creation of new variables
   if (append)
-    NCFUNC(redef)(_fileId);
+  {
+    int errcode = NCFUNC(redef)(_fileId);
+    if (errcode != NC_NOERR)
+      ERRORR(MB_FAILURE, "Can't open file in  redefine mode");
+  }
   // First initialize all coordinates, then fill VarData for actual variables (and dimensions)
   // Check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
