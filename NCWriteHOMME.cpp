@@ -47,10 +47,10 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
   }
   nLevels = dimLens[levDim];
 
-  Range local_verts;
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);
+  // Get local vertices
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, localVertsOwned);
   ERRORR(rval, "Trouble getting local vertices in current file set.");
-  assert(!local_verts.empty());
+  assert(!localVertsOwned.empty());
 
 #ifdef USE_MPI
   bool& isParallel = _writeNC->isParallel;
@@ -59,29 +59,24 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
     int rank = myPcomm->proc_config().proc_rank();
     int procs = myPcomm->proc_config().proc_size();
     if (procs > 1) {
-      rval = myPcomm->filter_pstatus(local_verts, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &localVertsOwned);
+      unsigned int num_local_verts = localVertsOwned.size();
+      rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
       ERRORR(rval, "Trouble getting owned vertices in set.");
+
       // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
-      // We should avoid writing in parallel with overlapped data
-      if (rank > 0)
-        assert("PARALLEL_RESOLVE_SHARED_ENTS option is set" && localVertsOwned.size() < local_verts.size());
+      // Verify that not all local vertices are owned by the last processor
+      if (procs - 1 == rank)
+        assert("PARALLEL_RESOLVE_SHARED_ENTS option is set" && localVertsOwned.size() < num_local_verts);
     }
-    else
-      localVertsOwned = local_verts;
   }
-  else
-    localVertsOwned = local_verts; // Not running in parallel, but still with MPI
-#else
-  localVertsOwned = local_verts;
 #endif
 
   std::vector<int> gids(localVertsOwned.size());
   rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);
   ERRORR(rval, "Trouble getting global IDs on local vertices.");
 
-  // Restore localGidVerts
+  // Get localGidVertsOwned
   std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVertsOwned));
-  nLocalVerticesOwned = localGidVertsOwned.size();
 
   return MB_SUCCESS;
 }
@@ -125,7 +120,7 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
           // Start from the first localGidVerts
           // Actually, this will be reset later for writing
           currentVarData.writeStarts[2] = localGidVertsOwned[0] - 1;
-          currentVarData.writeCounts[2] = nLocalVerticesOwned;
+          currentVarData.writeCounts[2] = localGidVertsOwned.size();
           break;
         default:
           ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
@@ -149,6 +144,7 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
   int success;
+  int num_local_verts_owned = localVertsOwned.size();
 
   // Now look at requested var_names; if they have time, we will have a list, and write one at a time
   // Need to transpose from lev dimension
@@ -160,7 +156,7 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
       ERRORR(MB_FAILURE, "Can't find variable requested.");
 
     WriteNC::VarData& variableData = vit->second;
-    int numTimeSteps = (int)variableData.varTags.size();
+
     if (variableData.has_tsteps) {
       // Time should be the first dimension
       assert(tDim == variableData.varDims[0]);
@@ -178,13 +174,14 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
       // At each timestep, we need to transpose tag format (ncol, lev) back
       // to NC format (lev, ncol) for writing
       // FIXME: Should use tstep_nums (from writing options) later
+      int numTimeSteps = (int)variableData.varTags.size();
       for (int j = 0; j < numTimeSteps; j++) {
         // We will write one time step, and count will be one; start will be different
         // Use tag_get_data instead of tag_iterate to get values, as localVertsOwned
         // might not be contiguous. We should also transpose for level so that means
         // deep copy for transpose
         variableData.writeStarts[0] = j; // This is time, again
-        std::vector<double> tag_data(nLocalVerticesOwned * variableData.numLev);
+        std::vector<double> tag_data(num_local_verts_owned * variableData.numLev);
         ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[j], localVertsOwned, &tag_data[0]);
         ERRORR(rval, "Trouble getting tag data on owned vertices.");
 
@@ -197,9 +194,9 @@ ErrorCode NCWriteHOMME::write_values(std::vector<std::string>& var_names)
         // Now write from memory directly
         switch (variableData.varDataType) {
           case NC_DOUBLE: {
-            std::vector<double> tmpdoubledata(nLocalVerticesOwned * variableData.numLev);
+            std::vector<double> tmpdoubledata(num_local_verts_owned * variableData.numLev);
             // Transpose (ncol, lev) back to (lev, ncol)
-            jik_to_kji(nLocalVerticesOwned, 1, variableData.numLev, &tmpdoubledata[0], &tag_data[0]);
+            jik_to_kji(num_local_verts_owned, 1, variableData.numLev, &tmpdoubledata[0], &tag_data[0]);
 
             size_t indexInDoubleArray = 0;
             size_t ic = 0;

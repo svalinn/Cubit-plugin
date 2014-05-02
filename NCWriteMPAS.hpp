@@ -17,7 +17,7 @@ class NCWriteMPAS: public UcdNCWriteHelper
 {
 public:
   NCWriteMPAS(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
-: UcdNCWriteHelper(writeNC, fileId, opts, fileSet), noEdges(false) {}
+: UcdNCWriteHelper(writeNC, fileId, opts, fileSet) {}
 
   virtual ~NCWriteMPAS();
 
@@ -30,9 +30,6 @@ private:
 
   //! Implementation of NCWriteHelper::write_values()
   virtual ErrorCode write_values(std::vector<std::string>& var_names);
-
-private:
-  bool noEdges;
 };
 
 } // namespace moab

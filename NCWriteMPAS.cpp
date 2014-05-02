@@ -49,21 +49,20 @@ ErrorCode NCWriteMPAS::collect_mesh_info()
   }
   nLevels = dimLens[levDim];
 
-  Range local_verts;
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);
+  // Get local vertices
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, localVertsOwned);
   ERRORR(rval, "Trouble getting local vertices in current file set.");
-  assert(!local_verts.empty());
+  assert(!localVertsOwned.empty());
 
-  // Depends on whether NO_EDGES read option is set or not
-  Range local_edges;
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 1, local_edges);
+  // Get local edges
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 1, localEdgesOwned);
   ERRORR(rval, "Trouble getting local edges in current file set.");
-  noEdges = local_edges.empty();
+  // There are no edges if NO_EDGES read option is set
 
-  Range local_cells;
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, local_cells);
+  // Get local cells
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);
   ERRORR(rval, "Trouble getting local cells in current file set.");
-  assert(!local_cells.empty());
+  assert(!localCellsOwned.empty());
 
 #ifdef USE_MPI
   bool& isParallel = _writeNC->isParallel;
@@ -72,62 +71,48 @@ ErrorCode NCWriteMPAS::collect_mesh_info()
     int rank = myPcomm->proc_config().proc_rank();
     int procs = myPcomm->proc_config().proc_size();
     if (procs > 1) {
-      rval = myPcomm->filter_pstatus(local_verts, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &localVertsOwned);
+      unsigned int num_local_verts = localVertsOwned.size();
+      rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
       ERRORR(rval, "Trouble getting owned vertices in set.");
-      // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
-      // We should avoid writing in parallel with overlapped data
-      if (procs - 1 == rank)
-        assert("PARALLEL_RESOLVE_SHARED_ENTS option is set" && localVertsOwned.size() < local_verts.size());
 
-      if (!noEdges) {
-        rval = myPcomm->filter_pstatus(local_edges, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &localEdgesOwned);
+      // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
+      // Verify that not all local vertices are owned by the last processor
+      if (procs - 1 == rank)
+        assert("PARALLEL_RESOLVE_SHARED_ENTS option is set" && localVertsOwned.size() < num_local_verts);
+
+      if (!localEdgesOwned.empty()) {
+        rval = myPcomm->filter_pstatus(localEdgesOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
         ERRORR(rval, "Trouble getting owned edges in set.");
       }
 
-      rval = myPcomm->filter_pstatus(local_cells, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &localCellsOwned);
+      rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
       ERRORR(rval, "Trouble getting owned cells in set.");
     }
-    else {
-      localVertsOwned = local_verts;
-      localEdgesOwned = local_edges;
-      localCellsOwned = local_cells;
-    }
   }
-  else {
-    // Not running in parallel, but still with MPI
-    localVertsOwned = local_verts;
-    localEdgesOwned = local_edges;
-    localCellsOwned = local_cells;
-  }
-#else
-  localVertsOwned = local_verts;
-  localEdgesOwned = local_edges;
-  localCellsOwned = local_cells;
 #endif
 
   std::vector<int> gids(localVertsOwned.size());
   rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);
   ERRORR(rval, "Trouble getting global IDs on local vertices.");
 
-  // Restore localGidVerts
+  // Get localGidVertsOwned
   std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVertsOwned));
-  nLocalVerticesOwned = localGidVertsOwned.size();
 
-  gids.resize(localEdgesOwned.size());
-  rval = mbImpl->tag_get_data(mGlobalIdTag, localEdgesOwned, &gids[0]);
-  ERRORR(rval, "Trouble getting global IDs on local edges.");
+  if (!localEdgesOwned.empty()) {
+    gids.resize(localEdgesOwned.size());
+    rval = mbImpl->tag_get_data(mGlobalIdTag, localEdgesOwned, &gids[0]);
+    ERRORR(rval, "Trouble getting global IDs on local edges.");
 
-  // Restore localGidEdges
-  std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidEdgesOwned));
-  nLocalEdgesOwned = localGidEdgesOwned.size();
+    // Get localGidEdgesOwned
+    std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidEdgesOwned));
+  }
 
   gids.resize(localCellsOwned.size());
   rval = mbImpl->tag_get_data(mGlobalIdTag, localCellsOwned, &gids[0]);
   ERRORR(rval, "Trouble getting global IDs on local cells.");
 
-  // Restore localGidCells
+  // Get localGidCellsOwned
   std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidCellsOwned));
-  nLocalCellsOwned = localGidCellsOwned.size();
 
   return MB_SUCCESS;
 }
@@ -172,9 +157,13 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
       ERRORR(MB_FAILURE, "Can't find one variable.");
 
     WriteNC::VarData& currentVarData = vit->second;
-    std::vector<int>& varDims = currentVarData.varDims;
+
+    // Skip edge variables, if there are no edges
+    if (localEdgesOwned.empty() && currentVarData.entLoc == WriteNC::ENTLOCEDGE)
+      continue;
 
     // If nVertLevels dimension is not found, try other optional levels such as nVertLevelsP1
+    std::vector<int>& varDims = currentVarData.varDims;
     if (std::find(varDims.begin(), varDims.end(), levDim) == varDims.end()) {
       for (unsigned int j = 0; j < opt_lev_dims.size(); j++) {
         if (std::find(varDims.begin(), varDims.end(), opt_lev_dims[j]) != varDims.end()) {
@@ -187,10 +176,10 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
     if (currentVarData.has_tsteps) {
       // Support non-set variables with 3 dimensions like (Time, nCells, nVertLevels), or
       // 2 dimensions like (Time, nCells)
-      assert(3 == currentVarData.varDims.size() || 2 == currentVarData.varDims.size());
+      assert(3 == varDims.size() || 2 == varDims.size());
 
       // Time should be the first dimension
-      assert(tDim == currentVarData.varDims[0]);
+      assert(tDim == varDims[0]);
 
       // Set up writeStarts and writeCounts
       currentVarData.writeStarts.resize(3);
@@ -207,21 +196,21 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
           // Start from the first localGidVerts
           // Actually, this will be reset later for writing
           currentVarData.writeStarts[1] = localGidVertsOwned[0] - 1;
-          currentVarData.writeCounts[1] = nLocalVerticesOwned;
+          currentVarData.writeCounts[1] = localGidVertsOwned.size();
           break;
         case WriteNC::ENTLOCFACE:
           // Faces
           // Start from the first localGidCells
           // Actually, this will be reset later for writing
           currentVarData.writeStarts[1] = localGidCellsOwned[0] - 1;
-          currentVarData.writeCounts[1] = nLocalCellsOwned;
+          currentVarData.writeCounts[1] = localGidCellsOwned.size();
           break;
         case WriteNC::ENTLOCEDGE:
           // Edges
           // Start from the first localGidEdges
           // Actually, this will be reset later for writing
           currentVarData.writeStarts[1] = localGidEdgesOwned[0] - 1;
-          currentVarData.writeCounts[1] = nLocalEdgesOwned;
+          currentVarData.writeCounts[1] = localGidEdgesOwned.size();
           break;
         default:
           ERRORR(MB_FAILURE, "Unexpected entity location type for MPAS non-set variable.");
@@ -262,12 +251,16 @@ ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& var_names)
       ERRORR(MB_FAILURE, "Can't find variable requested.");
 
     WriteNC::VarData& variableData = vit->second;
-    int numTimeSteps = (int)variableData.varTags.size();
+
+    // Skip edge variables, if there are no edges
+    if (localEdgesOwned.empty() && variableData.entLoc == WriteNC::ENTLOCEDGE)
+      continue;
+
     if (variableData.has_tsteps) {
       // Time should be the first dimension
       assert(tDim == variableData.varDims[0]);
 
-      // Assume this variable is on vertices for the time being
+      // Get local owned entities of this variable
       switch (variableData.entLoc) {
         case WriteNC::ENTLOCVERT:
           // Vertices
@@ -290,6 +283,7 @@ ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& var_names)
 
       // A typical variable has 3 dimensions as (Time, nCells, nVertLevels)
       // FIXME: Should use tstep_nums (from writing options) later
+      int numTimeSteps = (int)variableData.varTags.size();
       for (int j = 0; j < numTimeSteps; j++) {
         // We will write one time step, and count will be one; start will be different
         // Use tag_get_data instead of tag_iterate to get values, as localEntsOwned

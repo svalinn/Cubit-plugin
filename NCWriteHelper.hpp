@@ -60,6 +60,9 @@ protected:
 
   //! Dimension numbers for time and level
   int tDim, levDim;
+
+  //! Local owned cells, edges and vertices
+  Range localCellsOwned, localEdgesOwned, localVertsOwned;
 };
 
 //! Child helper class for scd mesh, e.g. CAM_EL or CAM_FV
@@ -100,21 +103,12 @@ class UcdNCWriteHelper : public NCWriteHelper
 public:
   UcdNCWriteHelper(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 : NCWriteHelper(writeNC, fileId, opts, fileSet),
-  nLocalCellsOwned(0), nLocalEdgesOwned(0), nLocalVerticesOwned(0),
   cDim(-1), eDim(-1), vDim(-1) {}
   virtual ~UcdNCWriteHelper() {}
 
 protected:
-  //! Dimensions of my local owned part of grid
-  int nLocalCellsOwned;
-  int nLocalEdgesOwned;
-  int nLocalVerticesOwned;
-
   //! Dimension numbers for nCells, nEdges and nVertices
   int cDim, eDim, vDim;
-
-  //! Local owned cells, edges and vertices
-  Range localCellsOwned, localEdgesOwned, localVertsOwned;
 
   //! Local global ID for owned cells, edges and vertices
   Range localGidCellsOwned, localGidEdgesOwned, localGidVertsOwned;

@@ -222,13 +222,13 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
   int tDim_in_dimNames = tDim;
   int levDim_in_dimNames = levDim;
 
-  // if append mode, make sure we are in define mode; a simple open will not allow creation of new variables
-  if (append)
-  {
+  // If append mode, make sure we are in define mode; a simple open will not allow creation of new variables
+  if (append) {
     int errcode = NCFUNC(redef)(_fileId);
     if (errcode != NC_NOERR)
-      ERRORR(MB_FAILURE, "Can't open file in  redefine mode");
+      ERRORR(MB_FAILURE, "Can't open file in redefine mode");
   }
+
   // First initialize all coordinates, then fill VarData for actual variables (and dimensions)
   // Check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
@@ -242,40 +242,40 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
     WriteNC::VarData& varCoordData = vit->second;
     varCoordData.varDims.resize(1);
 
-    // if not append, create it for sure
-    // if append, we might already have it, including the tag / variable with the same name
+    // If not append, create it for sure
+    // If append, we might already have it, including the tag / variable with the same name
     /*
      * int ncmpi_inq_dimid(int ncid, const char *name, int *idp);
      */
-    if (append)
-    {
+    if (append) {
       int dimId;
-      if (NCFUNC(inq_dimid)(_fileId, coordName.c_str(), &dimId) == NC_NOERR)
-        // if not found, create it later
-      {
+      if (NCFUNC(inq_dimid)(_fileId, coordName.c_str(), &dimId) == NC_NOERR) { // If not found, create it later
         varCoordData.varDims[0] = dimId;
-        // check that the coordinate is a variable too
-        // Skip dummy coordinate variables (e.g. ncol)
         dbgOut.tprintf(2, "    file already has coordName %s dim id is %d \n", coordName.c_str(), (int)varCoordData.varDims[0]);
-        if (dummyVarNames.find(coordName) != dummyVarNames.end())
-          continue;
-        // inquire for a variable with the same name
 
-        int varId;
-        if (NCFUNC(inq_varid)(_fileId, coordName.c_str(), &varId) != NC_NOERR)
-          ERRORR(MB_FAILURE, "we do not have a variable with the same name.");
-        // we should also check that this variable has one dimension, and it is dimId
-        varCoordData.varId = varId;
-        dbgOut.tprintf(2, "    file already has coordinate %s and varId is %d \n", coordName.c_str(), varId);
         // Update tDim and levDim to actual dimension id
         if (coordName == dimNames[tDim_in_dimNames])
           tDim = varCoordData.varDims[0];
         else if (coordName == dimNames[levDim_in_dimNames])
           levDim = varCoordData.varDims[0];
-        continue; // maybe more checks are needed here
-      }
 
+        // Skip dummy coordinate variables (e.g. ncol)
+        if (dummyVarNames.find(coordName) != dummyVarNames.end())
+          continue;
+
+        // Check that the coordinate is a variable too
+        // Inquire for a variable with the same name
+        int varId;
+        if (NCFUNC(inq_varid)(_fileId, coordName.c_str(), &varId) != NC_NOERR)
+          ERRORR(MB_FAILURE, "We do not have a variable with the same name.");
+        // We should also check that this variable has one dimension, and it is dimId
+        varCoordData.varId = varId;
+        dbgOut.tprintf(2, "    file already has coordinate %s and varId is %d \n", coordName.c_str(), varId);
+
+        continue; // Maybe more checks are needed here
+      }
     }
+
     /* int nc_def_dim (int ncid, const char *name, size_t len, int *dimidp);
        * example:  status = nc_def_dim(fileId, "lat", 18L, &latid);
     */
@@ -284,7 +284,6 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
     if (NCFUNC(def_dim)(_fileId, coordName.c_str(), (size_t)varCoordData.sz,
         &varCoordData.varDims[0]) != NC_NOERR)
      ERRORR(MB_FAILURE, "Failed to generate dimension.");
-
     dbgOut.tprintf(2, "    for coordName %s dim id is %d \n", coordName.c_str(), (int)varCoordData.varDims[0]);
 
     // Update tDim and levDim to actual dimension id
@@ -323,8 +322,9 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
       continue;
 
     WriteNC::VarData& variableData = vit->second;
-    int numDims = (int)variableData.varDims.size();
+
     // The index is for dimNames; we need to find out the actual dimension id (from above)
+    int numDims = (int)variableData.varDims.size();
     for (int j = 0; j < numDims; j++) {
       std::string dimName = dimNames[variableData.varDims[j]];
       std::map<std::string, WriteNC::VarData>::iterator vit2 = varInfo.find(dimName);
@@ -342,7 +342,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
     int errCode = NCFUNC(def_var)(_fileId, desired_names[i].c_str(), variableData.varDataType,
         (int)variableData.varDims.size(), &(variableData.varDims[0]),
         &variableData.varId);
-    if ( errCode != NC_NOERR)
+    if (errCode != NC_NOERR)
       ERRORR(MB_FAILURE, "Failed to create coordinate variable.");
 
     dbgOut.tprintf(2, "    for variable %s with desired name %s variable id is %d \n", var_names[i].c_str(),
@@ -454,6 +454,23 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
   lCDims[1] = val[0];
   lCDims[4] = val[1];
 
+  // Get local faces
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);
+  ERRORR(rval, "Trouble getting local faces in current file set.");
+  assert(!localCellsOwned.empty());
+
+#ifdef USE_MPI
+  bool& isParallel = _writeNC->isParallel;
+  if (isParallel) {
+    ParallelComm*& myPcomm = _writeNC->myPcomm;
+    int procs = myPcomm->proc_config().proc_size();
+    if (procs > 1) {
+      rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
+      ERRORR(rval, "Trouble getting owned faces in set.");
+    }
+  }
+#endif
+
   return MB_SUCCESS;
 }
 
@@ -489,7 +506,7 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
       currentVarData.writeStarts[1] = 0;
       currentVarData.writeCounts[1] = currentVarData.numLev;
 
-      // Finally: lat (or slat) and lon (or slon)
+      // Finally: lat and lon
       switch (currentVarData.entLoc) {
         case WriteNC::ENTLOCFACE:
           // Faces
@@ -499,7 +516,7 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
           currentVarData.writeCounts[3] = lCDims[3] - lCDims[0] + 1;
           break;
         default:
-          ERRORR(MB_FAILURE, "Not implemented yet.");
+          ERRORR(MB_FAILURE, "Unexpected entity location type for structured mesh non-set variable.");
       }
     }
 
@@ -512,6 +529,11 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
   return MB_SUCCESS;
 }
 
+// For parallel write, we assume that the data ranges do not overlap across processors
+// While overlapped writing might still work, we should better not take that risk
+// For CAM-EUL and CAM-FV variables on non-shared quads (e.g. T), this is not an issue
+// We assume that there are no variables on vertices and we do not support variables
+// on edges (e.g. US in CAM-FV) for the time being
 ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
@@ -519,14 +541,10 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
   std::set<std::string>& dummyVarNames = _writeNC->dummyVarNames;
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
-  ErrorCode rval;
   int success;
 
   // Now look at requested var_names; if they have time, we will have a list, and write one at a time
   // If not, just write regularly
-  // For parallel write, we assume that the data ranges do not overlap across processors (this is true
-  // for Euler and FV variables on quads)
-  // While overlapped writing might still work, we should better not take that risk
   // Use collective I/O mode put (synchronous write) for the time being, we can try nonblocking put
   // (request aggregation) later
   for (size_t i = 0; i < var_names.size(); i++) {
@@ -540,26 +558,13 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
       // Time should be the first dimension
       assert(tDim == variableData.varDims[0]);
 
-      // Get entities of this variable
-      Range ents;
+      // Assume this variable is on faces for the time being
       switch (variableData.entLoc) {
         case WriteNC::ENTLOCFACE:
           // Faces
-        {
-          rval = mbImpl->get_entities_by_dimension(_fileSet, 2, ents);
-          ERRORR(rval, "Can't get entities for faces.");
-#ifdef USE_MPI
-          bool &isParallel = _writeNC->isParallel;
-          if (isParallel) {
-            ParallelComm*& myPcomm = _writeNC->myPcomm;
-            rval = myPcomm->filter_pstatus(ents, PSTATUS_NOT_OWNED, PSTATUS_NOT);
-            ERRORR(rval, "Can't get filter for owned entities");
-          }
-#endif
-        }
           break;
         default:
-          ERRORR(MB_FAILURE, "Not implemented yet.");
+          ERRORR(MB_FAILURE, "Unexpected entity location type for structured mesh non-set variable.");
       }
 
       // A typical variable has 4 dimensions as (time, lev, lat, lon)
@@ -578,8 +583,9 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
         variableData.writeStarts[0] = j; // This is time, again
         int count;
         void* dataptr;
-        rval = mbImpl->tag_iterate(variableData.varTags[j], ents.begin(), ents.end(), count, dataptr);
-        assert(count == (int)ents.size());
+        ErrorCode rval = mbImpl->tag_iterate(variableData.varTags[j], localCellsOwned.begin(), localCellsOwned.end(), count, dataptr);
+        ERRORR(rval, "Failed to get tag iterator on owned faces.");
+        assert(count == (int)localCellsOwned.size());
 
         // Now write from memory directly
         switch (variableData.varDataType) {

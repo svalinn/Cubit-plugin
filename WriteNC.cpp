@@ -93,8 +93,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   fileName = file_name;
   int success;
 
-  if (append)
-  {
+  if (append) {
     int omode = NC_WRITE;
 #ifdef PNETCDF_FILE
     if (isParallel)
@@ -107,20 +106,20 @@ ErrorCode WriteNC::write_file(const char* file_name,
 #endif
     ERRORS(success, "Failed to open file for appending.");
   }
-  else // case when the file is new, will be overwritten, most likely
-  {
-#ifdef PNETCDF_FILE
+  else { // Case when the file is new, will be overwritten, most likely
     int cmode = overwrite ? NC_CLOBBER : NC_NOCLOBBER;
+#ifdef PNETCDF_FILE
     if (isParallel)
       success = NCFUNC(create)(myPcomm->proc_config().proc_comm(), file_name, cmode, MPI_INFO_NULL, &fileId);
     else
       success = NCFUNC(create)(MPI_COMM_SELF, file_name, cmode, MPI_INFO_NULL, &fileId);
 #else
     // This is a regular netcdf file
-    success = NCFUNC(create)(file_name, overwrite ? NC_CLOBBER : NC_NOCLOBBER, &fileId);
+    success = NCFUNC(create)(file_name, cmode, &fileId);
 #endif
     ERRORS(success, "Failed to create file.");
   }
+
   if (NULL != myHelper)
     delete myHelper;
 
@@ -164,17 +163,14 @@ ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::strin
   else
     noVars = false;
 
-
   rval = opts.get_strs_option("RENAME", desired_names);
-  if (MB_ENTITY_NOT_FOUND == rval)
-  {
-    if(!noVars)
-    {
+  if (MB_ENTITY_NOT_FOUND == rval) {
+    if (!noVars) {
       desired_names.resize(var_names.size());
       std::copy(var_names.begin(), var_names.end(), desired_names.begin());
     }
   }
-  // either way
+  // Either way
   assert(desired_names.size() == var_names.size());
 
   opts.get_ints_option("TIMESTEP", tstep_nums);
