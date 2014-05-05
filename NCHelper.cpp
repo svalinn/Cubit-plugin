@@ -192,16 +192,16 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
     unsigned int varDimSz = varInfo[mapIter->first].varDims.size();
     if (varDimSz == 0)
       continue;
-    varInfo[mapIter->first].varTags.resize(varDimSz, 0);
+    std::vector<Tag> varDimTags(varDimSz);
     for (unsigned int i = 0; i != varDimSz; i++) {
       Tag tmptag = 0;
       std::string tmptagname = dimNames[varInfo[mapIter->first].varDims[i]];
       mbImpl->tag_get_handle(tmptagname.c_str(), 0, MB_TYPE_OPAQUE, tmptag, MB_TAG_ANY);
-      varInfo[mapIter->first].varTags[i] = tmptag;
+      varDimTags[i] = tmptag;
     }
     rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
-    rval = mbImpl->tag_set_data(varNamesDimsTag, &_fileSet, 1, &(varInfo[mapIter->first].varTags[0]));
+    rval = mbImpl->tag_set_data(varNamesDimsTag, &_fileSet, 1, &(varDimTags[0]));
     ERRORR(rval, "Trouble setting data for __<var_name>_DIMS tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
@@ -252,21 +252,37 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
     Tag varAttTag = 0;
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varAttTag, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
     ERRORR(rval, "Trouble creating __<var_name>_ATTRIBS tag.");
+
     std::string varAttVal;
     std::vector<int> varAttLen;
-    rval = create_attrib_string(mapIter->second.varAtts, varAttVal, varAttLen);
-    ERRORR(rval, "Trouble creating attribute strings.");
+    if (mapIter->second.numAtts < 1) {
+      if (dummyVarNames.find(mapIter->first) != dummyVarNames.end()) {
+        // This variable is a dummy dimension variable
+        varAttVal = "DUMMY_VAR";
+      }
+      else {
+        // This variable has no attributes
+        varAttVal = "NO_ATTRIBS";
+      }
+    }
+    else {
+      rval = create_attrib_string(mapIter->second.varAtts, varAttVal, varAttLen);
+      ERRORR(rval, "Trouble creating attribute string.");
+    }
     const void* varAttPtr = varAttVal.c_str();
     int varAttSz = varAttVal.size();
+    if (0 == varAttSz)
+      varAttSz = 1;
     rval = mbImpl->tag_set_by_ptr(varAttTag, &_fileSet, 1, &varAttPtr, &varAttSz);
     ERRORR(rval, "Trouble setting data for __<var_name>_ATTRIBS tag.");
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
-    if (varAttLen.size() == 0)
-      varAttLen.push_back(0);
+
     ssTagName << "_LEN";
     tag_name = ssTagName.str();
     Tag varAttLenTag = 0;
+    if (0 == varAttLen.size())
+      varAttLen.push_back(0);
     rval = mbImpl->tag_get_handle(tag_name.c_str(), varAttLen.size(), MB_TYPE_INTEGER, varAttLenTag, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<var_name>_ATTRIBS_LEN tag.");
     rval = mbImpl->tag_set_data(varAttLenTag, &_fileSet, 1, &varAttLen[0]);
@@ -323,6 +339,11 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
       if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
           dummyVarNames.find(vd.varName) != dummyVarNames.end())
          continue;
+
+      // Dimension variables were read before creating conventional tags
+      std::vector<std::string>& dimNames = _readNC->dimNames;
+      if (std::find(dimNames.begin(), dimNames.end(), vd.varName) != dimNames.end())
+        continue;
 
       if (vd.entLoc == ReadNC::ENTLOCSET)
         vsetdatas.push_back(vd);
