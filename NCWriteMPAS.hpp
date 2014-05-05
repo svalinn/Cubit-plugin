@@ -26,10 +26,10 @@ private:
   virtual ErrorCode collect_mesh_info();
 
   //! Collect data for specified variables
-  virtual ErrorCode collect_variable_data(std::vector<std::string>& var_names);
+  virtual ErrorCode collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
 
   //! Implementation of NCWriteHelper::write_values()
-  virtual ErrorCode write_values(std::vector<std::string>& var_names);
+  virtual ErrorCode write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
 };
 
 } // namespace moab

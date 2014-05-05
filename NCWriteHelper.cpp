@@ -41,7 +41,7 @@ NCWriteHelper* NCWriteHelper::get_nc_helper(WriteNC* writeNC, int fileId, const 
   return NULL;
 }
 
-ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_names)
+ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
   std::vector<std::string>& dimNames = _writeNC->dimNames;
@@ -54,6 +54,12 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
   ErrorCode rval;
 
   usedCoordinates.clear();
+
+  if (tstep_nums.empty() && nTimeSteps > 0) {
+    // No timesteps input, get them all
+    for (int i = 0; i < nTimeSteps; i++)
+      tstep_nums.push_back(i);
+  }
 
   for (size_t i = 0; i < var_names.size(); i++) {
     std::string varname = var_names[i];
@@ -89,18 +95,14 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
 
     // Process non-set variables with time steps
     if (currentVarData.has_tsteps) {
-      int index = 0;
-      // FIXME: Should use tstep_nums (from writing options) later
-      while (true) {
+      for (unsigned int t = 0; t < tstep_nums.size(); t++) {
         Tag indexedTag = 0;
         std::stringstream ssTagNameWithIndex;
-        ssTagNameWithIndex << varname << index;
+        ssTagNameWithIndex << varname << tstep_nums[t];
         rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);
-        if (MB_SUCCESS != rval)
-          break;
-        dbgOut.tprintf(2, "    found indexed tag %d with name %s\n", index, ssTagNameWithIndex.str().c_str());
+        ERRORR(rval, "Can't find one tag.");
+        dbgOut.tprintf(2, "    found indexed tag %d with name %s\n", tstep_nums[t], ssTagNameWithIndex.str().c_str());
         currentVarData.varTags.push_back(indexedTag);
-        index++; // We should get out of the loop at some point
 
         // The type of the tag is fixed though
         DataType type;
@@ -172,6 +174,14 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
     dbgOut.tprintf(2, "    found coordinate tag with name %s and length %d\n", coordName.c_str(),
         sizeCoordinate);
 
+    // Find the type of tag, and use it
+    DataType type;
+    rval = mbImpl->tag_get_data_type(coordTag, type);
+    ERRORR(rval, "Can't get tag type.");
+    varCoordData.varDataType = NC_DOUBLE;
+    if (MB_TYPE_INTEGER == type)
+      varCoordData.varDataType = NC_INT;
+
     // Get dimension length (the only dimension of this coordinate variable, with the same name)
     assert(1 == varCoordData.varDims.size());
     int coordDimLen = dimLens[varCoordData.varDims[0]];
@@ -181,10 +191,28 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       // The number of coordinates should be set to dimension length, instead of 1
       assert(1 == sizeCoordinate);
       sizeCoordinate = coordDimLen;
+
+      // No variable data to write
+      data = NULL;
     }
     else {
       // The number of coordinates should be exactly the same as dimension length
       assert(sizeCoordinate == coordDimLen);
+    }
+
+    // For time, the actual output size and values are determined by tstep_nums
+    if (varCoordData.varDims[0] == tDim) {
+      assert(tstep_nums.size() > 0 && tstep_nums.size() <= (size_t)sizeCoordinate);
+      sizeCoordinate = tstep_nums.size();
+
+      if (NULL != data) {
+        assert(NC_DOUBLE == varCoordData.varDataType);
+        timeStepVals.resize(sizeCoordinate);
+        for (unsigned int t = 0; t < tstep_nums.size(); t++)
+          timeStepVals[t] = ((double*)data)[tstep_nums[t]];
+
+        data = &timeStepVals[0];
+      }
     }
 
     // This is the length
@@ -193,15 +221,6 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
     varCoordData.writeStarts[0] = 0;
     varCoordData.writeCounts.resize(1);
     varCoordData.writeCounts[0] = sizeCoordinate;
-
-    // Find the type of tag, and use it
-    DataType type;
-    rval = mbImpl->tag_get_data_type(coordTag, type);
-    ERRORR(rval, "Can't get tag type.");
-
-    varCoordData.varDataType = NC_DOUBLE;
-    if (MB_TYPE_INTEGER == type)
-      varCoordData.varDataType = NC_INT;
 
     assert(0 == varCoordData.memoryHogs.size()); // Nothing so far
     varCoordData.memoryHogs.push_back((void*)data);
@@ -474,9 +493,9 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
   return MB_SUCCESS;
 }
 
-ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_names)
+ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
-  NCWriteHelper::collect_variable_data(var_names);
+  NCWriteHelper::collect_variable_data(var_names, tstep_nums);
 
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
@@ -534,7 +553,7 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
 // For CAM-EUL and CAM-FV variables on non-shared quads (e.g. T), this is not an issue
 // We assume that there are no variables on vertices and we do not support variables
 // on edges (e.g. US in CAM-FV) for the time being
-ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
+ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
   std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
@@ -553,7 +572,6 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
       ERRORR(MB_FAILURE, "Can't find variable requested.");
 
     WriteNC::VarData& variableData = vit->second;
-    int numTimeSteps = (int)variableData.varTags.size();
     if (variableData.has_tsteps) {
       // Time should be the first dimension
       assert(tDim == variableData.varDims[0]);
@@ -575,15 +593,15 @@ ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
       size_t nk = variableData.writeCounts[1]; // lev
 
       variableData.writeCounts[0] = 1; // We will write one time step
-      // FIXME: Should use tstep_nums (from writing options) later
-      for (int j = 0; j < numTimeSteps; j++) {
+
+      for (unsigned int t = 0; t < tstep_nums.size(); t++) {
         // We will write one time step, and count will be one; start will be different
         // We will write values directly from tag_iterate, but we should also transpose for level
         // so that means deep copy for transpose
-        variableData.writeStarts[0] = j; // This is time, again
+        variableData.writeStarts[0] = t; // This is time, again
         int count;
         void* dataptr;
-        ErrorCode rval = mbImpl->tag_iterate(variableData.varTags[j], localCellsOwned.begin(), localCellsOwned.end(), count, dataptr);
+        ErrorCode rval = mbImpl->tag_iterate(variableData.varTags[t], localCellsOwned.begin(), localCellsOwned.end(), count, dataptr);
         ERRORR(rval, "Failed to get tag iterator on owned faces.");
         assert(count == (int)localCellsOwned.size());
 

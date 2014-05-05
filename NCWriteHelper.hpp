@@ -27,10 +27,10 @@ public:
   virtual ErrorCode collect_mesh_info() = 0;
 
   //! Collect data for specified variables
-  virtual ErrorCode collect_variable_data(std::vector<std::string>& var_names);
+  virtual ErrorCode collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
 
   //! Take the info from VarData and write first the coordinates, then the actual variables
-  virtual ErrorCode write_values(std::vector<std::string>& var_names) = 0;
+  virtual ErrorCode write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums) = 0;
 
   //! Initialize file: this is where all defines are done
   //! The VarData dimension ids are filled up after define
@@ -63,6 +63,9 @@ protected:
 
   //! Local owned cells, edges and vertices
   Range localCellsOwned, localEdgesOwned, localVertsOwned;
+
+  //! Time values of output timesteps
+  std::vector<double> timeStepVals;
 };
 
 //! Child helper class for scd mesh, e.g. CAM_EL or CAM_FV
@@ -84,10 +87,10 @@ private:
   virtual ErrorCode collect_mesh_info();
 
   //! Collect data for specified variables
-  virtual ErrorCode collect_variable_data(std::vector<std::string>& var_names);
+  virtual ErrorCode collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
 
   //! Implementation of NCWriteHelper::write_values()
-  virtual ErrorCode write_values(std::vector<std::string>& var_names);
+  virtual ErrorCode write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
 
 protected:
   //! Dimensions of my local part of grid

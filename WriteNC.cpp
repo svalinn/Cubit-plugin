@@ -132,13 +132,13 @@ ErrorCode WriteNC::write_file(const char* file_name,
   rval = myHelper->collect_mesh_info();
   ERRORR(rval, "Trouble collecting mesh info.");
 
-  rval = myHelper->collect_variable_data(var_names);
+  rval = myHelper->collect_variable_data(var_names, tstep_nums);
   ERRORR(rval, "Trouble collecting variable data.");
 
   rval = myHelper->init_file(var_names, desired_names, append);
   ERRORR(rval, "Failed to initialize file.");
 
-  rval = myHelper->write_values(var_names);
+  rval = myHelper->write_values(var_names, tstep_nums);
   ERRORR(rval, "Failed to write values.");
 
   success = NCFUNC(close)(fileId);

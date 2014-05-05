@@ -117,9 +117,9 @@ ErrorCode NCWriteMPAS::collect_mesh_info()
   return MB_SUCCESS;
 }
 
-ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names)
+ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
-  NCWriteHelper::collect_variable_data(var_names);
+  NCWriteHelper::collect_variable_data(var_names, tstep_nums);
 
   std::vector<std::string>& dimNames = _writeNC->dimNames;
   std::vector<int>& dimLens = _writeNC->dimLens;
@@ -231,7 +231,7 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
   return MB_SUCCESS;
 }
 
-ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& var_names)
+ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
   std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
@@ -282,15 +282,13 @@ ErrorCode NCWriteMPAS::write_values(std::vector<std::string>& var_names)
       }
 
       // A typical variable has 3 dimensions as (Time, nCells, nVertLevels)
-      // FIXME: Should use tstep_nums (from writing options) later
-      int numTimeSteps = (int)variableData.varTags.size();
-      for (int j = 0; j < numTimeSteps; j++) {
+      for (unsigned int t = 0; t < tstep_nums.size(); t++) {
         // We will write one time step, and count will be one; start will be different
         // Use tag_get_data instead of tag_iterate to get values, as localEntsOwned
         // might not be contiguous.
-        variableData.writeStarts[0] = j; // This is time, again
+        variableData.writeStarts[0] = t; // This is time, again
         std::vector<double> tag_data(pLocalEntsOwned->size() * variableData.numLev);
-        ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[j], *pLocalEntsOwned, &tag_data[0]);
+        ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[t], *pLocalEntsOwned, &tag_data[0]);
         ERRORR(rval, "Trouble getting tag data on owned vertices.");
 
 #ifdef PNETCDF_FILE
