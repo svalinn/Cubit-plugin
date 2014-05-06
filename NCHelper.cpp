@@ -1026,6 +1026,10 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
   Range edges;
   mbImpl->get_adjacencies(faces, 1, true, edges, Interface::UNION);
 
+  // Create COORDS tag for quads
+  rval = create_quad_coordinate_tag();
+  ERRORR(rval, "Trouble creating coordinate tags to entities quads");
+
   return MB_SUCCESS;
 }
 
@@ -1036,10 +1040,6 @@ ErrorCode ScdNCHelper::read_variables(std::vector<std::string>& var_names, std::
 
   ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
-
-  // Create COORDS tag for quads
-  rval = create_quad_coordinate_tag();
-  ERRORR(rval, "Trouble creating coordinate tags to entities quads");
 
   if (!vsetdatas.empty()) {
     rval = read_variable_to_set(vsetdatas, tstep_nums);
