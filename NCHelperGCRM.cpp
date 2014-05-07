@@ -610,7 +610,8 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
-        case NC_DOUBLE: {
+        case NC_DOUBLE:
+        case NC_FLOAT: {
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -673,10 +674,7 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
 
           break;
         }
-        case NC_FLOAT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
+
         case NC_INT: {
           ERRORR(MB_FAILURE, "not implemented");
           break;
@@ -698,12 +696,12 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
     if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
       continue;
 
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+    /*for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
       ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
-    }
+    }*/
   }
   // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
@@ -761,7 +759,8 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
-        case NC_DOUBLE: {
+        case NC_DOUBLE:
+        case NC_FLOAT: {
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -818,10 +817,6 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
 
           break;
         }
-        case NC_FLOAT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         case NC_INT: {
           ERRORR(MB_FAILURE, "not implemented");
           break;
@@ -843,12 +838,12 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
     if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
       continue;
 
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+   /* for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
       ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
-    }
+    }*/
   }
 
   // Debug output, if requested
@@ -1295,6 +1290,20 @@ ErrorCode NCHelperGCRM::create_local_cells(const std::vector<int>& vertices_on_l
         assert(local_vert_idx != -1);
         conn_arr_local_cells_with_n_edges[num_edges_per_cell][j * num_edges_per_cell + k] =
             start_vertex + local_vert_idx;
+      }
+      // make sure that if some nodes are repeated, they are at the end of the connectivity array
+      // so, pentagons as hexagons should have a connectivity like 123455 and not 122345
+      EntityHandle *pvertex= &(conn_arr_local_cells_with_n_edges[num_edges_per_cell][j * num_edges_per_cell ]);
+      for (int  k = 0; k < num_edges_per_cell-2; k++)
+      {
+        if( *(pvertex+k) == *(pvertex+k+1) )
+        {
+          // shift the connectivity
+          for (int kk=k+1; kk<num_edges_per_cell-2; kk++)
+          {
+            *(pvertex+kk)=*(pvertex+kk+1);
+          }
+        }
       }
     }
   }
