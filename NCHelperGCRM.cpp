@@ -28,7 +28,7 @@ NCHelperGCRM::NCHelperGCRM(ReadNC* readNC, int fileId, const FileOptions& opts, 
 {
   // Ignore variables containing topological information
   ignoredVarNames.insert("grid");
- // ignoredVarNames.insert("cell_corners"); this is actually needed
+  ignoredVarNames.insert("cell_corners");
   ignoredVarNames.insert("cell_edges");
   ignoredVarNames.insert("edge_corners");
   ignoredVarNames.insert("cell_neighbors");
