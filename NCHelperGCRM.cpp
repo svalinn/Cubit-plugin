@@ -863,10 +863,11 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
   // If possible, apply Zoltan partition
   if (_readNC->partMethod == ScdParData::RCBZOLTAN) {
 #if defined(USE_MPI) && defined(HAVE_ZOLTAN)
-    // Read x coordinates of cell centers
+    // Read lat/lon coordinates of cell centers
+    // then convert to spherical , and use them as input to zoltan partition
     int xCellVarId;
-    int success = NCFUNC(inq_varid)(_fileId, "xCell", &xCellVarId);
-    ERRORS(success, "Failed to get variable id of xCell.");
+    int success = NCFUNC(inq_varid)(_fileId, "grid_center_lat", &xCellVarId);
+    ERRORS(success, "Failed to get variable id of grid_center_lat.");
     std::vector<double> xCell(nLocalCells);
     NCDF_SIZE read_start = static_cast<NCDF_SIZE>(start_cell_idx - 1);
     NCDF_SIZE read_count = static_cast<NCDF_SIZE>(nLocalCells);
@@ -875,20 +876,26 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
 
     // Read y coordinates of cell centers
     int yCellVarId;
-    success = NCFUNC(inq_varid)(_fileId, "yCell", &yCellVarId);
-    ERRORS(success, "Failed to get variable id of yCell.");
+    success = NCFUNC(inq_varid)(_fileId, "grid_center_lon", &yCellVarId);
+    ERRORS(success, "Failed to get variable id of grid_center_lon.");
     std::vector<double> yCell(nLocalCells);
     success = NCFUNCAG(_vara_double)(_fileId, yCellVarId, &read_start, &read_count, &yCell[0]);
     ERRORS(success, "Failed to read yCell data.");
 
-    // Read z coordinates of cell centers
-    int zCellVarId;
-    success = NCFUNC(inq_varid)(_fileId, "zCell", &zCellVarId);
-    ERRORS(success, "Failed to get variable id of zCell.");
     std::vector<double> zCell(nLocalCells);
-    success = NCFUNCAG(_vara_double)(_fileId, zCellVarId, &read_start, &read_count, &zCell[0]);
-    ERRORS(success, "Failed to read zCell data.");
+    // convert to xyz cartesian coordinates
 
+    double rad=8000; // this is just approx
+    for (int i=0; i<nLocalCells; i++)
+    {
+      double cosphi = cos(yCell[i]);
+      double zmult = sin(yCell[i]);
+      double xmult = cosphi * cos(xCell[i]);
+      double ymult = cosphi * sin(xCell[i]);
+      xCell[i] = rad * xmult;
+      yCell[i] = rad * ymult;
+      zCell[i] = rad * zmult;
+    }
     // Zoltan partition using RCB; maybe more studies would be good, as to which partition
     // is better
     Interface*& mbImpl = _readNC->mbImpl;
