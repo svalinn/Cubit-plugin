@@ -239,9 +239,7 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
   Range* pLocalEntsOwned = NULL;
   Range* pLocalGidEntsOwned = NULL;
 
-  // Now look at requested var_names; if they have time, we will have a list, and write one at a time
-  // For each variable tag in the indexed lists, write a time step data
-  // Assume the first dimension is time (need to check); if not, just write regularly
+  // For each indexed variable tag, write a time step data
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     WriteNC::VarData& variableData = vdatas[i];
 
@@ -270,15 +268,15 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
         pLocalGidEntsOwned = &localGidCellsOwned;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for MPAS non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type for GCRM non-set variable.");
     }
 
-    // A typical variable has 3 dimensions as (Time, nCells, nVertLevels)
+    // A typical GCRM non-set variable has 3 dimensions as (time, cells, layers)
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       // We will write one time step, and count will be one; start will be different
-      // Use tag_get_data instead of tag_iterate to get values, as localEntsOwned
+      // Use tag_get_data instead of tag_iterate to copy tag data, as localEntsOwned
       // might not be contiguous.
-      variableData.writeStarts[0] = t; // This is time, again
+      variableData.writeStarts[0] = t; // This is start for time
       std::vector<double> tag_data(pLocalEntsOwned->size() * variableData.numLev);
       ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[t], *pLocalEntsOwned, &tag_data[0]);
       ERRORR(rval, "Trouble getting tag data on owned vertices.");
@@ -289,7 +287,8 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
       size_t idxReq = 0;
 #endif
 
-      // Now write from memory directly
+      // Now write copied tag data
+      // Use nonblocking put (request aggregation)
       switch (variableData.varDataType) {
         case NC_DOUBLE: {
           size_t indexInDoubleArray = 0;

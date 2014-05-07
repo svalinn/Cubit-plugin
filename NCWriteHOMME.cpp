@@ -143,10 +143,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
   int success;
   int num_local_verts_owned = localVertsOwned.size();
 
-  // Now look at requested var_names; if they have time, we will have a list, and write one at a time
-  // Need to transpose from lev dimension
-  // For each variable tag in the indexed lists, write a time step data
-  // Assume the first dimension is time (need to check); if not, just write regularly
+  // For each indexed variable tag, write a time step data
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     WriteNC::VarData& variableData = vdatas[i];
 
@@ -167,10 +164,10 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
     // to NC format (lev, ncol) for writing
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       // We will write one time step, and count will be one; start will be different
-      // Use tag_get_data instead of tag_iterate to get values, as localVertsOwned
+      // Use tag_get_data instead of tag_iterate to copy tag data, as localVertsOwned
       // might not be contiguous. We should also transpose for level so that means
       // deep copy for transpose
-      variableData.writeStarts[0] = t; // This is time, again
+      variableData.writeStarts[0] = t; // This is start for time
       std::vector<double> tag_data(num_local_verts_owned * variableData.numLev);
       ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[t], localVertsOwned, &tag_data[0]);
       ERRORR(rval, "Trouble getting tag data on owned vertices.");
@@ -181,7 +178,8 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
       size_t idxReq = 0;
 #endif
 
-      // Now write from memory directly
+      // Now transpose and write copied tag data
+      // Use nonblocking put (request aggregation)
       switch (variableData.varDataType) {
         case NC_DOUBLE: {
           std::vector<double> tmpdoubledata(num_local_verts_owned * variableData.numLev);

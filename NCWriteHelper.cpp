@@ -672,6 +672,7 @@ ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>
 
   int success;
 
+  // For each indexed variable tag, write a time step data
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     WriteNC::VarData& variableData = vdatas[i];
 
@@ -698,6 +699,7 @@ ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>
 
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       // We will write one time step, and count will be one; start will be different
+      // Use tag_iterate to get tag data (assume that localCellsOwned is contiguous)
       // We should also transpose for level so that means deep copy for transpose
       variableData.writeStarts[0] = t; // This is start for time
       int count;
@@ -706,8 +708,9 @@ ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>
       ERRORR(rval, "Failed to get tag iterator on owned faces.");
       assert(count == (int)localCellsOwned.size());
 
-      // Use collective I/O mode put (synchronous write) for the time being, we can try nonblocking put
-      // (request aggregation) later
+      // Now transpose and write tag data
+      // Use collective I/O mode put (synchronous write) for the time being, we can try
+      // nonblocking put (request aggregation) later
       switch (variableData.varDataType) {
         case NC_DOUBLE: {
           std::vector<double> tmpdoubledata(ni*nj*nk);
