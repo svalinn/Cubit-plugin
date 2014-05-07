@@ -75,6 +75,7 @@ class WriteNC : public WriterIface
   friend class NCWriteFV;
   friend class NCWriteHOMME;
   friend class NCWriteMPAS;
+  friend class NCWriteGCRM;
 
 public:
   //! Factory method

@@ -3,6 +3,7 @@
 #include "NCHelperFV.hpp"
 #include "NCHelperHOMME.hpp"
 #include "NCHelperMPAS.hpp"
+#include "NCHelperGCRM.hpp"
 
 #include <sstream>
 
@@ -51,6 +52,9 @@ NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions&
     // For a HOMME connectivity file, there might be no CF convention
     else if (NCHelperHOMME::can_read_file(readNC, fileId))
       return new (std::nothrow) NCHelperHOMME(readNC, fileId, opts, fileSet);
+    // gcrm reader
+    else if (NCHelperGCRM::can_read_file(readNC))
+          return new (std::nothrow) NCHelperGCRM(readNC, fileId, opts, fileSet);
   }
 
   // Unknown NetCDF grid (will fill this in later for POP, CICE and CLM)
