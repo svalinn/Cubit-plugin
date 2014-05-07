@@ -23,20 +23,27 @@ public:
   //! Get appropriate helper instance for WriteNC class based on some info in the file set
   static NCWriteHelper* get_nc_helper(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet);
 
-  //! Collect necessary info about local mesh
+  //! Collect necessary info about local mesh (implemented in child classes)
   virtual ErrorCode collect_mesh_info() = 0;
 
-  //! Collect data for specified variables
+  //! Collect data for specified variables (partially implemented in child classes)
   virtual ErrorCode collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
-
-  //! Take the info from VarData and write first the coordinates, then the actual variables
-  virtual ErrorCode write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums) = 0;
 
   //! Initialize file: this is where all defines are done
   //! The VarData dimension ids are filled up after define
   ErrorCode init_file(std::vector<std::string>& var_names, std::vector<std::string>& desired_names, bool _append);
 
+  //! Take the info from VarData and write first non-set variables, then set variables
+  ErrorCode write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
+
+private:
+  // Write set variables (common to scd mesh and ucd mesh)
+  ErrorCode write_set_variables(std::vector<WriteNC::VarData>& vsetdatas, std::vector<int>& tstep_nums);
+
 protected:
+  // Write non-set variables (implemented in child classes)
+  virtual ErrorCode write_nonset_variables(std::vector<WriteNC::VarData>& vdatas, std::vector<int>& tstep_nums) = 0;
+
   template <typename T> void jik_to_kji(size_t ni, size_t nj, size_t nk, T* dest, T* source)
   {
     size_t nik = ni * nk, nij = ni * nj;
@@ -89,8 +96,8 @@ private:
   //! Collect data for specified variables
   virtual ErrorCode collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
 
-  //! Implementation of NCWriteHelper::write_values()
-  virtual ErrorCode write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
+  //! Implementation of NCWriteHelper::write_nonset_variables()
+  virtual ErrorCode write_nonset_variables(std::vector<WriteNC::VarData>& vdatas, std::vector<int>& tstep_nums);
 
 protected:
   //! Dimensions of my local part of grid
