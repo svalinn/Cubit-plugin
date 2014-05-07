@@ -28,7 +28,7 @@ NCHelperGCRM::NCHelperGCRM(ReadNC* readNC, int fileId, const FileOptions& opts, 
 {
   // Ignore variables containing topological information
   ignoredVarNames.insert("grid");
-  ignoredVarNames.insert("cell_corners");
+ // ignoredVarNames.insert("cell_corners"); this is actually needed
   ignoredVarNames.insert("cell_edges");
   ignoredVarNames.insert("edge_corners");
   ignoredVarNames.insert("cell_neighbors");
@@ -1070,13 +1070,13 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
 
   // Convert lon/lat/rad to x/y/z
   double* zptr = arrays[2];
-  const double pideg = acos(-1.0) / 180.0;
+  //const double pideg = acos(-1.0) / 180.0;
   double rad = 8000.0 + levVals[0];
   for (int i = 0; i < nLocalVertices; i++) {
-    double cosphi = cos(pideg * yptr[i]);
-    double zmult = sin(pideg * yptr[i]);
-    double xmult = cosphi * cos(xptr[i] * pideg);
-    double ymult = cosphi * sin(xptr[i] * pideg);
+    double cosphi = cos(yptr[i]);
+    double zmult =  sin(yptr[i]);
+    double xmult = cosphi * cos(xptr[i]);
+    double ymult = cosphi * sin(xptr[i]);
     xptr[i] = rad * xmult;
     yptr[i] = rad * ymult;
     zptr[i] = rad * zmult;

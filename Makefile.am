@@ -29,8 +29,7 @@ if NETCDF_FILE
                      NCWriteFV.cpp NCWriteFV.hpp \
                      NCWriteHOMME.cpp NCWriteHOMME.hpp \
                      NCWriteMPAS.cpp NCWriteMPAS.hpp \
-                     NCWriteGCRM.cpp NCWriteCGRM.hpp \
-                     ReadGCRM.cpp ReadGCRM.hpp
+                     NCWriteGCRM.cpp NCWriteCGRM.hpp 
 else
   MOAB_NETCDF_SRCS =
 endif
@@ -48,8 +47,7 @@ if !NETCDF_FILE
                      NCWriteEuler.cpp NCWriteEuler.hpp \
                      NCWriteFV.cpp NCWriteFV.hpp \
                      NCWriteHOMME.cpp NCWriteHOMME.hpp \
-                     NCWriteMPAS.cpp NCWriteMPAS.hpp \
-                     ReadGCRM.cpp ReadGCRM.hpp
+                     NCWriteMPAS.cpp NCWriteMPAS.hpp 
 endif
 endif
 
