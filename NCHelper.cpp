@@ -331,6 +331,8 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
                                         std::vector<ReadNC::VarData>& vdatas, std::vector<ReadNC::VarData>& vsetdatas)
 {
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
+  std::vector<std::string>& dimNames = _readNC->dimNames;
+
   std::map<std::string, ReadNC::VarData>::iterator mit;
 
   // If empty read them all (except ignored variables)
@@ -345,7 +347,6 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
          continue;
 
       // Dimension variables were read before creating conventional tags
-      std::vector<std::string>& dimNames = _readNC->dimNames;
       if (std::find(dimNames.begin(), dimNames.end(), vd.varName) != dimNames.end())
         continue;
 
@@ -392,16 +393,14 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
 
     for (unsigned int i = 0; i < vsetdatas.size(); i++) {
       if ((std::find(vsetdatas[i].varDims.begin(), vsetdatas[i].varDims.end(), tDim) != vsetdatas[i].varDims.end())
-          && (vsetdatas[i].varDims.size() > 1)) {
-        // Set variables with timesteps: time is the first dimension, followed
-        // by other dimensions, e.g. xtime(Time, StrLen)
+          && (vsetdatas[i].varName != dimNames[tDim])) {
+        // Set variables with timesteps: e.g. xtime(Time) or xtime(Time, StrLen)
         vsetdatas[i].varTags.resize(tstep_nums.size(), 0);
         vsetdatas[i].varDatas.resize(tstep_nums.size());
         vsetdatas[i].has_tsteps = true;
       }
       else {
-        // Set variables without timesteps: no time dimension, or time is the only
-        // dimension, e.g. lev(lev), xtime(Time)
+        // Set variables without timesteps: no time dimension, or time itself
         vsetdatas[i].varTags.resize(1, 0);
         vsetdatas[i].varDatas.resize(1);
         vsetdatas[i].has_tsteps = false;
@@ -427,7 +426,7 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       void* data = vdatas[i].varDatas[t];
 
-      // Set variables with timesteps, e.g. xtime(Time, StrLen)
+      // Set variables with timesteps, e.g. xtime(Time) or xtime(Time, StrLen)
       if (vdatas[i].has_tsteps) {
         // Set readStart for each timestep along time dimension
         vdatas[i].readStarts[0] = tstep_nums[t];
@@ -494,7 +493,7 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
       }
       vdatas[i].varDatas[t] = NULL;
 
-      // Loop continues only for set variables with timesteps, e.g. xtime(Time, StrLen)
+      // Loop continues only for set variables with timesteps, e.g. xtime(Time) or xtime(Time, StrLen)
       if (!vdatas[i].has_tsteps)
         break;
     }
@@ -885,7 +884,7 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
           rval = MB_FAILURE;
       }
 
-      // Loop continues only for set variables with timesteps, e.g. xtime(Time, StrLen)
+      // Loop continues only for set variables with timesteps, e.g. xtime(Time) or xtime(Time, StrLen)
       if (!vdatas[i].has_tsteps)
         break;
     }
@@ -1030,6 +1029,10 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
   Range edges;
   mbImpl->get_adjacencies(faces, 1, true, edges, Interface::UNION);
 
+  // Create COORDS tag for quads
+  rval = create_quad_coordinate_tag();
+  ERRORR(rval, "Trouble creating coordinate tags to entities quads");
+
   return MB_SUCCESS;
 }
 
@@ -1040,10 +1043,6 @@ ErrorCode ScdNCHelper::read_variables(std::vector<std::string>& var_names, std::
 
   ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
-
-  // Create COORDS tag for quads
-  rval = create_quad_coordinate_tag();
-  ERRORR(rval, "Trouble creating coordinate tags to entities quads");
 
   if (!vsetdatas.empty()) {
     rval = read_variable_to_set(vsetdatas, tstep_nums);
@@ -1327,8 +1326,7 @@ ErrorCode ScdNCHelper::create_quad_coordinate_tag() {
     ERRORR(rval, "Trouble getting owned QUAD entity.");
     numOwnedEnts = ents_owned.size();
   }
-  else
-  {
+  else {
     numOwnedEnts = ents.size();
     ents_owned = ents;
   }
