@@ -885,13 +885,13 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
     std::vector<double> zCell(nLocalCells);
     // convert to xyz cartesian coordinates
 
-    double rad=8000; // this is just approx
+    double rad=8000; // this is just approx x is lat, y is lon
     for (int i=0; i<nLocalCells; i++)
     {
-      double cosphi = cos(yCell[i]);
-      double zmult = sin(yCell[i]);
-      double xmult = cosphi * cos(xCell[i]);
-      double ymult = cosphi * sin(xCell[i]);
+      double cosphi = cos(xCell[i]);
+      double zmult = sin(xCell[i]);
+      double xmult = cosphi * cos(yCell[i]);
+      double ymult = cosphi * sin(yCell[i]);
       xCell[i] = rad * xmult;
       yCell[i] = rad * ymult;
       zCell[i] = rad * zmult;
