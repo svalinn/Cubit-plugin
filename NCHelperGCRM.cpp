@@ -1214,7 +1214,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
 #endif
 
   // GCRM is 0 based, convert edge indices from 0 to 1 based
-  for (int idx = 0; idx < nLocalEdges; idx++) {
+  for (int idx = 0; idx < nLocalEdges*2; idx++) {
       vertices_on_local_edges[idx] += 1;
   }
 
