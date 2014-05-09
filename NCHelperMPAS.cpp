@@ -164,7 +164,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   for (vmit = varInfo.begin(); vmit != varInfo.end(); ++vmit) {
     ReadNC::VarData& vd = (*vmit).second;
 
-    vd.entLoc = ReadNC::ENTLOCSET;
+    // Default entLoc is ENTLOCSET
     if (std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) {
       if (std::find(vd.varDims.begin(), vd.varDims.end(), vDim) != vd.varDims.end())
         vd.entLoc = ReadNC::ENTLOCVERT;
@@ -174,7 +174,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
         vd.entLoc = ReadNC::ENTLOCFACE;
     }
 
-    vd.numLev = 1;
+    // Default numLev is 0
     if (std::find(vd.varDims.begin(), vd.varDims.end(), levDim) != vd.varDims.end())
       vd.numLev = nLevels;
     else {
@@ -602,8 +602,8 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
         break;
     }
 
-    // Finally: nVertLevels or other optional levels, it is possible that there
-    // is no level dimension for this non-set variable
+    // Finally: nVertLevels or other optional levels, it is possible that there is no
+    // level dimension (numLev is 0) for this non-set variable, e.g. (Time, nCells)
     vdatas[i].readStarts[2] = 0;
     vdatas[i].readCounts[2] = vdatas[i].numLev;
 

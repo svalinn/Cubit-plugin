@@ -84,9 +84,11 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
     if (usedCoordinates.find(varname) != usedCoordinates.end())
       continue;
 
+    // Default has_tsteps is false
     if (std::find(currentVarData.varDims.begin(), currentVarData.varDims.end(), tDim) != currentVarData.varDims.end())
       currentVarData.has_tsteps = true;
 
+    // Default numLev is 0
     if ((std::find(currentVarData.varDims.begin(), currentVarData.varDims.end(), levDim) != currentVarData.varDims.end()))
       currentVarData.numLev = nLevels;
 

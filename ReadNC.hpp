@@ -112,7 +112,7 @@ private:
   class VarData
   {
     public:
-    VarData() : varId(-1), numAtts(-1), entLoc(ENTLOCSET), numLev(1), sz(0), has_tsteps(false) {}
+    VarData() : varId(-1), numAtts(-1), entLoc(ENTLOCSET), numLev(0), sz(0), has_tsteps(false) {}
     int varId;
     int numAtts;
     nc_type varDataType;

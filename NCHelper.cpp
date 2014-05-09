@@ -388,6 +388,8 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
     for (unsigned int i = 0; i < vdatas.size(); i++) {
       vdatas[i].varTags.resize(tstep_nums.size(), 0);
       vdatas[i].varDatas.resize(tstep_nums.size());
+      // NC reader assumes that non-set variables always have timesteps
+      assert(std::find(vdatas[i].varDims.begin(), vdatas[i].varDims.end(), tDim) != vdatas[i].varDims.end());
       vdatas[i].has_tsteps = true;
     }
 
@@ -1214,7 +1216,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
           std::vector<char> tmpchardata(sz);
           success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
                                         &tmpchardata[0]);
-          if (vdatas[i].numLev != 1)
+          if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
           else {
@@ -1228,7 +1230,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
           std::vector<double> tmpdoubledata(sz);
           success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
                                           &tmpdoubledata[0]);
-          if (vdatas[i].numLev != 1)
+          if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
           else {
@@ -1242,7 +1244,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
           std::vector<float> tmpfloatdata(sz);
           success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
                                           &tmpfloatdata[0]);
-          if (vdatas[i].numLev != 1)
+          if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
           else {
@@ -1256,7 +1258,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
           std::vector<int> tmpintdata(sz);
           success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
                                         &tmpintdata[0]);
-          if (vdatas[i].numLev != 1)
+          if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
           else {
@@ -1270,7 +1272,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
           std::vector<short> tmpshortdata(sz);
           success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
                                           &tmpshortdata[0]);
-          if (vdatas[i].numLev != 1)
+          if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
             success = kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
           else {
