@@ -349,7 +349,14 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       Tag dims_tag = 0;
       std::string dim_names = "__" + var_name + "_DIMS";
       rval = mbImpl->tag_get_handle(dim_names.c_str(), 0, MB_TYPE_OPAQUE, dims_tag, MB_TAG_ANY);
-      // FIXME: Doesn't handle variables with 0 dimension
+
+      if (moab::MB_TAG_NOT_FOUND==rval)
+      {
+        dbgOut.tprintf(2, "tag : %s not found, continue \n", dim_names.c_str());
+        start = i + 1;
+        idxVar++;
+        continue;
+      }
       ERRORR(rval, "Failed to get tag for a variable dimensions.");
       rval = mbImpl->tag_get_length(dims_tag, sz);
       ERRORR(rval, " size of dimensions for variable");
