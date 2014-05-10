@@ -216,15 +216,17 @@ ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names
           ERRORR(MB_FAILURE, "Unexpected entity location type for GCRM non-set variable.");
       }
 
-      // Finally: nVertLevels or other optional levels, it is possible that there
-      // is no level dimension for this non-set variable
+      // Finally: layers or other optional levels, it is possible that there is no
+      // level dimension (numLev is 0) for this non-set variable
+      if (currentVarData.numLev < 1)
+        currentVarData.numLev = 1;
       currentVarData.writeStarts[2] = 0;
       currentVarData.writeCounts[2] = currentVarData.numLev;
     }
 
     // Get variable size
     currentVarData.sz = 1;
-    for (std::size_t idx = 0; idx != currentVarData.writeCounts.size(); idx++)
+    for (std::size_t idx = 0; idx != 3; idx++)
       currentVarData.sz *= currentVarData.writeCounts[idx];
   }
 

@@ -604,6 +604,8 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
 
     // Finally: nVertLevels or other optional levels, it is possible that there is no
     // level dimension (numLev is 0) for this non-set variable, e.g. (Time, nCells)
+    if (vdatas[i].numLev < 1)
+      vdatas[i].numLev = 1;
     vdatas[i].readStarts[2] = 0;
     vdatas[i].readCounts[2] = vdatas[i].numLev;
 
