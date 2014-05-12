@@ -10,6 +10,7 @@
 #include "NCWriteFV.hpp"
 #include "NCWriteHOMME.hpp"
 #include "NCWriteMPAS.hpp"
+#include "NCWriteGCRM.hpp"
 
 #include "moab/WriteUtilIface.hpp"
 #include "MBTagConventions.hpp"
@@ -36,6 +37,8 @@ NCWriteHelper* NCWriteHelper::get_nc_helper(WriteNC* writeNC, int fileId, const 
     return new (std::nothrow) NCWriteHOMME(writeNC, fileId, opts, fileSet);
   else if (grid_type == "MPAS")
     return new (std::nothrow) NCWriteMPAS(writeNC, fileId, opts, fileSet);
+  else if (grid_type == "GCRM")
+    return new (std::nothrow) NCWriteGCRM(writeNC, fileId, opts, fileSet);
 
   // Unknown NetCDF grid
   return NULL;

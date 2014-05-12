@@ -42,10 +42,10 @@ ErrorCode NCWriteGCRM::collect_mesh_info()
   nTimeSteps = dimLens[tDim];
 
   // Get number of levels
-  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nVertLevels")) != dimNames.end())
+  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "layers")) != dimNames.end())
     levDim = vecIt - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'nVertLevels' dimension.");
+    ERRORR(MB_FAILURE, "Couldn't find 'layers' dimension.");
   }
   nLevels = dimLens[levDim];
 
@@ -121,33 +121,6 @@ ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names
 {
   NCWriteHelper::collect_variable_data(var_names, tstep_nums);
 
-  std::vector<std::string>& dimNames = _writeNC->dimNames;
-  std::vector<int>& dimLens = _writeNC->dimLens;
-
-  // Dimension numbers for other optional levels
-  std::vector<unsigned int> opt_lev_dims;
-
-  unsigned int lev_idx;
-  std::vector<std::string>::iterator vecIt;
-
-  // Get number of vertex levels P1
-  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP1")) != dimNames.end()) {
-    lev_idx = vecIt - dimNames.begin();
-    opt_lev_dims.push_back(lev_idx);
-  }
-
-  // Get number of vertex levels P2
-  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP2")) != dimNames.end()) {
-    lev_idx = vecIt - dimNames.begin();
-    opt_lev_dims.push_back(lev_idx);
-  }
-
-  // Get number of soil levels
-  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nSoilLevels")) != dimNames.end()) {
-    lev_idx = vecIt - dimNames.begin();
-    opt_lev_dims.push_back(lev_idx);
-  }
-
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
   for (size_t i = 0; i < var_names.size(); i++) {
@@ -162,20 +135,11 @@ ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names
     if (localEdgesOwned.empty() && currentVarData.entLoc == WriteNC::ENTLOCEDGE)
       continue;
 
-    // If nVertLevels dimension is not found, try other optional levels such as nVertLevelsP1
     std::vector<int>& varDims = currentVarData.varDims;
-    if (std::find(varDims.begin(), varDims.end(), levDim) == varDims.end()) {
-      for (unsigned int j = 0; j < opt_lev_dims.size(); j++) {
-        if (std::find(varDims.begin(), varDims.end(), opt_lev_dims[j]) != varDims.end()) {
-          currentVarData.numLev = dimLens[opt_lev_dims[j]];
-          break;
-        }
-      }
-    }
 
     if (currentVarData.has_tsteps) {
-      // Support non-set variables with 3 dimensions like (Time, nCells, nVertLevels), or
-      // 2 dimensions like (Time, nCells)
+      // Support non-set variables with 3 dimensions like (Time, cells, layers), or
+      // 2 dimensions like (Time, cells)
       assert(3 == varDims.size() || 2 == varDims.size());
 
       // Time should be the first dimension
@@ -189,7 +153,7 @@ ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names
       currentVarData.writeStarts[0] = 0; // This value is timestep dependent, will be set later
       currentVarData.writeCounts[0] = 1;
 
-      // Next: nVertices / nCells / nEdges
+      // Next: nVertices / cells / nEdges
       switch (currentVarData.entLoc) {
         case WriteNC::ENTLOCVERT:
           // Vertices
