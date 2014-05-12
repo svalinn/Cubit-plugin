@@ -118,6 +118,28 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
     ERRORR(rval, "Trouble checking mesh from last read.\n");
   }
 
+  // Create some conventional tags, e.g. __NUM_DIMS
+  // Keep a flag on the file set to prevent conventional tags from being created again on a second read
+  Tag convTagsCreated = 0;
+  int def_val = 0;
+  rval = mbImpl->tag_get_handle("__CONV_TAGS_CREATED", 1, MB_TYPE_INTEGER, convTagsCreated,
+                                MB_TAG_SPARSE | MB_TAG_CREAT, &def_val);
+  ERRORR(rval, "Trouble getting _CONV_TAGS_CREATED tag.");
+  int create_conv_tags_flag = 0;
+  rval = mbImpl->tag_get_data(convTagsCreated, &tmp_set, 1, &create_conv_tags_flag);
+  if (0 == create_conv_tags_flag) {
+    // Read dimension variables to create tags like __<var_name>_DIMS
+    rval = myHelper->read_variables(dimNames, tstep_nums);
+    ERRORR(rval, "Trouble reading dimension variables.");
+
+    rval = myHelper->create_conventional_tags(tstep_nums);
+    ERRORR(rval, "Trouble creating NC conventional tags.");
+
+    create_conv_tags_flag = 1;
+    rval = mbImpl->tag_set_data(convTagsCreated, &tmp_set, 1, &create_conv_tags_flag);
+    ERRORR(rval, "Trouble setting data for _CONV_TAGS_CREATED tag.");
+  }
+
   // Create mesh vertex/edge/face sequences
   Range faces;
   if (!noMesh) {
@@ -125,26 +147,10 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
     ERRORR(rval, "Trouble creating mesh.");
   }
 
-  // Read variables onto grid
+  // Read specified variables onto grid
   if (!noVars) {
     rval = myHelper->read_variables(var_names, tstep_nums);
-    if (MB_FAILURE == rval)
-      return rval;
-  }
-  else {
-    // Read dimension variables by default (the dimensions that are also variables)
-    std::vector<std::string> dim_var_names;
-    for (unsigned int i = 0; i < dimNames.size(); i++) {
-      std::map<std::string, VarData>::iterator mit = varInfo.find(dimNames[i]);
-      if (mit != varInfo.end())
-        dim_var_names.push_back(dimNames[i]);
-    }
-
-    if (!dim_var_names.empty()) {
-      rval = myHelper->read_variables(dim_var_names, tstep_nums);
-      if (MB_FAILURE == rval)
-        return rval;
-    }
+    ERRORR(rval, "Trouble reading specified variables.");
   }
 
 #ifdef USE_MPI
@@ -174,12 +180,6 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
       return rval;
   }
 #endif
-
-  // Create NC conventional tags when loading header info only
-  if (noMesh && noVars) {
-    rval = myHelper->create_conventional_tags(tstep_nums);
-    ERRORR(rval, "Trouble creating NC conventional tags.");
-  }
 
   mbImpl->release_interface(scdi);
   scdi = NULL;

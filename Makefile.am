@@ -17,12 +17,19 @@ if NETCDF_FILE
                      WriteNCDF.cpp WriteNCDF.hpp \
                      WriteSLAC.cpp WriteSLAC.hpp \
                      ReadNC.cpp ReadNC.hpp \
+                     WriteNC.cpp WriteNC.hpp \
                      NCHelper.cpp NCHelper.hpp \
                      NCHelperEuler.cpp NCHelperEuler.hpp \
                      NCHelperFV.cpp NCHelperFV.hpp \
                      NCHelperHOMME.cpp NCHelperHOMME.hpp \
                      NCHelperMPAS.cpp NCHelperMPAS.hpp \
-                     ReadGCRM.cpp ReadGCRM.hpp
+                     NCHelperGCRM.cpp NCHelperCGRM.hpp \
+                     NCWriteHelper.cpp NCWriteHelper.hpp \
+                     NCWriteEuler.cpp NCWriteEuler.hpp \
+                     NCWriteFV.cpp NCWriteFV.hpp \
+                     NCWriteHOMME.cpp NCWriteHOMME.hpp \
+                     NCWriteMPAS.cpp NCWriteMPAS.hpp \
+                     NCWriteGCRM.cpp NCWriteCGRM.hpp 
 else
   MOAB_NETCDF_SRCS =
 endif
@@ -30,12 +37,17 @@ endif
 if PNETCDF_FILE
 if !NETCDF_FILE
      MOAB_NETCDF_SRCS += ReadNC.cpp ReadNC.hpp \
+                     WriteNC.cpp WriteNC.hpp \
                      NCHelper.cpp NCHelper.hpp \
                      NCHelperEuler.cpp NCHelperEuler.hpp \
                      NCHelperFV.cpp NCHelperFV.hpp \
                      NCHelperHOMME.cpp NCHelperHOMME.hpp \
                      NCHelperMPAS.cpp NCHelperMPAS.hpp \
-                     ReadGCRM.cpp ReadGCRM.hpp
+                     NCWriteHelper.cpp NCWriteHelper.hpp \
+                     NCWriteEuler.cpp NCWriteEuler.hpp \
+                     NCWriteFV.cpp NCWriteFV.hpp \
+                     NCWriteHOMME.cpp NCWriteHOMME.hpp \
+                     NCWriteMPAS.cpp NCWriteMPAS.hpp 
 endif
 endif
 

@@ -42,9 +42,9 @@ if( MOAB_USE_NETCDF )
           NCHelper.hpp      NCHelper.cpp
           NCHelperEuler.hpp NCHelperEuler.cpp
           NCHelperFV.hpp    NCHelperFV.cpp
+          NCHelperGCRM.hpp  NCHelperGCRM.cpp
           NCHelperHOMME.hpp NCHelperHOMME.cpp
-          NCHelperMPAS.hpp  NCHelperMPAS.cpp
-          ReadGCRM.hpp      ReadGCRM.cpp )
+          NCHelperMPAS.hpp  NCHelperMPAS.cpp )
   set( MOABIO_LIBS ${MOABIO_LIBS} ${NetCDF_LIBRARIES} )
 elseif( MOAB_USE_PNETCDF )
   set( MOAB_NETCDF_SRCS
@@ -53,8 +53,7 @@ elseif( MOAB_USE_PNETCDF )
           NCHelperEuler.hpp NCHelperEuler.cpp
           NCHelperFV.hpp    NCHelperFV.cpp
           NCHelperHOMME.hpp NCHelperHOMME.cpp
-          NCHelperMPAS.hpp  NCHelperMPAS.cpp
-          ReadGCRM.hpp      ReadGCRM.cpp )
+          NCHelperMPAS.hpp  NCHelperMPAS.cpp )
 endif()
 
 if ( MOAB_USE_CGNS )
