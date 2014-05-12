@@ -94,42 +94,73 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
       ERRORR(MB_FAILURE, "Can't find one variable.");
 
     WriteNC::VarData& currentVarData = vit->second;
+    std::vector<int>& varDims = currentVarData.varDims;
+
+    // Skip set variables, which were already processed in NCWriteHelper::collect_variable_data()
+    if (WriteNC::ENTLOCSET == currentVarData.entLoc)
+      continue;
+
+    // Set up writeStarts and writeCounts (maximum number of dimensions is 3)
+    currentVarData.writeStarts.resize(3);
+    currentVarData.writeCounts.resize(3);
+    unsigned int dim_idx = 0;
+
+    // First: time
     if (currentVarData.has_tsteps) {
-      // Support non-set variables with 3 dimensions like (time, lev, ncol)
-      assert(3 == currentVarData.varDims.size());
+      // Non-set variables with timesteps
+      // 3 dimensions like (time, lev, ncol)
+      // 2 dimensions like (time, ncol)
+      assert(3 == varDims.size() || 2 == varDims.size());
 
       // Time should be the first dimension
-      assert(tDim == currentVarData.varDims[0]);
+      assert(tDim == varDims[0]);
 
-      // Set up writeStarts and writeCounts
-      currentVarData.writeStarts.resize(3);
-      currentVarData.writeCounts.resize(3);
-
-      // First: time
-      currentVarData.writeStarts[0] = 0; // This value is timestep dependent, will be set later
-      currentVarData.writeCounts[0] = 1;
-
-      // Next: lev
-      currentVarData.writeStarts[1] = 0;
-      currentVarData.writeCounts[1] = currentVarData.numLev;
-
-      // Finally: ncol
-      switch (currentVarData.entLoc) {
-        case WriteNC::ENTLOCVERT:
-          // Vertices
-          // Start from the first localGidVerts
-          // Actually, this will be reset later for writing
-          currentVarData.writeStarts[2] = localGidVertsOwned[0] - 1;
-          currentVarData.writeCounts[2] = localGidVertsOwned.size();
-          break;
-        default:
-          ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
-      }
+      currentVarData.writeStarts[dim_idx] = 0; // This value is timestep dependent, will be set later
+      currentVarData.writeCounts[dim_idx] = 1;
+      dim_idx++;
     }
+    else {
+      // Non-set variables without timesteps
+      // 2 dimensions like (lev, ncol)
+      // 1 dimension like (ncol)
+      assert(2 == varDims.size() || 1 == varDims.size());
+    }
+
+    // Next: lev
+    if (currentVarData.numLev > 0) {
+      // Non-set variables with levels
+      // 3 dimensions like (time, lev, ncol)
+      // 2 dimensions like (lev, ncol)
+      assert(3 == varDims.size() || 2 == varDims.size());
+
+      currentVarData.writeStarts[dim_idx] = 0;
+      currentVarData.writeCounts[dim_idx] = currentVarData.numLev;
+      dim_idx++;
+    }
+    else {
+      // Non-set variables without levels
+      // 2 dimensions like (time, ncol)
+      // 1 dimension like (ncol)
+      assert(2 == varDims.size() || 1 == varDims.size());
+    }
+
+    // Finally: ncol
+    switch (currentVarData.entLoc) {
+      case WriteNC::ENTLOCVERT:
+        // Vertices
+        // Start from the first localGidVerts
+        // Actually, this will be reset later for writing
+        currentVarData.writeStarts[dim_idx] = localGidVertsOwned[0] - 1;
+        currentVarData.writeCounts[dim_idx] = localGidVertsOwned.size();
+        break;
+      default:
+        ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
+    }
+    dim_idx++;
 
     // Get variable size
     currentVarData.sz = 1;
-    for (std::size_t idx = 0; idx != currentVarData.writeCounts.size(); idx++)
+    for (std::size_t idx = 0; idx < dim_idx; idx++)
       currentVarData.sz *= currentVarData.writeCounts[idx];
   }
 
@@ -147,9 +178,6 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     WriteNC::VarData& variableData = vdatas[i];
 
-    // Time should be the first dimension
-    assert(tDim == variableData.varDims[0]);
-
     // Assume this variable is on vertices for the time being
     switch (variableData.entLoc) {
       case WriteNC::ENTLOCVERT:
@@ -159,16 +187,47 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
         ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
     }
 
-    // A typical HOMME non-set variable has 3 dimensions as (time, lev, ncol)
+    unsigned int num_timesteps;
+    unsigned int ncol_idx = 0;
+    if (variableData.has_tsteps) {
+      // Non-set variables with timesteps
+      // 3 dimensions like (time, lev, ncol)
+      // 2 dimensions like (time, ncol)
+      num_timesteps = tstep_nums.size();
+      ncol_idx++;
+    }
+    else {
+      // Non-set variables without timesteps
+      // 2 dimensions like (lev, ncol)
+      // 1 dimension like (ncol)
+      num_timesteps = 1;
+    }
+
+    unsigned int num_lev;
+    if (variableData.numLev > 0) {
+      // Non-set variables with levels
+      // 3 dimensions like (time, lev, ncol)
+      // 2 dimensions like (lev, ncol)
+      num_lev = variableData.numLev;
+      ncol_idx++;
+    }
+    else {
+      // Non-set variables without levels
+      // 2 dimensions like (time, ncol)
+      // 1 dimension like (ncol)
+      num_lev = 1;
+    }
+
     // At each timestep, we need to transpose tag format (ncol, lev) back
     // to NC format (lev, ncol) for writing
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+    for (unsigned int t = 0; t < num_timesteps; t++) {
       // We will write one time step, and count will be one; start will be different
       // Use tag_get_data instead of tag_iterate to copy tag data, as localVertsOwned
       // might not be contiguous. We should also transpose for level so that means
       // deep copy for transpose
-      variableData.writeStarts[0] = t; // This is start for time
-      std::vector<double> tag_data(num_local_verts_owned * variableData.numLev);
+      if (tDim == variableData.varDims[0])
+        variableData.writeStarts[0] = t; // This is start for time
+      std::vector<double> tag_data(num_local_verts_owned * num_lev);
       ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[t], localVertsOwned, &tag_data[0]);
       ERRORR(rval, "Trouble getting tag data on owned vertices.");
 
@@ -182,9 +241,10 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
       // Use nonblocking put (request aggregation)
       switch (variableData.varDataType) {
         case NC_DOUBLE: {
-          std::vector<double> tmpdoubledata(num_local_verts_owned * variableData.numLev);
-          // Transpose (ncol, lev) back to (lev, ncol)
-          jik_to_kji(num_local_verts_owned, 1, variableData.numLev, &tmpdoubledata[0], &tag_data[0]);
+          std::vector<double> tmpdoubledata(num_local_verts_owned * num_lev);
+          if (num_lev > 1)
+            // Transpose (ncol, lev) back to (lev, ncol)
+            jik_to_kji(num_local_verts_owned, 1, num_lev, &tmpdoubledata[0], &tag_data[0]);
 
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
@@ -192,8 +252,8 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
               pair_iter != localGidVertsOwned.pair_end(); ++pair_iter, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second;
-            variableData.writeStarts[2] = (NCDF_SIZE)(starth - 1);
-            variableData.writeCounts[2] = (NCDF_SIZE)(endh - starth + 1);
+            variableData.writeStarts[ncol_idx] = (NCDF_SIZE)(starth - 1);
+            variableData.writeCounts[ncol_idx] = (NCDF_SIZE)(endh - starth + 1);
 
             // Do a partial write, in each subrange
 #ifdef PNETCDF_FILE
@@ -209,7 +269,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
             ERRORS(success, "Failed to read double data in loop");
             // We need to increment the index in double array for the
             // next subrange
-            indexInDoubleArray += (endh - starth + 1) * variableData.numLev;
+            indexInDoubleArray += (endh - starth + 1) * num_lev;
           }
           assert(ic == localGidVertsOwned.psize());
 #ifdef PNETCDF_FILE
