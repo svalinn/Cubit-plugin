@@ -289,7 +289,7 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
       num_lev = 1;
     }
 
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+    for (unsigned int t = 0; t < num_timesteps; t++) {
       // We will write one time step, and count will be one; start will be different
       // Use tag_get_data instead of tag_iterate to copy tag data, as localEntsOwned
       // might not be contiguous.
