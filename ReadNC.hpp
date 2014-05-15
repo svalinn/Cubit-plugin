@@ -208,6 +208,7 @@ private:
   bool noMixedElements;
   bool noEdges;
   int gatherSetRank;
+  int tStepBase;
 
   //! Helper class instance
   NCHelper* myHelper;

@@ -224,12 +224,19 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
     }
     else {
       // The number of coordinates should be exactly the same as dimension length
-      assert(sizeCoordinate == coordDimLen);
+      // However, if timesteps spread across files and time tag has been updated,
+      // sizeCoordinate will be larger
+      if (varCoordData.varDims[0] != tDim)
+        assert(sizeCoordinate == coordDimLen);
     }
 
     // For time, the actual output size and values are determined by tstep_nums
     if (varCoordData.varDims[0] == tDim) {
-      assert(tstep_nums.size() > 0 && tstep_nums.size() <= (size_t)sizeCoordinate);
+      // Does not apply to dummy time tag (e.g. 'Time' tag of MPAS), when timesteps
+      // spread across files
+      if (NULL != data)
+        assert(tstep_nums.size() > 0 && tstep_nums.size() <= (size_t)sizeCoordinate);
+
       sizeCoordinate = tstep_nums.size();
 
       if (NULL != data) {

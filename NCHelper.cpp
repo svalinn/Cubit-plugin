@@ -61,7 +61,8 @@ NCHelper* NCHelper::get_nc_helper(ReadNC* readNC, int fileId, const FileOptions&
   return NULL;
 }
 
-ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums) {
+ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
+{
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<std::string>& dimNames = _readNC->dimNames;
   std::vector<int>& dimLens = _readNC->dimLens;
@@ -323,6 +324,58 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
   ERRORR(rval, "Trouble setting data for __MESH_TYPE tag.");
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
+
+  return MB_SUCCESS;
+}
+
+ErrorCode NCHelper::update_time_tag_vals()
+{
+  Interface*& mbImpl = _readNC->mbImpl;
+  std::vector<std::string>& dimNames = _readNC->dimNames;
+
+  ErrorCode rval;
+
+  // The time tag might be a dummy one (e.g. 'Time' for MPAS)
+  std::string time_tag_name = dimNames[tDim];
+  if (dummyVarNames.find(time_tag_name) != dummyVarNames.end())
+    return MB_SUCCESS;
+
+  Tag time_tag = 0;
+  const void* data = NULL;
+  int time_tag_size = 0;
+  rval = mbImpl->tag_get_handle(time_tag_name.c_str(), 0, MB_TYPE_DOUBLE, time_tag, MB_TAG_VARLEN);
+  ERRORR(rval, "Trouble getting time tag.");
+  rval = mbImpl->tag_get_by_ptr(time_tag, &_fileSet, 1, &data, &time_tag_size);
+  ERRORR(rval, "Trouble getting values for time tag.");
+  const double* time_tag_vals = static_cast<const double*>(data);
+
+  // Merge tVals (read from current file) to existing time tag
+  // Assume that time_tag_vals and tVals are both sorted
+  std::vector<double> merged_time_vals;
+  merged_time_vals.reserve(time_tag_size + nTimeSteps);
+  int i = 0;
+  int j = 0;
+
+  // Merge time values from time_tag_vals and tVals
+  while (i < time_tag_size && j < nTimeSteps) {
+    if (time_tag_vals[i] < tVals[j])
+      merged_time_vals.push_back(time_tag_vals[i++]);
+    else
+      merged_time_vals.push_back(tVals[j++]);
+  }
+
+  // Append remaining time values of time_tag_vals (if any)
+  while (i < time_tag_size)
+    merged_time_vals.push_back(time_tag_vals[i++]);
+
+  // Append remaining time values of tVals (if any)
+  while (j < nTimeSteps)
+    merged_time_vals.push_back(tVals[j++]);
+
+  data = &merged_time_vals[0];
+  time_tag_size = merged_time_vals.size();
+  rval = mbImpl->tag_set_by_ptr(time_tag, &_fileSet, 1, &data, &time_tag_size);
+  ERRORR(rval, "Failed to set data for time tag.");
 
   return MB_SUCCESS;
 }
@@ -636,6 +689,10 @@ ErrorCode NCHelper::get_tag_to_set(ReadNC::VarData& var_data, int tstep_num, Tag
 {
   Interface*& mbImpl = _readNC->mbImpl;
   DebugOutput& dbgOut = _readNC->dbgOut;
+  int& tStepBase = _readNC->tStepBase;
+
+  if (tStepBase > 0)
+    tstep_num += tStepBase;
 
   std::ostringstream tag_name;
   if (var_data.has_tsteps)
@@ -673,6 +730,10 @@ ErrorCode NCHelper::get_tag_to_nonset(ReadNC::VarData& var_data, int tstep_num, 
 {
   Interface*& mbImpl = _readNC->mbImpl;
   DebugOutput& dbgOut = _readNC->dbgOut;
+  int& tStepBase = _readNC->tStepBase;
+
+  if (tStepBase > 0)
+    tstep_num += tStepBase;
 
   std::ostringstream tag_name;
   tag_name << var_data.varName << tstep_num;

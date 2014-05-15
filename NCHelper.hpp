@@ -35,6 +35,9 @@ public:
   //! Create NC conventional tags
   ErrorCode create_conventional_tags(const std::vector<int>& tstep_nums);
 
+  //! Update time tag values if timesteps spread across files
+  ErrorCode update_time_tag_vals();
+
 protected:
   //! Separate set and non-set variables (common to scd mesh and ucd mesh)
   ErrorCode read_variable_setup(std::vector<std::string>& var_names,
