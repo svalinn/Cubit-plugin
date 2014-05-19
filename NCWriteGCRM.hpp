@@ -1,25 +1,25 @@
 /*
- * NCWriteHOMME.hpp
+ * NCWriteGCRM.hpp
  *
- *  nc write helper for HOMME type data (CAM)
+ *  nc write helper for GCRM type data (CAM)
  *  Created on: April 9, 2014
  *
  */
 
-#ifndef NCWRITEHOMME_HPP_
-#define NCWRITEHOMME_HPP_
+#ifndef NCWRITEGCRM_HPP_
+#define NCWRITEGCRM_HPP_
 
 #include "NCWriteHelper.hpp"
 
 namespace moab {
 
-class NCWriteHOMME: public UcdNCWriteHelper
+class NCWriteGCRM: public UcdNCWriteHelper
 {
 public:
-  NCWriteHOMME(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+  NCWriteGCRM(WriteNC* writeNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 : UcdNCWriteHelper(writeNC, fileId, opts, fileSet) {}
 
-  virtual ~NCWriteHOMME();
+  virtual ~NCWriteGCRM();
 
 private:
   //! Implementation of NCWriteHelper::collect_mesh_info()

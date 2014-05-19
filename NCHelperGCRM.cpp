@@ -1,4 +1,4 @@
-#include "NCHelperMPAS.hpp"
+#include "NCHelperGCRM.hpp"
 #include "moab/ReadUtilIface.hpp"
 #include "moab/FileOptions.hpp"
 #include "moab/SpectralMeshTool.hpp"
@@ -11,51 +11,41 @@
 #include <cmath>
 
 #define ERRORR(rval, str) \
-  if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
+  if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("Line %d: %s", __LINE__, str); return rval;}
 
 #define ERRORS(err, str) \
-  if (err) {_readNC->readMeshIface->report_error("%s", str); return MB_FAILURE;}
+  if (err) {_readNC->readMeshIface->report_error("Lines %d: %s", __LINE__, str); return MB_FAILURE;}
 
 namespace moab {
 
-const int DEFAULT_MAX_EDGES_PER_CELL = 10;
+const int DEFAULT_MAX_EDGES_PER_CELL = 6;
 
-NCHelperMPAS::NCHelperMPAS(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
+NCHelperGCRM::NCHelperGCRM(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 : UcdNCHelper(readNC, fileId, opts, fileSet)
 , maxEdgesPerCell(DEFAULT_MAX_EDGES_PER_CELL)
 , numCellGroups(0)
 , createGatherSet(false)
 {
   // Ignore variables containing topological information
-  ignoredVarNames.insert("nEdgesOnEdge");
-  ignoredVarNames.insert("nEdgesOnCell");
-  ignoredVarNames.insert("edgesOnVertex");
-  ignoredVarNames.insert("cellsOnVertex");
-  ignoredVarNames.insert("verticesOnEdge");
-  ignoredVarNames.insert("edgesOnEdge");
-  ignoredVarNames.insert("cellsOnEdge");
-  ignoredVarNames.insert("verticesOnCell");
-  ignoredVarNames.insert("edgesOnCell");
-  ignoredVarNames.insert("cellsOnCell");
-
-  // Ignore variables for index conversion
-  ignoredVarNames.insert("indexToVertexID");
-  ignoredVarNames.insert("indexToEdgeID");
-  ignoredVarNames.insert("indexToCellID");
+  ignoredVarNames.insert("grid");
+  ignoredVarNames.insert("cell_corners");
+  ignoredVarNames.insert("cell_edges");
+  ignoredVarNames.insert("edge_corners");
+  ignoredVarNames.insert("cell_neighbors");
 }
 
-bool NCHelperMPAS::can_read_file(ReadNC* readNC)
+bool NCHelperGCRM::can_read_file(ReadNC* readNC)
 {
   std::vector<std::string>& dimNames = readNC->dimNames;
 
-  // If dimension name "vertexDegree" exists then it should be the MPAS grid
-  if (std::find(dimNames.begin(), dimNames.end(), std::string("vertexDegree")) != dimNames.end())
+  // If dimension name "vertexDegree" exists then it should be the GCRM grid
+  if (std::find(dimNames.begin(), dimNames.end(), std::string("cells")) != dimNames.end())
     return true;
 
   return false;
 }
 
-ErrorCode NCHelperMPAS::init_mesh_vals()
+ErrorCode NCHelperGCRM::init_mesh_vals()
 {
   std::vector<std::string>& dimNames = _readNC->dimNames;
   std::vector<int>& dimLens = _readNC->dimLens;
@@ -64,15 +54,6 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   ErrorCode rval;
   unsigned int idx;
   std::vector<std::string>::iterator vit;
-
-  // Get max edges per cell reported in the MPAS file header
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "maxEdges")) != dimNames.end()) {
-    idx = vit - dimNames.begin();
-    maxEdgesPerCell = dimLens[idx];
-    if (maxEdgesPerCell > DEFAULT_MAX_EDGES_PER_CELL) {
-      ERRORR(MB_FAILURE, "maxEdgesPerCell read from the MPAS file header has exceeded DEFAULT_MAX_EDGES_PER_CELL.");
-    }
-  }
 
   // Look for time dimension
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "Time")) != dimNames.end())
@@ -86,38 +67,38 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   nTimeSteps = dimLens[idx];
 
   // Get number of cells
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "nCells")) != dimNames.end())
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "cells")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'nCells' dimension.");
+    ERRORR(MB_FAILURE, "Couldn't find 'cells' dimension.");
   }
   cDim = idx;
   nCells = dimLens[idx];
 
   // Get number of edges
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "nEdges")) != dimNames.end())
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "edges")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'nEdges' dimension.");
+    ERRORR(MB_FAILURE, "Couldn't find 'edges' dimension.");
   }
   eDim = idx;
   nEdges = dimLens[idx];
 
   // Get number of vertices
   vDim = -1;
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "nVertices")) != dimNames.end())
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "corners")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'nVertices' dimension.");
+    ERRORR(MB_FAILURE, "Couldn't find 'corners' dimension.");
   }
   vDim = idx;
   nVertices = dimLens[idx];
 
   // Get number of vertex levels
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "nVertLevels")) != dimNames.end())
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "layers")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'nVertLevels' dimension.");
+    ERRORR(MB_FAILURE, "Couldn't find 'layers' dimension.");
   }
   levDim = idx;
   nLevels = dimLens[idx];
@@ -125,20 +106,8 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   // Dimension numbers for other optional levels
   std::vector<unsigned int> opt_lev_dims;
 
-  // Get number of vertex levels P1
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP1")) != dimNames.end()) {
-    idx = vit - dimNames.begin();
-    opt_lev_dims.push_back(idx);
-  }
-
-  // Get number of vertex levels P2
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP2")) != dimNames.end()) {
-    idx = vit - dimNames.begin();
-    opt_lev_dims.push_back(idx);
-  }
-
-  // Get number of soil levels
-  if ((vit = std::find(dimNames.begin(), dimNames.end(), "nSoilLevels")) != dimNames.end()) {
+  // Get number of interface levels
+  if ((vit = std::find(dimNames.begin(), dimNames.end(), "interfaces")) != dimNames.end()) {
     idx = vit - dimNames.begin();
     opt_lev_dims.push_back(idx);
   }
@@ -147,14 +116,16 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
 
   // Store time coordinate values in tVals
   if (nTimeSteps > 0) {
-    // Note, two possible types for xtime variable: double(Time) or char(Time, StrLen)
-    if ((vmit = varInfo.find("xtime")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      // If xtime variable is double type, read time coordinate values to tVals
-      rval = read_coordinate("xtime", 0, nTimeSteps - 1, tVals);
-      ERRORR(rval, "Trouble reading 'xtime' variable.");
+    if ((vmit = varInfo.find("Time")) != varInfo.end()) {
+      rval = read_coordinate("Time", 0, nTimeSteps - 1, tVals);
+      ERRORR(rval, "Trouble reading 'Time' variable.");
+    }
+    else if ((vmit = varInfo.find("time")) != varInfo.end()) {
+      rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);
+      ERRORR(rval, "Trouble reading 'time' variable.");
     }
     else {
-      // If xtime variable does not exist, or it is string type, set dummy values to tVals
+      // If time variable does not exist, set dummy values to tVals
       for (int t = 0; t < nTimeSteps; t++)
         tVals.push_back((double)t);
     }
@@ -178,7 +149,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     if (std::find(vd.varDims.begin(), vd.varDims.end(), levDim) != vd.varDims.end())
       vd.numLev = nLevels;
     else {
-      // If nVertLevels dimension is not found, try other optional levels such as nVertLevelsP1
+      // If layers dimension is not found, try other optional levels such as interfaces
       for (unsigned int i = 0; i < opt_lev_dims.size(); i++) {
         if (std::find(vd.varDims.begin(), vd.varDims.end(), opt_lev_dims[i]) != vd.varDims.end()) {
           vd.numLev = dimLens[opt_lev_dims[i]];
@@ -186,10 +157,6 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
         }
       }
     }
-
-    // Hack: ignore variables with more than 3 dimensions, e.g. tracers(Time, nCells, nVertLevels, nTracers)
-    if (vd.varDims.size() > 3)
-      ignoredVarNames.insert(vd.varName);
   }
 
   // Hack: create dummy variables for dimensions (like nCells) with no corresponding coordinate variables
@@ -203,7 +170,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
 // of scope (and deleted). The old instance initialized some variables properly when the mesh was
 // created, but they are now lost. The new instance (will not create the mesh with noMesh option)
 // has to restore them based on the existing mesh from last read
-ErrorCode NCHelperMPAS::check_existing_mesh()
+ErrorCode NCHelperGCRM::check_existing_mesh()
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
@@ -295,12 +262,13 @@ ErrorCode NCHelperMPAS::check_existing_mesh()
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_mesh(Range& faces)
+ErrorCode NCHelperGCRM::create_mesh(Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   int& gatherSetRank = _readNC->gatherSetRank;
   bool& noMixedElements = _readNC->noMixedElements;
   bool& noEdges = _readNC->noEdges;
+  DebugOutput& dbgOut = _readNC->dbgOut;
 
   int rank = 0;
   int procs = 1;
@@ -321,7 +289,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     // Compute the number of local cells on this proc
     nLocalCells = int(std::floor(1.0 * nCells / procs));
 
-    // The starting global cell index in the MPAS file for this proc
+    // The starting global cell index in the GCRM file for this proc
     int start_cell_idx = rank * nLocalCells;
 
     // Number of extra cells after equal split over procs
@@ -342,12 +310,17 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     nLocalCells = nCells;
     localGidCells.insert(1, nLocalCells);
   }
+  dbgOut.tprintf(1, " localGidCells.psize() = %d\n", (int)localGidCells.psize());
+  dbgOut.tprintf(1, " localGidCells.size() = %d\n", (int)localGidCells.size());
 
-  // Read number of edges on each local cell, to calculate actual maxEdgesPerCell
-  int nEdgesOnCellVarId;
-  int success = NCFUNC(inq_varid)(_fileId, "nEdgesOnCell", &nEdgesOnCellVarId);
-  ERRORS(success, "Failed to get variable id of nEdgesOnCell.");
-  std::vector<int> num_edges_on_local_cells(nLocalCells);
+  // Read vertices on each local cell, to get localGidVerts and cell connectivity later
+  int verticesOnCellVarId;
+  int success = NCFUNC(inq_varid)(_fileId, "cell_corners", &verticesOnCellVarId);
+  ERRORS(success, "Failed to get variable id of cell_corners.");
+  std::vector<int> vertices_on_local_cells(nLocalCells * maxEdgesPerCell);
+  dbgOut.tprintf(1, " nLocalCells = %d\n", (int)nLocalCells);
+  dbgOut.tprintf(1, " maxEdgesPerCell = %d\n", (int)maxEdgesPerCell);
+  dbgOut.tprintf(1, " vertices_on_local_cells.size() = %d\n", (int)vertices_on_local_cells.size());
 #ifdef PNETCDF_FILE
   size_t nb_reads = localGidCells.psize();
   std::vector<int> requests(nb_reads);
@@ -360,62 +333,8 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
        pair_iter++) {
     EntityHandle starth = pair_iter->first;
     EntityHandle endh = pair_iter->second;
-    NCDF_SIZE read_start = (NCDF_SIZE) (starth - 1);
-    NCDF_SIZE read_count = (NCDF_SIZE) (endh - starth + 1);
-
-    // Do a partial read in each subrange
-#ifdef PNETCDF_FILE
-    success = NCFUNCREQG(_vara_int)(_fileId, nEdgesOnCellVarId, &read_start, &read_count,
-                                      &(num_edges_on_local_cells[indexInArray]), &requests[idxReq++]);
-#else
-    success = NCFUNCAG(_vara_int)(_fileId, nEdgesOnCellVarId, &read_start, &read_count,
-                                      &(num_edges_on_local_cells[indexInArray]));
-#endif
-    ERRORS(success, "Failed to read nEdgesOnCell data in a loop");
-
-    // Increment the index for next subrange
-    indexInArray += (endh - starth + 1);
-  }
-
-#ifdef PNETCDF_FILE
-  // Wait outside the loop
-  success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
-  ERRORS(success, "Failed on wait_all.");
-#endif
-
-  // Get local maxEdgesPerCell on this proc
-  int local_max_edges_per_cell = *(std::max_element(num_edges_on_local_cells.begin(), num_edges_on_local_cells.end()));
-  maxEdgesPerCell = local_max_edges_per_cell;
-
-  // If parallel, do a MPI_Allreduce to get global maxEdgesPerCell across all procs
-#ifdef USE_MPI
-  if (procs > 1) {
-    int global_max_edges_per_cell;
-    ParallelComm*& myPcomm = _readNC->myPcomm;
-    MPI_Allreduce(&local_max_edges_per_cell, &global_max_edges_per_cell, 1, MPI_INTEGER, MPI_MAX, myPcomm->proc_config().proc_comm());
-    assert(local_max_edges_per_cell <= global_max_edges_per_cell);
-    maxEdgesPerCell = global_max_edges_per_cell;
-    if (0 == rank) {
-      DebugOutput& dbgOut = _readNC->dbgOut;
-      dbgOut.tprintf(1, "  global_max_edges_per_cell = %d\n", global_max_edges_per_cell);
-    }
-  }
-#endif
-
-  // Read vertices on each local cell, to get localGidVerts and cell connectivity later
-  int verticesOnCellVarId;
-  success = NCFUNC(inq_varid)(_fileId, "verticesOnCell", &verticesOnCellVarId);
-  ERRORS(success, "Failed to get variable id of verticesOnCell.");
-  std::vector<int> vertices_on_local_cells(nLocalCells * maxEdgesPerCell);
-#ifdef PNETCDF_FILE
-  idxReq = 0;
-#endif
-  indexInArray = 0;
-  for (Range::pair_iterator pair_iter = localGidCells.pair_begin();
-       pair_iter != localGidCells.pair_end();
-       pair_iter++) {
-    EntityHandle starth = pair_iter->first;
-    EntityHandle endh = pair_iter->second;
+    dbgOut.tprintf(1, " cell_corners starth = %d\n", (int)starth);
+    dbgOut.tprintf(1, " cell_corners   endh = %d\n", (int)endh);
     NCDF_SIZE read_starts[2] = {static_cast<NCDF_SIZE>(starth - 1), 0};
     NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), 
                                 static_cast<NCDF_SIZE>(maxEdgesPerCell)};
@@ -428,7 +347,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     success = NCFUNCAG(_vara_int)(_fileId, verticesOnCellVarId, read_starts, read_counts,
                                       &(vertices_on_local_cells[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read verticesOnCell data in a loop");
+    ERRORS(success, "Failed to read cell_corners data in a loop");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1) * maxEdgesPerCell;
@@ -440,36 +359,30 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   ERRORS(success, "Failed on wait_all.");
 #endif
 
-  // Correct local cell vertices array, replace the padded vertices with the last vertices
-  // in the corresponding cells; sometimes the padded vertices are 0, sometimes a large
-  // vertex id. Make sure they are consistent to our padded option
-  for (int local_cell_idx = 0; local_cell_idx < nLocalCells; local_cell_idx++) {
-    int num_edges = num_edges_on_local_cells[local_cell_idx];
-    int idx_in_local_vert_arr = local_cell_idx * maxEdgesPerCell;
-    int last_vert_idx = vertices_on_local_cells[idx_in_local_vert_arr + num_edges - 1];
-    for (int i = num_edges; i < maxEdgesPerCell; i++)
-      vertices_on_local_cells[idx_in_local_vert_arr + i] = last_vert_idx;
+  // GCRM is 0 based, convert vertex indices from 0 to 1 based
+  for (std::size_t idx = 0; idx < vertices_on_local_cells.size(); idx++) {
+      vertices_on_local_cells[idx] += 1;
   }
 
   // Create local vertices
   EntityHandle start_vertex;
   ErrorCode rval = create_local_vertices(vertices_on_local_cells, start_vertex);
-  ERRORR(rval, "Failed to create local vertices for MPAS mesh.");
+  ERRORR(rval, "Failed to create local vertices for GCRM mesh.");
 
   // Create local edges (unless NO_EDGES read option is set)
   if (!noEdges) {
-    rval = create_local_edges(start_vertex, num_edges_on_local_cells);
-    ERRORR(rval, "Failed to create local edges for MPAS mesh.");
+    rval = create_local_edges(start_vertex);
+    ERRORR(rval, "Failed to create local edges for GCRM mesh.");
   }
 
   // Create local cells, either unpadded or padded
   if (noMixedElements) {
     rval = create_padded_local_cells(vertices_on_local_cells, start_vertex, faces);
-    ERRORR(rval, "Failed to create padded local cells for MPAS mesh.");
+    ERRORR(rval, "Failed to create padded local cells for GCRM mesh.");
   }
   else {
-    rval = create_local_cells(vertices_on_local_cells, num_edges_on_local_cells, start_vertex, faces);
-    ERRORR(rval, "Failed to create local cells for MPAS mesh.");
+    rval = create_local_cells(vertices_on_local_cells, start_vertex, faces);
+    ERRORR(rval, "Failed to create local cells for GCRM mesh.");
   }
 
   // Set tag for numCellGroups
@@ -487,29 +400,29 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     // Create gather set vertices
     EntityHandle start_gather_set_vertex;
     rval = create_gather_set_vertices(gather_set, start_gather_set_vertex);
-    ERRORR(rval, "Failed to create gather set vertices for MPAS mesh");
+    ERRORR(rval, "Failed to create gather set vertices for GCRM mesh");
 
     // Create gather set edges (unless NO_EDGES read option is set)
     if (!noEdges) {
       rval = create_gather_set_edges(gather_set, start_gather_set_vertex);
-      ERRORR(rval, "Failed to create gather set edges for MPAS mesh.");
+      ERRORR(rval, "Failed to create gather set edges for GCRM mesh.");
     }
 
     // Create gather set cells, either unpadded or padded
     if (noMixedElements) {
       rval = create_padded_gather_set_cells(gather_set, start_gather_set_vertex);
-      ERRORR(rval, "Failed to create padded gather set cells for MPAS mesh.");
+      ERRORR(rval, "Failed to create padded gather set cells for GCRM mesh.");
     }
     else {
       rval = create_gather_set_cells(gather_set, start_gather_set_vertex);
-      ERRORR(rval, "Failed to create gather set cells for MPAS mesh.");
+      ERRORR(rval, "Failed to create gather set cells for GCRM mesh.");
     }
   }
 
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimLens = _readNC->dimLens;
@@ -536,7 +449,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
   Range faces;
   rval = mbImpl->get_entities_by_dimension(_fileSet, 2, faces);
   ERRORR(rval, "Trouble getting faces in set.");
-  // Note, for MPAS faces.psize() can be more than 1
+  // Note, for GCRM faces.psize() can be more than 1
 
 #ifdef USE_MPI
   bool& isParallel = _readNC->isParallel;
@@ -598,12 +511,12 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
         range = &edges;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for MPAS non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type for GCRM non-set variable.");
         break;
     }
 
-    // Finally: nVertLevels or other optional levels, it is possible that there is no
-    // level dimension (numLev is 0) for this non-set variable, e.g. (Time, nCells)
+    // Finally: layers or other optional levels, it is possible that there is no
+    // level dimension (numLev is 0) for this non-set variable
     if (vdatas[i].numLev < 1)
       vdatas[i].numLev = 1;
     vdatas[i].readStarts[2] = 0;
@@ -648,7 +561,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
 }
 
 #ifdef PNETCDF_FILE
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   bool& noEdges = _readNC->noEdges;
@@ -699,7 +612,8 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
-        case NC_DOUBLE: {
+        case NC_DOUBLE:
+        case NC_FLOAT: {
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -762,10 +676,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
 
           break;
         }
-        case NC_FLOAT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
+
         case NC_INT: {
           ERRORR(MB_FAILURE, "not implemented");
           break;
@@ -787,12 +698,12 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
     if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
       continue;
 
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+    /*for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
       ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
-    }
+    }*/
   }
   // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
@@ -805,7 +716,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
   return rval;
 }
 #else
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   bool& noEdges = _readNC->noEdges;
@@ -850,7 +761,8 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
-        case NC_DOUBLE: {
+        case NC_DOUBLE:
+        case NC_FLOAT: {
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -907,10 +819,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
 
           break;
         }
-        case NC_FLOAT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         case NC_INT: {
           ERRORR(MB_FAILURE, "not implemented");
           break;
@@ -932,12 +840,12 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
     if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
       continue;
 
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+   /* for (unsigned int t = 0; t < tstep_nums.size(); t++) {
       dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
       ErrorCode tmp_rval = convert_variable(vdatas[i], t);
       if (MB_SUCCESS != tmp_rval)
         rval = tmp_rval;
-    }
+    }*/
   }
 
   // Debug output, if requested
@@ -952,15 +860,16 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
 }
 #endif
 
-ErrorCode NCHelperMPAS::redistribute_local_cells(int start_cell_idx)
+ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
 {
   // If possible, apply Zoltan partition
   if (_readNC->partMethod == ScdParData::RCBZOLTAN) {
 #if defined(USE_MPI) && defined(HAVE_ZOLTAN)
-    // Read x coordinates of cell centers
+    // Read lat/lon coordinates of cell centers
+    // then convert to spherical , and use them as input to zoltan partition
     int xCellVarId;
-    int success = NCFUNC(inq_varid)(_fileId, "xCell", &xCellVarId);
-    ERRORS(success, "Failed to get variable id of xCell.");
+    int success = NCFUNC(inq_varid)(_fileId, "grid_center_lat", &xCellVarId);
+    ERRORS(success, "Failed to get variable id of grid_center_lat.");
     std::vector<double> xCell(nLocalCells);
     NCDF_SIZE read_start = static_cast<NCDF_SIZE>(start_cell_idx - 1);
     NCDF_SIZE read_count = static_cast<NCDF_SIZE>(nLocalCells);
@@ -969,20 +878,26 @@ ErrorCode NCHelperMPAS::redistribute_local_cells(int start_cell_idx)
 
     // Read y coordinates of cell centers
     int yCellVarId;
-    success = NCFUNC(inq_varid)(_fileId, "yCell", &yCellVarId);
-    ERRORS(success, "Failed to get variable id of yCell.");
+    success = NCFUNC(inq_varid)(_fileId, "grid_center_lon", &yCellVarId);
+    ERRORS(success, "Failed to get variable id of grid_center_lon.");
     std::vector<double> yCell(nLocalCells);
     success = NCFUNCAG(_vara_double)(_fileId, yCellVarId, &read_start, &read_count, &yCell[0]);
     ERRORS(success, "Failed to read yCell data.");
 
-    // Read z coordinates of cell centers
-    int zCellVarId;
-    success = NCFUNC(inq_varid)(_fileId, "zCell", &zCellVarId);
-    ERRORS(success, "Failed to get variable id of zCell.");
     std::vector<double> zCell(nLocalCells);
-    success = NCFUNCAG(_vara_double)(_fileId, zCellVarId, &read_start, &read_count, &zCell[0]);
-    ERRORS(success, "Failed to read zCell data.");
+    // convert to xyz cartesian coordinates
 
+    double rad=8000; // this is just approx x is lat, y is lon
+    for (int i=0; i<nLocalCells; i++)
+    {
+      double cosphi = cos(xCell[i]);
+      double zmult = sin(xCell[i]);
+      double xmult = cosphi * cos(yCell[i]);
+      double ymult = cosphi * sin(yCell[i]);
+      xCell[i] = rad * xmult;
+      yCell[i] = rad * ymult;
+      zCell[i] = rad * zmult;
+    }
     // Zoltan partition using RCB; maybe more studies would be good, as to which partition
     // is better
     Interface*& mbImpl = _readNC->mbImpl;
@@ -1008,12 +923,13 @@ ErrorCode NCHelperMPAS::redistribute_local_cells(int start_cell_idx)
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_local_vertices(const std::vector<int>& vertices_on_local_cells, EntityHandle& start_vertex)
+ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_on_local_cells, EntityHandle& start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
   const Tag*& mpFileIdTag = _readNC->mpFileIdTag;
   DebugOutput& dbgOut = _readNC->dbgOut;
+  std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
 
   // Make a copy of vertices_on_local_cells for sorting (keep original one to set cell connectivity later)
   std::vector<int> vertices_on_local_cells_sorted(vertices_on_local_cells);
@@ -1061,11 +977,35 @@ ErrorCode NCHelperMPAS::create_local_vertices(const std::vector<int>& vertices_o
   size_t idxReq = 0;
 #endif
 
+  // Store lev values in levVals
+  std::map<std::string, ReadNC::VarData>::iterator vmit;
+  if ((vmit = varInfo.find("layers")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+    rval = read_coordinate("layers", 0, nLevels - 1, levVals);
+    ERRORR(rval, "Trouble reading 'layers' variable.");
+  }
+  else if ((vmit = varInfo.find("interfaces")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
+    rval = read_coordinate("interfaces", 0, nLevels - 1, levVals);
+    ERRORR(rval, "Trouble reading 'interfaces' variable.");
+  }
+  else {
+    ERRORR(MB_FAILURE, "Couldn't find 'layers' or 'interfaces' variable.");
+  }
+
+  {
+    // Decide whether down is positive
+    char posval[10] = {0};
+    int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
+    if (0 == success && !strncmp(posval, "down", 4)) {
+      for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
+        (*dvit) *= -1.0;
+    }
+  }
+
   // Read x coordinates for local vertices
   double* xptr = arrays[0];
   int xVertexVarId;
-  int success = NCFUNC(inq_varid)(_fileId, "xVertex", &xVertexVarId);
-  ERRORS(success, "Failed to get variable id of xVertex.");
+  int success = NCFUNC(inq_varid)(_fileId, "grid_corner_lon", &xVertexVarId);
+  ERRORS(success, "Failed to get variable id of grid_corner_lon.");
   size_t indexInArray = 0;
   for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
        pair_iter != localGidVerts.pair_end();
@@ -1083,7 +1023,7 @@ ErrorCode NCHelperMPAS::create_local_vertices(const std::vector<int>& vertices_o
     success = NCFUNCAG(_vara_double)(_fileId, xVertexVarId, &read_start, &read_count,
                                       &(xptr[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read xVertex data in a loop");
+    ERRORS(success, "Failed to read grid_corner_lon data in a loop");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1);
@@ -1098,8 +1038,8 @@ ErrorCode NCHelperMPAS::create_local_vertices(const std::vector<int>& vertices_o
   // Read y coordinates for local vertices
   double* yptr = arrays[1];
   int yVertexVarId;
-  success = NCFUNC(inq_varid)(_fileId, "yVertex", &yVertexVarId);
-  ERRORS(success, "Failed to get variable id of yVertex.");
+  success = NCFUNC(inq_varid)(_fileId, "grid_corner_lat", &yVertexVarId);
+  ERRORS(success, "Failed to get variable id of grid_corner_lat.");
 #ifdef PNETCDF_FILE
   idxReq = 0;
 #endif
@@ -1120,7 +1060,7 @@ ErrorCode NCHelperMPAS::create_local_vertices(const std::vector<int>& vertices_o
     success = NCFUNCAG(_vara_double)(_fileId, yVertexVarId, &read_start, &read_count,
                                       &(yptr[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read yVertex data in a loop");
+    ERRORS(success, "Failed to read grid_corner_lat data in a loop");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1);
@@ -1132,47 +1072,24 @@ ErrorCode NCHelperMPAS::create_local_vertices(const std::vector<int>& vertices_o
   ERRORS(success, "Failed on wait_all.");
 #endif
 
-  // Read z coordinates for local vertices
+  // Convert lon/lat/rad to x/y/z
   double* zptr = arrays[2];
-  int zVertexVarId;
-  success = NCFUNC(inq_varid)(_fileId, "zVertex", &zVertexVarId);
-  ERRORS(success, "Failed to get variable id of zVertex.");
-#ifdef PNETCDF_FILE
-  idxReq = 0;
-#endif
-  indexInArray = 0;
-  for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
-       pair_iter != localGidVerts.pair_end();
-       pair_iter++) {
-    EntityHandle starth = pair_iter->first;
-    EntityHandle endh = pair_iter->second;
-    NCDF_SIZE read_start = (NCDF_SIZE) (starth - 1);
-    NCDF_SIZE read_count = (NCDF_SIZE) (endh - starth + 1);
-
-    // Do a partial read in each subrange
-#ifdef PNETCDF_FILE
-    success = NCFUNCREQG(_vara_double)(_fileId, zVertexVarId, &read_start, &read_count,
-                                      &(zptr[indexInArray]), &requests[idxReq++]);
-#else
-    success = NCFUNCAG(_vara_double)(_fileId, zVertexVarId, &read_start, &read_count,
-                                      &(zptr[indexInArray]));
-#endif
-    ERRORS(success, "Failed to read zVertex data in a loop");
-
-    // Increment the index for next subrange
-    indexInArray += (endh - starth + 1);
+  //const double pideg = acos(-1.0) / 180.0;
+  double rad = 8000.0 + levVals[0];
+  for (int i = 0; i < nLocalVertices; i++) {
+    double cosphi = cos(yptr[i]);
+    double zmult =  sin(yptr[i]);
+    double xmult = cosphi * cos(xptr[i]);
+    double ymult = cosphi * sin(xptr[i]);
+    xptr[i] = rad * xmult;
+    yptr[i] = rad * ymult;
+    zptr[i] = rad * zmult;
   }
-
-#ifdef PNETCDF_FILE
-  // Wait outside the loop
-  success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
-  ERRORS(success, "Failed on wait_all.");
-#endif
 
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std::vector<int>& num_edges_on_local_cells)
+ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
@@ -1180,8 +1097,8 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
 
   // Read edges on each local cell, to get localGidEdges
   int edgesOnCellVarId;
-  int success = NCFUNC(inq_varid)(_fileId, "edgesOnCell", &edgesOnCellVarId);
-  ERRORS(success, "Failed to get variable id of edgesOnCell.");
+  int success = NCFUNC(inq_varid)(_fileId, "cell_edges", &edgesOnCellVarId);
+  ERRORS(success, "Failed to get variable id of cell_edges.");
 
   std::vector<int> edges_on_local_cells(nLocalCells * maxEdgesPerCell);
   dbgOut.tprintf(1, "   edges_on_local_cells.size() = %d\n", (int)edges_on_local_cells.size());
@@ -1198,6 +1115,8 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
        pair_iter++) {
     EntityHandle starth = pair_iter->first;
     EntityHandle endh = pair_iter->second;
+    dbgOut.tprintf(1, "   starth = %d\n", (int)starth);
+    dbgOut.tprintf(1, "   endh = %d\n", (int)endh);
     NCDF_SIZE read_starts[2] = {static_cast<NCDF_SIZE>(starth - 1), 0};
     NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), static_cast<NCDF_SIZE>(maxEdgesPerCell)};
 
@@ -1209,7 +1128,7 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
     success = NCFUNCAG(_vara_int)(_fileId, edgesOnCellVarId, read_starts, read_counts,
                                       &(edges_on_local_cells[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read edgesOnCell data in a loop");
+    ERRORS(success, "Failed to read cell_edges data in a loop");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1) * maxEdgesPerCell;
@@ -1221,14 +1140,9 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
   ERRORS(success, "Failed on wait_all.");
 #endif
 
-  // Correct local cell edges array in the same way as local cell vertices array, replace the
-  // padded edges with the last edges in the corresponding cells
-  for (int local_cell_idx = 0; local_cell_idx < nLocalCells; local_cell_idx++) {
-    int num_edges = num_edges_on_local_cells[local_cell_idx];
-    int idx_in_local_edge_arr = local_cell_idx * maxEdgesPerCell;
-    int last_edge_idx = edges_on_local_cells[idx_in_local_edge_arr + num_edges - 1];
-    for (int i = num_edges; i < maxEdgesPerCell; i++)
-      edges_on_local_cells[idx_in_local_edge_arr + i] = last_edge_idx;
+  // GCRM is 0 based, convert edge indices from 0 to 1 based
+  for (std::size_t idx = 0; idx < edges_on_local_cells.size(); idx++) {
+      edges_on_local_cells[idx] += 1;
   }
 
   // Collect local edges
@@ -1264,8 +1178,8 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
   int verticesOnEdgeVarId;
 
   // Read vertices on each local edge, to get edge connectivity
-  success = NCFUNC(inq_varid)(_fileId, "verticesOnEdge", &verticesOnEdgeVarId);
-  ERRORS(success, "Failed to get variable id of verticesOnEdge.");
+  success = NCFUNC(inq_varid)(_fileId, "edge_corners", &verticesOnEdgeVarId);
+  ERRORS(success, "Failed to get variable id of edge_corners.");
   // Utilize the memory storage pointed by conn_arr_edges
   int* vertices_on_local_edges = (int*) conn_arr_edges;
 #ifdef PNETCDF_FILE
@@ -1291,7 +1205,7 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
     success = NCFUNCAG(_vara_int)(_fileId, verticesOnEdgeVarId, read_starts, read_counts,
                                     &(vertices_on_local_edges[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read verticesOnEdge data in a loop");
+    ERRORS(success, "Failed to read edge_corners data in a loop");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1) * 2;
@@ -1302,6 +1216,11 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
   success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
   ERRORS(success, "Failed on wait_all.");
 #endif
+
+  // GCRM is 0 based, convert edge indices from 0 to 1 based
+  for (int idx = 0; idx < nLocalEdges*2; idx++) {
+      vertices_on_local_edges[idx] += 1;
+  }
 
   // Populate connectivity data for local edges
   // Convert in-place from int (stored in the first half) to EntityHandle
@@ -1316,8 +1235,7 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_local_cells(const std::vector<int>& vertices_on_local_cells,
-                                                    const std::vector<int>& num_edges_on_local_cells,
+ErrorCode NCHelperGCRM::create_local_cells(const std::vector<int>& vertices_on_local_cells,
                                                     EntityHandle start_vertex, Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
@@ -1327,7 +1245,7 @@ ErrorCode NCHelperMPAS::create_local_cells(const std::vector<int>& vertices_on_l
   Range local_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
   // Insert larger values before smaller ones to increase efficiency
   for (int i = nLocalCells - 1; i >= 0; i--) {
-    int num_edges = num_edges_on_local_cells[i];
+    int num_edges = DEFAULT_MAX_EDGES_PER_CELL;
     local_cells_with_n_edges[num_edges].insert(localGidCells[i]); // Global cell index
   }
 
@@ -1382,13 +1300,27 @@ ErrorCode NCHelperMPAS::create_local_cells(const std::vector<int>& vertices_on_l
         conn_arr_local_cells_with_n_edges[num_edges_per_cell][j * num_edges_per_cell + k] =
             start_vertex + local_vert_idx;
       }
+      // make sure that if some nodes are repeated, they are at the end of the connectivity array
+      // so, pentagons as hexagons should have a connectivity like 123455 and not 122345
+      EntityHandle *pvertex= &(conn_arr_local_cells_with_n_edges[num_edges_per_cell][j * num_edges_per_cell ]);
+      for (int  k = 0; k < num_edges_per_cell-2; k++)
+      {
+        if( *(pvertex+k) == *(pvertex+k+1) )
+        {
+          // shift the connectivity
+          for (int kk=k+1; kk<num_edges_per_cell-2; kk++)
+          {
+            *(pvertex+kk)=*(pvertex+kk+1);
+          }
+        }
+      }
     }
   }
 
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
+ErrorCode NCHelperGCRM::create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
                                                   EntityHandle start_vertex, Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
@@ -1435,7 +1367,7 @@ ErrorCode NCHelperMPAS::create_padded_local_cells(const std::vector<int>& vertic
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_gather_set_vertices(EntityHandle gather_set, EntityHandle& gather_set_start_vertex)
+ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, EntityHandle& gather_set_start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
@@ -1531,7 +1463,7 @@ ErrorCode NCHelperMPAS::create_gather_set_vertices(EntityHandle gather_set, Enti
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_gather_set_edges(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
+ErrorCode NCHelperGCRM::create_gather_set_edges(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
 
@@ -1549,8 +1481,8 @@ ErrorCode NCHelperMPAS::create_gather_set_edges(EntityHandle gather_set, EntityH
 
   // Read vertices on each edge
   int verticesOnEdgeVarId;
-  int success = NCFUNC(inq_varid)(_fileId, "verticesOnEdge", &verticesOnEdgeVarId);
-  ERRORS(success, "Failed to get variable id of verticesOnEdge.");
+  int success = NCFUNC(inq_varid)(_fileId, "edge_corners", &verticesOnEdgeVarId);
+  ERRORS(success, "Failed to get variable id of edge_corners.");
   // Utilize the memory storage pointed by conn_arr_gather_set_edges
   int* vertices_on_gather_set_edges = (int*) conn_arr_gather_set_edges;
   NCDF_SIZE read_starts[2] = {0, 0};
@@ -1560,12 +1492,12 @@ ErrorCode NCHelperMPAS::create_gather_set_edges(EntityHandle gather_set, EntityH
    success = NCFUNC(begin_indep_data)(_fileId);
    ERRORS(success, "Failed to begin independent I/O mode.");
    success = NCFUNCG(_vara_int)(_fileId, verticesOnEdgeVarId, read_starts, read_counts, vertices_on_gather_set_edges);
-   ERRORS(success, "Failed to read verticesOnEdge data.");
+   ERRORS(success, "Failed to read edge_corners data.");
    success = NCFUNC(end_indep_data)(_fileId);
    ERRORS(success, "Failed to end independent I/O mode.");
  #else
    success = NCFUNCG(_vara_int)(_fileId, verticesOnEdgeVarId, read_starts, read_counts, vertices_on_gather_set_edges);
-   ERRORS(success, "Failed to read verticesOnEdge data.");
+   ERRORS(success, "Failed to read edge_corners data.");
  #endif
 
    // Populate connectivity data for gather set edges
@@ -1581,7 +1513,7 @@ ErrorCode NCHelperMPAS::create_gather_set_edges(EntityHandle gather_set, EntityH
    return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
+ErrorCode NCHelperGCRM::create_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
 
@@ -1667,7 +1599,7 @@ ErrorCode NCHelperMPAS::create_gather_set_cells(EntityHandle gather_set, EntityH
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::create_padded_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
+ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
 

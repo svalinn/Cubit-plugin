@@ -320,7 +320,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
   for (mit = varInfo.begin(); mit != varInfo.end(); ++mit) {
     ReadNC::VarData& vd = (*mit).second;
 
-    vd.entLoc = ReadNC::ENTLOCSET;
+    // Default entLoc is ENTLOCSET
     if (std::find(vd.varDims.begin(), vd.varDims.end(), tDim) != vd.varDims.end()) {
       if ((std::find(vd.varDims.begin(), vd.varDims.end(), iCDim) != vd.varDims.end()) &&
           (std::find(vd.varDims.begin(), vd.varDims.end(), jCDim) != vd.varDims.end()))
@@ -333,7 +333,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
         vd.entLoc = ReadNC::ENTLOCEWEDGE;
     }
 
-    vd.numLev = 1;
+    // Default numLev is 0
     if (std::find(vd.varDims.begin(), vd.varDims.end(), levDim) != vd.varDims.end())
       vd.numLev = nLevels;
   }

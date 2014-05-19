@@ -1,10 +1,10 @@
 /*
- * NCWriteMPAS.cpp
+ * NCWriteGCRM.cpp
  *
  *  Created on: April 9, 2014
  */
 
-#include "NCWriteMPAS.hpp"
+#include "NCWriteGCRM.hpp"
 #include "moab/WriteUtilIface.hpp"
 #include "MBTagConventions.hpp"
 
@@ -16,12 +16,12 @@
 
 namespace moab {
 
-NCWriteMPAS::~NCWriteMPAS()
+NCWriteGCRM::~NCWriteGCRM()
 {
   // TODO Auto-generated destructor stub
 }
 
-ErrorCode NCWriteMPAS::collect_mesh_info()
+ErrorCode NCWriteGCRM::collect_mesh_info()
 {
   Interface*& mbImpl = _writeNC->mbImpl;
   std::vector<std::string>& dimNames = _writeNC->dimNames;
@@ -42,10 +42,10 @@ ErrorCode NCWriteMPAS::collect_mesh_info()
   nTimeSteps = dimLens[tDim];
 
   // Get number of levels
-  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nVertLevels")) != dimNames.end())
+  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "layers")) != dimNames.end())
     levDim = vecIt - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'nVertLevels' dimension.");
+    ERRORR(MB_FAILURE, "Couldn't find 'layers' dimension.");
   }
   nLevels = dimLens[levDim];
 
@@ -117,36 +117,9 @@ ErrorCode NCWriteMPAS::collect_mesh_info()
   return MB_SUCCESS;
 }
 
-ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
+ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
   NCWriteHelper::collect_variable_data(var_names, tstep_nums);
-
-  std::vector<std::string>& dimNames = _writeNC->dimNames;
-  std::vector<int>& dimLens = _writeNC->dimLens;
-
-  // Dimension numbers for other optional levels
-  std::vector<unsigned int> opt_lev_dims;
-
-  unsigned int lev_idx;
-  std::vector<std::string>::iterator vecIt;
-
-  // Get number of vertex levels P1
-  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP1")) != dimNames.end()) {
-    lev_idx = vecIt - dimNames.begin();
-    opt_lev_dims.push_back(lev_idx);
-  }
-
-  // Get number of vertex levels P2
-  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP2")) != dimNames.end()) {
-    lev_idx = vecIt - dimNames.begin();
-    opt_lev_dims.push_back(lev_idx);
-  }
-
-  // Get number of soil levels
-  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nSoilLevels")) != dimNames.end()) {
-    lev_idx = vecIt - dimNames.begin();
-    opt_lev_dims.push_back(lev_idx);
-  }
 
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
@@ -163,16 +136,6 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
     if (localEdgesOwned.empty() && currentVarData.entLoc == WriteNC::ENTLOCEDGE)
       continue;
 
-    // If nVertLevels dimension is not found, try other optional levels such as nVertLevelsP1
-    if (std::find(varDims.begin(), varDims.end(), levDim) == varDims.end()) {
-      for (unsigned int j = 0; j < opt_lev_dims.size(); j++) {
-        if (std::find(varDims.begin(), varDims.end(), opt_lev_dims[j]) != varDims.end()) {
-          currentVarData.numLev = dimLens[opt_lev_dims[j]];
-          break;
-        }
-      }
-    }
-
     // Skip set variables, which were already processed in NCWriteHelper::collect_variable_data()
     if (WriteNC::ENTLOCSET == currentVarData.entLoc)
       continue;
@@ -182,11 +145,11 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
     currentVarData.writeCounts.resize(3);
     unsigned int dim_idx = 0;
 
-    // First: Time
+    // First: time
     if (currentVarData.has_tsteps) {
       // Non-set variables with timesteps
-      // 3 dimensions like (Time, nCells, nVertLevels)
-      // 2 dimensions like (Time, nCells)
+      // 3 dimensions like (time, cells, layers)
+      // 2 dimensions like (time, cells)
       assert(3 == varDims.size() || 2 == varDims.size());
 
       // Time should be the first dimension
@@ -198,12 +161,12 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
     }
     else {
       // Non-set variables without timesteps
-      // 2 dimensions like (nCells, nVertLevels)
-      // 1 dimension like (nCells)
+      // 2 dimensions like (cells, layers)
+      // 1 dimension like (cells)
       assert(2 == varDims.size() || 1 == varDims.size());
     }
 
-    // Next: nVertices / nCells / nEdges
+    // Next: corners / cells / edges
     switch (currentVarData.entLoc) {
       case WriteNC::ENTLOCVERT:
         // Vertices
@@ -227,16 +190,16 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
         currentVarData.writeCounts[dim_idx] = localGidEdgesOwned.size();
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for MPAS non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type for GCRM non-set variable.");
     }
     dim_idx++;
 
-    // Finally: nVertLevels or other optional levels, it is possible that there is no
-    // level dimension (numLev is 0) for this non-set variable, e.g. (Time, nCells)
+    // Finally: layers or other optional levels, it is possible that there is no
+    // level dimension (numLev is 0) for this non-set variable
     if (currentVarData.numLev > 0) {
       // Non-set variables with levels
-      // 3 dimensions like (Time, nCells, nVertLevels)
-      // 2 dimensions like (nCells, nVertLevels)
+      // 3 dimensions like (time, cells, layers)
+      // 2 dimensions like (cells, layers)
       assert(3 == varDims.size() || 2 == varDims.size());
 
       currentVarData.writeStarts[dim_idx] = 0;
@@ -245,8 +208,8 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
     }
     else {
       // Non-set variables without levels
-      // 2 dimensions like (Time, nCells)
-      // 1 dimension like (nCells)
+      // 2 dimensions like (time, cells)
+      // 1 dimension like (cells)
       assert(2 == varDims.size() || 1 == varDims.size());
     }
 
@@ -254,18 +217,18 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
     currentVarData.sz = 1;
     for (std::size_t idx = 0; idx < dim_idx; idx++)
       currentVarData.sz *= currentVarData.writeCounts[idx];
-  }
+  } // for (size_t i = 0; i < var_names.size(); i++)
 
   return MB_SUCCESS;
 }
 
-ErrorCode NCWriteMPAS::write_nonset_variables(std::vector<WriteNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
 
   int success;
 
-  // For each variable tag in the indexed lists, write a time step data
+  // For each indexed variable tag, write a time step data
   for (unsigned int i = 0; i < vdatas.size(); i++) {
     WriteNC::VarData& variableData = vdatas[i];
 
@@ -293,36 +256,36 @@ ErrorCode NCWriteMPAS::write_nonset_variables(std::vector<WriteNC::VarData>& vda
         pLocalGidEntsOwned = &localGidCellsOwned;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for MPAS non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type for GCRM non-set variable.");
     }
 
     unsigned int num_timesteps;
     unsigned int ents_idx = 0;
     if (variableData.has_tsteps) {
       // Non-set variables with timesteps
-      // 3 dimensions like (Time, nCells, nVertLevels)
-      // 2 dimensions like (Time, nCells)
+      // 3 dimensions like (time, cells, layers)
+      // 2 dimensions like (time, cells)
       num_timesteps = tstep_nums.size();
       ents_idx++;
     }
     else {
       // Non-set variables without timesteps
-      // 2 dimensions like (nCells, nVertLevels)
-      // 1 dimension like (nCells)
+      // 2 dimensions like (cells, layers)
+      // 1 dimension like (cells)
       num_timesteps = 1;
     }
 
     unsigned int num_lev;
     if (variableData.numLev > 0) {
       // Non-set variables with levels
-      // 3 dimensions like (Time, nCells, nVertLevels)
-      // 2 dimensions like (nCells, nVertLevels)
+      // 3 dimensions like (time, cells, layers)
+      // 2 dimensions like (cells, layers)
       num_lev = variableData.numLev;
     }
     else {
       // Non-set variables without levels
-      // 2 dimensions like (Time, nCells)
-      // 1 dimension like (nCells)
+      // 2 dimensions like (time, cells)
+      // 1 dimension like (cells)
       num_lev = 1;
     }
 

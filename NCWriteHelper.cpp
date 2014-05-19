@@ -10,6 +10,7 @@
 #include "NCWriteFV.hpp"
 #include "NCWriteHOMME.hpp"
 #include "NCWriteMPAS.hpp"
+#include "NCWriteGCRM.hpp"
 
 #include "moab/WriteUtilIface.hpp"
 #include "MBTagConventions.hpp"
@@ -36,12 +37,14 @@ NCWriteHelper* NCWriteHelper::get_nc_helper(WriteNC* writeNC, int fileId, const 
     return new (std::nothrow) NCWriteHOMME(writeNC, fileId, opts, fileSet);
   else if (grid_type == "MPAS")
     return new (std::nothrow) NCWriteMPAS(writeNC, fileId, opts, fileSet);
+  else if (grid_type == "GCRM")
+    return new (std::nothrow) NCWriteGCRM(writeNC, fileId, opts, fileSet);
 
   // Unknown NetCDF grid
   return NULL;
 }
 
-ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_names)
+ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
   std::vector<std::string>& dimNames = _writeNC->dimNames;
@@ -55,6 +58,12 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
 
   usedCoordinates.clear();
 
+  if (tstep_nums.empty() && nTimeSteps > 0) {
+    // No timesteps input, get them all
+    for (int i = 0; i < nTimeSteps; i++)
+      tstep_nums.push_back(i);
+  }
+
   for (size_t i = 0; i < var_names.size(); i++) {
     std::string varname = var_names[i];
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(varname);
@@ -62,15 +71,6 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       ERRORR(MB_FAILURE, "Can't find one variable.");
 
     WriteNC::VarData& currentVarData = vit->second;
-
-    currentVarData.has_tsteps = false;
-    if ((std::find(currentVarData.varDims.begin(), currentVarData.varDims.end(), tDim) != currentVarData.varDims.end())
-        && (currentVarData.varDims.size() > 1)) // So it is not time itself
-      currentVarData.has_tsteps = true;
-
-    currentVarData.numLev = 1;
-    if ((std::find(currentVarData.varDims.begin(), currentVarData.varDims.end(), levDim) != currentVarData.varDims.end()))
-      currentVarData.numLev = nLevels;
 
     dbgOut.tprintf(2, "    for variable %s varDims.size %d \n", varname.c_str(), (int)currentVarData.varDims.size());
     for (size_t j = 0; j < currentVarData.varDims.size(); j++) {
@@ -87,69 +87,98 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
     if (usedCoordinates.find(varname) != usedCoordinates.end())
       continue;
 
-    // Process non-set variables with time steps
-    if (currentVarData.has_tsteps) {
-      int index = 0;
-      // FIXME: Should use tstep_nums (from writing options) later
-      while (true) {
-        Tag indexedTag = 0;
-        std::stringstream ssTagNameWithIndex;
-        ssTagNameWithIndex << varname << index;
-        rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);
-        if (MB_SUCCESS != rval)
-          break;
-        dbgOut.tprintf(2, "    found indexed tag %d with name %s\n", index, ssTagNameWithIndex.str().c_str());
-        currentVarData.varTags.push_back(indexedTag);
-        index++; // We should get out of the loop at some point
+    // Default has_tsteps is false
+    if (std::find(currentVarData.varDims.begin(), currentVarData.varDims.end(), tDim) != currentVarData.varDims.end())
+      currentVarData.has_tsteps = true;
 
-        // The type of the tag is fixed though
+    // Default numLev is 0
+    if ((std::find(currentVarData.varDims.begin(), currentVarData.varDims.end(), levDim) != currentVarData.varDims.end()))
+      currentVarData.numLev = nLevels;
+
+    // Process set variables
+    if (WriteNC::ENTLOCSET == currentVarData.entLoc) {
+      if (currentVarData.has_tsteps) {
+        // Set variables with timesteps, e.g. xtime(Time) or xtime(Time, StrLen)
+        // TBD
+      }
+      else {
+        // Get the tag with varname
+        Tag tag = 0;
+        rval = mbImpl->tag_get_handle(varname.c_str(), tag);
+        ERRORR(rval, "Can't find one tag.");
+        currentVarData.varTags.push_back(tag); // Really, only one for these
+        const void* data;
+        int size;
+        rval = mbImpl->tag_get_by_ptr(tag, &_fileSet, 1, &data, &size);
+        ERRORR(rval, "Can't get tag values.");
+
+        // Find the type of tag, and use it
         DataType type;
-        rval = mbImpl->tag_get_data_type(indexedTag, type);
+        rval = mbImpl->tag_get_data_type(tag, type);
         ERRORR(rval, "Can't get tag type.");
 
         currentVarData.varDataType = NC_DOUBLE;
         if (MB_TYPE_INTEGER == type)
           currentVarData.varDataType = NC_INT;
-      }
-    }
-    // Process set variables that are not coordinate variables
-    else {
-      // Get the tag with varname
-      Tag tag = 0;
-      rval = mbImpl->tag_get_handle(varname.c_str(), tag);
-      ERRORR(rval, "Can't find one tag.");
-      currentVarData.varTags.push_back(tag); // Really, only one for these
-      const void* data;
-      int size;
-      rval = mbImpl->tag_get_by_ptr(tag, &_fileSet, 1, &data, &size);
-      ERRORR(rval, "Can't get tag values.");
 
-      // Find the type of tag, and use it
+        assert(0 == currentVarData.memoryHogs.size()); // Nothing so far
+        currentVarData.memoryHogs.push_back((void*)data);
+
+        if (currentVarData.varDims.empty()) {
+          // Scalar variable
+          currentVarData.writeStarts.push_back(0);
+          currentVarData.writeCounts.push_back(1);
+        }
+        else {
+          for (size_t j = 0; j < currentVarData.varDims.size(); j++) {
+            currentVarData.writeStarts.push_back(0);
+            currentVarData.writeCounts.push_back(dimLens[currentVarData.varDims[j]]);
+          }
+        }
+
+        // Get variable size
+        currentVarData.sz = 1;
+        for (std::size_t idx = 0; idx != currentVarData.writeCounts.size(); idx++)
+          currentVarData.sz *= currentVarData.writeCounts[idx];
+      }
+    } // if (WriteNC::ENTLOCSET == currentVarData.entLoc)
+    // Process non-set variables
+    else {
+      Tag indexedTag = 0;
+
+      if (currentVarData.has_tsteps) {
+        for (unsigned int t = 0; t < tstep_nums.size(); t++) {
+          std::stringstream ssTagNameWithIndex;
+          ssTagNameWithIndex << varname << tstep_nums[t];
+          rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);
+          ERRORR(rval, "Can't find one tag.");
+          dbgOut.tprintf(2, "    found indexed tag %d with name %s\n", tstep_nums[t], ssTagNameWithIndex.str().c_str());
+          currentVarData.varTags.push_back(indexedTag);
+        }
+      }
+      else {
+        // This should be a user-created non-set variable without timesteps
+        // Treat it like having one, 0th, timestep
+        std::stringstream ssTagNameWithIndex;
+        ssTagNameWithIndex << varname << 0;
+        rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);
+        ERRORR(rval, "Can't find tag for a user-created variable.");
+        dbgOut.tprintf(2, "    found indexed tag 0 with name %s\n", ssTagNameWithIndex.str().c_str());
+        currentVarData.varTags.push_back(indexedTag);
+      }
+
+      // The type of the tag is fixed though
       DataType type;
-      rval = mbImpl->tag_get_data_type(tag, type);
+      rval = mbImpl->tag_get_data_type(indexedTag, type);
       ERRORR(rval, "Can't get tag type.");
 
       currentVarData.varDataType = NC_DOUBLE;
       if (MB_TYPE_INTEGER == type)
         currentVarData.varDataType = NC_INT;
-
-      assert(0 == currentVarData.memoryHogs.size()); // Nothing so far
-      currentVarData.memoryHogs.push_back((void*)data);
-
-      if (currentVarData.varDims.empty()) {
-        // Scalar variable
-        currentVarData.writeStarts.push_back(0);
-        currentVarData.writeCounts.push_back(1);
-      }
-      else {
-        assert(1 == currentVarData.varDims.size());
-        currentVarData.writeStarts.push_back(0);
-        currentVarData.writeCounts.push_back(dimLens[currentVarData.varDims[0]]);
-      }
     }
-  }
+  } // for (size_t i = 0; i < var_names.size(); i++)
 
-  // Process coordinate variables
+  // Process coordinate variables here
   // Check that for used coordinates we have found the tags
   for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
       setIt != usedCoordinates.end(); ++setIt) {
@@ -172,6 +201,14 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
     dbgOut.tprintf(2, "    found coordinate tag with name %s and length %d\n", coordName.c_str(),
         sizeCoordinate);
 
+    // Find the type of tag, and use it
+    DataType type;
+    rval = mbImpl->tag_get_data_type(coordTag, type);
+    ERRORR(rval, "Can't get tag type.");
+    varCoordData.varDataType = NC_DOUBLE;
+    if (MB_TYPE_INTEGER == type)
+      varCoordData.varDataType = NC_INT;
+
     // Get dimension length (the only dimension of this coordinate variable, with the same name)
     assert(1 == varCoordData.varDims.size());
     int coordDimLen = dimLens[varCoordData.varDims[0]];
@@ -181,10 +218,35 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       // The number of coordinates should be set to dimension length, instead of 1
       assert(1 == sizeCoordinate);
       sizeCoordinate = coordDimLen;
+
+      // No variable data to write
+      data = NULL;
     }
     else {
       // The number of coordinates should be exactly the same as dimension length
-      assert(sizeCoordinate == coordDimLen);
+      // However, if timesteps spread across files and time tag has been updated,
+      // sizeCoordinate will be larger
+      if (varCoordData.varDims[0] != tDim)
+        assert(sizeCoordinate == coordDimLen);
+    }
+
+    // For time, the actual output size and values are determined by tstep_nums
+    if (varCoordData.varDims[0] == tDim) {
+      // Does not apply to dummy time tag (e.g. 'Time' tag of MPAS), when timesteps
+      // spread across files
+      if (NULL != data)
+        assert(tstep_nums.size() > 0 && tstep_nums.size() <= (size_t)sizeCoordinate);
+
+      sizeCoordinate = tstep_nums.size();
+
+      if (NULL != data) {
+        assert(NC_DOUBLE == varCoordData.varDataType);
+        timeStepVals.resize(sizeCoordinate);
+        for (unsigned int t = 0; t < tstep_nums.size(); t++)
+          timeStepVals[t] = ((double*)data)[tstep_nums[t]];
+
+        data = &timeStepVals[0];
+      }
     }
 
     // This is the length
@@ -194,18 +256,9 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
     varCoordData.writeCounts.resize(1);
     varCoordData.writeCounts[0] = sizeCoordinate;
 
-    // Find the type of tag, and use it
-    DataType type;
-    rval = mbImpl->tag_get_data_type(coordTag, type);
-    ERRORR(rval, "Can't get tag type.");
-
-    varCoordData.varDataType = NC_DOUBLE;
-    if (MB_TYPE_INTEGER == type)
-      varCoordData.varDataType = NC_INT;
-
     assert(0 == varCoordData.memoryHogs.size()); // Nothing so far
     varCoordData.memoryHogs.push_back((void*)data);
-  }
+  } // for (std::set<std::string>::iterator setIt ...
 
   return MB_SUCCESS;
 }
@@ -343,7 +396,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
         (int)variableData.varDims.size(), &(variableData.varDims[0]),
         &variableData.varId);
     if (errCode != NC_NOERR)
-      ERRORR(MB_FAILURE, "Failed to create coordinate variable.");
+      ERRORR(MB_FAILURE, "Failed to create requested variable.");
 
     dbgOut.tprintf(2, "    for variable %s with desired name %s variable id is %d \n", var_names[i].c_str(),
         desired_names[i].c_str(), variableData.varId);
@@ -392,6 +445,119 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
     ERRORR(MB_FAILURE, "Failed to close define mode.");
 
   return MB_SUCCESS;
+}
+
+ErrorCode NCWriteHelper::write_values(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
+{
+  std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
+  std::set<std::string>& dummyVarNames = _writeNC->dummyVarNames;
+  std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
+
+  std::vector<WriteNC::VarData> vdatas;
+  std::vector<WriteNC::VarData> vsetdatas;
+
+  // For set variables, include coordinates used by requested var_names
+  for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
+      setIt != usedCoordinates.end(); ++setIt) {
+    const std::string& coordName = *setIt;
+
+    // Skip dummy coordinate variables (if any)
+    if (dummyVarNames.find(coordName) != dummyVarNames.end())
+      continue;
+
+    std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
+    if (vit == varInfo.end()) {
+      ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
+    }
+
+     vsetdatas.push_back(vit->second);
+  }
+
+  // Collect non-set and set variables from requested var_names
+  for (unsigned int i = 0; i < var_names.size(); i++) {
+    std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(var_names[i]);
+    if (vit == varInfo.end()) {
+      ERRORR(MB_FAILURE, "Can't find variable requested.");
+    }
+
+    WriteNC::VarData& variableData = vit->second;
+    if (WriteNC::ENTLOCSET == variableData.entLoc) {
+      // Used coordinates has all ready been included
+      if (usedCoordinates.find(var_names[i]) != usedCoordinates.end())
+        continue;
+
+      vsetdatas.push_back(variableData);
+    }
+    else
+      vdatas.push_back(variableData);
+  }
+
+  // Assume that the data ranges do not overlap across processors
+  // While overlapped writing might still work, we should better not take that risk
+  write_nonset_variables(vdatas, tstep_nums);
+
+  // Use independent I/O mode put, since this write is only for the root processor
+  write_set_variables(vsetdatas, tstep_nums);
+
+  return MB_SUCCESS;
+}
+
+ErrorCode NCWriteHelper::write_set_variables(std::vector<WriteNC::VarData>& vsetdatas, std::vector<int>& /* tstep_nums */)
+{
+  int success;
+
+// CAUTION: if the NetCDF ID is from a previous call to ncmpi_create rather than ncmpi_open,
+// all processors need to call ncmpi_begin_indep_data(). If only the root processor does so,
+// ncmpi_begin_indep_data() call will be blocked forever :(
+ #ifdef PNETCDF_FILE
+   // Enter independent I/O mode
+   success = NCFUNC(begin_indep_data)(_fileId);
+   ERRORS(success, "Failed to begin independent I/O mode.");
+ #endif
+
+   int rank = 0;
+ #ifdef USE_MPI
+   bool& isParallel = _writeNC->isParallel;
+   if (isParallel) {
+     ParallelComm*& myPcomm = _writeNC->myPcomm;
+     rank = myPcomm->proc_config().proc_rank();
+   }
+ #endif
+   if (0 == rank) {
+     for (unsigned int i = 0; i < vsetdatas.size(); i++) {
+       WriteNC::VarData& variableData = vsetdatas[i];
+
+       // Set variables with timesteps, e.g. xtime(Time) or xtime(Time, StrLen)
+       if (variableData.has_tsteps) {
+         ERRORR(MB_NOT_IMPLEMENTED, "Writing set variables with timesteps not implemented yet.");
+       }
+
+       switch (variableData.varDataType) {
+         case NC_DOUBLE:
+           // Independent I/O mode put
+           success = NCFUNCP(_vara_double)(_fileId, variableData.varId, &variableData.writeStarts[0],
+                     &variableData.writeCounts[0], (double*)(variableData.memoryHogs[0]));
+           ERRORS(success, "Failed to write double data.");
+           break;
+         case NC_INT:
+           // Independent I/O mode put
+           success = NCFUNCP(_vara_int)(_fileId, variableData.varId, &variableData.writeStarts[0],
+                     &variableData.writeCounts[0], (int*)(variableData.memoryHogs[0]));
+           ERRORS(success, "Failed to write int data.");
+           break;
+         default:
+           ERRORR(MB_NOT_IMPLEMENTED, "Writing with current data type not implemented yet.");
+       }
+     }
+   }
+
+ #ifdef PNETCDF_FILE
+   // End independent I/O mode
+   success = NCFUNC(end_indep_data)(_fileId);
+   ERRORS(success, "Failed to end independent I/O mode.");
+ #endif
+
+   return MB_SUCCESS;
 }
 
 ErrorCode ScdNCWriteHelper::collect_mesh_info()
@@ -474,9 +640,9 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
   return MB_SUCCESS;
 }
 
-ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_names)
+ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_names, std::vector<int>& tstep_nums)
 {
-  NCWriteHelper::collect_variable_data(var_names);
+  NCWriteHelper::collect_variable_data(var_names, tstep_nums);
 
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
@@ -487,194 +653,172 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
       ERRORR(MB_FAILURE, "Can't find one variable.");
 
     WriteNC::VarData& currentVarData = vit->second;
+    std::vector<int>& varDims = currentVarData.varDims;
+
+    // Skip set variables, which were already processed in NCWriteHelper::collect_variable_data()
+    if (WriteNC::ENTLOCSET == currentVarData.entLoc)
+      continue;
+
+    // Set up writeStarts and writeCounts (maximum number of dimensions is 4)
+    currentVarData.writeStarts.resize(4);
+    currentVarData.writeCounts.resize(4);
+    unsigned int dim_idx = 0;
+
+    // First: time
     if (currentVarData.has_tsteps) {
-      // Support non-set variables with 4 dimensions like (time, lev, lat, lon)
-      assert(4 == currentVarData.varDims.size());
+      // Non-set variables with timesteps
+      // 4 dimensions like (time, lev, lat, lon)
+      // 3 dimensions like (time, lat, lon)
+      assert(4 == varDims.size() || 3 == varDims.size());
 
       // Time should be the first dimension
-      assert(tDim == currentVarData.varDims[0]);
+      assert(tDim == varDims[0]);
 
-      // Set up writeStarts and writeCounts
-      currentVarData.writeStarts.resize(4);
-      currentVarData.writeCounts.resize(4);
-
-      // First: time
-      currentVarData.writeStarts[0] = 0; // This value is timestep dependent, will be set later
-      currentVarData.writeCounts[0] = 1;
-
-      // Next: lev
-      currentVarData.writeStarts[1] = 0;
-      currentVarData.writeCounts[1] = currentVarData.numLev;
-
-      // Finally: lat and lon
-      switch (currentVarData.entLoc) {
-        case WriteNC::ENTLOCFACE:
-          // Faces
-          currentVarData.writeStarts[2] = lCDims[1];
-          currentVarData.writeCounts[2] = lCDims[4] - lCDims[1] + 1;
-          currentVarData.writeStarts[3] = lCDims[0];
-          currentVarData.writeCounts[3] = lCDims[3] - lCDims[0] + 1;
-          break;
-        default:
-          ERRORR(MB_FAILURE, "Unexpected entity location type for structured mesh non-set variable.");
-      }
+      currentVarData.writeStarts[dim_idx] = 0; // This value is timestep dependent, will be set later
+      currentVarData.writeCounts[dim_idx] = 1;
+      dim_idx++;
     }
+    else {
+      // Non-set variables without timesteps
+      // 3 dimensions like (lev, lat, lon)
+      // 2 dimensions like (lat, lon)
+      assert(3 == varDims.size() || 2 == varDims.size());
+    }
+
+    // Next: lev
+    if (currentVarData.numLev > 0) {
+      // Non-set variables with levels
+      // 4 dimensions like (time, lev, lat, lon)
+      // 3 dimensions like (lev, lat, lon)
+      assert(4 == varDims.size() || 3 == varDims.size());
+
+      currentVarData.writeStarts[dim_idx] = 0;
+      currentVarData.writeCounts[dim_idx] = currentVarData.numLev;
+      dim_idx++;
+    }
+    else {
+      // Non-set variables without levels
+      // 3 dimensions like (time, lat, lon)
+      // 2 dimensions like (lat, lon)
+      assert(3 == varDims.size() || 2 == varDims.size());
+    }
+
+    // Finally: lat and lon
+    switch (currentVarData.entLoc) {
+      case WriteNC::ENTLOCFACE:
+        // Faces
+        currentVarData.writeStarts[dim_idx] = lCDims[1];
+        currentVarData.writeCounts[dim_idx] = lCDims[4] - lCDims[1] + 1;
+        currentVarData.writeStarts[dim_idx + 1] = lCDims[0];
+        currentVarData.writeCounts[dim_idx + 1] = lCDims[3] - lCDims[0] + 1;
+        break;
+      default:
+        ERRORR(MB_FAILURE, "Unexpected entity location type for structured mesh non-set variable.");
+    }
+    dim_idx += 2;
 
     // Get variable size
     currentVarData.sz = 1;
-    for (std::size_t idx = 0; idx != currentVarData.writeCounts.size(); idx++)
+    for (std::size_t idx = 0; idx < dim_idx; idx++)
       currentVarData.sz *= currentVarData.writeCounts[idx];
-  }
+  } // for (size_t i = 0; i < var_names.size(); i++)
 
   return MB_SUCCESS;
 }
 
-// For parallel write, we assume that the data ranges do not overlap across processors
-// While overlapped writing might still work, we should better not take that risk
-// For CAM-EUL and CAM-FV variables on non-shared quads (e.g. T), this is not an issue
-// We assume that there are no variables on vertices and we do not support variables
-// on edges (e.g. US in CAM-FV) for the time being
-ErrorCode ScdNCWriteHelper::write_values(std::vector<std::string>& var_names)
+// Write CAM-EUL and CAM-FV non-set variables on non-shared quads (e.g. T)
+// We assume that there are no variables on vertices and we do not support
+// variables on edges (e.g. US in CAM-FV) for the time being
+ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _writeNC->mbImpl;
-  std::set<std::string>& usedCoordinates = _writeNC->usedCoordinates;
-  std::set<std::string>& dummyVarNames = _writeNC->dummyVarNames;
-  std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
   int success;
 
-  // Now look at requested var_names; if they have time, we will have a list, and write one at a time
-  // If not, just write regularly
-  // Use collective I/O mode put (synchronous write) for the time being, we can try nonblocking put
-  // (request aggregation) later
-  for (size_t i = 0; i < var_names.size(); i++) {
-    std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(var_names[i]);
-    if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find variable requested.");
+  // For each indexed variable tag, write a time step data
+  for (unsigned int i = 0; i < vdatas.size(); i++) {
+    WriteNC::VarData& variableData = vdatas[i];
 
-    WriteNC::VarData& variableData = vit->second;
-    int numTimeSteps = (int)variableData.varTags.size();
+    // Assume this variable is on faces for the time being
+    switch (variableData.entLoc) {
+      case WriteNC::ENTLOCFACE:
+        // Faces
+        break;
+      default:
+        ERRORR(MB_FAILURE, "Unexpected entity location type for structured mesh non-set variable.");
+    }
+
+    unsigned int num_timesteps;
+    unsigned int lat_idx = 0;
+    unsigned int lon_idx = 1;
     if (variableData.has_tsteps) {
-      // Time should be the first dimension
-      assert(tDim == variableData.varDims[0]);
-
-      // Assume this variable is on faces for the time being
-      switch (variableData.entLoc) {
-        case WriteNC::ENTLOCFACE:
-          // Faces
-          break;
-        default:
-          ERRORR(MB_FAILURE, "Unexpected entity location type for structured mesh non-set variable.");
-      }
-
-      // A typical variable has 4 dimensions as (time, lev, lat, lon)
-      // At each timestep, we need to transpose tag format (lat, lon, lev) back
-      // to NC format (lev, lat, lon) for writing
-      size_t ni = variableData.writeCounts[3]; // lon
-      size_t nj = variableData.writeCounts[2]; // lat
-      size_t nk = variableData.writeCounts[1]; // lev
-
-      variableData.writeCounts[0] = 1; // We will write one time step
-      // FIXME: Should use tstep_nums (from writing options) later
-      for (int j = 0; j < numTimeSteps; j++) {
-        // We will write one time step, and count will be one; start will be different
-        // We will write values directly from tag_iterate, but we should also transpose for level
-        // so that means deep copy for transpose
-        variableData.writeStarts[0] = j; // This is time, again
-        int count;
-        void* dataptr;
-        ErrorCode rval = mbImpl->tag_iterate(variableData.varTags[j], localCellsOwned.begin(), localCellsOwned.end(), count, dataptr);
-        ERRORR(rval, "Failed to get tag iterator on owned faces.");
-        assert(count == (int)localCellsOwned.size());
-
-        // Now write from memory directly
-        switch (variableData.varDataType) {
-          case NC_DOUBLE: {
-            std::vector<double> tmpdoubledata(ni*nj*nk);
-            // Transpose (lat, lon, lev) back to (lev, lat, lon)
-            jik_to_kji(ni, nj, nk, &tmpdoubledata[0], (double*)(dataptr));
-            success = NCFUNCAP(_vara_double)(_fileId, variableData.varId,
-                      &variableData.writeStarts[0], &variableData.writeCounts[0],
-                      &tmpdoubledata[0]);
-            ERRORS(success, "Failed to write double data.");
-            break;
-          }
-          default:
-            ERRORR(MB_FAILURE, "Not implemented yet.");
-        }
-      }
+      // Non-set variables with timesteps
+      // 4 dimensions like (time, lev, lat, lon)
+      // 3 dimensions like (time, lat, lon)
+      num_timesteps = tstep_nums.size();
+      lat_idx++;
+      lon_idx++;
     }
     else {
+      // Non-set variables without timesteps
+      // 3 dimensions like (lev, lat, lon)
+      // 2 dimensions like (lat, lon)
+      num_timesteps = 1;
+    }
+
+    unsigned int num_lev;
+    if (variableData.numLev > 0) {
+      // Non-set variables with levels
+      // 4 dimensions like (time, lev, lat, lon)
+      // 3 dimensions like (lev, lat, lon)
+      num_lev = variableData.numLev;
+      lat_idx++;
+      lon_idx++;
+    }
+    else {
+      // Non-set variables without levels
+      // 3 dimensions like (time, lat, lon)
+      // 2 dimensions like (lat, lon)
+      num_lev = 1;
+    }
+
+    size_t ni = variableData.writeCounts[lon_idx]; // lon
+    size_t nj = variableData.writeCounts[lat_idx]; // lat
+
+    // At each timestep, we need to transpose tag format (lat, lon, lev) back
+    // to NC format (lev, lat, lon) for writing
+    for (unsigned int t = 0; t < num_timesteps; t++) {
+      // We will write one time step, and count will be one; start will be different
+      // Use tag_iterate to get tag data (assume that localCellsOwned is contiguous)
+      // We should also transpose for level so that means deep copy for transpose
+      if (tDim == variableData.varDims[0])
+        variableData.writeStarts[0] = t; // This is start for time
+      int count;
+      void* dataptr;
+      ErrorCode rval = mbImpl->tag_iterate(variableData.varTags[t], localCellsOwned.begin(), localCellsOwned.end(), count, dataptr);
+      ERRORR(rval, "Failed to get tag iterator on owned faces.");
+      assert(count == (int)localCellsOwned.size());
+
+      // Now transpose and write tag data
+      // Use collective I/O mode put (synchronous write) for the time being, we can try
+      // nonblocking put (request aggregation) later
       switch (variableData.varDataType) {
-        case NC_DOUBLE:
-          success = NCFUNCAP(_vara_double)(_fileId, variableData.varId, &variableData.writeStarts[0],
-                    &variableData.writeCounts[0], (double*)(variableData.memoryHogs[0]));
+        case NC_DOUBLE: {
+          std::vector<double> tmpdoubledata(ni*nj*num_lev);
+          if (num_lev > 1)
+            // Transpose (lat, lon, lev) back to (lev, lat, lon)
+            jik_to_kji(ni, nj, num_lev, &tmpdoubledata[0], (double*)(dataptr));
+          success = NCFUNCAP(_vara_double)(_fileId, variableData.varId,
+                    &variableData.writeStarts[0], &variableData.writeCounts[0],
+                    &tmpdoubledata[0]);
           ERRORS(success, "Failed to write double data.");
           break;
+        }
         default:
-          ERRORR(MB_FAILURE, "Not implemented yet.");
+          ERRORR(MB_NOT_IMPLEMENTED, "Writing with current data type not implemented yet.");
       }
     }
   }
-
-  // Write coordinates used by requested var_names
-  // Use independent I/O mode put, since this write is only for the root processor
-  // CAUTION: if the NetCDF ID is from a previous call to ncmpi_create rather than ncmpi_open,
-  // all processors need to call ncmpi_begin_indep_data(). If only the root processor does so,
-  // ncmpi_begin_indep_data() call will be blocked forever :(
-#ifdef PNETCDF_FILE
-  // Enter independent I/O mode
-  success = NCFUNC(begin_indep_data)(_fileId);
-  ERRORS(success, "Failed to begin independent I/O mode.");
-#endif
-
-  int rank = 0;
-#ifdef USE_MPI
-  bool& isParallel = _writeNC->isParallel;
-  if (isParallel) {
-    ParallelComm*& myPcomm = _writeNC->myPcomm;
-    rank = myPcomm->proc_config().proc_rank();
-  }
-#endif
-  if (0 == rank) {
-    for (std::set<std::string>::iterator setIt = usedCoordinates.begin();
-        setIt != usedCoordinates.end(); ++setIt) {
-      const std::string& coordName = *setIt;
-
-      // Skip dummy coordinate variables (if any)
-      if (dummyVarNames.find(coordName) != dummyVarNames.end())
-        continue;
-
-      std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
-      if (vit == varInfo.end())
-        ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
-
-      WriteNC::VarData& varCoordData = vit->second;
-
-      switch (varCoordData.varDataType) {
-        case NC_DOUBLE:
-          // Independent I/O mode put
-          success = NCFUNCP(_vara_double)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
-                    &varCoordData.writeCounts[0], (double*)(varCoordData.memoryHogs[0]));
-          ERRORS(success, "Failed to write double data.");
-          break;
-        case NC_INT:
-          // Independent I/O mode put
-          success = NCFUNCP(_vara_int)(_fileId, varCoordData.varId, &varCoordData.writeStarts[0],
-                    &varCoordData.writeCounts[0], (int*)(varCoordData.memoryHogs[0]));
-          ERRORS(success, "Failed to write int data.");
-          break;
-        default:
-          ERRORR(MB_FAILURE, "Not implemented yet.");
-      }
-    }
-  }
-
-#ifdef PNETCDF_FILE
-  // End independent I/O mode
-  success = NCFUNC(end_indep_data)(_fileId);
-  ERRORS(success, "Failed to end independent I/O mode.");
-#endif
 
   return MB_SUCCESS;
 }

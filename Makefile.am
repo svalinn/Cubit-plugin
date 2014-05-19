@@ -23,12 +23,13 @@ if NETCDF_FILE
                      NCHelperFV.cpp NCHelperFV.hpp \
                      NCHelperHOMME.cpp NCHelperHOMME.hpp \
                      NCHelperMPAS.cpp NCHelperMPAS.hpp \
+                     NCHelperGCRM.cpp NCHelperGCRM.hpp \
                      NCWriteHelper.cpp NCWriteHelper.hpp \
                      NCWriteEuler.cpp NCWriteEuler.hpp \
                      NCWriteFV.cpp NCWriteFV.hpp \
                      NCWriteHOMME.cpp NCWriteHOMME.hpp \
                      NCWriteMPAS.cpp NCWriteMPAS.hpp \
-                     ReadGCRM.cpp ReadGCRM.hpp
+                     NCWriteGCRM.cpp NCWriteGCRM.hpp 
 else
   MOAB_NETCDF_SRCS =
 endif
@@ -42,12 +43,13 @@ if !NETCDF_FILE
                      NCHelperFV.cpp NCHelperFV.hpp \
                      NCHelperHOMME.cpp NCHelperHOMME.hpp \
                      NCHelperMPAS.cpp NCHelperMPAS.hpp \
+                     NCHelperGCRM.cpp NCHelperGCRM.hpp \
                      NCWriteHelper.cpp NCWriteHelper.hpp \
                      NCWriteEuler.cpp NCWriteEuler.hpp \
                      NCWriteFV.cpp NCWriteFV.hpp \
                      NCWriteHOMME.cpp NCWriteHOMME.hpp \
                      NCWriteMPAS.cpp NCWriteMPAS.hpp \
-                     ReadGCRM.cpp ReadGCRM.hpp
+                     NCWriteGCRM.cpp NCWriteGCRM.hpp 
 endif
 endif
 
