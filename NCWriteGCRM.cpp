@@ -71,7 +71,9 @@ ErrorCode NCWriteGCRM::collect_mesh_info()
     int rank = myPcomm->proc_config().proc_rank();
     int procs = myPcomm->proc_config().proc_size();
     if (procs > 1) {
+#ifndef NDEBUG
       unsigned int num_local_verts = localVertsOwned.size();
+#endif
       rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
       ERRORR(rval, "Trouble getting owned vertices in set.");
 
@@ -130,7 +132,9 @@ ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names
       ERRORR(MB_FAILURE, "Can't find one variable.");
 
     WriteNC::VarData& currentVarData = vit->second;
+#ifndef NDEBUG
     std::vector<int>& varDims = currentVarData.varDims;
+#endif
 
     // Skip edge variables, if there are no edges
     if (localEdgesOwned.empty() && currentVarData.entLoc == WriteNC::ENTLOCEDGE)

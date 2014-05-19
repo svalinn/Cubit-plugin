@@ -653,7 +653,9 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
       ERRORR(MB_FAILURE, "Can't find one variable.");
 
     WriteNC::VarData& currentVarData = vit->second;
+#ifndef NDEBUG
     std::vector<int>& varDims = currentVarData.varDims;
+#endif
 
     // Skip set variables, which were already processed in NCWriteHelper::collect_variable_data()
     if (WriteNC::ENTLOCSET == currentVarData.entLoc)

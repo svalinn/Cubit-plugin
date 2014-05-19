@@ -59,7 +59,9 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
     int rank = myPcomm->proc_config().proc_rank();
     int procs = myPcomm->proc_config().proc_size();
     if (procs > 1) {
+#ifndef NDEBUG
       unsigned int num_local_verts = localVertsOwned.size();
+#endif
       rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
       ERRORR(rval, "Trouble getting owned vertices in set.");
 
@@ -94,7 +96,9 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
       ERRORR(MB_FAILURE, "Can't find one variable.");
 
     WriteNC::VarData& currentVarData = vit->second;
+#ifndef NDEBUG
     std::vector<int>& varDims = currentVarData.varDims;
+#endif
 
     // Skip set variables, which were already processed in NCWriteHelper::collect_variable_data()
     if (WriteNC::ENTLOCSET == currentVarData.entLoc)
