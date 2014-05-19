@@ -399,7 +399,7 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
         variableDataStruct.numAtts = 0;
       }
       else if (attribString == "DUMMY_VAR") {
-        // This variable is a dummy dimension variable
+        // This variable is a dummy coordinate variable
         variableDataStruct.numAtts = 0;
         dummyVarNames.insert(variableDataStruct.varName);
       }

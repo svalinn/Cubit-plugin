@@ -262,7 +262,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
     std::vector<int> varAttLen;
     if (mapIter->second.numAtts < 1) {
       if (dummyVarNames.find(mapIter->first) != dummyVarNames.end()) {
-        // This variable is a dummy dimension variable
+        // This variable is a dummy coordinate variable
         varAttVal = "DUMMY_VAR";
       }
       else {
@@ -394,12 +394,10 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
       ReadNC::VarData vd = (*mit).second;
 
       // If read all variables at once, skip ignored ones
-      // Upon creation of dummy variables, tag values have already been set
-      if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end() ||
-          dummyVarNames.find(vd.varName) != dummyVarNames.end())
+      if (ignoredVarNames.find(vd.varName) != ignoredVarNames.end())
          continue;
 
-      // Dimension variables were read before creating conventional tags
+      // Coordinate variables (include dummy ones) were read to the file set by default
       if (std::find(dimNames.begin(), dimNames.end(), vd.varName) != dimNames.end())
         continue;
 
@@ -416,7 +414,7 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
       if (mit != varInfo.end()) {
         ReadNC::VarData vd = (*mit).second;
 
-        // Upon creation of dummy variables, tag values have already been set
+        // Upon creation of dummy coordinate variables, tag values have already been set
         if (dummyVarNames.find(vd.varName) != dummyVarNames.end())
            continue;
 
@@ -836,13 +834,13 @@ ErrorCode NCHelper::create_dummy_variables()
 
   // Hack: look at all dimensions, and see if we have one that does not appear in the list of varInfo names
   // Right now, candidates are from unstructured meshes, such as ncol (HOMME) and nCells (MPAS)
-  // For each of them, create a dummy variable with a sparse tag to store the dimension length
+  // For each of them, create a dummy coordinate variable with a sparse tag to store the dimension length
   for (unsigned int i = 0; i < dimNames.size(); i++) {
     // If there is a variable with this dimension name, skip
     if (varInfo.find(dimNames[i]) != varInfo.end())
       continue;
 
-    // Create a dummy variable
+    // Create a dummy coordinate variable
     int sizeTotalVar = varInfo.size();
     std::string var_name(dimNames[i]);
     ReadNC::VarData& data = varInfo[var_name];
@@ -855,13 +853,13 @@ ErrorCode NCHelper::create_dummy_variables()
     data.numAtts = 0;
     data.entLoc = ReadNC::ENTLOCSET;
     dummyVarNames.insert(dimNames[i]);
-    dbgOut.tprintf(2, "Dummy variable created for dimension %s\n", dimNames[i].c_str());
+    dbgOut.tprintf(2, "Dummy coordinate variable created for dimension %s\n", dimNames[i].c_str());
 
     // Create a corresponding sparse tag
     Tag tagh;
     ErrorCode rval = mbImpl->tag_get_handle(dimNames[i].c_str(), 0, MB_TYPE_INTEGER, tagh,
                                             MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
-    ERRORR(rval, "Failed to create tag for a dummy dimension variable.");
+    ERRORR(rval, "Failed to create tag for a dummy coordinate variable.");
 
     // Tag value is the dimension length
     const void* ptr = &dimLens[i];
