@@ -131,9 +131,10 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   rval = mbImpl->tag_get_data(convTagsCreated, &tmp_set, 1, &create_conv_tags_flag);
   // The first read to the file set
   if (0 == create_conv_tags_flag) {
-    // Read dimension variables to create tags like __<var_name>_DIMS
+    // Read dimensions (coordinate variables) by default to create tags like __<var_name>_DIMS
+    // This is done only once (assume that all files read to the file set have the same dimensions)
     rval = myHelper->read_variables(dimNames, tstep_nums);
-    ERRORR(rval, "Trouble reading dimension variables.");
+    ERRORR(rval, "Trouble reading dimensions.");
 
     rval = myHelper->create_conventional_tags(tstep_nums);
     ERRORR(rval, "Trouble creating NC conventional tags.");
@@ -161,8 +162,24 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
 
   // Read specified variables onto grid
   if (!noVars) {
-    rval = myHelper->read_variables(var_names, tstep_nums);
-    ERRORR(rval, "Trouble reading specified variables.");
+    if (var_names.empty()) {
+      // If VARIABLE option is missing, read all variables
+      rval = myHelper->read_variables(var_names, tstep_nums);
+      ERRORR(rval, "Trouble reading all variables.");
+    }
+    else {
+      // Exclude dimensions that are read to the file set by default
+      std::vector<std::string> non_dim_var_names;
+      for (unsigned int i = 0; i < var_names.size(); i++) {
+        if (std::find(dimNames.begin(), dimNames.end(), var_names[i]) == dimNames.end())
+          non_dim_var_names.push_back(var_names[i]);
+      }
+
+      if (!non_dim_var_names.empty()) {
+        rval = myHelper->read_variables(non_dim_var_names, tstep_nums);
+        ERRORR(rval, "Trouble reading specified variables.");
+      }
+    }
   }
 
 #ifdef USE_MPI
