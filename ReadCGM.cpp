@@ -421,7 +421,7 @@ ErrorCode ReadCGM::create_group_entsets( Interface* moab, std::map<RefEntity*,En
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::store_group_content( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap ) 
+ErrorCode ReadCGM::store_group_content( Interface* /* moab */, std::map<RefEntity*,EntityHandle>* entitymap )
 {
 
   ErrorCode rval;
@@ -532,8 +532,8 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
 
   // CGM data
   std::map<RefEntity*,EntityHandle>::iterator ci;
-  const char geom_categories[][CATEGORY_TAG_SIZE] = 
-      {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+  //const char geom_categories[][CATEGORY_TAG_SIZE] =
+      //{"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
  
   DLIList<ModelEntity*> me_list;
 
@@ -560,7 +560,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   // create entity sets for all geometric entities
   DLIList<RefEntity*> entlist;
   std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
-  std::map<RefEntity*,EntityHandle>* entmap_ptr = entmap;
+  //std::map<RefEntity*,EntityHandle>* entmap_ptr = entmap;
   rval = create_entity_sets( mdbImpl, entmap );
   if (rval!=MB_SUCCESS) return rval;
 
