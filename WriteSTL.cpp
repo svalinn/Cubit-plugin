@@ -35,6 +35,7 @@
 #include <math.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <float.h>
 
 namespace moab {
 
@@ -247,7 +248,14 @@ ErrorCode WriteSTL::get_triangle_data( const double coords[9],
   n[0] = e1[1]*e2[2] - e1[2]*e2[1];
   n[1] = e1[2]*e2[0] - e1[0]*e2[2];
   n[2] = e1[0]*e2[1] - e1[1]*e2[0];
-  float inv_len = 1.0f / (float)sqrt( n[0]*n[0] + n[1]*n[1] + n[2]*n[2] );
+  float inv_len = (float)sqrt( n[0]*n[0] + n[1]*n[1] + n[2]*n[2] );
+  if (inv_len > FLT_MIN)
+    {
+      inv_len = 1.0f / inv_len;
+    }
+  else
+    inv_len = 0;
+
   n[0] *= inv_len;
   n[1] *= inv_len;
   n[2] *= inv_len;
