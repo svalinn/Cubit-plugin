@@ -159,7 +159,7 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
   return MB_SUCCESS;
 }
 
-  ErrorCode ReadCGM::create_entity_sets( Interface* moab, std::map<RefEntity*, EntityHandle> (&entmap)[5] )
+  ErrorCode ReadCGM::create_entity_sets( std::map<RefEntity*, EntityHandle> (&entmap)[5] )
 {
   ErrorCode rval; 
   const char geom_categories[][CATEGORY_TAG_SIZE] = 
@@ -178,21 +178,21 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
          RefEntity* ent = entlist.get_and_step(); 
          EntityHandle handle;  
          // create the new meshset
-         rval = moab->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle);
+         rval = mdbImpl->create_meshset( dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle);
          if (MB_SUCCESS != rval) return rval; 
 
          // map the geom reference entity to the corresponding moab meshset
          entmap[dim][ent] = handle; 
 
          // create tags for the new meshset
-         rval = moab->tag_set_data( geom_tag, &handle, 1, &dim ); 
+         rval = mdbImpl->tag_set_data( geom_tag, &handle, 1, &dim ); 
          if (MB_SUCCESS != rval) return rval; 
 
          int id = ent->id();
-         rval = moab->tag_set_data( id_tag, &handle, 1, &id );
+         rval = mdbImpl->tag_set_data( id_tag, &handle, 1, &id );
          if (MB_SUCCESS != rval) return rval;
 
-         rval = moab->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
+         rval = mdbImpl->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
          if (MB_SUCCESS != rval) return rval;
  
        }
@@ -203,7 +203,7 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
 
 
 
-ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+ErrorCode ReadCGM::create_topology( std::map<RefEntity*,EntityHandle> entitymap[5] )
 {
   ErrorCode rval;
   DLIList<RefEntity*> entitylist;
@@ -218,7 +218,7 @@ ErrorCode ReadCGM::create_topology( Interface* moab, std::map<RefEntity*,EntityH
       for (int i = entitylist.size(); i--; ) {
         RefEntity* ent = entitylist.get_and_step();
         EntityHandle h = entitymap[dim-1][ent];
-        rval = moab->add_parent_child( ci->second, h );
+        rval = mdbImpl->add_parent_child( ci->second, h );
         if (MB_SUCCESS != rval)
           return rval;
       }
@@ -312,12 +312,12 @@ ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitym
   return MB_SUCCESS;
 }
 
-  ErrorCode ReadCGM::store_groups( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap )
+  ErrorCode ReadCGM::store_groups( std::map<RefEntity*,EntityHandle>* entitymap )
 {
   ErrorCode rval;
 
   // create eneity sets for all ref groups
-  rval = create_group_entsets( moab, entitymap[4] );
+  rval = create_group_entsets( entitymap[4] );
   if(rval!=MB_SUCCESS) return rval;
   
   // store group names and entities in the mesh
@@ -328,7 +328,7 @@ ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitym
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_group_entsets( Interface* moab, std::map<RefEntity*,EntityHandle>& entitymap )
+ErrorCode ReadCGM::create_group_entsets( std::map<RefEntity*,EntityHandle>& entitymap )
 {
 
   ErrorCode rval;
@@ -370,7 +370,7 @@ ErrorCode ReadCGM::create_group_entsets( Interface* moab, std::map<RefEntity*,En
 #endif
     // create entity handle for the group
     EntityHandle h;
-    rval = moab->create_meshset( MESHSET_SET, h );
+    rval = mdbImpl->create_meshset( MESHSET_SET, h );
     if (MB_SUCCESS != rval)
       return rval;
     //set tag data for the group
@@ -380,16 +380,16 @@ ErrorCode ReadCGM::create_group_entsets( Interface* moab, std::map<RefEntity*,En
     if (name1.length() >= (unsigned)NAME_TAG_SIZE)
       std::cout << "WARNING: group name '" << name1.c_str()
                 << "' truncated to '" << namebuf << "'" << std::endl;
-    rval = moab->tag_set_data( name_tag, &h, 1, namebuf );
+    rval = mdbImpl->tag_set_data( name_tag, &h, 1, namebuf );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
       
     int id = grp->id();
-    rval = moab->tag_set_data( id_tag, &h, 1, &id );
+    rval = mdbImpl->tag_set_data( id_tag, &h, 1, &id );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
       
-    rval = moab->tag_set_data( category_tag, &h, 1, &geom_categories[4] );
+    rval = mdbImpl->tag_set_data( category_tag, &h, 1, &geom_categories[4] );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
     //check for extra group names  
@@ -397,7 +397,7 @@ ErrorCode ReadCGM::create_group_entsets( Interface* moab, std::map<RefEntity*,En
       for (int j = extra_name_tags.size(); j < name_list.size(); ++j) {
         sprintf( namebuf, "EXTRA_%s%d", NAME_TAG_NAME, j );
         Tag t;
-        rval = moab->tag_get_handle( namebuf, NAME_TAG_SIZE, MB_TYPE_OPAQUE, t, MB_TAG_SPARSE|MB_TAG_CREAT );
+        rval = mdbImpl->tag_get_handle( namebuf, NAME_TAG_SIZE, MB_TYPE_OPAQUE, t, MB_TAG_SPARSE|MB_TAG_CREAT );
         assert(!rval);
         extra_name_tags.push_back(t);
       }
@@ -413,7 +413,7 @@ ErrorCode ReadCGM::create_group_entsets( Interface* moab, std::map<RefEntity*,En
         if (name1.length() >= (unsigned)NAME_TAG_SIZE)
           std::cout << "WARNING: group name '" << name1.c_str()
                     << "' truncated to '" << namebuf << "'" << std::endl;
-        rval = moab->tag_set_data( extra_name_tags[j], &h, 1, namebuf );
+        rval = mdbImpl->tag_set_data( extra_name_tags[j], &h, 1, namebuf );
         if (MB_SUCCESS != rval)
           return MB_FAILURE;
       }
@@ -502,7 +502,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
 }
 
 
-  ErrorCode ReadCGM::create_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entitymap[5] )
+  ErrorCode ReadCGM::create_vertices( std::map<RefEntity*,EntityHandle> entitymap[5] )
 {
 
  ErrorCode rval;
@@ -511,11 +511,11 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
     CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
     double coords[3] = {pos.x(), pos.y(), pos.z()};
     EntityHandle vh;
-    rval = moab->create_vertex( coords, vh );
+    rval = mdbImpl->create_vertex( coords, vh );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
     
-    rval = moab->add_entities( ci->second, &vh, 1 );
+    rval = mdbImpl->add_entities( ci->second, &vh, 1 );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
     
@@ -524,8 +524,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_curve_facets( Interface* moab, 
-                                        std::map<RefEntity*,EntityHandle> entitymap[5], 
+ErrorCode ReadCGM::create_curve_facets( std::map<RefEntity*,EntityHandle> entitymap[5], 
                                         int norm_tol, 
                                         double faceting_tol, 
                                         bool verbose_warn )
@@ -582,7 +581,7 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
         continue;
       }
       EntityHandle h = entitymap[0][start_vtx];
-      rval = moab->add_entities( ci->second, &h, 1 );
+      rval = mdbImpl->add_entities( ci->second, &h, 1 );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
       continue;
@@ -615,7 +614,7 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
       double coords[] = { points[i].x(), points[i].y(), points[i].z() };
       EntityHandle h;
       //create vertex entity
-      rval = moab->create_vertex( coords, h );
+      rval = mdbImpl->create_vertex( coords, h );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
       verts.push_back( h );
@@ -625,7 +624,7 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
       // create edges
     for (size_t i = 0; i < verts.size()-1; ++i) {
       EntityHandle h;
-      rval = moab->create_element( MBEDGE, &verts[i], 2, h );
+      rval = mdbImpl->create_element( MBEDGE, &verts[i], 2, h );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
       edges.push_back( h );
@@ -635,10 +634,10 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
     if (verts.front() == verts.back())
       verts.pop_back();
     //Add entities to the curve meshset from entitymap
-    rval = moab->add_entities( ci->second, &verts[0], verts.size() );
+    rval = mdbImpl->add_entities( ci->second, &verts[0], verts.size() );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
-    rval = moab->add_entities( ci->second, &edges[0], edges.size() );
+    rval = mdbImpl->add_entities( ci->second, &edges[0], edges.size() );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
   }
@@ -652,8 +651,7 @@ ErrorCode ReadCGM::create_curve_facets( Interface* moab,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_surface_facets( Interface* moab, 
-                                          std::map<RefEntity*,EntityHandle> entitymap[5],
+ErrorCode ReadCGM::create_surface_facets( std::map<RefEntity*,EntityHandle> entitymap[5],
                                           int norm_tol, 
                                           double facet_tol, 
                                           double length_tol )
@@ -833,11 +831,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   DLIList<RefEntity*> entlist;
   std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
   //std::map<RefEntity*,EntityHandle>* entmap_ptr = entmap;
-  rval = create_entity_sets( mdbImpl, entmap );
+  rval = create_entity_sets( entmap );
   if (rval!=MB_SUCCESS) return rval;
 
   // create topology for all geometric entities
-  rval = create_topology( mdbImpl, entmap );
+  rval = create_topology( entmap );
   if(rval!=MB_SUCCESS) return rval;
 
   // store CoFace senses
@@ -849,7 +847,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (rval!=MB_SUCCESS) return rval;
 
   // get group information and store it in the mesh 
-  rval = store_groups( mdbImpl, entmap );
+  rval = store_groups( entmap );
   if(rval!=MB_SUCCESS) return rval;
  
   // done with volumes and groups
@@ -857,15 +855,15 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   entmap[4].clear();
 
   // create geometry for all vertices and replace 
-  rval = create_vertices( mdbImpl, entmap );
+  rval = create_vertices( entmap );
   if(rval!=MB_SUCCESS) return rval; 
 
   // create facets for all curves
-  rval = create_curve_facets( mdbImpl, entmap, norm_tol, faceting_tol, verbose_warnings );
+  rval = create_curve_facets( entmap, norm_tol, faceting_tol, verbose_warnings );
   if(rval!=MB_SUCCESS) return rval;
 
   // create facets for surfaces
-  rval = create_surface_facets( mdbImpl, entmap, norm_tol, faceting_tol, len_tol);
+  rval = create_surface_facets( entmap, norm_tol, faceting_tol, len_tol);
   if(rval!=MB_SUCCESS) return rval;
 
   return MB_SUCCESS;
