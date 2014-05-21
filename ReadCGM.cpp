@@ -318,7 +318,7 @@ ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitym
   if(rval!=MB_SUCCESS) return rval;
   
   // store group names and entities in the mesh
-  rval = store_group_content( moab, entitymap );
+  rval = store_group_content(entitymap );
   if(rval!=MB_SUCCESS) return rval;
  
 
@@ -421,7 +421,7 @@ ErrorCode ReadCGM::create_group_entsets( Interface* moab, std::map<RefEntity*,En
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::store_group_content( Interface* /* moab */, std::map<RefEntity*,EntityHandle>* entitymap )
+ErrorCode ReadCGM::store_group_content(std::map<RefEntity*,EntityHandle>* entitymap )
 {
 
   ErrorCode rval;
@@ -473,7 +473,7 @@ ErrorCode ReadCGM::store_group_content( Interface* /* moab */, std::map<RefEntit
     }
     
     if (!entities.empty()) {
-      rval = moab->add_entities( ci->second, entities );
+      rval = mdbImpl->add_entities( ci->second, entities );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
     }
