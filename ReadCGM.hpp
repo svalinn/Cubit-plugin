@@ -93,7 +93,7 @@ public:
   ErrorCode create_group_entsets( Interface* moab, 
                                    std::map<RefEntity*,EntityHandle>& entitymap );
 
-  ErrorCode store_group_content( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
+  ErrorCode store_group_content( std::map<RefEntity*,EntityHandle>* entitymap );
 
 
   void set_cgm_attributes(bool const act_attributes, bool const verbost);
