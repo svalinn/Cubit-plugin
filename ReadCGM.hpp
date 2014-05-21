@@ -78,20 +78,17 @@ public:
 			        bool& act_att,
                                 bool& verbose_warnings);
 
-  ErrorCode create_entity_sets( Interface* moab,
-                                std::map<RefEntity*,EntityHandle> (&entmap)[5] );
+  ErrorCode create_entity_sets( std::map<RefEntity*,EntityHandle> (&entmap)[5] );
 
-  ErrorCode create_topology( Interface* moab, 
-                             std::map<RefEntity*,EntityHandle> entitymap[5] );
+  ErrorCode create_topology( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
   ErrorCode store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
   ErrorCode store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] );
 
-  ErrorCode store_groups( Interface* moab, std::map<RefEntity*,EntityHandle>* entitymap );
+  ErrorCode store_groups( std::map<RefEntity*,EntityHandle>* entitymap );
 
-  ErrorCode create_group_entsets( Interface* moab, 
-                                   std::map<RefEntity*,EntityHandle>& entitymap );
+  ErrorCode create_group_entsets( std::map<RefEntity*,EntityHandle>& entitymap );
 
   ErrorCode store_group_content( std::map<RefEntity*,EntityHandle>* entitymap );
 
@@ -99,17 +96,15 @@ public:
   void set_cgm_attributes(bool const act_attributes, bool const verbost);
 
 
-  ErrorCode create_vertices( Interface* moab, std::map<RefEntity*,EntityHandle> entmap[5] );
+  ErrorCode create_vertices( std::map<RefEntity*,EntityHandle> entmap[5] );
 
 
-  ErrorCode create_curve_facets( Interface* moab, 
-                                 std::map<RefEntity*,EntityHandle> entitymap[5],
+  ErrorCode create_curve_facets( std::map<RefEntity*,EntityHandle> entitymap[5],
                                  int norm_tol,
                                  double faceting_tol,
                                  bool verbose_warn = false );
 
-  ErrorCode create_surface_facets( Interface* moab, 
-                                   std::map<RefEntity*,EntityHandle> entitymap[5],
+  ErrorCode create_surface_facets( std::map<RefEntity*,EntityHandle> entitymap[5],
                                    int norm_tol, 
                                    double facet_tol, 
                                    double length_tol );
