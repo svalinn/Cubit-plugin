@@ -103,10 +103,10 @@ ErrorCode NCHelperGCRM::init_mesh_vals()
   levDim = idx;
   nLevels = dimLens[idx];
 
-  // Dimension numbers for other optional levels
+  // Dimension indices for other optional levels
   std::vector<unsigned int> opt_lev_dims;
 
-  // Get number of interface levels
+  // Get index of interface levels
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "interfaces")) != dimNames.end()) {
     idx = vit - dimNames.begin();
     opt_lev_dims.push_back(idx);
