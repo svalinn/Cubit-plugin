@@ -1308,7 +1308,7 @@ ErrorCode NCHelperGCRM::create_local_cells(const std::vector<int>& vertices_on_l
         if( *(pvertex+k) == *(pvertex+k+1) )
         {
           // shift the connectivity
-          for (int kk=k+1; kk<num_edges_per_cell-2; kk++)
+          for (int kk=k+1; kk<num_edges_per_cell-1; kk++)
           {
             *(pvertex+kk)=*(pvertex+kk+1);
           }
