@@ -18,12 +18,11 @@
 
 namespace moab {
 
-const int DEFAULT_MAX_EDGES_PER_CELL = 6;
+// GCRM cells are either pentagons or hexagons, and pentagons are always padded to hexagons
+const int EDGES_PER_CELL = 6;
 
 NCHelperGCRM::NCHelperGCRM(ReadNC* readNC, int fileId, const FileOptions& opts, EntityHandle fileSet)
 : UcdNCHelper(readNC, fileId, opts, fileSet)
-, maxEdgesPerCell(DEFAULT_MAX_EDGES_PER_CELL)
-, numCellGroups(0)
 , createGatherSet(false)
 {
   // Ignore variables containing topological information
@@ -38,7 +37,7 @@ bool NCHelperGCRM::can_read_file(ReadNC* readNC)
 {
   std::vector<std::string>& dimNames = readNC->dimNames;
 
-  // If dimension name "vertexDegree" exists then it should be the GCRM grid
+  // If dimension name "cells" exists then it should be the GCRM grid
   if (std::find(dimNames.begin(), dimNames.end(), std::string("cells")) != dimNames.end())
     return true;
 
@@ -179,14 +178,6 @@ ErrorCode NCHelperGCRM::check_existing_mesh()
   if (noMesh) {
     ErrorCode rval;
 
-    // Restore numCellGroups
-    if (0 == numCellGroups) {
-      Tag numCellGroupsTag;
-      rval = mbImpl->tag_get_handle("__NUM_CELL_GROUPS", 1, MB_TYPE_INTEGER, numCellGroupsTag);
-      if (MB_SUCCESS == rval)
-        rval = mbImpl->tag_get_data(numCellGroupsTag, &_fileSet, 1, &numCellGroups);
-    }
-
     if (localGidVerts.empty()) {
       // Get all vertices from tmp_set (it is the input set in no_mesh scenario)
       Range local_verts;
@@ -247,14 +238,6 @@ ErrorCode NCHelperGCRM::check_existing_mesh()
         // Restore localGidCells
         std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidCells));
         nLocalCells = localGidCells.size();
-
-        if (numCellGroups > 1) {
-          // Restore cellHandleToGlobalID map
-          Range::const_iterator rit;
-          int i;
-          for (rit = local_cells.begin(), i = 0; rit != local_cells.end(); ++rit, i++)
-            cellHandleToGlobalID[*rit] = gids[i];
-        }
       }
     }
   }
@@ -264,9 +247,7 @@ ErrorCode NCHelperGCRM::check_existing_mesh()
 
 ErrorCode NCHelperGCRM::create_mesh(Range& faces)
 {
-  Interface*& mbImpl = _readNC->mbImpl;
   int& gatherSetRank = _readNC->gatherSetRank;
-  bool& noMixedElements = _readNC->noMixedElements;
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
@@ -317,9 +298,8 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
   int verticesOnCellVarId;
   int success = NCFUNC(inq_varid)(_fileId, "cell_corners", &verticesOnCellVarId);
   ERRORS(success, "Failed to get variable id of cell_corners.");
-  std::vector<int> vertices_on_local_cells(nLocalCells * maxEdgesPerCell);
+  std::vector<int> vertices_on_local_cells(nLocalCells * EDGES_PER_CELL);
   dbgOut.tprintf(1, " nLocalCells = %d\n", (int)nLocalCells);
-  dbgOut.tprintf(1, " maxEdgesPerCell = %d\n", (int)maxEdgesPerCell);
   dbgOut.tprintf(1, " vertices_on_local_cells.size() = %d\n", (int)vertices_on_local_cells.size());
 #ifdef PNETCDF_FILE
   size_t nb_reads = localGidCells.psize();
@@ -337,7 +317,7 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
     dbgOut.tprintf(1, " cell_corners   endh = %d\n", (int)endh);
     NCDF_SIZE read_starts[2] = {static_cast<NCDF_SIZE>(starth - 1), 0};
     NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), 
-                                static_cast<NCDF_SIZE>(maxEdgesPerCell)};
+                                static_cast<NCDF_SIZE>(EDGES_PER_CELL)};
 
     // Do a partial read in each subrange
 #ifdef PNETCDF_FILE
@@ -350,7 +330,7 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
     ERRORS(success, "Failed to read cell_corners data in a loop");
 
     // Increment the index for next subrange
-    indexInArray += (endh - starth + 1) * maxEdgesPerCell;
+    indexInArray += (endh - starth + 1) * EDGES_PER_CELL;
   }
 
 #ifdef PNETCDF_FILE
@@ -360,8 +340,22 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
 #endif
 
   // GCRM is 0 based, convert vertex indices from 0 to 1 based
-  for (std::size_t idx = 0; idx < vertices_on_local_cells.size(); idx++) {
+  for (std::size_t idx = 0; idx < vertices_on_local_cells.size(); idx++)
       vertices_on_local_cells[idx] += 1;
+
+  // Correct vertices_on_local_cells array. Pentagons as hexagons should have
+  // a connectivity like 123455 and not 122345
+  for (int local_cell_idx = 0; local_cell_idx < nLocalCells; local_cell_idx++) {
+    int* pvertex = &vertices_on_local_cells[local_cell_idx * EDGES_PER_CELL];
+    for (int k = 0; k < EDGES_PER_CELL - 2; k++) {
+      if (*(pvertex + k) == *(pvertex + k + 1)) {
+        // Shift the connectivity
+        for (int kk = k + 1; kk < EDGES_PER_CELL - 1; kk++)
+          *(pvertex + kk) = *(pvertex + kk + 1);
+        // No need to try next k
+        break;
+      }
+    }
   }
 
   // Create local vertices
@@ -375,24 +369,12 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
     ERRORR(rval, "Failed to create local edges for GCRM mesh.");
   }
 
-  // Create local cells, either unpadded or padded
-  if (noMixedElements) {
-    rval = create_padded_local_cells(vertices_on_local_cells, start_vertex, faces);
-    ERRORR(rval, "Failed to create padded local cells for GCRM mesh.");
-  }
-  else {
-    rval = create_local_cells(vertices_on_local_cells, start_vertex, faces);
-    ERRORR(rval, "Failed to create local cells for GCRM mesh.");
-  }
-
-  // Set tag for numCellGroups
-  Tag numCellGroupsTag = 0;
-  rval = mbImpl->tag_get_handle("__NUM_CELL_GROUPS", 1, MB_TYPE_INTEGER, numCellGroupsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
-  ERRORR(rval, "Failed to get __NUM_CELL_GROUPS tag.");
-  rval = mbImpl->tag_set_data(numCellGroupsTag, &_fileSet, 1, &numCellGroups);
-  ERRORR(rval, "Failed to set data for __NUM_CELL_GROUPS tag.");
+  // Create local cells with padding
+  rval = create_padded_local_cells(vertices_on_local_cells, start_vertex, faces);
+  ERRORR(rval, "Failed to create local cells for GCRM mesh.");
 
   if (createGatherSet) {
+#if 0
     EntityHandle gather_set;
     rval = _readNC->readMeshIface->create_gather_set(gather_set);
     ERRORR(rval, "Failed to create gather set.");
@@ -408,15 +390,10 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
       ERRORR(rval, "Failed to create gather set edges for GCRM mesh.");
     }
 
-    // Create gather set cells, either unpadded or padded
-    if (noMixedElements) {
-      rval = create_padded_gather_set_cells(gather_set, start_gather_set_vertex);
-      ERRORR(rval, "Failed to create padded gather set cells for GCRM mesh.");
-    }
-    else {
-      rval = create_gather_set_cells(gather_set, start_gather_set_vertex);
-      ERRORR(rval, "Failed to create gather set cells for GCRM mesh.");
-    }
+    // Create gather set cells with padding
+    rval = create_padded_gather_set_cells(gather_set, start_gather_set_vertex);
+    ERRORR(rval, "Failed to create gather set cells for GCRM mesh.");
+#endif
   }
 
   return MB_SUCCESS;
@@ -541,19 +518,13 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
       }
 
       // Get ptr to tag space
-      if (vdatas[i].entLoc == ReadNC::ENTLOCFACE && numCellGroups > 1) {
-        // For a cell variable that is NOT on one contiguous chunk of faces, defer its tag space allocation
-        vdatas[i].varDatas[t] = NULL;
-      }
-      else {
-        assert(1 == range->psize());
-        void* data;
-        int count;
-        rval = mbImpl->tag_iterate(vdatas[i].varTags[t], range->begin(), range->end(), count, data);
-        ERRORR(rval, "Failed to iterate tag.");
-        assert((unsigned)count == range->size());
-        vdatas[i].varDatas[t] = data;
-      }
+      assert(1 == range->psize());
+      void* data;
+      int count;
+      rval = mbImpl->tag_iterate(vdatas[i].varTags[t], range->begin(), range->end(), count, data);
+      ERRORR(rval, "Failed to iterate tag.");
+      assert((unsigned)count == range->size());
+      vdatas[i].varDatas[t] = data;
     }
   }
 
@@ -563,7 +534,6 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
 #ifdef PNETCDF_FILE
 ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
-  Interface*& mbImpl = _readNC->mbImpl;
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
@@ -647,32 +617,9 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
           success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
           ERRORS(success, "Failed on wait_all.");
 
-          if (vdatas[i].entLoc == ReadNC::ENTLOCFACE && numCellGroups > 1) {
-            // For a cell variable that is NOT on one contiguous chunk of faces, allocate tag space for
-            // each cell group, and utilize cellHandleToGlobalID map to read tag data
-            Range::iterator iter = facesOwned.begin();
-            while (iter != facesOwned.end()) {
-              int count;
-              void* ptr;
-              rval = mbImpl->tag_iterate(vdatas[i].varTags[t], iter, facesOwned.end(), count, ptr);
-              ERRORR(rval, "Failed to iterate tag on owned faces.");
-
-              for (int j = 0; j < count; j++) {
-                int global_cell_idx = cellHandleToGlobalID[*(iter + j)]; // Global cell index, 1 based
-                int local_cell_idx = localGidCells.index(global_cell_idx); // Local cell index, 0 based
-                assert(local_cell_idx != -1);
-                for (int level = 0; level < vdatas[i].numLev; level++)
-                  ((double*) ptr)[j * vdatas[i].numLev + level] = tmpdoubledata[local_cell_idx * vdatas[i].numLev + level];
-              }
-
-              iter += count;
-            }
-          }
-          else {
-            void* data = vdatas[i].varDatas[t];
-            for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
-              ((double*) data)[idx] = tmpdoubledata[idx];
-          }
+          void* data = vdatas[i].varDatas[t];
+          for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
+            ((double*) data)[idx] = tmpdoubledata[idx];
 
           break;
         }
@@ -694,17 +641,6 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
     }
   }
 
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
-      continue;
-
-    /*for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
-    }*/
-  }
   // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
@@ -790,32 +726,9 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           }
           assert(ic == pLocalGid->psize());
 
-          if (vdatas[i].entLoc == ReadNC::ENTLOCFACE && numCellGroups > 1) {
-            // For a cell variable that is NOT on one contiguous chunk of faces, allocate tag space for
-            // each cell group, and utilize cellHandleToGlobalID map to read tag data
-            Range::iterator iter = facesOwned.begin();
-            while (iter != facesOwned.end()) {
-              int count;
-              void* ptr;
-              rval = mbImpl->tag_iterate(vdatas[i].varTags[t], iter, facesOwned.end(), count, ptr);
-              ERRORR(rval, "Failed to iterate tag on owned faces.");
-
-              for (int j = 0; j < count; j++) {
-                int global_cell_idx = cellHandleToGlobalID[*(iter + j)]; // Global cell index, 1 based
-                int local_cell_idx = localGidCells.index(global_cell_idx); // Local cell index, 0 based
-                assert(local_cell_idx != -1);
-                for (int level = 0; level < vdatas[i].numLev; level++)
-                  ((double*) ptr)[j * vdatas[i].numLev + level] = tmpdoubledata[local_cell_idx * vdatas[i].numLev + level];
-              }
-
-              iter += count;
-            }
-          }
-          else {
-            void* data = vdatas[i].varDatas[t];
-            for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
-              ((double*) data)[idx] = tmpdoubledata[idx];
-          }
+          void* data = vdatas[i].varDatas[t];
+          for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
+            ((double*) data)[idx] = tmpdoubledata[idx];
 
           break;
         }
@@ -834,18 +747,6 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
       if (success)
         ERRORR(MB_FAILURE, "Trouble reading variable.");
     }
-  }
-
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
-      continue;
-
-   /* for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
-    }*/
   }
 
   // Debug output, if requested
@@ -991,20 +892,18 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     ERRORR(MB_FAILURE, "Couldn't find 'layers' or 'interfaces' variable.");
   }
 
-  {
-    // Decide whether down is positive
-    char posval[10] = {0};
-    int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
-    if (0 == success && !strncmp(posval, "down", 4)) {
-      for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
-        (*dvit) *= -1.0;
-    }
+  // Decide whether down is positive
+  char posval[10] = {0};
+  int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
+  if (0 == success && !strncmp(posval, "down", 4)) {
+    for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
+      (*dvit) *= -1.0;
   }
 
   // Read x coordinates for local vertices
   double* xptr = arrays[0];
   int xVertexVarId;
-  int success = NCFUNC(inq_varid)(_fileId, "grid_corner_lon", &xVertexVarId);
+  success = NCFUNC(inq_varid)(_fileId, "grid_corner_lon", &xVertexVarId);
   ERRORS(success, "Failed to get variable id of grid_corner_lon.");
   size_t indexInArray = 0;
   for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
@@ -1100,7 +999,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
   int success = NCFUNC(inq_varid)(_fileId, "cell_edges", &edgesOnCellVarId);
   ERRORS(success, "Failed to get variable id of cell_edges.");
 
-  std::vector<int> edges_on_local_cells(nLocalCells * maxEdgesPerCell);
+  std::vector<int> edges_on_local_cells(nLocalCells * EDGES_PER_CELL);
   dbgOut.tprintf(1, "   edges_on_local_cells.size() = %d\n", (int)edges_on_local_cells.size());
 
 #ifdef PNETCDF_FILE
@@ -1118,7 +1017,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     dbgOut.tprintf(1, "   starth = %d\n", (int)starth);
     dbgOut.tprintf(1, "   endh = %d\n", (int)endh);
     NCDF_SIZE read_starts[2] = {static_cast<NCDF_SIZE>(starth - 1), 0};
-    NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), static_cast<NCDF_SIZE>(maxEdgesPerCell)};
+    NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), static_cast<NCDF_SIZE>(EDGES_PER_CELL)};
 
     // Do a partial read in each subrange
 #ifdef PNETCDF_FILE
@@ -1131,7 +1030,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     ERRORS(success, "Failed to read cell_edges data in a loop");
 
     // Increment the index for next subrange
-    indexInArray += (endh - starth + 1) * maxEdgesPerCell;
+    indexInArray += (endh - starth + 1) * EDGES_PER_CELL;
   }
 
 #ifdef PNETCDF_FILE
@@ -1141,9 +1040,8 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
 #endif
 
   // GCRM is 0 based, convert edge indices from 0 to 1 based
-  for (std::size_t idx = 0; idx < edges_on_local_cells.size(); idx++) {
+  for (std::size_t idx = 0; idx < edges_on_local_cells.size(); idx++)
       edges_on_local_cells[idx] += 1;
-  }
 
   // Collect local edges
   std::sort(edges_on_local_cells.begin(), edges_on_local_cells.end());
@@ -1218,9 +1116,8 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
 #endif
 
   // GCRM is 0 based, convert edge indices from 0 to 1 based
-  for (int idx = 0; idx < nLocalEdges*2; idx++) {
+  for (int idx = 0; idx < nLocalEdges*2; idx++)
       vertices_on_local_edges[idx] += 1;
-  }
 
   // Populate connectivity data for local edges
   // Convert in-place from int (stored in the first half) to EntityHandle
@@ -1235,104 +1132,16 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperGCRM::create_local_cells(const std::vector<int>& vertices_on_local_cells,
+ErrorCode NCHelperGCRM::create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
                                                     EntityHandle start_vertex, Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
 
-  // Divide local cells into groups based on the number of edges
-  Range local_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
-  // Insert larger values before smaller ones to increase efficiency
-  for (int i = nLocalCells - 1; i >= 0; i--) {
-    int num_edges = DEFAULT_MAX_EDGES_PER_CELL;
-    local_cells_with_n_edges[num_edges].insert(localGidCells[i]); // Global cell index
-  }
-
-  std::vector<int> num_edges_on_cell_groups;
-  for (int i = 3; i <= maxEdgesPerCell; i++) {
-    if (local_cells_with_n_edges[i].size() > 0)
-      num_edges_on_cell_groups.push_back(i);
-  }
-  numCellGroups = num_edges_on_cell_groups.size();
-
-  EntityHandle* conn_arr_local_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
-  for (int i = 0; i < numCellGroups; i++) {
-    int num_edges_per_cell = num_edges_on_cell_groups[i];
-    int num_group_cells = (int)local_cells_with_n_edges[num_edges_per_cell].size();
-
-    // Create local cells for each non-empty cell group
-    EntityHandle start_element;
-    ErrorCode rval = _readNC->readMeshIface->get_element_connect(num_group_cells, num_edges_per_cell, MBPOLYGON, 0, start_element,
-                                                       conn_arr_local_cells_with_n_edges[num_edges_per_cell], num_group_cells);
-    ERRORR(rval, "Failed to create cells");
-    faces.insert(start_element, start_element + num_group_cells - 1);
-
-    // Add local cells to the file set
-    Range local_cells_range(start_element, start_element + num_group_cells - 1);
-    rval = _readNC->mbImpl->add_entities(_fileSet, local_cells_range);
-    ERRORR(rval, "Failed to add local cells to the file set.");
-
-    // Get ptr to gid memory for local cells
-    int count = 0;
-    void* data = NULL;
-    rval = mbImpl->tag_iterate(mGlobalIdTag, local_cells_range.begin(), local_cells_range.end(), count, data);
-    ERRORR(rval, "Failed to iterate global id tag on local cells.");
-    assert(count == num_group_cells);
-    int* gid_data = (int*) data;
-    std::copy(local_cells_with_n_edges[num_edges_per_cell].begin(), local_cells_with_n_edges[num_edges_per_cell].end(), gid_data);
-
-    // Set connectivity array with proper local vertices handles
-    for (int j = 0; j < num_group_cells; j++) {
-      EntityHandle global_cell_idx = local_cells_with_n_edges[num_edges_per_cell][j]; // Global cell index, 1 based
-      int local_cell_idx = localGidCells.index(global_cell_idx); // Local cell index, 0 based
-      assert(local_cell_idx != -1);
-
-      if (numCellGroups > 1) {
-        // Populate cellHandleToGlobalID map to read cell variables
-        cellHandleToGlobalID[start_element + j] = global_cell_idx;
-      }
-
-      for (int k = 0; k < num_edges_per_cell; k++) {
-        EntityHandle global_vert_idx = vertices_on_local_cells[local_cell_idx * maxEdgesPerCell + k]; // Global vertex index, 1 based
-        int local_vert_idx = localGidVerts.index(global_vert_idx); // Local vertex index, 0 based
-        assert(local_vert_idx != -1);
-        conn_arr_local_cells_with_n_edges[num_edges_per_cell][j * num_edges_per_cell + k] =
-            start_vertex + local_vert_idx;
-      }
-      // make sure that if some nodes are repeated, they are at the end of the connectivity array
-      // so, pentagons as hexagons should have a connectivity like 123455 and not 122345
-      EntityHandle *pvertex= &(conn_arr_local_cells_with_n_edges[num_edges_per_cell][j * num_edges_per_cell ]);
-      for (int  k = 0; k < num_edges_per_cell-2; k++)
-      {
-        if( *(pvertex+k) == *(pvertex+k+1) )
-        {
-          // shift the connectivity
-          for (int kk=k+1; kk<num_edges_per_cell-1; kk++)
-          {
-            *(pvertex+kk)=*(pvertex+kk+1);
-          }
-        }
-      }
-    }
-  }
-
-  return MB_SUCCESS;
-}
-
-ErrorCode NCHelperGCRM::create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
-                                                  EntityHandle start_vertex, Range& faces)
-{
-  Interface*& mbImpl = _readNC->mbImpl;
-  Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
-
-  // Only one group of cells (each cell is represented by a polygon with maxEdgesPerCell edges)
-  numCellGroups = 1;
-
-  // Create cells for this cell group
+  // Create cells
   EntityHandle start_element;
   EntityHandle* conn_arr_local_cells = NULL;
-  ErrorCode rval = _readNC->readMeshIface->get_element_connect(nLocalCells, maxEdgesPerCell, MBPOLYGON, 0, start_element, conn_arr_local_cells,
+  ErrorCode rval = _readNC->readMeshIface->get_element_connect(nLocalCells, EDGES_PER_CELL, MBPOLYGON, 0, start_element, conn_arr_local_cells,
                                                     // Might have to create gather mesh later
                                                     (createGatherSet ? nLocalCells + nCells : nLocalCells));
   ERRORR(rval, "Failed to create cells.");
@@ -1353,20 +1162,21 @@ ErrorCode NCHelperGCRM::create_padded_local_cells(const std::vector<int>& vertic
   std::copy(localGidCells.begin(), localGidCells.end(), gid_data);
 
   // Set connectivity array with proper local vertices handles
-  // vertices_on_local_cells array was already corrected to have the last vertices padded
-  // no need for extra checks considering
+  // vertices_on_local_cells array was already corrected to have
+  // the last vertices repeated for pentagons, e.g. 122345 => 123455
   for (int local_cell_idx = 0; local_cell_idx < nLocalCells; local_cell_idx++) {
-    for (int i = 0; i < maxEdgesPerCell; i++) {
-      EntityHandle global_vert_idx = vertices_on_local_cells[local_cell_idx * maxEdgesPerCell + i]; // Global vertex index, 1 based
+    for (int i = 0; i < EDGES_PER_CELL; i++) {
+      EntityHandle global_vert_idx = vertices_on_local_cells[local_cell_idx * EDGES_PER_CELL + i]; // Global vertex index, 1 based
       int local_vert_idx = localGidVerts.index(global_vert_idx); // Local vertex index, 0 based
       assert(local_vert_idx != -1);
-      conn_arr_local_cells[local_cell_idx * maxEdgesPerCell + i] = start_vertex + local_vert_idx;
+      conn_arr_local_cells[local_cell_idx * EDGES_PER_CELL + i] = start_vertex + local_vert_idx;
     }
   }
 
   return MB_SUCCESS;
 }
 
+#if 0
 ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, EntityHandle& gather_set_start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
@@ -1513,92 +1323,6 @@ ErrorCode NCHelperGCRM::create_gather_set_edges(EntityHandle gather_set, EntityH
    return MB_SUCCESS;
 }
 
-ErrorCode NCHelperGCRM::create_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
-{
-  Interface*& mbImpl = _readNC->mbImpl;
-
-  // Read number of edges on each gather set cell
-  int nEdgesOnCellVarId;
-  int success = NCFUNC(inq_varid)(_fileId, "nEdgesOnCell", &nEdgesOnCellVarId);
-  ERRORS(success, "Failed to get variable id of nEdgesOnCell.");
-  std::vector<int> num_edges_on_gather_set_cells(nCells);
-  NCDF_SIZE read_start = 0;
-  NCDF_SIZE read_count = static_cast<NCDF_SIZE>(nCells);
-#ifdef PNETCDF_FILE
-  // Enter independent I/O mode, since this read is only for the gather processor
-  success = NCFUNC(begin_indep_data)(_fileId);
-  ERRORS(success, "Failed to begin independent I/O mode.");
-  success = NCFUNCG(_vara_int)(_fileId, nEdgesOnCellVarId, &read_start, &read_count, &num_edges_on_gather_set_cells[0]);
-  ERRORS(success, "Failed to read nEdgesOnCell data.");
-  success = NCFUNC(end_indep_data)(_fileId);
-  ERRORS(success, "Failed to end independent I/O mode.");
-#else
-  success = NCFUNCG(_vara_int)(_fileId, nEdgesOnCellVarId, &read_start, &read_count, &num_edges_on_gather_set_cells[0]);
-  ERRORS(success, "Failed to read nEdgesOnCell data.");
-#endif
-
-  // Read vertices on each gather set cell (connectivity)
-  int verticesOnCellVarId;
-  success = NCFUNC(inq_varid)(_fileId, "verticesOnCell", &verticesOnCellVarId);
-  ERRORS(success, "Failed to get variable id of verticesOnCell.");
-  std::vector<int> vertices_on_gather_set_cells(nCells * maxEdgesPerCell);
-  NCDF_SIZE read_starts[2] = {0, 0};
-  NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(nCells), static_cast<NCDF_SIZE>(maxEdgesPerCell)};
-#ifdef PNETCDF_FILE
-  // Enter independent I/O mode, since this read is only for the gather processor
-  success = NCFUNC(begin_indep_data)(_fileId);
-  ERRORS(success, "Failed to begin independent I/O mode.");
-  success = NCFUNCG(_vara_int)(_fileId, verticesOnCellVarId, read_starts, read_counts, &vertices_on_gather_set_cells[0]);
-  ERRORS(success, "Failed to read verticesOnCell data.");
-  success = NCFUNC(end_indep_data)(_fileId);
-  ERRORS(success, "Failed to end independent I/O mode.");
-#else
-  success = NCFUNCG(_vara_int)(_fileId, verticesOnCellVarId, read_starts, read_counts, &vertices_on_gather_set_cells[0]);
-  ERRORS(success, "Failed to read verticesOnCell data.");
-#endif
-
-  // Divide gather set cells into groups based on the number of edges
-  Range gather_set_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
-  // Insert larger values before smaller values to increase efficiency
-  for (int i = nCells - 1; i >= 0; i--) {
-    int num_edges = num_edges_on_gather_set_cells[i];
-    gather_set_cells_with_n_edges[num_edges].insert(i + 1); // 0 based -> 1 based
-  }
-
-  // Create gather set cells
-  EntityHandle* conn_arr_gather_set_cells_with_n_edges[DEFAULT_MAX_EDGES_PER_CELL + 1];
-  for (int num_edges_per_cell = 3; num_edges_per_cell <= maxEdgesPerCell; num_edges_per_cell++) {
-    int num_group_cells = gather_set_cells_with_n_edges[num_edges_per_cell].size();
-    if (num_group_cells > 0) {
-      EntityHandle start_element;
-      ErrorCode rval = _readNC->readMeshIface->get_element_connect(num_group_cells, num_edges_per_cell, MBPOLYGON, 0, start_element,
-                                                         conn_arr_gather_set_cells_with_n_edges[num_edges_per_cell], num_group_cells);
-      ERRORR(rval, "Failed to create cells.");
-
-      // Add cells to the gather set
-      Range gather_set_cells_range(start_element, start_element + num_group_cells - 1);
-      rval = mbImpl->add_entities(gather_set, gather_set_cells_range);
-      ERRORR(rval, "Failed to add cells to the gather set.");
-
-      for (int j = 0; j < num_group_cells; j++) {
-        int gather_set_cell_idx = gather_set_cells_with_n_edges[num_edges_per_cell][j]; // Global cell index, 1 based
-        gather_set_cell_idx--; // 1 based -> 0 based
-
-        for (int k = 0; k < num_edges_per_cell; k++) {
-          EntityHandle gather_set_vert_idx = vertices_on_gather_set_cells[gather_set_cell_idx * maxEdgesPerCell + k]; // Global vertex index, 1 based
-          gather_set_vert_idx--; // 1 based -> 0 based
-
-          // Connectivity array is shifted by where the gather set vertices start
-          conn_arr_gather_set_cells_with_n_edges[num_edges_per_cell][j * num_edges_per_cell + k] =
-            gather_set_start_vertex + gather_set_vert_idx;
-        }
-      }
-    }
-  }
-
-  return MB_SUCCESS;
-}
-
 ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
@@ -1627,7 +1351,7 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
   EntityHandle start_element;
   EntityHandle* conn_arr_gather_set_cells = NULL;
   // Don't need to specify allocation number here, because we know enough cells were created before
-  ErrorCode rval = _readNC->readMeshIface->get_element_connect(nCells, maxEdgesPerCell, MBPOLYGON, 0, start_element, conn_arr_gather_set_cells);
+  ErrorCode rval = _readNC->readMeshIface->get_element_connect(nCells, EDGES_PER_CELL, MBPOLYGON, 0, start_element, conn_arr_gather_set_cells);
   ERRORR(rval, "Failed to create cells.");
 
   // Add cells to the gather set
@@ -1642,7 +1366,7 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
   // Utilize the memory storage pointed by conn_arr_gather_set_cells
   int* vertices_on_gather_set_cells = (int*) conn_arr_gather_set_cells;
   NCDF_SIZE read_starts[2] = {0, 0};
-  NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(nCells), static_cast<NCDF_SIZE>(maxEdgesPerCell)};
+  NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(nCells), static_cast<NCDF_SIZE>(EDGES_PER_CELL)};
 #ifdef PNETCDF_FILE
   // Enter independent I/O mode, since this read is only for the gather processor
   success = NCFUNC(begin_indep_data)(_fileId);
@@ -1660,16 +1384,16 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
   // replace the padded vertices with the last vertices in the corresponding cells
   for (int gather_set_cell_idx = 0; gather_set_cell_idx < nCells; gather_set_cell_idx++) {
     int num_edges = num_edges_on_gather_set_cells[gather_set_cell_idx];
-    int idx_in_gather_set_vert_arr = gather_set_cell_idx * maxEdgesPerCell;
+    int idx_in_gather_set_vert_arr = gather_set_cell_idx * EDGES_PER_CELL;
     int last_vert_idx = vertices_on_gather_set_cells[idx_in_gather_set_vert_arr + num_edges - 1];
-    for (int i = num_edges; i < maxEdgesPerCell; i++)
+    for (int i = num_edges; i < EDGES_PER_CELL; i++)
       vertices_on_gather_set_cells[idx_in_gather_set_vert_arr + i] = last_vert_idx;
   }
 
   // Populate connectivity data for gather set cells
   // Convert in-place from int (stored in the first half) to EntityHandle
   // Reading backward is the trick
-  for (int cell_vert = nCells * maxEdgesPerCell - 1; cell_vert >= 0; cell_vert--) {
+  for (int cell_vert = nCells * EDGES_PER_CELL - 1; cell_vert >= 0; cell_vert--) {
     int gather_set_vert_idx = vertices_on_gather_set_cells[cell_vert]; // Global vertex index, 1 based
     gather_set_vert_idx--; // 1 based -> 0 based
     // Connectivity array is shifted by where the gather set vertices start
@@ -1678,5 +1402,6 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
 
   return MB_SUCCESS;
 }
+#endif
 
 } // namespace moab
