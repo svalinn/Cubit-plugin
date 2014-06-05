@@ -1,5 +1,7 @@
 include_directories( ${MOAB_SOURCE_DIR}/src/io
-                     ${MOAB_SOURCE_DIR}/src/mhdf )
+                     ${MOAB_SOURCE_DIR}/src/mhdf
+                     ${MOAB_BINARY_DIR}/src/parallel
+                    )
 set( MOABIO_LIBS )
 set( MOABIO_DEFINES "-DIS_BUILDING_MB" )
 set( MOABIO_INSTALL_HEADERS moab/ExoIIInterface.hpp )
@@ -39,22 +41,27 @@ if( MOAB_USE_NETCDF )
           WriteNCDF.hpp     WriteNCDF.cpp
           WriteSLAC.hpp     WriteSLAC.cpp
           ReadNC.hpp        ReadNC.cpp
+          WriteNC.hpp       WriteNC.cpp
           NCHelper.hpp      NCHelper.cpp
+          NCWriteHelper.hpp NCWriteHelper.cpp
           NCHelperEuler.hpp NCHelperEuler.cpp
+          NCWriteEuler.hpp  NCWriteEuler.cpp
           NCHelperFV.hpp    NCHelperFV.cpp
+          NCWriteFV.hpp     NCWriteFV.cpp
           NCHelperGCRM.hpp  NCHelperGCRM.cpp
+          NCWriteGCRM.hpp   NCWriteGCRM.cpp
           NCHelperHOMME.hpp NCHelperHOMME.cpp
-          NCHelperMPAS.hpp  NCHelperMPAS.cpp )
+          NCWriteHOMME.hpp  NCWriteHOMME.cpp
+          NCHelperMPAS.hpp  NCHelperMPAS.cpp
+          NCWriteMPAS.hpp   NCWriteMPAS.cpp )
   set( MOABIO_LIBS ${MOABIO_LIBS} ${NetCDF_LIBRARIES} )
-elseif( MOAB_USE_PNETCDF )
-  set( MOAB_NETCDF_SRCS
-          ReadNC.hpp        ReadNC.cpp
-          NCHelper.hpp      NCHelper.cpp
-          NCHelperEuler.hpp NCHelperEuler.cpp
-          NCHelperFV.hpp    NCHelperFV.cpp
-          NCHelperHOMME.hpp NCHelperHOMME.cpp
-          NCHelperMPAS.hpp  NCHelperMPAS.cpp )
-endif()
+  include_directories(${NetCDF_INCLUDES})
+  # check for PNetCDF dependencies also
+  if( MOAB_USE_PNETCDF )
+    set( MOABIO_LIBS ${MOABIO_LIBS} ${PNetCDF_LIBRARIES} )
+    include_directories(${PNetCDF_INCLUDES})
+  endif( MOAB_USE_PNETCDF )
+endif( MOAB_USE_NETCDF )
 
 if ( MOAB_USE_CGNS )
   set( MOAB_CGNS_SRCS ReadCGNS.hpp ReadCGNS.cpp
@@ -71,6 +78,7 @@ if( MOAB_USE_HDF )
           WriteHDF5.cpp WriteHDF5.hpp )
   set( MDHF_OBJ $<TARGET_OBJECTS:mhdf> PARENT_SCOPE )
   set( MOABIO_LIBS ${MOABIO_LIBS} ${HDF5_LIBRARIES} )
+  include_directories(${HDF5_INCLUDES})
   check_function_exists( H5Pset_fapl_mpio MOAB_HDF_HAVE_PARALLEL )
 endif()
 
