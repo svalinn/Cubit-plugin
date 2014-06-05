@@ -42,7 +42,7 @@ enum ExoIIElementType
 };
 
 
-class MB_DLL_EXPORT ExoIIInterface
+class ExoIIInterface
 {
 public:
   enum {
