@@ -109,7 +109,7 @@ ErrorCode ReadNASTRAN::load_file(const char                      *filename,
 
     // Process the tokens of the line. The first token describes the entity type.
     EntityType type;
-    result = determine_entity_type( tokens.front(), type );
+    result = determine_entity_type( (tokens.empty())?"":tokens.front(), type );
     if(MB_SUCCESS != result) return result;
     entity_count[type]++;
     getline(file,line);
