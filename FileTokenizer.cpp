@@ -82,7 +82,7 @@ const char* FileTokenizer::get_string( )
     // advance "nextToken" to one past the end of the
     // token.
   char* result = nextToken;
-  while (nextToken != bufferEnd && !isspace(*nextToken))
+  while (nextToken != bufferEnd && !isspace(static_cast<unsigned char>(*nextToken)))
     ++nextToken;
   
     // If we have reached the end of the buffer without finding
