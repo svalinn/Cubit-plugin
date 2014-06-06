@@ -258,7 +258,7 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
         // make sure the connectivity array is big enough
       int verts_per = CN::VerticesPerEntity(otype);
       if (connect.size() < verts_per*sub_range.size())
-        connect.reserve(verts_per*sub_range.size());
+        connect.resize(verts_per*sub_range.size());
     
         // get the connectivity
       result = mWriteIface->get_element_connect(sub_range.size(),
@@ -319,7 +319,7 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
       }
     
         // replace handles with ids
-      connect.reserve(connecth.size());
+      connect.resize(connecth.size()+2);
 
         // pre-set polyhedra ids in case there aren't any
       connect[connecth.size()] = 0;
