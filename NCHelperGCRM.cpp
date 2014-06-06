@@ -93,7 +93,7 @@ ErrorCode NCHelperGCRM::init_mesh_vals()
   vDim = idx;
   nVertices = dimLens[idx];
 
-  // Get number of vertex levels
+  // Get number of layers
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "layers")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
@@ -764,8 +764,8 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
   // If possible, apply Zoltan partition
   if (_readNC->partMethod == ScdParData::RCBZOLTAN) {
 #if defined(USE_MPI) && defined(HAVE_ZOLTAN)
-    // Read lat/lon coordinates of cell centers
-    // then convert to spherical , and use them as input to zoltan partition
+    // Read lat/lon coordinates of cell centers, then convert spherical to
+    // Cartesian, and use them as input to Zoltan partition
     int xCellVarId;
     int success = NCFUNC(inq_varid)(_fileId, "grid_center_lat", &xCellVarId);
     ERRORS(success, "Failed to get variable id of grid_center_lat.");
@@ -773,7 +773,7 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
     NCDF_SIZE read_start = static_cast<NCDF_SIZE>(start_cell_idx - 1);
     NCDF_SIZE read_count = static_cast<NCDF_SIZE>(nLocalCells);
     success = NCFUNCAG(_vara_double)(_fileId, xCellVarId, &read_start, &read_count, &xCell[0]);
-    ERRORS(success, "Failed to read xCell data.");
+    ERRORS(success, "Failed to read grid_center_lat data.");
 
     // Read y coordinates of cell centers
     int yCellVarId;
@@ -781,14 +781,12 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
     ERRORS(success, "Failed to get variable id of grid_center_lon.");
     std::vector<double> yCell(nLocalCells);
     success = NCFUNCAG(_vara_double)(_fileId, yCellVarId, &read_start, &read_count, &yCell[0]);
-    ERRORS(success, "Failed to read yCell data.");
+    ERRORS(success, "Failed to read grid_center_lon data.");
 
+    // Convert lon/lat/rad to x/y/z
     std::vector<double> zCell(nLocalCells);
-    // convert to xyz cartesian coordinates
-
-    double rad=8000; // this is just approx x is lat, y is lon
-    for (int i=0; i<nLocalCells; i++)
-    {
+    double rad = 8000.0; // This is just a approximate radius
+    for (int i = 0; i < nLocalCells; i++) {
       double cosphi = cos(xCell[i]);
       double zmult = sin(xCell[i]);
       double xmult = cosphi * cos(yCell[i]);
@@ -797,6 +795,7 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
       yCell[i] = rad * ymult;
       zCell[i] = rad * zmult;
     }
+
     // Zoltan partition using RCB; maybe more studies would be good, as to which partition
     // is better
     Interface*& mbImpl = _readNC->mbImpl;
@@ -1127,7 +1126,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
 }
 
 ErrorCode NCHelperGCRM::create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
-                                                    EntityHandle start_vertex, Range& faces)
+                                                  EntityHandle start_vertex, Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   Tag& mGlobalIdTag = _readNC->mGlobalIdTag;
@@ -1341,12 +1340,12 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
   success = NCFUNC(begin_indep_data)(_fileId);
   ERRORS(success, "Failed to begin independent I/O mode.");
   success = NCFUNCG(_vara_int)(_fileId, verticesOnCellVarId, read_starts, read_counts, vertices_on_gather_set_cells);
-  ERRORS(success, "Failed to read verticesOnCell data.");
+  ERRORS(success, "Failed to read cell_corners data.");
   success = NCFUNC(end_indep_data)(_fileId);
   ERRORS(success, "Failed to end independent I/O mode.");
 #else
   success = NCFUNCG(_vara_int)(_fileId, verticesOnCellVarId, read_starts, read_counts, vertices_on_gather_set_cells);
-  ERRORS(success, "Failed to read verticesOnCell data.");
+  ERRORS(success, "Failed to read cell_corners data.");
 #endif
 
   // Correct gather set cell vertices array in the same way as local cell vertices array
