@@ -339,10 +339,6 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
   ERRORS(success, "Failed on wait_all.");
 #endif
 
-  // GCRM is 0 based, convert vertex indices from 0 to 1 based
-  for (std::size_t idx = 0; idx < vertices_on_local_cells.size(); idx++)
-      vertices_on_local_cells[idx] += 1;
-
   // Correct vertices_on_local_cells array. Pentagons as hexagons should have
   // a connectivity like 123455 and not 122345
   for (int local_cell_idx = 0; local_cell_idx < nLocalCells; local_cell_idx++) {
@@ -357,6 +353,10 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
       }
     }
   }
+
+  // GCRM is 0 based, convert vertex indices from 0 to 1 based
+  for (std::size_t idx = 0; idx < vertices_on_local_cells.size(); idx++)
+    vertices_on_local_cells[idx] += 1;
 
   // Create local vertices
   EntityHandle start_vertex;
@@ -374,7 +374,6 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
   ERRORR(rval, "Failed to create local cells for GCRM mesh.");
 
   if (createGatherSet) {
-#if 0
     EntityHandle gather_set;
     rval = _readNC->readMeshIface->create_gather_set(gather_set);
     ERRORR(rval, "Failed to create gather set.");
@@ -393,7 +392,6 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
     // Create gather set cells with padding
     rval = create_padded_gather_set_cells(gather_set, start_gather_set_vertex);
     ERRORR(rval, "Failed to create gather set cells for GCRM mesh.");
-#endif
   }
 
   return MB_SUCCESS;
@@ -973,11 +971,10 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
 
   // Convert lon/lat/rad to x/y/z
   double* zptr = arrays[2];
-  //const double pideg = acos(-1.0) / 180.0;
   double rad = 8000.0 + levVals[0];
   for (int i = 0; i < nLocalVertices; i++) {
     double cosphi = cos(yptr[i]);
-    double zmult =  sin(yptr[i]);
+    double zmult = sin(yptr[i]);
     double xmult = cosphi * cos(xptr[i]);
     double ymult = cosphi * sin(xptr[i]);
     xptr[i] = rad * xmult;
@@ -1041,7 +1038,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
 
   // GCRM is 0 based, convert edge indices from 0 to 1 based
   for (std::size_t idx = 0; idx < edges_on_local_cells.size(); idx++)
-      edges_on_local_cells[idx] += 1;
+    edges_on_local_cells[idx] += 1;
 
   // Collect local edges
   std::sort(edges_on_local_cells.begin(), edges_on_local_cells.end());
@@ -1115,15 +1112,12 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
   ERRORS(success, "Failed on wait_all.");
 #endif
 
-  // GCRM is 0 based, convert edge indices from 0 to 1 based
-  for (int idx = 0; idx < nLocalEdges*2; idx++)
-      vertices_on_local_edges[idx] += 1;
-
   // Populate connectivity data for local edges
   // Convert in-place from int (stored in the first half) to EntityHandle
   // Reading backward is the trick
   for (int edge_vert = nLocalEdges * 2 - 1; edge_vert >= 0; edge_vert--) {
-    int global_vert_idx = vertices_on_local_edges[edge_vert]; // Global vertex index, 1 based
+    // Note, indices stored in vertices_on_local_edges are 0 based
+    int global_vert_idx = vertices_on_local_edges[edge_vert] + 1; // Global vertex index, 1 based
     int local_vert_idx = localGidVerts.index(global_vert_idx); // Local vertex index, 0 based
     assert(local_vert_idx != -1);
     conn_arr_edges[edge_vert] = start_vertex + local_vert_idx;
@@ -1166,6 +1160,7 @@ ErrorCode NCHelperGCRM::create_padded_local_cells(const std::vector<int>& vertic
   // the last vertices repeated for pentagons, e.g. 122345 => 123455
   for (int local_cell_idx = 0; local_cell_idx < nLocalCells; local_cell_idx++) {
     for (int i = 0; i < EDGES_PER_CELL; i++) {
+      // Note, indices stored in vertices_on_local_cells are 1 based
       EntityHandle global_vert_idx = vertices_on_local_cells[local_cell_idx * EDGES_PER_CELL + i]; // Global vertex index, 1 based
       int local_vert_idx = localGidVerts.index(global_vert_idx); // Local vertex index, 0 based
       assert(local_vert_idx != -1);
@@ -1176,7 +1171,6 @@ ErrorCode NCHelperGCRM::create_padded_local_cells(const std::vector<int>& vertic
   return MB_SUCCESS;
 }
 
-#if 0
 ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, EntityHandle& gather_set_start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
@@ -1197,8 +1191,8 @@ ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, Enti
   // Read x coordinates for gather set vertices
   double* xptr = arrays[0];
   int xVertexVarId;
-  int success = NCFUNC(inq_varid)(_fileId, "xVertex", &xVertexVarId);
-  ERRORS(success, "Failed to get variable id of xVertex.");
+  int success = NCFUNC(inq_varid)(_fileId, "grid_corner_lon", &xVertexVarId);
+  ERRORS(success, "Failed to get variable id of grid_corner_lon.");
   NCDF_SIZE read_start = 0;
   NCDF_SIZE read_count = static_cast<NCDF_SIZE>(nVertices);
 #ifdef PNETCDF_FILE
@@ -1206,49 +1200,44 @@ ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, Enti
   success = NCFUNC(begin_indep_data)(_fileId);
   ERRORS(success, "Failed to begin independent I/O mode.");
   success = NCFUNCG(_vara_double)(_fileId, xVertexVarId, &read_start, &read_count, xptr);
-  ERRORS(success, "Failed to read xVertex data.");
+  ERRORS(success, "Failed to read grid_corner_lon data.");
   success = NCFUNC(end_indep_data)(_fileId);
   ERRORS(success, "Failed to end independent I/O mode.");
 #else
   success = NCFUNCG(_vara_double)(_fileId, xVertexVarId, &read_start, &read_count, xptr);
-  ERRORS(success, "Failed to read xVertex data.");
+  ERRORS(success, "Failed to read grid_corner_lon data.");
 #endif
 
   // Read y coordinates for gather set vertices
   double* yptr = arrays[1];
   int yVertexVarId;
-  success = NCFUNC(inq_varid)(_fileId, "yVertex", &yVertexVarId);
-  ERRORS(success, "Failed to get variable id of yVertex.");
+  success = NCFUNC(inq_varid)(_fileId, "grid_corner_lat", &yVertexVarId);
+  ERRORS(success, "Failed to get variable id of grid_corner_lat.");
 #ifdef PNETCDF_FILE
   // Enter independent I/O mode, since this read is only for the gather processor
   success = NCFUNC(begin_indep_data)(_fileId);
   ERRORS(success, "Failed to begin independent I/O mode.");
   success = NCFUNCG(_vara_double)(_fileId, yVertexVarId, &read_start, &read_count, yptr);
-  ERRORS(success, "Failed to read yVertex data.");
+  ERRORS(success, "Failed to read grid_corner_lat data.");
   success = NCFUNC(end_indep_data)(_fileId);
   ERRORS(success, "Failed to end independent I/O mode.");
 #else
   success = NCFUNCG(_vara_double)(_fileId, yVertexVarId, &read_start, &read_count, yptr);
-  ERRORS(success, "Failed to read yVertex data.");
+  ERRORS(success, "Failed to read grid_corner_lat data.");
 #endif
 
-  // Read z coordinates for gather set vertices
+  // Convert lon/lat/rad to x/y/z
   double* zptr = arrays[2];
-  int zVertexVarId;
-  success = NCFUNC(inq_varid)(_fileId, "zVertex", &zVertexVarId);
-  ERRORS(success, "Failed to get variable id of zVertex.");
-#ifdef PNETCDF_FILE
-  // Enter independent I/O mode, since this read is only for the gather processor
-  success = NCFUNC(begin_indep_data)(_fileId);
-  ERRORS(success, "Failed to begin independent I/O mode.");
-  success = NCFUNCG(_vara_double)(_fileId, zVertexVarId, &read_start, &read_count, zptr);
-  ERRORS(success, "Failed to read zVertex data.");
-  success = NCFUNC(end_indep_data)(_fileId);
-  ERRORS(success, "Failed to end independent I/O mode.");
-#else
-  success = NCFUNCG(_vara_double)(_fileId, zVertexVarId, &read_start, &read_count, zptr);
-  ERRORS(success, "Failed to read zVertex data.");
-#endif
+  double rad = 8000.0 + levVals[0];
+  for (int i = 0; i < nVertices; i++) {
+    double cosphi = cos(yptr[i]);
+    double zmult = sin(yptr[i]);
+    double xmult = cosphi * cos(xptr[i]);
+    double ymult = cosphi * sin(xptr[i]);
+    xptr[i] = rad * xmult;
+    yptr[i] = rad * ymult;
+    zptr[i] = rad * zmult;
+  }
 
   // Get ptr to GID memory for gather set vertices
   int count = 0;
@@ -1314,8 +1303,8 @@ ErrorCode NCHelperGCRM::create_gather_set_edges(EntityHandle gather_set, EntityH
    // Convert in-place from int (stored in the first half) to EntityHandle
    // Reading backward is the trick
    for (int edge_vert = nEdges * 2 - 1; edge_vert >= 0; edge_vert--) {
-     int gather_set_vert_idx = vertices_on_gather_set_edges[edge_vert]; // Global vertex index, 1 based
-     gather_set_vert_idx--; // 1 based -> 0 based
+     // Note, indices stored in vertices_on_gather_set_edges are 0 based
+     int gather_set_vert_idx = vertices_on_gather_set_edges[edge_vert]; // Global vertex index, 0 based
      // Connectivity array is shifted by where the gather set vertices start
      conn_arr_gather_set_edges[edge_vert] = gather_set_start_vertex + gather_set_vert_idx;
    }
@@ -1326,26 +1315,6 @@ ErrorCode NCHelperGCRM::create_gather_set_edges(EntityHandle gather_set, EntityH
 ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex)
 {
   Interface*& mbImpl = _readNC->mbImpl;
-
-  // Read number of edges on each gather set cell
-  int nEdgesOnCellVarId;
-  int success = NCFUNC(inq_varid)(_fileId, "nEdgesOnCell", &nEdgesOnCellVarId);
-  ERRORS(success, "Failed to get variable id of nEdgesOnCell.");
-  std::vector<int> num_edges_on_gather_set_cells(nCells);
-  NCDF_SIZE read_start = 0;
-  NCDF_SIZE read_count = static_cast<NCDF_SIZE>(nCells);
-#ifdef PNETCDF_FILE
-  // Enter independent I/O mode, since this read is only for the gather processor
-  success = NCFUNC(begin_indep_data)(_fileId);
-  ERRORS(success, "Failed to begin independent I/O mode.");
-  success = NCFUNCG(_vara_int)(_fileId, nEdgesOnCellVarId, &read_start, &read_count, &num_edges_on_gather_set_cells[0]);
-  ERRORS(success, "Failed to read nEdgesOnCell data.");
-  success = NCFUNC(end_indep_data)(_fileId);
-  ERRORS(success, "Failed to end independent I/O mode.");
-#else
-  success = NCFUNCG(_vara_int)(_fileId, nEdgesOnCellVarId, &read_start, &read_count, &num_edges_on_gather_set_cells[0]);
-  ERRORS(success, "Failed to read nEdgesOnCell data.");
-#endif
 
   // Create gather set cells
   EntityHandle start_element;
@@ -1361,8 +1330,8 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
 
   // Read vertices on each gather set cell (connectivity)
   int verticesOnCellVarId;
-  success = NCFUNC(inq_varid)(_fileId, "verticesOnCell", &verticesOnCellVarId);
-  ERRORS(success, "Failed to get variable id of verticesOnCell.");
+  int success = NCFUNC(inq_varid)(_fileId, "cell_corners", &verticesOnCellVarId);
+  ERRORS(success, "Failed to get variable id of cell_corners.");
   // Utilize the memory storage pointed by conn_arr_gather_set_cells
   int* vertices_on_gather_set_cells = (int*) conn_arr_gather_set_cells;
   NCDF_SIZE read_starts[2] = {0, 0};
@@ -1380,28 +1349,32 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
   ERRORS(success, "Failed to read verticesOnCell data.");
 #endif
 
-  // Correct gather set cell vertices array in the same way as local cell vertices array,
-  // replace the padded vertices with the last vertices in the corresponding cells
+  // Correct gather set cell vertices array in the same way as local cell vertices array
+  // Pentagons as hexagons should have a connectivity like 123455 and not 122345
   for (int gather_set_cell_idx = 0; gather_set_cell_idx < nCells; gather_set_cell_idx++) {
-    int num_edges = num_edges_on_gather_set_cells[gather_set_cell_idx];
-    int idx_in_gather_set_vert_arr = gather_set_cell_idx * EDGES_PER_CELL;
-    int last_vert_idx = vertices_on_gather_set_cells[idx_in_gather_set_vert_arr + num_edges - 1];
-    for (int i = num_edges; i < EDGES_PER_CELL; i++)
-      vertices_on_gather_set_cells[idx_in_gather_set_vert_arr + i] = last_vert_idx;
+    int* pvertex = vertices_on_gather_set_cells + gather_set_cell_idx * EDGES_PER_CELL;
+    for (int k = 0; k < EDGES_PER_CELL - 2; k++) {
+      if (*(pvertex + k) == *(pvertex + k + 1)) {
+        // Shift the connectivity
+        for (int kk = k + 1; kk < EDGES_PER_CELL - 1; kk++)
+          *(pvertex + kk) = *(pvertex + kk + 1);
+        // No need to try next k
+        break;
+      }
+    }
   }
 
   // Populate connectivity data for gather set cells
   // Convert in-place from int (stored in the first half) to EntityHandle
   // Reading backward is the trick
   for (int cell_vert = nCells * EDGES_PER_CELL - 1; cell_vert >= 0; cell_vert--) {
-    int gather_set_vert_idx = vertices_on_gather_set_cells[cell_vert]; // Global vertex index, 1 based
-    gather_set_vert_idx--; // 1 based -> 0 based
+    // Note, indices stored in vertices_on_gather_set_cells are 0 based
+    int gather_set_vert_idx = vertices_on_gather_set_cells[cell_vert]; // Global vertex index, 0 based
     // Connectivity array is shifted by where the gather set vertices start
     conn_arr_gather_set_cells[cell_vert] = gather_set_start_vertex + gather_set_vert_idx;
   }
 
   return MB_SUCCESS;
 }
-#endif
 
 } // namespace moab

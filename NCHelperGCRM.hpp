@@ -56,7 +56,6 @@ private:
   ErrorCode create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
                                       EntityHandle start_vertex, Range& faces);
 
-#if 0
   //! Create gather set vertices
   ErrorCode create_gather_set_vertices(EntityHandle gather_set, EntityHandle& gather_set_start_vertex);
 
@@ -65,7 +64,6 @@ private:
 
   //! Create gather set cells with padding (pentagons are padded to hexagons)
   ErrorCode create_padded_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex);
-#endif
 
 private:
   bool createGatherSet;
