@@ -1296,7 +1296,7 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
           
         
         if (count + remaining.size() <= buffer_size) {
-          memcpy( buffer + count, &remaining[0], sizeof(id_t)*remaining.size() );
+          memcpy( buffer + count, (remaining.empty())?NULL:&remaining[0], sizeof(id_t)*remaining.size() );
           count += remaining.size();
           remaining.clear();
           remaining_offset = 0;
@@ -2387,8 +2387,13 @@ ErrorCode WriteHDF5::write_qa( const std::vector<std::string>& list )
   {
     time_t t = time(NULL);
     tm* lt = localtime( &t );
+#ifdef WIN32
+    strftime( date_str, sizeof(date_str), "%m/%d/%y", lt ); //VS 2008 does not support %D
+    strftime( time_str, sizeof(time_str), "%H:%M:%S", lt ); //VS 2008 does not support %T
+#else
     strftime( date_str, sizeof(date_str), "%D", lt );
     strftime( time_str, sizeof(time_str), "%T", lt );
+#endif
     
     strs[0] = app;
     strs[1] = vers;
