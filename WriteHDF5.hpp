@@ -344,8 +344,8 @@ protected:
     std::vector<id_t> parentIds;
   };
   struct SpecSetLess {
-    bool operator() (const SpecialSetData& a, EntityHandle b) const
-      { return a.setHandle < b; }
+    bool operator() (const SpecialSetData& a, SpecialSetData b) const
+      { return a.setHandle < b.setHandle; }
   };
 
   

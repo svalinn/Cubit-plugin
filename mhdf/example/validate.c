@@ -232,12 +232,15 @@ int check_file_contains_holes( const char* filename )
     perror(filename);
     return 1;
   }
-  
+
+#ifndef _MSC_VER  //Does not have st_blocks
   if (buf.st_size/blocksize > buf.st_blocks+1) {
     printf("File \"%s\" contains holes.  This indicates that portions of the file were never written.\n",
       filename);
     return 1;
   }
+#endif
+
   return 0;
 }
 

@@ -19,6 +19,10 @@
  * \author Michael Garland 
  */
 
+#ifdef _MSC_VER  /* windows */
+#  define _USE_MATH_DEFINES //For M_PI
+#endif
+
 #include <assert.h>
 #include <stdlib.h>
 #include <iostream>

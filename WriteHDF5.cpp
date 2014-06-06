@@ -30,8 +30,10 @@
 #endif
 
 #include <assert.h>
-#if defined(_MSC_VER) || defined(__MINGW32__)
-#include <sys/time.h>
+#if defined(_MSC_VER)
+  typedef int id_t;
+#elif defined(__MINGW32__)
+  #include <sys/time.h>
 #endif
 #include <time.h>
 #include <stdlib.h>
@@ -2863,8 +2865,10 @@ ErrorCode WriteHDF5::create_set_meta( long num_sets, long& first_id_out )
 
 WriteHDF5::SpecialSetData* WriteHDF5::find_set_data( EntityHandle h )
 {
+  SpecialSetData tmp;
+  tmp.setHandle = h;
   std::vector<SpecialSetData>::iterator i;
-  i = std::lower_bound( specialSets.begin(), specialSets.end(), h, SpecSetLess() );
+  i = std::lower_bound( specialSets.begin(), specialSets.end(), tmp, SpecSetLess() );
   return (i == specialSets.end() || i->setHandle != h) ? 0 : &*i;
 }
 

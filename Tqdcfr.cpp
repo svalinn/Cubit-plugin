@@ -26,7 +26,6 @@
 #endif
 
 #ifndef TEST_TQDCFR
-
 #include "moab/ReadUtilIface.hpp"
 #include "SequenceManager.hpp"
 #include "moab/GeomTopoTool.hpp"

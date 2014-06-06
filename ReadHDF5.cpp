@@ -2207,8 +2207,8 @@ static bool set_map_intersect( bool ranged,
 }
 
 struct SetContOffComp {
-  bool operator()(const long a1[4], const long a2)
-    { return a1[ReadHDF5::CONTENT] < a2; }
+  bool operator()(const long a1[4], const long a2[4])
+    { return a1[ReadHDF5::CONTENT] < a2[0]; }
 };
 
 
@@ -2270,10 +2270,12 @@ ErrorCode ReadHDF5::find_sets_containing( hid_t contents_handle,
   long prev_idx = -1;
   int mm = 0;
   long sets_offset = 0;
+  long temp_content[4];
   while (sets_offset < num_sets) {
+    temp_content[0] = content_len + prev_idx;
     long sets_count = std::lower_bound( setMeta + sets_offset, 
                                         setMeta + num_sets,
-                                        content_len + prev_idx,
+                                        temp_content,
                                         SetContOffComp() 
                                        ) - setMeta - sets_offset;
     assert(sets_count >= 0 && sets_offset + sets_count <= num_sets);

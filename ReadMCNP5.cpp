@@ -28,6 +28,11 @@
 #include "assert.h"
 #include "math.h"
 
+#if defined(_MSC_VER) || defined(__MINGW32__)
+#  include <float.h>
+#  define finite(A) _finite(A)
+#endif
+
 namespace moab {
 
 // parameters
