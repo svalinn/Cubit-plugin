@@ -636,7 +636,7 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
   result = mdbImpl->tag_get_handle(tag_name.c_str(),def_bc_data_len,MB_TYPE_OPAQUE,
     nbc_data,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_BYTES|MB_TAG_VARLEN,NULL); 
   if (MB_SUCCESS != result) return result;
-  void const* tag_data[] = { &(bc_data[0]) };
+  void const* tag_data[] = { (bc_data.empty())?NULL:&(bc_data[0]) };
   int tag_size = bc_data.size();
   result = mdbImpl->tag_set_by_ptr(nbc_data,&nodeseth->setHandle,1,tag_data,&tag_size);
   if (MB_SUCCESS != result) return result;
@@ -784,7 +784,7 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
   result = mdbImpl->tag_get_handle(tag_name.c_str(),def_bc_data_len,MB_TYPE_OPAQUE,
     nbc_data,MB_TAG_CREAT|MB_TAG_SPARSE|MB_TAG_BYTES|MB_TAG_VARLEN,NULL); 
   if (MB_SUCCESS != result) return result;
-  void const* tag_data[] = { &(bc_data[0]) };
+  void const* tag_data[] = { (bc_data.empty())?NULL:&(bc_data[0]) };
   int tag_size = bc_data.size();
   result = mdbImpl->tag_set_by_ptr(nbc_data,&sideseth->setHandle,1,tag_data,&tag_size);
   if (MB_SUCCESS != result) return result;
@@ -2309,7 +2309,8 @@ ErrorCode Tqdcfr::read_acis_records( const char* sat_filename )
     if (NULL != acisDumpFile)
       fwrite(&char_buf[0], sizeof(char), next_buf, acisDumpFile);
     
-      // put null at end of string to stop searches 
+      // put null at end of string to stop searches
+    char_buf.resize(next_buf+1);
     char_buf[next_buf] = '\0';
     unsigned int buf_pos = 0;
 
