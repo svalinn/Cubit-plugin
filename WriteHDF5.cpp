@@ -2567,7 +2567,43 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     rval = assign_ids( ex_itor->range, ex_itor->first_id );
     CHK_MB_ERR_0(rval);
   }
+  // create set tables
+  writeSets = !setSet.range.empty();
+  if (writeSets)
+  {
+    long contents_len, children_len, parents_len;
 
+    setSet.total_num_ents = setSet.range.size();
+    setSet.max_num_ents = setSet.total_num_ents;
+    rval = create_set_meta(setSet.total_num_ents, first_id);
+    CHK_MB_ERR_0(rval);
+
+    setSet.first_id = (id_t) first_id;
+    rval = assign_ids(setSet.range, setSet.first_id);
+    CHK_MB_ERR_0(rval);
+
+    rval = count_set_size(setSet.range, contents_len, children_len,
+        parents_len);
+    CHK_MB_ERR_0(rval);
+
+    rval = create_set_tables(contents_len, children_len, parents_len);
+    CHK_MB_ERR_0(rval);
+
+    setSet.offset = 0;
+    setContentsOffset = 0;
+    setChildrenOffset = 0;
+    setParentsOffset = 0;
+    writeSetContents = !!contents_len;
+    writeSetChildren = !!children_len;
+    writeSetParents = !!parents_len;
+
+    maxNumSetContents = contents_len;
+    maxNumSetChildren = children_len;
+    maxNumSetParents = parents_len;
+  } // if(!setSet.range.empty())
+
+  // create adjacency table after set table, because sets do not have yet an id
+  // some entities are adjacent to sets (exodus?)
     // create node adjacency table
   id_t num_adjacencies;
 #ifdef MB_H5M_WRITE_NODE_ADJACENCIES  
@@ -2605,39 +2641,6 @@ ErrorCode WriteHDF5::serial_create_file( const char* filename,
     }
   }
   
-    // create set tables
-  writeSets = !setSet.range.empty();
-  if (writeSets)
-  {
-    long contents_len, children_len, parents_len;
-    
-    setSet.total_num_ents = setSet.range.size();
-    setSet.max_num_ents = setSet.total_num_ents;
-    rval = create_set_meta( setSet.total_num_ents, first_id );
-    CHK_MB_ERR_0(rval);
-
-    setSet.first_id = (id_t)first_id;
-    rval = assign_ids( setSet.range, setSet.first_id );
-    CHK_MB_ERR_0(rval);
-    
-    rval = count_set_size( setSet.range, contents_len, children_len, parents_len );
-    CHK_MB_ERR_0(rval);
-    
-    rval = create_set_tables( contents_len, children_len, parents_len );
-    CHK_MB_ERR_0(rval);
-   
-    setSet.offset = 0;
-    setContentsOffset = 0;
-    setChildrenOffset = 0;
-    setParentsOffset = 0;
-    writeSetContents = !!contents_len;
-    writeSetChildren = !!children_len;
-    writeSetParents = !!parents_len;
-    
-    maxNumSetContents = contents_len;
-    maxNumSetChildren = children_len;
-    maxNumSetParents = parents_len;
-  } // if(!setSet.range.empty())
   
   
   dbgOut.tprint( 1, "Gathering Tags\n" );
