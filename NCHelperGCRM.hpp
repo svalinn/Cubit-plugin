@@ -52,11 +52,7 @@ private:
   //! Create local edges (optional)
   ErrorCode create_local_edges(EntityHandle start_vertex);
 
-  //! Create local cells without padding (cells are divided into groups based on the number of edges)
-  ErrorCode create_local_cells(const std::vector<int>& vertices_on_local_cells,
-                                        EntityHandle start_vertex, Range& faces);
-
-  //! Create local cells with padding (padded cells will have the same number of edges)
+  //! Create local cells with padding (pentagons are padded to hexagons)
   ErrorCode create_padded_local_cells(const std::vector<int>& vertices_on_local_cells,
                                       EntityHandle start_vertex, Range& faces);
 
@@ -66,17 +62,11 @@ private:
   //! Create gather set edges (optional)
   ErrorCode create_gather_set_edges(EntityHandle gather_set, EntityHandle gather_set_start_vertex);
 
-  //! Create gather set cells without padding (cells are divided into groups based on the number of edges)
-  ErrorCode create_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex);
-
-  //! Create gather set cells with padding (padded cells will have the same number of edges)
+  //! Create gather set cells with padding (pentagons are padded to hexagons)
   ErrorCode create_padded_gather_set_cells(EntityHandle gather_set, EntityHandle gather_set_start_vertex);
 
 private:
-  int maxEdgesPerCell;
-  int numCellGroups;
   bool createGatherSet;
-  std::map<EntityHandle, int> cellHandleToGlobalID;
   Range facesOwned;
 };
 

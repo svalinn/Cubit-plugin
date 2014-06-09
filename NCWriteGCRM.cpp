@@ -123,6 +123,21 @@ ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names
 {
   NCWriteHelper::collect_variable_data(var_names, tstep_nums);
 
+  std::vector<std::string>& dimNames = _writeNC->dimNames;
+  std::vector<int>& dimLens = _writeNC->dimLens;
+
+  // Dimension indices for other optional levels
+  std::vector<unsigned int> opt_lev_dims;
+
+  unsigned int lev_idx;
+  std::vector<std::string>::iterator vecIt;
+
+  // Get index of interface levels
+  if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "interfaces")) != dimNames.end()) {
+    lev_idx = vecIt - dimNames.begin();
+    opt_lev_dims.push_back(lev_idx);
+  }
+
   std::map<std::string, WriteNC::VarData>& varInfo = _writeNC->varInfo;
 
   for (size_t i = 0; i < var_names.size(); i++) {
@@ -132,13 +147,21 @@ ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names
       ERRORR(MB_FAILURE, "Can't find one variable.");
 
     WriteNC::VarData& currentVarData = vit->second;
-#ifndef NDEBUG
     std::vector<int>& varDims = currentVarData.varDims;
-#endif
 
     // Skip edge variables, if there are no edges
     if (localEdgesOwned.empty() && currentVarData.entLoc == WriteNC::ENTLOCEDGE)
       continue;
+
+    // If layers dimension is not found, try other optional levels such as interfaces
+    if (std::find(varDims.begin(), varDims.end(), levDim) == varDims.end()) {
+      for (unsigned int j = 0; j < opt_lev_dims.size(); j++) {
+        if (std::find(varDims.begin(), varDims.end(), opt_lev_dims[j]) != varDims.end()) {
+          currentVarData.numLev = dimLens[opt_lev_dims[j]];
+          break;
+        }
+      }
+    }
 
     // Skip set variables, which were already processed in NCWriteHelper::collect_variable_data()
     if (WriteNC::ENTLOCSET == currentVarData.entLoc)

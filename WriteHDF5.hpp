@@ -104,7 +104,7 @@ public:
     Range range;
     //! The first Id allocated by the mhdf library.  Entities in range have sequential IDs.
     id_t first_id;
-    //! The offset at which to begin writting this processor's data.
+    //! The offset at which to begin writing this processor's data.
     //! Always zero except for parallel IO.
     long offset;
     //! Offset for adjacency data.  Always zero except for parallel IO

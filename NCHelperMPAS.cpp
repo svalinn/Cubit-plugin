@@ -122,22 +122,22 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   levDim = idx;
   nLevels = dimLens[idx];
 
-  // Dimension numbers for other optional levels
+  // Dimension indices for other optional levels
   std::vector<unsigned int> opt_lev_dims;
 
-  // Get number of vertex levels P1
+  // Get index of vertex levels P1
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP1")) != dimNames.end()) {
     idx = vit - dimNames.begin();
     opt_lev_dims.push_back(idx);
   }
 
-  // Get number of vertex levels P2
+  // Get index of vertex levels P2
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP2")) != dimNames.end()) {
     idx = vit - dimNames.begin();
     opt_lev_dims.push_back(idx);
   }
 
-  // Get number of soil levels
+  // Get index of soil levels
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "nSoilLevels")) != dimNames.end()) {
     idx = vit - dimNames.begin();
     opt_lev_dims.push_back(idx);

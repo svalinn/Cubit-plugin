@@ -126,25 +126,25 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
   std::vector<std::string>& dimNames = _writeNC->dimNames;
   std::vector<int>& dimLens = _writeNC->dimLens;
 
-  // Dimension numbers for other optional levels
+  // Dimension indices for other optional levels
   std::vector<unsigned int> opt_lev_dims;
 
   unsigned int lev_idx;
   std::vector<std::string>::iterator vecIt;
 
-  // Get number of vertex levels P1
+  // Get index of vertex levels P1
   if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP1")) != dimNames.end()) {
     lev_idx = vecIt - dimNames.begin();
     opt_lev_dims.push_back(lev_idx);
   }
 
-  // Get number of vertex levels P2
+  // Get index of vertex levels P2
   if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nVertLevelsP2")) != dimNames.end()) {
     lev_idx = vecIt - dimNames.begin();
     opt_lev_dims.push_back(lev_idx);
   }
 
-  // Get number of soil levels
+  // Get index of soil levels
   if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "nSoilLevels")) != dimNames.end()) {
     lev_idx = vecIt - dimNames.begin();
     opt_lev_dims.push_back(lev_idx);
