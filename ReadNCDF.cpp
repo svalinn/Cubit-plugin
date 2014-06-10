@@ -538,7 +538,7 @@ ErrorCode ReadNCDF::read_block_headers(const int *blocks_to_load,
 
     //if block is in 'blocks_to_load'----load it!
     if( std::find(new_blocks.begin(), new_blocks.end(), *iter) 
-        != block_ids.end()) 
+        != new_blocks.end()) 
     { 
       block_data.reading_in = true;
     }
@@ -1054,7 +1054,7 @@ ErrorCode ReadNCDF::read_sidesets()
         }
       }
 
-      if( mdbImpl->add_entities( ss_handle, &entities_to_add[0], 
+      if( mdbImpl->add_entities( ss_handle, (entities_to_add.empty())?NULL:&entities_to_add[0], 
                                  entities_to_add.size()) != MB_SUCCESS ) 
         return MB_FAILURE; 
 

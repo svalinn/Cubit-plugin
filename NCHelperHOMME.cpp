@@ -394,7 +394,8 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
                                               (create_gathers ? num_coarse_quads + num_quads : num_coarse_quads));
     ERRORR(rval, "Failed to create local quads.");
     tmp_range.insert(start_quad, start_quad + num_coarse_quads - 1);
-    std::copy(&tmp_conn[start_idx], &tmp_conn[start_idx + 4 * num_fine_quads], conn_arr);
+    int* tmp_conn_end = (&tmp_conn[start_idx + 4 * num_fine_quads-1])+1;
+    std::copy(&tmp_conn[start_idx], tmp_conn_end, conn_arr);
     std::copy(conn_arr, conn_arr + 4 * num_fine_quads, range_inserter(localGidVerts));
   }
   else {
@@ -543,7 +544,8 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
                                               MBQUAD, 0, start_quad, conn_arr);
     ERRORR(rval, "Failed to create gather set quads.");
     gather_set_quads_range.insert(start_quad, start_quad + num_quads - 1);
-    std::copy(&tmp_conn[0], &tmp_conn[4 * num_quads], conn_arr);
+    int* tmp_conn_end = (&tmp_conn[4 * num_quads-1]) + 1;
+    std::copy(&tmp_conn[0], tmp_conn_end, conn_arr);
     for (i = 0; i != 4 * num_quads; i++)
       conn_arr[i] += start_vertex - 1; // Connectivity array is shifted by where the gather verts start
     rval = mbImpl->add_entities(gather_set, gather_set_quads_range);
