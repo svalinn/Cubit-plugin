@@ -246,9 +246,11 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
       switch (variableData.varDataType) {
         case NC_DOUBLE: {
           std::vector<double> tmpdoubledata(num_local_verts_owned * num_lev);
-          if (num_lev > 1)
+          if (num_lev > 1) {
             // Transpose (ncol, lev) back to (lev, ncol)
-            jik_to_kji(num_local_verts_owned, 1, num_lev, &tmpdoubledata[0], &tag_data[0]);
+            // Note, num_local_verts_owned is not used by jik_to_kji_stride()
+            jik_to_kji_stride(num_local_verts_owned, 1, num_lev, &tmpdoubledata[0], &tag_data[0], localGidVertsOwned);
+          }
 
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
