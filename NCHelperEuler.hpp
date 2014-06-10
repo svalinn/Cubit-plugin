@@ -11,6 +11,12 @@
 
 #include "NCHelper.hpp"
 
+#ifdef WIN32
+#ifdef size_t
+#undef size_t
+#endif
+#endif
+
 namespace moab {
 
 //! Child helper class for Eulerian Spectral grid (CAM_EUL)

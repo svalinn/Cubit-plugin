@@ -17,6 +17,12 @@
 
 #include <sstream>
 
+#ifdef WIN32
+#ifdef size_t
+#undef size_t
+#endif
+#endif
+
 #define ERRORR(rval, str) \
   if (MB_SUCCESS != rval) { _writeNC->mWriteIface->report_error("%s", str); return rval; }
 

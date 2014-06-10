@@ -11,6 +11,12 @@
 
 #include "ReadNC.hpp"
 
+#ifdef WIN32
+#ifdef size_t
+#undef size_t
+#endif
+#endif
+
 namespace moab {
 
 //! Helper class to isolate reading of several different nc file formats

@@ -10,6 +10,12 @@
 #define NCWRITEHELPER_HPP_
 #include "WriteNC.hpp"
 
+#ifdef WIN32
+#ifdef size_t
+#undef size_t
+#endif
+#endif
+
 namespace moab {
 
 class NCWriteHelper

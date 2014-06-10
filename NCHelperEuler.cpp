@@ -2,8 +2,18 @@
 #include "moab/ReadUtilIface.hpp"
 #include "moab/FileOptions.hpp"
 
+#ifdef WIN32  /* windows */
+#  define _USE_MATH_DEFINES //For M_PI
+#endif
+
 #include <cmath>
 #include <sstream>
+
+#ifdef WIN32
+#ifdef size_t
+#undef size_t
+#endif
+#endif
 
 #define ERRORR(rval, str) \
   if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
