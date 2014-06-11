@@ -258,6 +258,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   DebugOutput& dbgOut = _readNC->dbgOut;
   bool& spectralMesh = _readNC->spectralMesh;
   int& gatherSetRank = _readNC->gatherSetRank;
+  int& trivialPartitionShift = _readNC->trivialPartitionShift;
 
   int rank = 0;
   int procs = 1;
@@ -355,11 +356,16 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     tmp_conn[4 * i + 3] = tmp_conn2[i + 3 * num_quads];
   }
 
-  // Need to know whether we'll be creating gather mesh later, to make sure we allocate enough space
-  // in one shot
+  // Need to know whether we'll be creating gather mesh later, to make sure
+  // we allocate enough space in one shot
   bool create_gathers = false;
   if (rank == gatherSetRank)
     create_gathers = true;
+
+  // Shift rank to obtain a rotated trivial partition
+  int shifted_rank = rank;
+  if (procs >= 2 && trivialPartitionShift > 0)
+    shifted_rank = (rank + trivialPartitionShift) % procs;
 
   // Compute the number of local quads, accounting for coarse or fine representation
   // spectral_unit is the # fine quads per coarse quad, or spectralOrder^2
@@ -367,12 +373,12 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
   // num_coarse_quads is the number of quads instantiated in MOAB; if !spectralMesh, num_coarse_quads = num_fine_quads
   num_coarse_quads = int(std::floor(1.0 * num_quads / (spectral_unit * procs)));
   // start_idx is the starting index in the HommeMapping connectivity list for this proc, before converting to coarse quad representation
-  start_idx = 4 * rank * num_coarse_quads * spectral_unit;
+  start_idx = 4 * shifted_rank * num_coarse_quads * spectral_unit;
   // iextra = # coarse quads extra after equal split over procs
   int iextra = num_quads % (procs * spectral_unit);
-  if (rank < iextra)
+  if (shifted_rank < iextra)
     num_coarse_quads++;
-  start_idx += 4 * spectral_unit * std::min(rank, iextra);
+  start_idx += 4 * spectral_unit * std::min(shifted_rank, iextra);
   // num_fine_quads is the number of quads in the connectivity list in HommeMapping file assigned to this proc
   num_fine_quads = spectral_unit * num_coarse_quads;
 

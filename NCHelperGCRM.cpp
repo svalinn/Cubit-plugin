@@ -248,6 +248,7 @@ ErrorCode NCHelperGCRM::check_existing_mesh()
 ErrorCode NCHelperGCRM::create_mesh(Range& faces)
 {
   int& gatherSetRank = _readNC->gatherSetRank;
+  int& trivialPartitionShift = _readNC->trivialPartitionShift;
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
@@ -267,19 +268,24 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
     createGatherSet = true;
 
   if (procs >= 2) {
+    // Shift rank to obtain a rotated trivial partition
+    int shifted_rank = rank;
+    if (trivialPartitionShift > 0)
+      shifted_rank = (rank + trivialPartitionShift) % procs;
+
     // Compute the number of local cells on this proc
     nLocalCells = int(std::floor(1.0 * nCells / procs));
 
     // The starting global cell index in the GCRM file for this proc
-    int start_cell_idx = rank * nLocalCells;
+    int start_cell_idx = shifted_rank * nLocalCells;
 
     // Number of extra cells after equal split over procs
     int iextra = nCells % procs;
 
     // Allocate extra cells over procs
-    if (rank < iextra)
+    if (shifted_rank < iextra)
       nLocalCells++;
-    start_cell_idx += std::min(rank, iextra);
+    start_cell_idx += std::min(shifted_rank, iextra);
 
     start_cell_idx++; // 0 based -> 1 based
 
