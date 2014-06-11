@@ -1909,7 +1909,7 @@ ErrorCode ReadHDF5::delete_non_side_elements( const Range& side_ents )
     EntityID count = dead_ents.const_pair_begin()->second - start + 1;
     IDMap::iterator rit;
     for (rit = idMap.begin(); rit != idMap.end(); ++rit) 
-      if (rit->value <= start && (long)(start - rit->value) < rit->count)
+      if (rit->value <= start && (EntityID)(start - rit->value) < rit->count)
         break;
     if (rit == idMap.end())
       return error(MB_FAILURE);
