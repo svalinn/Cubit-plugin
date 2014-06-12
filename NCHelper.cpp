@@ -380,7 +380,7 @@ ErrorCode NCHelper::update_time_tag_vals()
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
+ErrorCode NCHelper::read_variables_setup(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
                                         std::vector<ReadNC::VarData>& vdatas, std::vector<ReadNC::VarData>& vsetdatas)
 {
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
@@ -464,12 +464,12 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelper::read_variables_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_variable_to_set_allocate(vdatas, tstep_nums);
+  ErrorCode rval = read_variables_to_set_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables to set.");
 
   // Finally, read into that space
@@ -874,7 +874,7 @@ ErrorCode NCHelper::create_dummy_variables()
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelper::read_variables_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   std::vector<int>& dimLens = _readNC->dimLens;
   DebugOutput& dbgOut = _readNC->dbgOut;
@@ -1102,23 +1102,23 @@ ErrorCode ScdNCHelper::read_variables(std::vector<std::string>& var_names, std::
   std::vector<ReadNC::VarData> vdatas;
   std::vector<ReadNC::VarData> vsetdatas;
 
-  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+  ErrorCode rval = read_variables_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
   if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(vsetdatas, tstep_nums);
+    rval = read_variables_to_set(vsetdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to set.");
   }
 
   if (!vdatas.empty()) {
-    rval = read_scd_variable_to_nonset(vdatas, tstep_nums);
+    rval = read_scd_variables_to_nonset(vdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");
   }
 
   return MB_SUCCESS;
 }
 
-ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimLens = _readNC->dimLens;
@@ -1244,11 +1244,11 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
   return rval;
 }
 
-ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode ScdNCHelper::read_scd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_scd_variable_to_nonset_allocate(vdatas, tstep_nums);
+  ErrorCode rval = read_scd_variables_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -1434,21 +1434,21 @@ ErrorCode UcdNCHelper::read_variables(std::vector<std::string>& var_names, std::
   std::vector<ReadNC::VarData> vdatas;
   std::vector<ReadNC::VarData> vsetdatas;
 
-  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+  ErrorCode rval = read_variables_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
   if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(vsetdatas, tstep_nums);
+    rval = read_variables_to_set(vsetdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to set.");
   }
 
   if (!vdatas.empty()) {
 #ifdef PNETCDF_FILE
     // With pnetcdf support, we will use async read
-    rval = read_ucd_variable_to_nonset_async(vdatas, tstep_nums);
+    rval = read_ucd_variables_to_nonset_async(vdatas, tstep_nums);
 #else
     // Without pnetcdf support, we will use old read
-    rval = read_ucd_variable_to_nonset(vdatas, tstep_nums);
+    rval = read_ucd_variables_to_nonset(vdatas, tstep_nums);
 #endif
     ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");
   }
