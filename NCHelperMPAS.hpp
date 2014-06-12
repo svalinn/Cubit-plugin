@@ -39,7 +39,7 @@ private:
                                                       std::vector<int>& tstep_nums);
 #else
   //! Implementation of UcdNCHelper::read_ucd_variables_to_nonset()
-  virtual ErrorCode read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas,
+  virtual ErrorCode read_ucd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas,
                                                 std::vector<int>& tstep_nums);
 #endif
 
