@@ -233,11 +233,8 @@ ErrorCode WriteSTL::get_triangle_data( const double coords[9],
   ErrorCode rval = get_triangle_data(coords,cv1,cv2,cv2,cn);
   if (MB_SUCCESS != rval)
     return rval;
-  
-  v1[0] = cv1[0]; v1[1] = cv1[1]; v1[2] = cv1[2];
-  v2[0] = cv2[0]; v2[1] = cv2[1]; v2[2] = cv2[2];
-  v3[0] = cv3[0]; v3[1] = cv3[1]; v3[2] = cv3[2];
-  n[0] = cn[0]; n[1] = cn[1]; n[2] = cn[2];
+
+  cv1.get(v1); cv2.get(v2); cv3.get(v3); cn.get(n);
 
   return MB_SUCCESS;
 
