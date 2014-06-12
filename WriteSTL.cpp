@@ -230,7 +230,7 @@ ErrorCode WriteSTL::get_triangle_data( const double coords[9],
 {
 
   CartVect cv1, cv2, cv3, cn;
-  ErrorCode rval = get_triangle_data(coords,cv1,cv2,cv2,cn);
+  ErrorCode rval = get_triangle_data(coords,cv1,cv2,cv3,cn);
   if (MB_SUCCESS != rval)
     return rval;
 
