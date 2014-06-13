@@ -678,8 +678,14 @@ ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset_async(std::vector<ReadNC::
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
+        case NC_SHORT:
+        case NC_INT: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        case NC_FLOAT:
         case NC_DOUBLE: {
-          // Copied from float case
+          // Read float as double
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -691,14 +697,14 @@ ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset_async(std::vector<ReadNC::
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
               pair_iter != localGidVerts.pair_end();
-              pair_iter++, ic++) {
+              ++pair_iter, ic++) {
             EntityHandle starth = pair_iter->first;
-            EntityHandle endh = pair_iter->second; // inclusive
+            EntityHandle endh = pair_iter->second; // Inclusive
             vdatas[i].readStarts[2] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[2] = (NCDF_SIZE) (endh - starth + 1);
 
             // Do a partial read, in each subrange
-            // wait outside this loop
+            // Wait outside this loop
             success = NCFUNCREQG(_vara_double)(_fileId, vdatas[i].varId,
                             &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]), &requests[idxReq++]);
@@ -722,72 +728,12 @@ ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset_async(std::vector<ReadNC::
           ERRORS(success, "Failed to read double data.");
           break;
         }
-        case NC_FLOAT: {
-          std::vector<float> tmpfloatdata(sz);
-
-          // In the case of ucd mesh, and on multiple proc,
-          // we need to read as many times as subranges we have in the
-          // localGidVerts range;
-          // basically, we have to give a different point
-          // for data to start, for every subrange :(
-          size_t indexInFloatArray = 0;
-          size_t ic = 0;
-          for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
-              pair_iter != localGidVerts.pair_end();
-              pair_iter++, ic++) {
-            EntityHandle starth = pair_iter->first;
-            EntityHandle endh = pair_iter->second; // inclusive
-            vdatas[i].readStarts[2] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[2] = (NCDF_SIZE) (endh - starth + 1);
-
-            // Do a partial read, in each subrange
-            // wait outside this loop
-            success = NCFUNCREQG(_vara_float)(_fileId, vdatas[i].varId,
-                            &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
-                            &(tmpfloatdata[indexInFloatArray]), &requests[idxReq++]);
-            ERRORS(success, "Failed to read float data in loop");
-            // We need to increment the index in float array for the
-            // next subrange
-            indexInFloatArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
-          }
-          assert(ic == localGidVerts.psize());
-
-          success = ncmpi_wait_all(_fileId, requests.size(), &requests[0], &statuss[0]);
-          ERRORS(success, "Failed on wait_all.");
-
-          if (vdatas[i].numLev != 1)
-            // Transpose (lev, ncol) to (ncol, lev)
-            success = kji_to_jik_stride(ni, nj, nk, data, &tmpfloatdata[0], localGidVerts);
-          else {
-            for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
-              ((float*) data)[idx] = tmpfloatdata[idx];
-          }
-          ERRORS(success, "Failed to read float data.");
-          break;
-        }
-        case NC_INT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_SHORT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         default:
           success = 1;
       }
 
       if (success)
         ERRORR(MB_FAILURE, "Trouble reading variable.");
-    }
-  }
-
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
     }
   }
 
@@ -833,8 +779,14 @@ ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset(std::vector<ReadNC::VarDat
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
+        case NC_SHORT:
+        case NC_INT: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        case NC_FLOAT:
         case NC_DOUBLE: {
-          // Copied from float case
+          // Read float as double
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -846,7 +798,7 @@ ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset(std::vector<ReadNC::VarDat
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
               pair_iter != localGidVerts.pair_end();
-              pair_iter++, ic++) {
+              ++pair_iter, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
             vdatas[i].readStarts[2] = (NCDF_SIZE) (starth - 1);
@@ -872,52 +824,6 @@ ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset(std::vector<ReadNC::VarDat
           ERRORS(success, "Failed to read double data.");
           break;
         }
-        case NC_FLOAT: {
-          std::vector<float> tmpfloatdata(sz);
-
-          // In the case of ucd mesh, and on multiple proc,
-          // we need to read as many times as subranges we have in the
-          // localGidVerts range;
-          // basically, we have to give a different point
-          // for data to start, for every subrange :(
-          size_t indexInFloatArray = 0;
-          size_t ic = 0;
-          for (Range::pair_iterator pair_iter = localGidVerts.pair_begin();
-              pair_iter != localGidVerts.pair_end();
-              pair_iter++, ic++) {
-            EntityHandle starth = pair_iter->first;
-            EntityHandle endh = pair_iter->second; // Inclusive
-            vdatas[i].readStarts[2] = (NCDF_SIZE) (starth - 1);
-            vdatas[i].readCounts[2] = (NCDF_SIZE) (endh - starth + 1);
-
-            success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId,
-                            &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
-                            &(tmpfloatdata[indexInFloatArray]));
-            ERRORS(success, "Failed to read float data in loop");
-            // We need to increment the index in float array for the
-            // next subrange
-            indexInFloatArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
-          }
-          assert(ic == localGidVerts.psize());
-
-          if (vdatas[i].numLev != 1)
-            // Transpose (lev, ncol) to (ncol, lev)
-            success = kji_to_jik_stride(ni, nj, nk, data, &tmpfloatdata[0], localGidVerts);
-          else {
-            for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
-              ((float*) data)[idx] = tmpfloatdata[idx];
-          }
-          ERRORS(success, "Failed to read float data.");
-          break;
-        }
-        case NC_INT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_SHORT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         default:
           success = 1;
       }
@@ -927,14 +833,6 @@ ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset(std::vector<ReadNC::VarDat
     }
   }
 
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
-    }
-  }
   // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
