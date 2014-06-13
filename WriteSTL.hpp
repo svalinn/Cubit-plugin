@@ -17,6 +17,7 @@
 #ifndef WRITE_STL_HPP
 #define WRITE_STL_HPP
 
+#include "moab/CartVect.hpp"
 #include "moab/Forward.hpp"
 #include "moab/WriterIface.hpp"
 
@@ -86,7 +87,13 @@ protected:
                                  float v2[3],
                                  float v3[3],
                                  float n[3] );
-                                       
+
+  ErrorCode get_triangle_data( const double vtx_coords[9],
+                               CartVect& v1,
+                               CartVect& v2,
+                               CartVect& v3,
+                               CartVect& n);
+
     //! interface instance
   Interface *mbImpl;
   WriteUtilIface* mWriteIface;
