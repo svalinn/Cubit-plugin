@@ -30,16 +30,16 @@ private:
   //! Implementation of NCHelper::get_mesh_type_name()
   virtual std::string get_mesh_type_name() { return "MPAS"; }
 
-  //! Implementation of UcdNCHelper::read_ucd_variable_to_nonset_allocate()
-  virtual ErrorCode read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
+  //! Implementation of UcdNCHelper::read_ucd_variables_to_nonset_allocate()
+  virtual ErrorCode read_ucd_variables_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
                                                          std::vector<int>& tstep_nums);
 #ifdef PNETCDF_FILE
-  //! Implementation of UcdNCHelper::read_ucd_variable_to_nonset_async()
-  virtual ErrorCode read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas,
+  //! Implementation of UcdNCHelper::read_ucd_variables_to_nonset_async()
+  virtual ErrorCode read_ucd_variables_to_nonset_async(std::vector<ReadNC::VarData>& vdatas,
                                                       std::vector<int>& tstep_nums);
 #else
-  //! Implementation of UcdNCHelper::read_ucd_variable_to_nonset()
-  virtual ErrorCode read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas,
+  //! Implementation of UcdNCHelper::read_ucd_variables_to_nonset()
+  virtual ErrorCode read_ucd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas,
                                                 std::vector<int>& tstep_nums);
 #endif
 

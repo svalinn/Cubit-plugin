@@ -40,13 +40,13 @@ public:
 
 protected:
   //! Separate set and non-set variables (common to scd mesh and ucd mesh)
-  ErrorCode read_variable_setup(std::vector<std::string>& var_names,
+  ErrorCode read_variables_setup(std::vector<std::string>& var_names,
                                             std::vector<int>& tstep_nums,
                                             std::vector<ReadNC::VarData>& vdatas,
                                             std::vector<ReadNC::VarData>& vsetdatas);
 
   //! Read set variables (common to scd mesh and ucd mesh)
-  ErrorCode read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
+  ErrorCode read_variables_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
 
   //! Convert variables in place
   ErrorCode convert_variable(ReadNC::VarData& var_data, int tstep_num);
@@ -72,8 +72,8 @@ protected:
   ErrorCode create_dummy_variables();
 
 private:
-  //! Used by read_variable_to_set()
-  ErrorCode read_variable_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
+  //! Used by read_variables_to_set()
+  ErrorCode read_variables_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
 
 protected:
   //! Allow NCHelper to directly access members of ReadNC
@@ -129,9 +129,9 @@ private:
   virtual ErrorCode read_variables(std::vector<std::string>& var_names, std::vector<int>& tstep_nums);
 
   //! Read non-set variables for scd mesh
-  ErrorCode read_scd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
+  ErrorCode read_scd_variables_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
                                                  std::vector<int>& tstep_nums);
-  ErrorCode read_scd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas,
+  ErrorCode read_scd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas,
                                         std::vector<int>& tstep_nums);
 
   //! Create COORDS tag for quads coordinate
@@ -197,13 +197,13 @@ private:
                                    std::vector<int> &tstep_nums);
 
   //! Read non-set variables for ucd mesh (implemented differently in child classes)
-  virtual ErrorCode read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
+  virtual ErrorCode read_ucd_variables_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
                                                          std::vector<int>& tstep_nums) = 0;
 #ifdef PNETCDF_FILE
-  virtual ErrorCode read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas,
+  virtual ErrorCode read_ucd_variables_to_nonset_async(std::vector<ReadNC::VarData>& vdatas,
                                                       std::vector<int>& tstep_nums) = 0;
 #else
-  virtual ErrorCode read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas,
+  virtual ErrorCode read_ucd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas,
                                                 std::vector<int>& tstep_nums) = 0;
 #endif
 

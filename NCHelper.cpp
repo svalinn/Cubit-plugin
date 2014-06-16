@@ -380,7 +380,7 @@ ErrorCode NCHelper::update_time_tag_vals()
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
+ErrorCode NCHelper::read_variables_setup(std::vector<std::string>& var_names, std::vector<int>& tstep_nums,
                                         std::vector<ReadNC::VarData>& vdatas, std::vector<ReadNC::VarData>& vsetdatas)
 {
   std::map<std::string, ReadNC::VarData>& varInfo = _readNC->varInfo;
@@ -464,12 +464,12 @@ ErrorCode NCHelper::read_variable_setup(std::vector<std::string>& var_names, std
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelper::read_variables_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_variable_to_set_allocate(vdatas, tstep_nums);
+  ErrorCode rval = read_variables_to_set_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables to set.");
 
   // Finally, read into that space
@@ -492,25 +492,17 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
                                         &vdatas[i].readCounts[0], (char*) data);
           ERRORS(success, "Failed to read char data.");
           break;
-        case NC_DOUBLE:
-          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
-                                        &vdatas[i].readCounts[0], (double*) data);
-          ERRORS(success, "Failed to read double data.");
-          break;
-        case NC_FLOAT:
-          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
-                                        &vdatas[i].readCounts[0], (float*) data);
-          ERRORS(success, "Failed to read float data.");
-          break;
+        case NC_SHORT:
         case NC_INT:
           success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
                                         &vdatas[i].readCounts[0], (int*) data);
           ERRORS(success, "Failed to read int data.");
           break;
-        case NC_SHORT:
-          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
-                                        &vdatas[i].readCounts[0], (short*) data);
-          ERRORS(success, "Failed to read short data.");
+        case NC_FLOAT:
+        case NC_DOUBLE:
+          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0],
+                                        &vdatas[i].readCounts[0], (double*) data);
+          ERRORS(success, "Failed to read double data.");
           break;
         default:
           success = 1;
@@ -518,10 +510,6 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
 
       if (success)
         ERRORR(MB_FAILURE, "Trouble reading variable.");
-
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      rval = convert_variable(vdatas[i], t);
-      ERRORR(rval, "Failed to convert variable.");
 
       dbgOut.tprintf(2, "Setting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
       rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &data, &vdatas[i].sz);
@@ -533,13 +521,13 @@ ErrorCode NCHelper::read_variable_to_set(std::vector<ReadNC::VarData>& vdatas, s
         case NC_CHAR:
           delete[] (char*) data;
           break;
-        case NC_DOUBLE:
-        case NC_FLOAT:
-          delete[] (double*) data;
-          break;
-        case NC_INT:
         case NC_SHORT:
+        case NC_INT:
           delete[] (int*) data;
+          break;
+        case NC_FLOAT:
+        case NC_DOUBLE:
+          delete[] (double*) data;
           break;
         default:
           break;
@@ -705,13 +693,13 @@ ErrorCode NCHelper::get_tag_to_set(ReadNC::VarData& var_data, int tstep_num, Tag
     case NC_CHAR:
       rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 0, MB_TYPE_OPAQUE, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
       break;
-    case NC_DOUBLE:
-    case NC_FLOAT:
-      rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 0, MB_TYPE_DOUBLE, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
-      break;
-    case NC_INT:
     case NC_SHORT:
+    case NC_INT:
       rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 0, MB_TYPE_INTEGER, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
+      break;
+    case NC_FLOAT:
+    case NC_DOUBLE:
+      rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 0, MB_TYPE_DOUBLE, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
       break;
     default:
       std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;
@@ -743,13 +731,13 @@ ErrorCode NCHelper::get_tag_to_nonset(ReadNC::VarData& var_data, int tstep_num, 
     case NC_CHAR:
       rval = mbImpl->tag_get_handle(tag_name.str().c_str(), num_lev, MB_TYPE_OPAQUE, tagh, MB_TAG_DENSE | MB_TAG_CREAT);
       break;
-    case NC_DOUBLE:
-    case NC_FLOAT:
-      rval = mbImpl->tag_get_handle(tag_name.str().c_str(), num_lev, MB_TYPE_DOUBLE, tagh, MB_TAG_DENSE | MB_TAG_CREAT);
-      break;
-    case NC_INT:
     case NC_SHORT:
+    case NC_INT:
       rval = mbImpl->tag_get_handle(tag_name.str().c_str(), num_lev, MB_TYPE_INTEGER, tagh, MB_TAG_DENSE | MB_TAG_CREAT);
+      break;
+    case NC_FLOAT:
+    case NC_DOUBLE:
+      rval = mbImpl->tag_get_handle(tag_name.str().c_str(), num_lev, MB_TYPE_DOUBLE, tagh, MB_TAG_DENSE | MB_TAG_CREAT);
       break;
     default:
       std::cerr << "Unrecognized data type for tag " << tag_name.str() << std::endl;
@@ -781,19 +769,12 @@ ErrorCode NCHelper::create_attrib_string(const std::map<std::string, ReadNC::Att
         ERRORS(success, "Failed to read attribute char data.");
         ssAtt << "char;";
         break;
-      case NC_DOUBLE:
-        sz = attIt->second.attLen * sizeof(double);
-        attData = (double *) malloc(sz);
-        success = NCFUNC(get_att_double)(_fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (double*) attData);
-        ERRORS(success, "Failed to read attribute double data.");
-        ssAtt << "double;";
-        break;
-      case NC_FLOAT:
-        sz = attIt->second.attLen * sizeof(float);
-        attData = (float *) malloc(sz);
-        success = NCFUNC(get_att_float)(_fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (float*) attData);
-        ERRORS(success, "Failed to read attribute float data.");
-        ssAtt << "float;";
+      case NC_SHORT:
+        sz = attIt->second.attLen * sizeof(short);
+        attData = (short *) malloc(sz);
+        success = NCFUNC(get_att_short)(_fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (short*) attData);
+        ERRORS(success, "Failed to read attribute short data.");
+        ssAtt << "short;";
         break;
       case NC_INT:
         sz = attIt->second.attLen * sizeof(int);
@@ -802,12 +783,19 @@ ErrorCode NCHelper::create_attrib_string(const std::map<std::string, ReadNC::Att
         ERRORS(success, "Failed to read attribute int data.");
         ssAtt << "int;";
         break;
-      case NC_SHORT:
-        sz = attIt->second.attLen * sizeof(short);
-        attData = (short *) malloc(sz);
-        success = NCFUNC(get_att_short)(_fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (short*) attData);
-        ERRORS(success, "Failed to read attribute short data.");
-        ssAtt << "short;";
+      case NC_FLOAT:
+        sz = attIt->second.attLen * sizeof(float);
+        attData = (float *) malloc(sz);
+        success = NCFUNC(get_att_float)(_fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (float*) attData);
+        ERRORS(success, "Failed to read attribute float data.");
+        ssAtt << "float;";
+        break;
+      case NC_DOUBLE:
+        sz = attIt->second.attLen * sizeof(double);
+        attData = (double *) malloc(sz);
+        success = NCFUNC(get_att_double)(_fileId, attIt->second.attVarId, attIt->second.attName.c_str(), (double*) attData);
+        ERRORS(success, "Failed to read attribute double data.");
+        ssAtt << "double;";
         break;
       default:
         success = 1;
@@ -874,7 +862,7 @@ ErrorCode NCHelper::create_dummy_variables()
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelper::read_variables_to_set_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   std::vector<int>& dimLens = _readNC->dimLens;
   DebugOutput& dbgOut = _readNC->dbgOut;
@@ -932,13 +920,13 @@ ErrorCode NCHelper::read_variable_to_set_allocate(std::vector<ReadNC::VarData>& 
         case NC_CHAR:
           vdatas[i].varDatas[t] = new char[vdatas[i].sz];
           break;
-        case NC_DOUBLE:
-        case NC_FLOAT:
-          vdatas[i].varDatas[t] = new double[vdatas[i].sz];
-          break;
-        case NC_INT:
         case NC_SHORT:
+        case NC_INT:
           vdatas[i].varDatas[t] = new int[vdatas[i].sz];
+          break;
+        case NC_FLOAT:
+        case NC_DOUBLE:
+          vdatas[i].varDatas[t] = new double[vdatas[i].sz];
           break;
         default:
           std::cerr << "Unrecognized data type for set variable tag values" << std::endl;
@@ -1102,23 +1090,23 @@ ErrorCode ScdNCHelper::read_variables(std::vector<std::string>& var_names, std::
   std::vector<ReadNC::VarData> vdatas;
   std::vector<ReadNC::VarData> vsetdatas;
 
-  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+  ErrorCode rval = read_variables_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
   if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(vsetdatas, tstep_nums);
+    rval = read_variables_to_set(vsetdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to set.");
   }
 
   if (!vdatas.empty()) {
-    rval = read_scd_variable_to_nonset(vdatas, tstep_nums);
+    rval = read_scd_variables_to_nonset(vdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");
   }
 
   return MB_SUCCESS;
 }
 
-ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimLens = _readNC->dimLens;
@@ -1244,11 +1232,11 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset_allocate(std::vector<ReadNC::
   return rval;
 }
 
-ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode ScdNCHelper::read_scd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_scd_variable_to_nonset_allocate(vdatas, tstep_nums);
+  ErrorCode rval = read_scd_variables_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -1285,34 +1273,7 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
           ERRORS(success, "Failed to read char data.");
           break;
         }
-        case NC_DOUBLE: {
-          std::vector<double> tmpdoubledata(sz);
-          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
-                                          &tmpdoubledata[0]);
-          if (vdatas[i].numLev > 1)
-            // Transpose (lev, lat, lon) to (lat, lon, lev)
-            success = kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
-          else {
-            for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
-              ((double*) data)[idx] = tmpdoubledata[idx];
-          }
-          ERRORS(success, "Failed to read double data.");
-          break;
-        }
-        case NC_FLOAT: {
-          std::vector<float> tmpfloatdata(sz);
-          success = NCFUNCAG(_vara_float)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
-                                          &tmpfloatdata[0]);
-          if (vdatas[i].numLev > 1)
-            // Transpose (lev, lat, lon) to (lat, lon, lev)
-            success = kji_to_jik(ni, nj, nk, data, &tmpfloatdata[0]);
-          else {
-            for (std::size_t idx = 0; idx != tmpfloatdata.size(); idx++)
-              ((float*) data)[idx] = tmpfloatdata[idx];
-          }
-          ERRORS(success, "Failed to read float data.");
-          break;
-        }
+        case NC_SHORT:
         case NC_INT: {
           std::vector<int> tmpintdata(sz);
           success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
@@ -1327,18 +1288,19 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
           ERRORS(success, "Failed to read int data.");
           break;
         }
-        case NC_SHORT: {
-          std::vector<short> tmpshortdata(sz);
-          success = NCFUNCAG(_vara_short)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
-                                          &tmpshortdata[0]);
+        case NC_FLOAT:
+        case NC_DOUBLE: {
+          std::vector<double> tmpdoubledata(sz);
+          success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
+                                          &tmpdoubledata[0]);
           if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
-            success = kji_to_jik(ni, nj, nk, data, &tmpshortdata[0]);
+            success = kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
           else {
-            for (std::size_t idx = 0; idx != tmpshortdata.size(); idx++)
-              ((short*) data)[idx] = tmpshortdata[idx];
+            for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
+              ((double*) data)[idx] = tmpdoubledata[idx];
           }
-          ERRORS(success, "Failed to read short data.");
+          ERRORS(success, "Failed to read double data.");
           break;
         }
         default:
@@ -1347,15 +1309,6 @@ ErrorCode ScdNCHelper::read_scd_variable_to_nonset(std::vector<ReadNC::VarData>&
 
       if (success)
         ERRORR(MB_FAILURE, "Trouble reading variable.");
-    }
-  }
-
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
     }
   }
 
@@ -1434,21 +1387,21 @@ ErrorCode UcdNCHelper::read_variables(std::vector<std::string>& var_names, std::
   std::vector<ReadNC::VarData> vdatas;
   std::vector<ReadNC::VarData> vsetdatas;
 
-  ErrorCode rval = read_variable_setup(var_names, tstep_nums, vdatas, vsetdatas);
+  ErrorCode rval = read_variables_setup(var_names, tstep_nums, vdatas, vsetdatas);
   ERRORR(rval, "Trouble setting up read variable.");
 
   if (!vsetdatas.empty()) {
-    rval = read_variable_to_set(vsetdatas, tstep_nums);
+    rval = read_variables_to_set(vsetdatas, tstep_nums);
     ERRORR(rval, "Trouble read variables to set.");
   }
 
   if (!vdatas.empty()) {
 #ifdef PNETCDF_FILE
     // With pnetcdf support, we will use async read
-    rval = read_ucd_variable_to_nonset_async(vdatas, tstep_nums);
+    rval = read_ucd_variables_to_nonset_async(vdatas, tstep_nums);
 #else
     // Without pnetcdf support, we will use old read
-    rval = read_ucd_variable_to_nonset(vdatas, tstep_nums);
+    rval = read_ucd_variables_to_nonset(vdatas, tstep_nums);
 #endif
     ERRORR(rval, "Trouble read variables to entities verts/edges/faces.");
   }

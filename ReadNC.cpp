@@ -25,7 +25,7 @@ ReadNC::ReadNC(Interface* impl) :
   myPcomm(NULL),
 #endif
   noMesh(false), noVars(false), spectralMesh(false), noMixedElements(false), noEdges(false),
-  gatherSetRank(-1), tStepBase(-1), myHelper(NULL)
+  gatherSetRank(-1), tStepBase(-1), trivialPartitionShift(0), myHelper(NULL)
 {
   assert(impl != NULL);
   impl->query_interface(readMeshIface);
@@ -286,6 +286,12 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
   rval = opts.get_int_option("TIMESTEPBASE", 0, tStepBase);
   if (MB_TYPE_OUT_OF_RANGE == rval) {
     readMeshIface->report_error("Invalid value for TIMESTEPBASE option");
+    return rval;
+  }
+
+  rval = opts.get_int_option("TRIVIAL_PARTITION_SHIFT", 1, trivialPartitionShift);
+  if (MB_TYPE_OUT_OF_RANGE == rval) {
+    readMeshIface->report_error("Invalid value for TRIVIAL_PARTITION_SHIFT option");
     return rval;
   }
 

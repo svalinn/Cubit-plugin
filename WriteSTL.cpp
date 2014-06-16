@@ -226,31 +226,34 @@ ErrorCode WriteSTL::get_triangle_data( const double coords[9],
                                          float v1[3],
                                          float v2[3],
                                          float v3[3],
-                                         float n[3] )
+                                         float n[3])
 {
-  float e1[3], e2[3];
-  v1[0] = (float)coords[0];
-  v1[1] = (float)coords[1];
-  v1[2] = (float)coords[2];
-  v2[0] = (float)coords[3];
-  v2[1] = (float)coords[4];
-  v2[2] = (float)coords[5];
-  v3[0] = (float)coords[6];
-  v3[1] = (float)coords[7];
-  v3[2] = (float)coords[8];
-  e1[0] = v2[0] - v1[0];
-  e1[1] = v2[1] - v1[1];
-  e1[2] = v2[2] - v1[2];
-  e2[0] = v3[0] - v1[0];
-  e2[1] = v3[1] - v1[1];
-  e2[2] = v3[2] - v1[2];
-  n[0] = e1[1]*e2[2] - e1[2]*e2[1];
-  n[1] = e1[2]*e2[0] - e1[0]*e2[2];
-  n[2] = e1[0]*e2[1] - e1[1]*e2[0];
-  float inv_len = 1.0f / (float)sqrt( n[0]*n[0] + n[1]*n[1] + n[2]*n[2] );
-  n[0] *= inv_len;
-  n[1] *= inv_len;
-  n[2] *= inv_len;
+
+  CartVect cv1, cv2, cv3, cn;
+  ErrorCode rval = get_triangle_data(coords,cv1,cv2,cv3,cn);
+  if (MB_SUCCESS != rval)
+    return rval;
+
+  cv1.get(v1); cv2.get(v2); cv3.get(v3); cn.get(n);
+
+  return MB_SUCCESS;
+
+}
+
+ErrorCode WriteSTL::get_triangle_data( const double coords[9],
+                                         CartVect& v1,
+                                         CartVect& v2,
+                                         CartVect& v3,
+                                         CartVect& n  )
+{
+  v1 = coords;
+  v2 = coords+3;
+  v3 = coords+6;
+
+  n = (v2-v1)*(v3-v1);
+
+  n.normalize();
+
   return MB_SUCCESS;
 }
 
@@ -271,8 +274,7 @@ ErrorCode WriteSTL::ascii_write_triangles( FILE* file,
   
   ErrorCode rval;
   double coords[9];
-  float v1[3], v2[3], v3[3];
-  float n[3];
+  CartVect v1, v2, v3, n;
   for (Range::const_iterator iter = triangles.begin();
        iter != triangles.end(); ++iter)
   {
@@ -295,9 +297,9 @@ ErrorCode WriteSTL::ascii_write_triangles( FILE* file,
    
     fprintf( file,"facet normal %e %e %e\n", n[0], n[1], n[2] );
     fprintf( file,"outer loop\n" );
-    fprintf( file,"vertex %.*e %.*e %.*e\n", prec, v1[0], prec, v1[1], prec, v1[2] );
-    fprintf( file,"vertex %.*e %.*e %.*e\n", prec, v2[0], prec, v2[1], prec, v2[2] );
-    fprintf( file,"vertex %.*e %.*e %.*e\n", prec, v3[0], prec, v3[1], prec, v3[2] );
+    fprintf( file,"vertex %.*e %.*e %.*e\n", prec, (float)v1[0], prec, (float)v1[1], prec, (float)v1[2] );
+    fprintf( file,"vertex %.*e %.*e %.*e\n", prec, (float)v2[0], prec, (float)v2[1], prec, (float)v2[2] );
+    fprintf( file,"vertex %.*e %.*e %.*e\n", prec, (float)v3[0], prec, (float)v3[1], prec, (float)v3[2] );
     fprintf( file,"endloop\n" );
     fprintf( file,"endfacet\n" );
   }
@@ -356,8 +358,9 @@ ErrorCode WriteSTL::binary_write_triangles( FILE* file,
     rval = mbImpl->get_coords( conn, 3, coords );
     if (MB_SUCCESS != rval)
       return rval;
-    
+
     rval = get_triangle_data( coords, tri.vertex1, tri.vertex2, tri.vertex3, tri.normal );
+
     if (MB_SUCCESS != rval)
       return rval;
     

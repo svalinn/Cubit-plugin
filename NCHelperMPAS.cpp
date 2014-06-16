@@ -299,6 +299,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   int& gatherSetRank = _readNC->gatherSetRank;
+  int& trivialPartitionShift = _readNC->trivialPartitionShift;
   bool& noMixedElements = _readNC->noMixedElements;
   bool& noEdges = _readNC->noEdges;
 
@@ -318,19 +319,24 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     createGatherSet = true;
 
   if (procs >= 2) {
+    // Shift rank to obtain a rotated trivial partition
+    int shifted_rank = rank;
+    if (trivialPartitionShift > 0)
+      shifted_rank = (rank + trivialPartitionShift) % procs;
+
     // Compute the number of local cells on this proc
     nLocalCells = int(std::floor(1.0 * nCells / procs));
 
     // The starting global cell index in the MPAS file for this proc
-    int start_cell_idx = rank * nLocalCells;
+    int start_cell_idx = shifted_rank * nLocalCells;
 
     // Number of extra cells after equal split over procs
     int iextra = nCells % procs;
 
     // Allocate extra cells over procs
-    if (rank < iextra)
+    if (shifted_rank < iextra)
       nLocalCells++;
-    start_cell_idx += std::min(rank, iextra);
+    start_cell_idx += std::min(shifted_rank, iextra);
 
     start_cell_idx++; // 0 based -> 1 based
 
@@ -509,7 +515,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimLens = _readNC->dimLens;
@@ -648,13 +654,13 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
 }
 
 #ifdef PNETCDF_FILE
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variable_to_nonset_allocate(vdatas, tstep_nums);
+  ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -699,7 +705,14 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
+        case NC_SHORT:
+        case NC_INT: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        case NC_FLOAT:
         case NC_DOUBLE: {
+          // Read float as double
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -707,19 +720,18 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = pLocalGid->pair_begin();
               pair_iter != pLocalGid->pair_end();
-              pair_iter++, ic++) {
+              ++pair_iter, ic++) {
             EntityHandle starth = pair_iter->first;
-            EntityHandle endh = pair_iter->second; // inclusive
+            EntityHandle endh = pair_iter->second; // Inclusive
             vdatas[i].readStarts[1] = (NCDF_SIZE) (starth - 1);
             vdatas[i].readCounts[1] = (NCDF_SIZE) (endh - starth + 1);
 
             // Do a partial read, in each subrange
-            // wait outside this loop
+            // Wait outside this loop
             success = NCFUNCREQG(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]), &requests[idxReq++]);
@@ -762,18 +774,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
 
           break;
         }
-        case NC_FLOAT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_INT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_SHORT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         default:
           success = 1;
       }
@@ -783,17 +783,6 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
     }
   }
 
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
-      continue;
-
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
-    }
-  }
   // Debug output, if requested
   if (1 == dbgOut.get_verbosity()) {
     dbgOut.printf(1, "Read variables: %s", vdatas.begin()->varName.c_str());
@@ -805,13 +794,13 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
   return rval;
 }
 #else
-ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variable_to_nonset_allocate(vdatas, tstep_nums);
+  ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -850,7 +839,14 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
+        case NC_SHORT:
+        case NC_INT: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        case NC_FLOAT:
         case NC_DOUBLE: {
+          // Read float as double
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -862,7 +858,7 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = pLocalGid->pair_begin();
               pair_iter != pLocalGid->pair_end();
-              pair_iter++, ic++) {
+              ++pair_iter, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
             vdatas[i].readStarts[1] = (NCDF_SIZE) (starth - 1);
@@ -907,36 +903,12 @@ ErrorCode NCHelperMPAS::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
 
           break;
         }
-        case NC_FLOAT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_INT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_SHORT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         default:
           success = 1;
       }
 
       if (success)
         ERRORR(MB_FAILURE, "Trouble reading variable.");
-    }
-  }
-
-  for (unsigned int i = 0; i < vdatas.size(); i++) {
-    if (noEdges && vdatas[i].entLoc == ReadNC::ENTLOCEDGE)
-      continue;
-
-    for (unsigned int t = 0; t < tstep_nums.size(); t++) {
-      dbgOut.tprintf(2, "Converting variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
-      ErrorCode tmp_rval = convert_variable(vdatas[i], t);
-      if (MB_SUCCESS != tmp_rval)
-        rval = tmp_rval;
     }
   }
 

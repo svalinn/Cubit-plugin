@@ -209,6 +209,7 @@ private:
   bool noEdges;
   int gatherSetRank;
   int tStepBase;
+  int trivialPartitionShift;
 
   //! Helper class instance
   NCHelper* myHelper;

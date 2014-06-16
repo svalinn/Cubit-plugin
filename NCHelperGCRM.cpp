@@ -115,16 +115,16 @@ ErrorCode NCHelperGCRM::init_mesh_vals()
 
   // Store time coordinate values in tVals
   if (nTimeSteps > 0) {
-    if ((vmit = varInfo.find("Time")) != varInfo.end()) {
-      rval = read_coordinate("Time", 0, nTimeSteps - 1, tVals);
-      ERRORR(rval, "Trouble reading 'Time' variable.");
-    }
-    else if ((vmit = varInfo.find("time")) != varInfo.end()) {
+    if ((vmit = varInfo.find("time")) != varInfo.end()) {
       rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);
       ERRORR(rval, "Trouble reading 'time' variable.");
     }
+    else if ((vmit = varInfo.find("t")) != varInfo.end()) {
+      rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);
+      ERRORR(rval, "Trouble reading 't' variable.");
+    }
     else {
-      // If time variable does not exist, set dummy values to tVals
+      // If expected time variable is not available, set dummy time coordinate values to tVals
       for (int t = 0; t < nTimeSteps; t++)
         tVals.push_back((double)t);
     }
@@ -158,7 +158,7 @@ ErrorCode NCHelperGCRM::init_mesh_vals()
     }
   }
 
-  // Hack: create dummy variables for dimensions (like nCells) with no corresponding coordinate variables
+  // Hack: create dummy variables for dimensions (like cells) with no corresponding coordinate variables
   rval = create_dummy_variables();
   ERRORR(rval, "Failed to create dummy variables.");
 
@@ -248,6 +248,7 @@ ErrorCode NCHelperGCRM::check_existing_mesh()
 ErrorCode NCHelperGCRM::create_mesh(Range& faces)
 {
   int& gatherSetRank = _readNC->gatherSetRank;
+  int& trivialPartitionShift = _readNC->trivialPartitionShift;
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
@@ -267,19 +268,24 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
     createGatherSet = true;
 
   if (procs >= 2) {
+    // Shift rank to obtain a rotated trivial partition
+    int shifted_rank = rank;
+    if (trivialPartitionShift > 0)
+      shifted_rank = (rank + trivialPartitionShift) % procs;
+
     // Compute the number of local cells on this proc
     nLocalCells = int(std::floor(1.0 * nCells / procs));
 
     // The starting global cell index in the GCRM file for this proc
-    int start_cell_idx = rank * nLocalCells;
+    int start_cell_idx = shifted_rank * nLocalCells;
 
     // Number of extra cells after equal split over procs
     int iextra = nCells % procs;
 
     // Allocate extra cells over procs
-    if (rank < iextra)
+    if (shifted_rank < iextra)
       nLocalCells++;
-    start_cell_idx += std::min(rank, iextra);
+    start_cell_idx += std::min(shifted_rank, iextra);
 
     start_cell_idx++; // 0 based -> 1 based
 
@@ -397,7 +403,7 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
   return MB_SUCCESS;
 }
 
-ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   Interface*& mbImpl = _readNC->mbImpl;
   std::vector<int>& dimLens = _readNC->dimLens;
@@ -530,12 +536,12 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_allocate(std::vector<ReadNC:
 }
 
 #ifdef PNETCDF_FILE
-ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variable_to_nonset_allocate(vdatas, tstep_nums);
+  ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -580,8 +586,14 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
-        case NC_DOUBLE:
-        case NC_FLOAT: {
+        case NC_SHORT:
+        case NC_INT: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        case NC_FLOAT:
+        case NC_DOUBLE: {
+          // Read float as double
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -589,12 +601,11 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
           // localGid range;
           // basically, we have to give a different point
           // for data to start, for every subrange :(
-
           size_t indexInDoubleArray = 0;
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = pLocalGid->pair_begin();
               pair_iter != pLocalGid->pair_end();
-              pair_iter++, ic++) {
+              ++pair_iter, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // inclusive
             vdatas[i].readStarts[1] = (NCDF_SIZE) (starth - 1);
@@ -621,15 +632,6 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
 
           break;
         }
-
-        case NC_INT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_SHORT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         default:
           success = 1;
       }
@@ -650,13 +652,12 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset_async(std::vector<ReadNC::Va
   return rval;
 }
 #else
-ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
+ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
-  Interface*& mbImpl = _readNC->mbImpl;
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variable_to_nonset_allocate(vdatas, tstep_nums);
+  ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);
   ERRORR(rval, "Trouble allocating read variables.");
 
   // Finally, read into that space
@@ -695,8 +696,14 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           ERRORR(MB_FAILURE, "not implemented");
           break;
         }
-        case NC_DOUBLE:
-        case NC_FLOAT: {
+        case NC_SHORT:
+        case NC_INT: {
+          ERRORR(MB_FAILURE, "not implemented");
+          break;
+        }
+        case NC_FLOAT:
+        case NC_DOUBLE: {
+          // Read float as double
           std::vector<double> tmpdoubledata(sz);
 
           // In the case of ucd mesh, and on multiple proc,
@@ -708,7 +715,7 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           size_t ic = 0;
           for (Range::pair_iterator pair_iter = pLocalGid->pair_begin();
               pair_iter != pLocalGid->pair_end();
-              pair_iter++, ic++) {
+              ++pair_iter, ic++) {
             EntityHandle starth = pair_iter->first;
             EntityHandle endh = pair_iter->second; // Inclusive
             vdatas[i].readStarts[1] = (NCDF_SIZE) (starth - 1);
@@ -728,14 +735,6 @@ ErrorCode NCHelperGCRM::read_ucd_variable_to_nonset(std::vector<ReadNC::VarData>
           for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
             ((double*) data)[idx] = tmpdoubledata[idx];
 
-          break;
-        }
-        case NC_INT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_SHORT: {
-          ERRORR(MB_FAILURE, "not implemented");
           break;
         }
         default:
