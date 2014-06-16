@@ -96,6 +96,9 @@ ReadCGM::ReadCGM(Interface *impl)
   rval = mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, MB_TYPE_DOUBLE, 
                                  geometry_resabs_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
   assert(!rval);
+#ifdef NDEBUG
+  if (!rval) {}; // Line to avoid compiler warning about variable set but not used
+#endif
 }
 
 ReadCGM::~ReadCGM()
