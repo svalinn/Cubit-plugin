@@ -654,7 +654,6 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
 #else
 ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
-  Interface*& mbImpl = _readNC->mbImpl;
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
