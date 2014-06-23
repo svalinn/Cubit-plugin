@@ -203,7 +203,7 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
 
 
 
-ErrorCode ReadCGM::create_topology( std::map<RefEntity*,EntityHandle> entitymap[5] )
+  ErrorCode ReadCGM::create_topology( std::map<RefEntity*,EntityHandle> (&entitymap)[5] )
 {
   ErrorCode rval;
   DLIList<RefEntity*> entitylist;
@@ -227,7 +227,7 @@ ErrorCode ReadCGM::create_topology( std::map<RefEntity*,EntityHandle> entitymap[
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
+  ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle> (&entitymap)[5] )
 {
   ErrorCode rval;
   std::map<RefEntity*,EntityHandle>::iterator ci;
@@ -278,7 +278,7 @@ ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle> entit
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitymap[5] )
+  ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> (&entitymap)[5] )
 {
 
   ErrorCode rval;
@@ -312,7 +312,7 @@ ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> entitym
   return MB_SUCCESS;
 }
 
-  ErrorCode ReadCGM::store_groups( std::map<RefEntity*,EntityHandle>* entitymap )
+  ErrorCode ReadCGM::store_groups( std::map<RefEntity*,EntityHandle> (&entitymap)[5] )
 {
   ErrorCode rval;
 
@@ -424,7 +424,7 @@ ErrorCode ReadCGM::create_group_entsets( std::map<RefEntity*,EntityHandle>& enti
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::store_group_content(std::map<RefEntity*,EntityHandle>* entitymap )
+  ErrorCode ReadCGM::store_group_content(std::map<RefEntity*,EntityHandle> (&entitymap)[5] )
 {
 
   ErrorCode rval;
@@ -502,12 +502,12 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
 }
 
 
-  ErrorCode ReadCGM::create_vertices( std::map<RefEntity*,EntityHandle> entitymap[5] )
+  ErrorCode ReadCGM::create_vertices( std::map<RefEntity*,EntityHandle> &entitymap )
 {
 
  ErrorCode rval;
  std::map<RefEntity*,EntityHandle>::iterator ci;
- for (ci = entitymap[0].begin(); ci != entitymap[0].end(); ++ci) {
+ for (ci = entitymap.begin(); ci != entitymap.end(); ++ci) {
     CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
     double coords[3] = {pos.x(), pos.y(), pos.z()};
     EntityHandle vh;
@@ -528,7 +528,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_curve_facets( std::map<RefEntity*,EntityHandle> entitymap[5], 
+  ErrorCode ReadCGM::create_curve_facets( std::map<RefEntity*,EntityHandle> (&entitymap)[5], 
                                         int norm_tol, 
                                         double faceting_tol, 
                                         bool verbose_warn )
@@ -655,7 +655,7 @@ ErrorCode ReadCGM::create_curve_facets( std::map<RefEntity*,EntityHandle> entity
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_surface_facets( std::map<RefEntity*,EntityHandle> entitymap[5],
+  ErrorCode ReadCGM::create_surface_facets( std::map<RefEntity*,EntityHandle> (&entitymap)[5],
                                           int norm_tol, 
                                           double facet_tol, 
                                           double length_tol )
@@ -851,7 +851,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   entmap[4].clear();
 
   // create geometry for all vertices and replace 
-  rval = create_vertices( entmap );
+  rval = create_vertices( entmap[0] );
   if(rval!=MB_SUCCESS) return rval; 
 
   // create facets for all curves
