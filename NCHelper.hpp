@@ -48,9 +48,6 @@ protected:
   //! Read set variables (common to scd mesh and ucd mesh)
   ErrorCode read_variables_to_set(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums);
 
-  //! Convert variables in place
-  ErrorCode convert_variable(ReadNC::VarData& var_data, int tstep_num);
-
   ErrorCode read_coordinate(const char* var_name, int lmin, int lmax,
                             std::vector<double>& cvals);
 
