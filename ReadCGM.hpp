@@ -93,7 +93,7 @@ public:
   ErrorCode store_group_content( std::map<RefEntity*,EntityHandle>* entitymap );
 
 
-  void set_cgm_attributes(bool const act_attributes, bool const verbost);
+  void set_cgm_attributes(bool const act_attributes, bool const verbose);
 
 
   ErrorCode create_vertices( std::map<RefEntity*,EntityHandle> entmap[5] );
