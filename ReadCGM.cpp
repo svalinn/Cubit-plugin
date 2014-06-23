@@ -515,11 +515,15 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
     
+    //add the vertex to its tagged meshset
     rval = mdbImpl->add_entities( ci->second, &vh, 1 );
     if (MB_SUCCESS != rval)
       return MB_FAILURE;
     
+    // replace the meshset handle with the vertex handle
+    // this makes adding the vertex to higher dim sets easier
     ci->second = vh;
+
   }
   return MB_SUCCESS;
 }
@@ -800,13 +804,6 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   rval = mdbImpl->tag_set_data( geometry_resabs_tag, &set, 1, &GEOMETRY_RESABS );
   if(MB_SUCCESS != rval) return rval;
 
-  // CGM data
-  std::map<RefEntity*,EntityHandle>::iterator ci;
-  //const char geom_categories[][CATEGORY_TAG_SIZE] =
-      //{"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
- 
-
-
   // Initialize CGM
   InitCGMA::initialize_cgma();
 
@@ -828,9 +825,8 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   }
 
   // create entity sets for all geometric entities
-  DLIList<RefEntity*> entlist;
   std::map<RefEntity*,EntityHandle> entmap[5]; // one for each dim, and one for groups
-  //std::map<RefEntity*,EntityHandle>* entmap_ptr = entmap;
+
   rval = create_entity_sets( entmap );
   if (rval!=MB_SUCCESS) return rval;
 
