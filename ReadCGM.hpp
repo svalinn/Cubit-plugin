@@ -91,9 +91,11 @@ private:
 
   ErrorCode create_topology( std::map<RefEntity*,EntityHandle> (&entitymap)[5] );
 
-  ErrorCode store_surface_senses( std::map<RefEntity*,EntityHandle> (&entitymap)[5] );
+  ErrorCode store_surface_senses( std::map<RefEntity*,EntityHandle>& surface_map,
+				  std::map<RefEntity*,EntityHandle>& volume_map );
 
-  ErrorCode store_curve_senses( std::map<RefEntity*,EntityHandle> (&entitymap)[5] );
+  ErrorCode store_curve_senses( std::map<RefEntity*,EntityHandle>& curve_map,
+				std::map<RefEntity*,EntityHandle>& surface_map );
 
   ErrorCode store_groups( std::map<RefEntity*,EntityHandle> (&entitymap)[5] );
 

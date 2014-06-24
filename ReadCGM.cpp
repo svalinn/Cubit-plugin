@@ -227,12 +227,13 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
   return MB_SUCCESS;
 }
 
-  ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle> (&entitymap)[5] )
+  ErrorCode ReadCGM::store_surface_senses( std::map<RefEntity*,EntityHandle>& surface_map,
+					   std::map<RefEntity*,EntityHandle>& volume_map )
 {
   ErrorCode rval;
   std::map<RefEntity*,EntityHandle>::iterator ci;
 
-  for (ci = entitymap[2].begin(); ci != entitymap[2].end(); ++ci) {
+  for (ci = surface_map.begin(); ci != surface_map.end(); ++ci) {
     RefFace* face = (RefFace*)(ci->first);
     BasicTopologyEntity *forward = 0, *reverse = 0;
     for (SenseEntity* cf = face->get_first_sense_entity_ptr();
@@ -264,12 +265,12 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
     }
     
     if (forward) {
-      rval = myGeomTool->set_sense( ci->second, entitymap[3][forward], SENSE_FORWARD );
+      rval = myGeomTool->set_sense( ci->second, volume_map[forward], SENSE_FORWARD );
       if (MB_SUCCESS != rval)
         return rval;
     }
     if (reverse) {
-      rval = myGeomTool->set_sense( ci->second, entitymap[3][reverse], SENSE_REVERSE );
+      rval = myGeomTool->set_sense( ci->second, volume_map[reverse], SENSE_REVERSE );
       if (MB_SUCCESS != rval)
         return rval;
     }
@@ -278,21 +279,22 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
   return MB_SUCCESS;
 }
 
-  ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle> (&entitymap)[5] )
+  ErrorCode ReadCGM::store_curve_senses( std::map<RefEntity*,EntityHandle>& curve_map,
+					 std::map<RefEntity*,EntityHandle>& surface_map )
 {
 
   ErrorCode rval;
   std::vector<EntityHandle> ents;
   std::vector<int> senses;
   std::map<RefEntity*,EntityHandle>::iterator ci;
-  for (ci = entitymap[1].begin(); ci != entitymap[1].end(); ++ci) {
+  for (ci = curve_map.begin(); ci != curve_map.end(); ++ci) {
     RefEdge* edge = (RefEdge*)(ci->first);
     ents.clear();
     senses.clear();
     for (SenseEntity* ce = edge->get_first_sense_entity_ptr();
          ce; ce = ce->next_on_bte()) {
       BasicTopologyEntity* fac = ce->get_parent_basic_topology_entity_ptr();
-      EntityHandle face = entitymap[2][fac];
+      EntityHandle face = surface_map[fac];
       if (ce->get_sense() == CUBIT_UNKNOWN || 
           ce->get_sense() != edge->get_curve_ptr()->bridge_sense()) {
         ents.push_back(face);
@@ -835,11 +837,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if(rval!=MB_SUCCESS) return rval;
 
   // store CoFace senses
-  rval = store_surface_senses( entmap );
+  rval = store_surface_senses( entmap[2], entmap[3] );
   if (rval!=MB_SUCCESS) return rval;
 
   // store CoEdge senses
-  rval = store_curve_senses( entmap );
+  rval = store_curve_senses( entmap[1], entmap[2] );
   if (rval!=MB_SUCCESS) return rval;
 
   // get group information and store it in the mesh 
