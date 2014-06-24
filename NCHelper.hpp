@@ -134,7 +134,7 @@ private:
   //! Create COORDS tag for quads coordinate
   ErrorCode create_quad_coordinate_tag();
 
-  template <typename T> ErrorCode kji_to_jik(size_t ni, size_t nj, size_t nk, void* dest, T* source)
+  template <typename T> void kji_to_jik(size_t ni, size_t nj, size_t nk, void* dest, T* source)
   {
     size_t nik = ni * nk, nij = ni * nj;
     T* tmp_data = reinterpret_cast<T*>(dest);
@@ -142,7 +142,6 @@ private:
       for (std::size_t i = 0; i != ni; i++)
         for (std::size_t k = 0; k != nk; k++)
           tmp_data[j*nik + i*nk + k] = source[k*nij + j*ni + i];
-    return MB_SUCCESS;
   }
 
 protected:

@@ -1180,14 +1180,14 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset(std::vector<ReadNC::VarData>
           std::vector<char> tmpchardata(sz);
           success = NCFUNCAG(_vara_text)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
                                         &tmpchardata[0]);
+          ERRORS(success, "Failed to read char data.");
           if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
-            success = kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
+            kji_to_jik(ni, nj, nk, data, &tmpchardata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpchardata.size(); idx++)
               ((char*) data)[idx] = tmpchardata[idx];
           }
-          ERRORS(success, "Failed to read char data.");
           break;
         }
         case NC_SHORT:
@@ -1195,14 +1195,14 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset(std::vector<ReadNC::VarData>
           std::vector<int> tmpintdata(sz);
           success = NCFUNCAG(_vara_int)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
                                         &tmpintdata[0]);
+          ERRORS(success, "Failed to read int data.");
           if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
-            success = kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
+            kji_to_jik(ni, nj, nk, data, &tmpintdata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpintdata.size(); idx++)
               ((int*) data)[idx] = tmpintdata[idx];
           }
-          ERRORS(success, "Failed to read int data.");
           break;
         }
         case NC_FLOAT:
@@ -1210,14 +1210,14 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset(std::vector<ReadNC::VarData>
           std::vector<double> tmpdoubledata(sz);
           success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId, &vdatas[i].readStarts[0], &vdatas[i].readCounts[0],
                                           &tmpdoubledata[0]);
+          ERRORS(success, "Failed to read double data.");
           if (vdatas[i].numLev > 1)
             // Transpose (lev, lat, lon) to (lat, lon, lev)
-            success = kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
+            kji_to_jik(ni, nj, nk, data, &tmpdoubledata[0]);
           else {
             for (std::size_t idx = 0; idx != tmpdoubledata.size(); idx++)
               ((double*) data)[idx] = tmpdoubledata[idx];
           }
-          ERRORS(success, "Failed to read double data.");
           break;
         }
         default:
