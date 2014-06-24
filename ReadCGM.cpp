@@ -330,7 +330,7 @@ ErrorCode ReadCGM::set_options( const FileOptions& opts,
   return MB_SUCCESS;
 }
 
-ErrorCode ReadCGM::create_group_entsets( std::map<RefEntity*,EntityHandle>& entitymap )
+ErrorCode ReadCGM::create_group_entsets( std::map<RefEntity*,EntityHandle>& group_map )
 {
 
   ErrorCode rval;
@@ -421,7 +421,7 @@ ErrorCode ReadCGM::create_group_entsets( std::map<RefEntity*,EntityHandle>& enti
       }
     }
     //add the group handle   
-    entitymap[grp] = h;
+    group_map[grp] = h;
   }
   return MB_SUCCESS;
 }
@@ -504,12 +504,12 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
 }
 
 
-  ErrorCode ReadCGM::create_vertices( std::map<RefEntity*,EntityHandle> &entitymap )
+  ErrorCode ReadCGM::create_vertices( std::map<RefEntity*,EntityHandle> &vertex_map )
 {
 
  ErrorCode rval;
  std::map<RefEntity*,EntityHandle>::iterator ci;
- for (ci = entitymap.begin(); ci != entitymap.end(); ++ci) {
+ for (ci = vertex_map.begin(); ci != vertex_map.end(); ++ci) {
     CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
     double coords[3] = {pos.x(), pos.y(), pos.z()};
     EntityHandle vh;
@@ -530,7 +530,8 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
   return MB_SUCCESS;
 }
 
-  ErrorCode ReadCGM::create_curve_facets( std::map<RefEntity*,EntityHandle> (&entitymap)[5], 
+  ErrorCode ReadCGM::create_curve_facets( std::map<RefEntity*,EntityHandle>& curve_map,
+					  std::map<RefEntity*,EntityHandle>& vertex_map,
                                         int norm_tol, 
                                         double faceting_tol, 
                                         bool verbose_warn )
@@ -548,7 +549,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
   
   // create geometry for all curves
   GMem data;
-  for (ci = entitymap[1].begin(); ci != entitymap[1].end(); ++ci) {
+  for (ci = curve_map.begin(); ci != curve_map.end(); ++ci) {
     //get the start and end points of the curve in the form of a refernce edge
     RefEdge* edge = dynamic_cast<RefEdge*>(ci->first);
     //get the edge's curve information
@@ -586,7 +587,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
         std::cerr << "Warning: No facetting for curve " << edge->id() << std::endl;
         continue;
       }
-      EntityHandle h = entitymap[0][start_vtx];
+      EntityHandle h = vertex_map[start_vtx];
       rval = mdbImpl->add_entities( ci->second, &h, 1 );
       if (MB_SUCCESS != rval)
         return MB_FAILURE;
@@ -615,7 +616,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
     }    
       // create interior points
     std::vector<EntityHandle> verts, edges;
-    verts.push_back( entitymap[0][start_vtx] );
+    verts.push_back( vertex_map[start_vtx] );
     for (size_t i = 1; i < points.size() - 1; ++i) {
       double coords[] = { points[i].x(), points[i].y(), points[i].z() };
       EntityHandle h;
@@ -625,7 +626,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
         return MB_FAILURE;
       verts.push_back( h );
     }
-    verts.push_back( entitymap[0][end_vtx] );
+    verts.push_back( vertex_map[end_vtx] );
     
       // create edges
     for (size_t i = 0; i < verts.size()-1; ++i) {
@@ -657,7 +658,8 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
   return MB_SUCCESS;
 }
 
-  ErrorCode ReadCGM::create_surface_facets( std::map<RefEntity*,EntityHandle> (&entitymap)[5],
+  ErrorCode ReadCGM::create_surface_facets( std::map<RefEntity*,EntityHandle>& surface_map,
+					    std::map<RefEntity*,EntityHandle>& vertex_map,
                                           int norm_tol, 
                                           double facet_tol, 
                                           double length_tol )
@@ -669,7 +671,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
   DLIList<ModelEntity*> me_list;
   GMem data;
     // create geometry for all surfaces
-  for (ci = entitymap[2].begin(); ci != entitymap[2].end(); ++ci) {
+  for (ci = surface_map.begin(); ci != surface_map.end(); ++ci) {
     RefFace* face = dynamic_cast<RefFace*>(ci->first);
 
     data.clean_out();
@@ -703,7 +705,7 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
           if (verts[j])
             std::cerr << "Warning: Coincident vertices in surface " << face->id() << std::endl;
           //if a coincidence is found, keep track of it in the verts vector
-          verts[j] = entitymap[0][vtx];
+          verts[j] = vertex_map[vtx];
           break;
         }
       }
@@ -857,11 +859,11 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if(rval!=MB_SUCCESS) return rval; 
 
   // create facets for all curves
-  rval = create_curve_facets( entmap, norm_tol, faceting_tol, verbose_warnings );
+  rval = create_curve_facets( entmap[1], entmap[0], norm_tol, faceting_tol, verbose_warnings );
   if(rval!=MB_SUCCESS) return rval;
 
   // create facets for surfaces
-  rval = create_surface_facets( entmap, norm_tol, faceting_tol, len_tol);
+  rval = create_surface_facets( entmap[2], entmap[0], norm_tol, faceting_tol, len_tol);
   if(rval!=MB_SUCCESS) return rval;
 
   return MB_SUCCESS;

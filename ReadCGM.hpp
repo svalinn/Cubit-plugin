@@ -99,7 +99,7 @@ private:
 
   ErrorCode store_groups( std::map<RefEntity*,EntityHandle> (&entitymap)[5] );
 
-  ErrorCode create_group_entsets( std::map<RefEntity*,EntityHandle>& entitymap );
+  ErrorCode create_group_entsets( std::map<RefEntity*,EntityHandle>& group_map );
 
   ErrorCode store_group_content( std::map<RefEntity*,EntityHandle> (&entitymap)[5] );
 
@@ -107,15 +107,17 @@ private:
   void set_cgm_attributes(bool const act_attributes, bool const verbose);
 
 
-  ErrorCode create_vertices( std::map<RefEntity*,EntityHandle> &entitymap );
+  ErrorCode create_vertices( std::map<RefEntity*,EntityHandle> &vertex_map );
 
 
-  ErrorCode create_curve_facets( std::map<RefEntity*,EntityHandle> (&entitymap)[5],
+  ErrorCode create_curve_facets( std::map<RefEntity*,EntityHandle>& curve_map,
+				 std::map<RefEntity*,EntityHandle>& vertex_map,
                                  int norm_tol,
                                  double faceting_tol,
                                  bool verbose_warn = false );
 
-  ErrorCode create_surface_facets( std::map<RefEntity*,EntityHandle> (&entitymap)[5],
+  ErrorCode create_surface_facets( std::map<RefEntity*,EntityHandle>& surface_map,
+				   std::map<RefEntity*,EntityHandle>& vertex_map,
                                    int norm_tol, 
                                    double facet_tol, 
                                    double length_tol );
