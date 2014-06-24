@@ -71,6 +71,15 @@ public:
                              std::vector<int>& tag_values_out,
                              const SubsetList* subset_list = 0 );
 
+
+   //! Constructor
+   ReadCGM(Interface* impl = NULL);
+
+   //! Destructor
+  virtual ~ReadCGM();
+
+private:
+
   ErrorCode set_options( const FileOptions& opts,
                                 int& norm_tol,
                                 double& faceting_tol,
@@ -109,13 +118,6 @@ public:
                                    double facet_tol, 
                                    double length_tol );
 
-   //! Constructor
-   ReadCGM(Interface* impl = NULL);
-
-   //! Destructor
-  virtual ~ReadCGM();
-
-private:
 
   ReadUtilIface* readUtilIface;
 
