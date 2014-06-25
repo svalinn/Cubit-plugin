@@ -377,6 +377,15 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   }
 
   // __<dim_name>_LOC_VALS (for virtual slon, virtual slat, lon and lat)
+  // Assume all have the same data type as lon (expected type is float or double)
+  switch (varInfo["lon"].varDataType) {
+    case NC_FLOAT:
+    case NC_DOUBLE:
+      break;
+    default:
+      ERRORR(MB_FAILURE, "Unexpected data type for coordinate variable 'lon'");
+  }
+
   for (unsigned int i = 0; i != ijdimNames.size(); i++) {
     void* val = NULL;
     int val_len = 0;
@@ -397,31 +406,10 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       val_len = jlCVals.size();
     }
 
-    DataType data_type;
-
-    // Assume all has same data type as lon
-    switch (varInfo["lon"].varDataType) {
-      case NC_BYTE:
-      case NC_CHAR:
-      case NC_DOUBLE:
-        data_type = MB_TYPE_DOUBLE;
-        break;
-      case NC_FLOAT:
-        data_type = MB_TYPE_DOUBLE;
-        break;
-      case NC_INT:
-        data_type = MB_TYPE_INTEGER;
-        break;
-      case NC_SHORT:
-      default:
-        std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;
-        ERRORR(MB_FAILURE, "Unrecognized data type");
-        break;
-    }
     std::stringstream ss_tag_name;
     ss_tag_name << ijdimNames[i] << "_LOC_VALS";
     tag_name = ss_tag_name.str();
-    rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, data_type, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_DOUBLE, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
     ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
     rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);
     ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_VALS tag.");
