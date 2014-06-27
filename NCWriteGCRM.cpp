@@ -75,7 +75,7 @@ ErrorCode NCWriteGCRM::collect_mesh_info()
       unsigned int num_local_verts = localVertsOwned.size();
 #endif
       rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
-      ERRORR(rval, "Trouble getting owned vertices in set.");
+      ERRORR(rval, "Trouble getting owned vertices in current file set.");
 
       // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
       // Verify that not all local vertices are owned by the last processor
@@ -84,11 +84,11 @@ ErrorCode NCWriteGCRM::collect_mesh_info()
 
       if (!localEdgesOwned.empty()) {
         rval = myPcomm->filter_pstatus(localEdgesOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
-        ERRORR(rval, "Trouble getting owned edges in set.");
+        ERRORR(rval, "Trouble getting owned edges in current file set.");
       }
 
       rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
-      ERRORR(rval, "Trouble getting owned cells in set.");
+      ERRORR(rval, "Trouble getting owned cells in current file set.");
     }
   }
 #endif
@@ -217,7 +217,7 @@ ErrorCode NCWriteGCRM::collect_variable_data(std::vector<std::string>& var_names
         currentVarData.writeCounts[dim_idx] = localGidEdgesOwned.size();
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for GCRM non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
     dim_idx++;
 
@@ -283,7 +283,7 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
         pLocalGidEntsOwned = &localGidCellsOwned;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for GCRM non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
 
     unsigned int num_timesteps;
@@ -356,7 +356,7 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
                 &(variableData.writeStarts[0]), &(variableData.writeCounts[0]),
                            &(tag_data[indexInDoubleArray]));
 #endif
-            ERRORS(success, "Failed to read double data in loop");
+            ERRORS(success, "Failed to read double data in a loop.");
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * num_lev;

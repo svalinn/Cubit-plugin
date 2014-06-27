@@ -632,7 +632,7 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
     int procs = myPcomm->proc_config().proc_size();
     if (procs > 1) {
       rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
-      ERRORR(rval, "Trouble getting owned faces in set.");
+      ERRORR(rval, "Trouble getting owned faces in current file set.");
     }
   }
 #endif
@@ -715,7 +715,7 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
         currentVarData.writeCounts[dim_idx + 1] = lCDims[3] - lCDims[0] + 1;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for structured mesh non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
     dim_idx += 2;
 
@@ -747,7 +747,7 @@ ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>
         // Faces
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for structured mesh non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
 
     unsigned int num_timesteps;

@@ -384,7 +384,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
     case NC_DOUBLE:
       break;
     default:
-      ERRORR(MB_FAILURE, "Unexpected data type for coordinate variable 'lon'");
+      ERRORR(MB_FAILURE, "Unexpected variable data type for 'lon'");
   }
 
   for (unsigned int i = 0; i != ijdimNames.size(); i++) {

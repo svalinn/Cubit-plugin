@@ -215,7 +215,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
   // <PARTITION_METHOD>
   Tag part_tag = scdi->part_method_tag();
   if (!part_tag)
-    ERRORR(MB_FAILURE, "Trouble getting partition method tag.");
+    ERRORR(MB_FAILURE, "Trouble getting PARTITION_METHOD tag.");
   rval = mbImpl->tag_set_data(part_tag, &_fileSet, 1, &partMethod);
   ERRORR(rval, "Trouble setting data for PARTITION_METHOD tag.");
   if (MB_SUCCESS == rval)
@@ -229,7 +229,7 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
   std::string gattVal;
   std::vector<int> gattLen;
   rval = create_attrib_string(globalAtts, gattVal, gattLen);
-  ERRORR(rval, "Trouble creating attribute strings.");
+  ERRORR(rval, "Trouble creating global attribute string.");
   const void* gattptr = gattVal.c_str();
   int globalAttSz = gattVal.size();
   rval = mbImpl->tag_set_by_ptr(globalAttTag, &_fileSet, 1, &gattptr, &globalAttSz);
@@ -424,7 +424,7 @@ ErrorCode NCHelper::read_variables_setup(std::vector<std::string>& var_names, st
           vdatas.push_back(vd);
       }
       else {
-        ERRORR(MB_FAILURE, "Couldn't find variable.");
+        ERRORR(MB_FAILURE, "Couldn't find specified variable.");
       }
     }
   }
@@ -470,7 +470,7 @@ ErrorCode NCHelper::read_variables_to_set(std::vector<ReadNC::VarData>& vdatas, 
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   ErrorCode rval = read_variables_to_set_allocate(vdatas, tstep_nums);
-  ERRORR(rval, "Trouble allocating read variables to set.");
+  ERRORR(rval, "Trouble allocating space to read set variables.");
 
   // Finally, read into that space
   int success;
@@ -505,11 +505,8 @@ ErrorCode NCHelper::read_variables_to_set(std::vector<ReadNC::VarData>& vdatas, 
           ERRORS(success, "Failed to read double data.");
           break;
         default:
-          success = 1;
+          ERRORR(MB_FAILURE, "Unexpected variable data type.");
       }
-
-      if (success)
-        ERRORR(MB_FAILURE, "Trouble reading variable.");
 
       dbgOut.tprintf(2, "Setting data for variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
       rval = mbImpl->tag_set_by_ptr(vdatas[i].varTags[t], &_fileSet, 1, &data, &vdatas[i].sz);
@@ -562,7 +559,7 @@ ErrorCode NCHelper::read_coordinate(const char* var_name, int lmin, int lmax, st
   NCDF_SIZE tstart = lmin;
   NCDF_SIZE tcount = lmax - lmin + 1;
   NCDF_DIFF dum_stride = 1;
-  int fail;
+  int success;
 
   // Check size
   if ((std::size_t)tcount != cvals.size())
@@ -570,19 +567,17 @@ ErrorCode NCHelper::read_coordinate(const char* var_name, int lmin, int lmax, st
 
   // Check to make sure it's a float or double
   if (NC_DOUBLE == (*vmit).second.varDataType) {
-    fail = NCFUNCAG(_vars_double)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &cvals[0]);
-    if (fail)
-      ERRORS(MB_FAILURE, "Failed to get coordinate values.");
+    success = NCFUNCAG(_vars_double)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &cvals[0]);
+    ERRORS(success, "Failed to get coordinate values.");
   }
   else if (NC_FLOAT == (*vmit).second.varDataType) {
     std::vector<float> tcvals(tcount);
-    fail = NCFUNCAG(_vars_float)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &tcvals[0]);
-    if (fail)
-      ERRORS(MB_FAILURE, "Failed to get coordinate values.");
+    success = NCFUNCAG(_vars_float)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &tcvals[0]);
+    ERRORS(success, "Failed to get coordinate values.");
     std::copy(tcvals.begin(), tcvals.end(), cvals.begin());
   }
   else {
-    ERRORR(MB_FAILURE, "Wrong data type for coordinate variable.");
+    ERRORR(MB_FAILURE, "Unexpected coordinate variable data type.");
   }
 
   return MB_SUCCESS;
@@ -619,8 +614,7 @@ ErrorCode NCHelper::get_tag_to_set(ReadNC::VarData& var_data, int tstep_num, Tag
       rval = mbImpl->tag_get_handle(tag_name.str().c_str(), 0, MB_TYPE_DOUBLE, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
       break;
     default:
-      std::cerr << "Unrecognized data type for tag " << tag_name << std::endl;
-      rval = MB_FAILURE;
+      ERRORR(MB_FAILURE, "Unexpected variable data type.");
   }
 
   if (MB_SUCCESS == rval)
@@ -657,8 +651,7 @@ ErrorCode NCHelper::get_tag_to_nonset(ReadNC::VarData& var_data, int tstep_num, 
       rval = mbImpl->tag_get_handle(tag_name.str().c_str(), num_lev, MB_TYPE_DOUBLE, tagh, MB_TAG_DENSE | MB_TAG_CREAT);
       break;
     default:
-      std::cerr << "Unrecognized data type for tag " << tag_name.str() << std::endl;
-      rval = MB_FAILURE;
+      ERRORR(MB_FAILURE, "Unexpected variable data type.");
   }
 
   if (MB_SUCCESS == rval)
@@ -715,7 +708,7 @@ ErrorCode NCHelper::create_attrib_string(const std::map<std::string, ReadNC::Att
         ssAtt << "double;";
         break;
       default:
-        success = 1;
+        ERRORR(MB_FAILURE, "Unexpected attribute data type.");
     }
     char* tmpc = (char *) attData;
     for (unsigned int counter = 0; counter != sz; ++counter)
@@ -846,8 +839,7 @@ ErrorCode NCHelper::read_variables_to_set_allocate(std::vector<ReadNC::VarData>&
           vdatas[i].varDatas[t] = new double[vdatas[i].sz];
           break;
         default:
-          std::cerr << "Unrecognized data type for set variable tag values" << std::endl;
-          rval = MB_FAILURE;
+          ERRORR(MB_FAILURE, "Unexpected variable data type.");
       }
 
       // Loop continues only for set variables with timesteps, e.g. xtime(Time) or xtime(Time, StrLen)
@@ -949,7 +941,7 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
   int djl = lDims[4] - lDims[1] + 1;
   assert(dil == (int)ilVals.size() && djl == (int)jlVals.size() &&
       (-1 == lDims[2] || lDims[5] - lDims[2] + 1 == (int)levVals.size()));
-//#define INDEX(i, j, k) ()
+
   for (kl = lDims[2]; kl <= lDims[5]; kl++) {
     k = kl - lDims[2];
     for (jl = lDims[1]; jl <= lDims[4]; jl++) {
@@ -963,7 +955,6 @@ ErrorCode ScdNCHelper::create_mesh(Range& faces)
       }
     }
   }
-//#undef INDEX
 
 #ifndef NDEBUG
   int num_verts = (lDims[3] - lDims[0] + 1) * (lDims[4] - lDims[1] + 1) * (-1 == lDims[2] ? 1 : lDims[5] - lDims[2] + 1);
@@ -1033,21 +1024,21 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC:
 
   Range* range = NULL;
 
-  // Get vertices in set
+  // Get vertices
   Range verts;
   rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);
-  ERRORR(rval, "Trouble getting vertices in set.");
+  ERRORR(rval, "Trouble getting vertices in current file set.");
   assert("Should only have a single vertex subrange, since they were read in one shot" &&
       verts.psize() == 1);
 
   Range edges;
   rval = mbImpl->get_entities_by_dimension(_fileSet, 1, edges);
-  ERRORR(rval, "Trouble getting edges in set.");
+  ERRORR(rval, "Trouble getting edges in current file set.");
 
-  // Get faces in set
+  // Get faces
   Range faces;
   rval = mbImpl->get_entities_by_dimension(_fileSet, 2, faces);
-  ERRORR(rval, "Trouble getting faces in set.");
+  ERRORR(rval, "Trouble getting faces in current file set.");
   assert("Should only have a single face subrange, since they were read in one shot" &&
       faces.psize() == 1);
 
@@ -1057,7 +1048,7 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC:
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     rval = myPcomm->filter_pstatus(faces, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &faces_owned);
-    ERRORR(rval, "Trouble getting owned faces in set.");
+    ERRORR(rval, "Trouble getting owned faces in current file set.");
   }
   else
     faces_owned = faces; // Not running in parallel, but still with MPI
@@ -1093,10 +1084,9 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC:
         range = &verts;
         break;
       case ReadNC::ENTLOCNSEDGE:
-        ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
-        break;
       case ReadNC::ENTLOCEWEDGE:
-        ERRORR(MB_FAILURE, "Reading edge data not implemented yet.");
+      case ReadNC::ENTLOCEDGE:
+        ERRORR(MB_NOT_IMPLEMENTED, "Reading edge data not implemented yet.");
         break;
       case ReadNC::ENTLOCFACE:
         // Faces
@@ -1110,12 +1100,8 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC:
         range = &faces;
 #endif
         break;
-      case ReadNC::ENTLOCSET:
-        // Set
-        break;
       default:
-        ERRORR(MB_FAILURE, "Unrecognized entity location type.");
-        break;
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
 
     for (unsigned int t = 0; t < tstep_nums.size(); t++) {
@@ -1154,7 +1140,7 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset(std::vector<ReadNC::VarData>
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   ErrorCode rval = read_scd_variables_to_nonset_allocate(vdatas, tstep_nums);
-  ERRORR(rval, "Trouble allocating read variables.");
+  ERRORR(rval, "Trouble allocating space to read non-set variables.");
 
   // Finally, read into that space
   int success;
@@ -1221,11 +1207,8 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset(std::vector<ReadNC::VarData>
           break;
         }
         default:
-          success = 1;
+          ERRORR(MB_FAILURE, "Unexpected variable data type.");
       }
-
-      if (success)
-        ERRORR(MB_FAILURE, "Trouble reading variable.");
     }
   }
 

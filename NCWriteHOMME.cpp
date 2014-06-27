@@ -63,7 +63,7 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
       unsigned int num_local_verts = localVertsOwned.size();
 #endif
       rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
-      ERRORR(rval, "Trouble getting owned vertices in set.");
+      ERRORR(rval, "Trouble getting owned vertices in current set.");
 
       // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
       // Verify that not all local vertices are owned by the last processor
@@ -158,7 +158,7 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
         currentVarData.writeCounts[dim_idx] = localGidVertsOwned.size();
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
     dim_idx++;
 
@@ -188,7 +188,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
         // Vertices
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for HOMME non-set variable.");
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
 
     unsigned int num_timesteps;
@@ -272,7 +272,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
                 &(variableData.writeStarts[0]), &(variableData.writeCounts[0]),
                            &(tmpdoubledata[indexInDoubleArray]));
 #endif
-            ERRORS(success, "Failed to read double data in loop");
+            ERRORS(success, "Failed to read double data in a loop.");
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * num_lev;

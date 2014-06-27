@@ -179,19 +179,17 @@ ErrorCode NCHelperGCRM::check_existing_mesh()
     ErrorCode rval;
 
     if (localGidVerts.empty()) {
-      // Get all vertices from tmp_set (it is the input set in no_mesh scenario)
+      // Get all vertices from current file set (it is the input set in no_mesh scenario)
       Range local_verts;
       rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);
-      if (MB_FAILURE == rval)
-        return rval;
+      ERRORR(rval, "Trouble getting local vertices in current file set.");
 
       if (!local_verts.empty()) {
         std::vector<int> gids(local_verts.size());
 
         // !IMPORTANT : this has to be the GLOBAL_ID tag
         rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);
-        if (MB_FAILURE == rval)
-          return rval;
+        ERRORR(rval, "Trouble getting local gid values of vertices.");
 
         // Restore localGidVerts
         std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVerts));
@@ -200,19 +198,17 @@ ErrorCode NCHelperGCRM::check_existing_mesh()
     }
 
     if (localGidEdges.empty()) {
-      // Get all edges from _fileSet (it is the input set in no_mesh scenario)
+      // Get all edges from current file set (it is the input set in no_mesh scenario)
       Range local_edges;
       rval = mbImpl->get_entities_by_dimension(_fileSet, 1, local_edges);
-      if (MB_FAILURE == rval)
-        return rval;
+      ERRORR(rval, "Trouble getting local edges in current file set.");
 
       if (!local_edges.empty()) {
         std::vector<int> gids(local_edges.size());
 
         // !IMPORTANT : this has to be the GLOBAL_ID tag
         rval = mbImpl->tag_get_data(mGlobalIdTag, local_edges, &gids[0]);
-        if (MB_FAILURE == rval)
-          return rval;
+        ERRORR(rval, "Trouble getting local gid values of edges.");
 
         // Restore localGidEdges
         std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidEdges));
@@ -221,19 +217,17 @@ ErrorCode NCHelperGCRM::check_existing_mesh()
     }
 
     if (localGidCells.empty()) {
-      // Get all cells from tmp_set (it is the input set in no_mesh scenario)
+      // Get all cells from current file set (it is the input set in no_mesh scenario)
       Range local_cells;
       rval = mbImpl->get_entities_by_dimension(_fileSet, 2, local_cells);
-      if (MB_FAILURE == rval)
-        return rval;
+      ERRORR(rval, "Trouble getting local cells in current file set.");
 
       if (!local_cells.empty()) {
         std::vector<int> gids(local_cells.size());
 
         // !IMPORTANT : this has to be the GLOBAL_ID tag
         rval = mbImpl->tag_get_data(mGlobalIdTag, local_cells, &gids[0]);
-        if (MB_FAILURE == rval)
-          return rval;
+        ERRORR(rval, "Trouble getting local gid values of cells.");
 
         // Restore localGidCells
         std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidCells));
@@ -333,7 +327,7 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
     success = NCFUNCAG(_vara_int)(_fileId, verticesOnCellVarId, read_starts, read_counts,
                                       &(vertices_on_local_cells[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read cell_corners data in a loop");
+    ERRORS(success, "Failed to read cell_corners data in a loop.");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1) * EDGES_PER_CELL;
@@ -414,22 +408,22 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
 
   Range* range = NULL;
 
-  // Get vertices in set
+  // Get vertices
   Range verts;
   rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);
-  ERRORR(rval, "Trouble getting vertices in set.");
+  ERRORR(rval, "Trouble getting vertices in current file set.");
   assert("Should only have a single vertex subrange, since they were read in one shot" &&
       verts.psize() == 1);
 
-  // Get edges in set
+  // Get edges
   Range edges;
   rval = mbImpl->get_entities_by_dimension(_fileSet, 1, edges);
-  ERRORR(rval, "Trouble getting edges in set.");
+  ERRORR(rval, "Trouble getting edges in current file set.");
 
-  // Get faces in set
+  // Get faces
   Range faces;
   rval = mbImpl->get_entities_by_dimension(_fileSet, 2, faces);
-  ERRORR(rval, "Trouble getting faces in set.");
+  ERRORR(rval, "Trouble getting faces in current file set.");
   // Note, for GCRM faces.psize() can be more than 1
 
 #ifdef USE_MPI
@@ -437,7 +431,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     rval = myPcomm->filter_pstatus(faces, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &facesOwned);
-    ERRORR(rval, "Trouble getting owned faces in set.");
+    ERRORR(rval, "Trouble getting owned faces in current file set.");
   }
   else
     facesOwned = faces; // not running in parallel, but still with MPI
@@ -492,8 +486,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
         range = &edges;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type for GCRM non-set variable.");
-        break;
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
 
     // Finally: layers or other optional levels, it is possible that there is no
@@ -542,7 +535,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);
-  ERRORR(rval, "Trouble allocating read variables.");
+  ERRORR(rval, "Trouble allocating space to read non-set variables.");
 
   // Finally, read into that space
   int success;
@@ -564,8 +557,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
         pLocalGid = &localGidEdges;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unrecognized entity location type.");
-        break;
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
 
     std::size_t sz = vdatas[i].sz;
@@ -581,16 +573,6 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
       vdatas[i].readStarts[0] = tstep_nums[t];
 
       switch (vdatas[i].varDataType) {
-        case NC_BYTE:
-        case NC_CHAR: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_SHORT:
-        case NC_INT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         case NC_FLOAT:
         case NC_DOUBLE: {
           // Read float as double
@@ -616,7 +598,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
             success = NCFUNCREQG(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]), &requests[idxReq++]);
-            ERRORS(success, "Failed to read double data in loop");
+            ERRORS(success, "Failed to read double data in a loop.");
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
@@ -633,11 +615,8 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
           break;
         }
         default:
-          success = 1;
+          ERRORR(MB_FAILURE, "Unexpected variable data type.");
       }
-
-      if (success)
-        ERRORR(MB_FAILURE, "Trouble reading variable.");
     }
   }
 
@@ -658,7 +637,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
   DebugOutput& dbgOut = _readNC->dbgOut;
 
   ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);
-  ERRORR(rval, "Trouble allocating read variables.");
+  ERRORR(rval, "Trouble allocating space to read non-set variables.");
 
   // Finally, read into that space
   int success;
@@ -680,8 +659,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
         pLocalGid = &localGidEdges;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unrecognized entity location type.");
-        break;
+        ERRORR(MB_FAILURE, "Unexpected entity location type.");
     }
 
     std::size_t sz = vdatas[i].sz;
@@ -691,16 +669,6 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
       vdatas[i].readStarts[0] = tstep_nums[t];
 
       switch (vdatas[i].varDataType) {
-        case NC_BYTE:
-        case NC_CHAR: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
-        case NC_SHORT:
-        case NC_INT: {
-          ERRORR(MB_FAILURE, "not implemented");
-          break;
-        }
         case NC_FLOAT:
         case NC_DOUBLE: {
           // Read float as double
@@ -724,7 +692,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
             success = NCFUNCAG(_vara_double)(_fileId, vdatas[i].varId,
                 &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]));
-            ERRORS(success, "Failed to read double data in loop");
+            ERRORS(success, "Failed to read double data in a loop.");
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
@@ -738,11 +706,8 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
           break;
         }
         default:
-          success = 1;
+          ERRORR(MB_FAILURE, "Unexpected variable data type.");
       }
-
-      if (success)
-        ERRORR(MB_FAILURE, "Trouble reading variable.");
     }
   }
 
@@ -844,10 +809,10 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
                                                           (createGatherSet ? nLocalVertices + nVertices : nLocalVertices));
   ERRORR(rval, "Failed to create local vertices.");
 
-  // Add local vertices to the file set
+  // Add local vertices to current file set
   Range local_verts_range(start_vertex, start_vertex + nLocalVertices - 1);
   rval = _readNC->mbImpl->add_entities(_fileSet, local_verts_range);
-  ERRORR(rval, "Failed to add local vertices to the file set.");
+  ERRORR(rval, "Failed to add local vertices to current file set.");
 
   // Get ptr to GID memory for local vertices
   int count = 0;
@@ -918,7 +883,7 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     success = NCFUNCAG(_vara_double)(_fileId, xVertexVarId, &read_start, &read_count,
                                       &(xptr[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read grid_corner_lon data in a loop");
+    ERRORS(success, "Failed to read grid_corner_lon data in a loop.");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1);
@@ -955,7 +920,7 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     success = NCFUNCAG(_vara_double)(_fileId, yVertexVarId, &read_start, &read_count,
                                       &(yptr[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read grid_corner_lat data in a loop");
+    ERRORS(success, "Failed to read grid_corner_lat data in a loop.");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1);
@@ -1022,7 +987,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     success = NCFUNCAG(_vara_int)(_fileId, edgesOnCellVarId, read_starts, read_counts,
                                       &(edges_on_local_cells[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read cell_edges data in a loop");
+    ERRORS(success, "Failed to read cell_edges data in a loop.");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1) * EDGES_PER_CELL;
@@ -1052,12 +1017,12 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
   ErrorCode rval = _readNC->readMeshIface->get_element_connect(nLocalEdges, 2, MBEDGE, 0, start_edge, conn_arr_edges,
                                                     // Might have to create gather mesh later
                                                     (createGatherSet ? nLocalEdges + nEdges : nLocalEdges));
-  ERRORR(rval, "Failed to create edges.");
+  ERRORR(rval, "Failed to create local edges.");
 
-  // Add local edges to the file set
+  // Add local edges to current file set
   Range local_edges_range(start_edge, start_edge + nLocalEdges - 1);
   rval = _readNC->mbImpl->add_entities(_fileSet, local_edges_range);
-  ERRORR(rval, "Failed to add local edges to the file set.");
+  ERRORR(rval, "Failed to add local edges to current file set.");
 
   // Get ptr to GID memory for edges
   int count = 0;
@@ -1098,7 +1063,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     success = NCFUNCAG(_vara_int)(_fileId, verticesOnEdgeVarId, read_starts, read_counts,
                                     &(vertices_on_local_edges[indexInArray]));
 #endif
-    ERRORS(success, "Failed to read edge_corners data in a loop");
+    ERRORS(success, "Failed to read edge_corners data in a loop.");
 
     // Increment the index for next subrange
     indexInArray += (endh - starth + 1) * 2;
@@ -1136,13 +1101,13 @@ ErrorCode NCHelperGCRM::create_padded_local_cells(const std::vector<int>& vertic
   ErrorCode rval = _readNC->readMeshIface->get_element_connect(nLocalCells, EDGES_PER_CELL, MBPOLYGON, 0, start_element, conn_arr_local_cells,
                                                     // Might have to create gather mesh later
                                                     (createGatherSet ? nLocalCells + nCells : nLocalCells));
-  ERRORR(rval, "Failed to create cells.");
+  ERRORR(rval, "Failed to create local cells.");
   faces.insert(start_element, start_element + nLocalCells - 1);
 
-  // Add local cells to the file set
+  // Add local cells to current file set
   Range local_cells_range(start_element, start_element + nLocalCells - 1);
   rval = _readNC->mbImpl->add_entities(_fileSet, local_cells_range);
-  ERRORR(rval, "Failed to add local cells to the file set.");
+  ERRORR(rval, "Failed to add local cells to current file set.");
 
   // Get ptr to GID memory for local cells
   int count = 0;
@@ -1179,7 +1144,7 @@ ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, Enti
   std::vector<double*> arrays;
   // Don't need to specify allocation number here, because we know enough vertices were created before
   ErrorCode rval = _readNC->readMeshIface->get_node_coords(3, nVertices, 0, gather_set_start_vertex, arrays);
-  ERRORR(rval, "Failed to create vertices.");
+  ERRORR(rval, "Failed to create gather set vertices.");
 
   // Add vertices to the gather set
   Range gather_set_verts_range(gather_set_start_vertex, gather_set_start_vertex + nVertices - 1);
@@ -1269,7 +1234,7 @@ ErrorCode NCHelperGCRM::create_gather_set_edges(EntityHandle gather_set, EntityH
   EntityHandle* conn_arr_gather_set_edges = NULL;
   // Don't need to specify allocation number here, because we know enough edges were created before
   ErrorCode rval = _readNC->readMeshIface->get_element_connect(nEdges, 2, MBEDGE, 0, start_edge, conn_arr_gather_set_edges);
-  ERRORR(rval, "Failed to create edges.");
+  ERRORR(rval, "Failed to create gather set edges.");
 
   // Add edges to the gather set
   Range gather_set_edges_range(start_edge, start_edge + nEdges - 1);
@@ -1319,7 +1284,7 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
   EntityHandle* conn_arr_gather_set_cells = NULL;
   // Don't need to specify allocation number here, because we know enough cells were created before
   ErrorCode rval = _readNC->readMeshIface->get_element_connect(nCells, EDGES_PER_CELL, MBPOLYGON, 0, start_element, conn_arr_gather_set_cells);
-  ERRORR(rval, "Failed to create cells.");
+  ERRORR(rval, "Failed to create gather set cells.");
 
   // Add cells to the gather set
   Range gather_set_cells_range(start_element, start_element + nCells - 1);

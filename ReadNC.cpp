@@ -84,7 +84,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   // Make sure there's a file set to put things in
   EntityHandle tmp_set;
   if (noMesh && !file_set) {
-    ERRORR(MB_FAILURE, "NOMESH option requires non-NULL file set on input.\n");
+    ERRORR(MB_FAILURE, "NOMESH option requires non-NULL file set on input.");
   }
   else if (!file_set || (file_set && *file_set == 0)) {
     rval = mbImpl->create_meshset(MESHSET_SET, tmp_set);
@@ -115,7 +115,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   // Check existing mesh from last read
   if (noMesh && !noVars) {
     rval = myHelper->check_existing_mesh();
-    ERRORR(rval, "Trouble checking mesh from last read.\n");
+    ERRORR(rval, "Trouble checking mesh from last read.");
   }
 
   // Create some conventional tags, e.g. __NUM_DIMS
@@ -194,7 +194,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
 
     Range verts;
     rval = mbImpl->get_connectivity(faces, verts);
-    ERRORR(rval, "Couldn't get verts of faces");
+    ERRORR(rval, "Couldn't get verts of faces.");
 
     rval = mbImpl->add_entities(partn_set, verts);
     ERRORR(rval, "Couldn't add new verts to partition set.");
@@ -296,7 +296,7 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
   }
 
 #ifdef USE_MPI
-  isParallel = (opts.match_option("PARALLEL","READ_PART") != MB_ENTITY_NOT_FOUND);
+  isParallel = (opts.match_option("PARALLEL", "READ_PART") != MB_ENTITY_NOT_FOUND);
 
   if (!isParallel)
   // Return success here, since rval still has _NOT_FOUND from not finding option
@@ -306,7 +306,7 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
 
   int pcomm_no = 0;
   rval = opts.get_int_option("PARALLEL_COMM", pcomm_no);
-  if (rval == MB_TYPE_OUT_OF_RANGE) {
+  if (MB_TYPE_OUT_OF_RANGE == rval) {
     readMeshIface->report_error("Invalid value for PARALLEL_COMM option");
     return rval;
   }
@@ -319,11 +319,11 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
 
   int dum;
   rval = opts.match_option("PARTITION_METHOD", ScdParData::PartitionMethodNames, dum);
-  if (rval == MB_FAILURE) {
-    readMeshIface->report_error("Unknown partition method specified.");
-    partMethod = ScdParData::ALLJORKORI;
+  if (MB_FAILURE == rval) {
+    readMeshIface->report_error("Unknown partition method specified");
+    return rval;
   }
-  else if (rval == MB_ENTITY_NOT_FOUND)
+  else if (MB_ENTITY_NOT_FOUND == rval)
     partMethod = ScdParData::ALLJORKORI;
   else
     partMethod = dum;
@@ -344,17 +344,17 @@ ErrorCode ReadNC::read_header()
 
   // Read attributes into globalAtts
   ErrorCode result = get_attributes(NC_GLOBAL, numgatts, globalAtts);
-  ERRORR(result, "Getting attributes.");
+  ERRORR(result, "Trouble getting attributes.");
   dbgOut.tprintf(1, "Read %u attributes\n", (unsigned int) globalAtts.size());
 
   // Read in dimensions into dimNames and dimLens
   result = get_dimensions(fileId, dimNames, dimLens);
-  ERRORR(result, "Getting dimensions.");
+  ERRORR(result, "Trouble getting dimensions.");
   dbgOut.tprintf(1, "Read %u dimensions\n", (unsigned int) dimNames.size());
 
   // Read in variables into varInfo
   result = get_variables();
-  ERRORR(result, "Getting variables.");
+  ERRORR(result, "Trouble getting variables.");
   dbgOut.tprintf(1, "Read %u variables\n", (unsigned int) varInfo.size());
 
   return MB_SUCCESS;

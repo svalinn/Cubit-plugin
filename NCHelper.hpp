@@ -206,7 +206,7 @@ private:
 protected:
   //! This version takes as input the moab range, from which we actually need just the
   //! size of each sequence, for a proper transpose of the data
-  template <typename T> ErrorCode kji_to_jik_stride(size_t , size_t nj, size_t nk, void* dest, T* source, Range& localGid)
+  template <typename T> void kji_to_jik_stride(size_t , size_t nj, size_t nk, void* dest, T* source, Range& localGid)
   {
     std::size_t idxInSource = 0; // Position of the start of the stride
     // For each subrange, we will transpose a matrix of size
@@ -222,7 +222,6 @@ protected:
             tmp_data[idxInSource + j*nik + i*nk + k] = source[idxInSource + k*nij + j*size_range + i];
       idxInSource += (size_range*nj*nk);
     }
-    return MB_SUCCESS;
   }
 
   //! Dimensions of global grid in file
