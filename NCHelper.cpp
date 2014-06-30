@@ -1084,7 +1084,6 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC:
       case ReadNC::ENTLOCEWEDGE:
       case ReadNC::ENTLOCEDGE:
         ERRORR(MB_NOT_IMPLEMENTED, "Reading edge data not implemented yet.");
-        break;
       case ReadNC::ENTLOCFACE:
         // Faces
         vdatas[i].readStarts[2] = lCDims[1];
