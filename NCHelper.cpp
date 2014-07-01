@@ -566,18 +566,15 @@ ErrorCode NCHelper::read_coordinate(const char* var_name, int lmin, int lmax, st
     cvals.resize(tcount);
 
   // Check to make sure it's a float or double
-  if (NC_DOUBLE == (*vmit).second.varDataType) {
-    success = NCFUNCAG(_vars_double)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &cvals[0]);
-    ERRORS(success, "Failed to get coordinate values.");
-  }
-  else if (NC_FLOAT == (*vmit).second.varDataType) {
-    std::vector<float> tcvals(tcount);
-    success = NCFUNCAG(_vars_float)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &tcvals[0]);
-    ERRORS(success, "Failed to get coordinate values.");
-    std::copy(tcvals.begin(), tcvals.end(), cvals.begin());
-  }
-  else {
-    ERRORR(MB_FAILURE, "Unexpected coordinate variable data type.");
+  switch ((*vmit).second.varDataType) {
+    case NC_FLOAT:
+    case NC_DOUBLE:
+      // Read float as double
+      success = NCFUNCAG(_vars_double)(_fileId, (*vmit).second.varId, &tstart, &tcount, &dum_stride, &cvals[0]);
+      ERRORS(success, "Failed to get coordinate values.");
+      break;
+    default:
+      ERRORR(MB_FAILURE, "Unexpected variable data type.");
   }
 
   return MB_SUCCESS;
