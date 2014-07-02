@@ -685,7 +685,7 @@ ErrorCode ReadVtk::vtk_read_polygons( FileTokenizer& tokens,
     
     if (prev +1 != handle) {
       if (first) { // true except for first iteration (first == 0)
-        if ( elem_list.empty() || first < elem_list.back().front()) // only need new range if order would get mixed up, or we just begun inserting
+        if ( elem_list.empty() || first < elem_list.back().front()) // only need new range if order would get mixed up, or we just began inserting
           elem_list.push_back( empty );
         elem_list.back().insert( first, prev );
       }
@@ -694,7 +694,7 @@ ErrorCode ReadVtk::vtk_read_polygons( FileTokenizer& tokens,
     prev = handle;
   }
   if (first) { // true unless no elements (size[0] == 0)
-    if (elem_list.empty() || first < elem_list.back().front()) // only need new range if order would get mixed up, or we just begun inserting
+    if (elem_list.empty() || first < elem_list.back().front()) // only need new range if order would get mixed up, or we just began inserting
       elem_list.push_back( empty );
     elem_list.back().insert( first, prev );
   }
