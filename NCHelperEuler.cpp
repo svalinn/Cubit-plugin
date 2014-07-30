@@ -3,7 +3,6 @@
 #endif
 
 #include "NCHelperEuler.hpp"
-#include "moab/ReadUtilIface.hpp"
 #include "moab/FileOptions.hpp"
 
 #include <cmath>
@@ -14,12 +13,6 @@
 #undef size_t
 #endif
 #endif
-
-#define ERRORR(rval, str) \
-  if (MB_SUCCESS != rval) {_readNC->readMeshIface->report_error("%s", str); return rval;}
-
-#define ERRORS(err, str) \
-  if (err) {_readNC->readMeshIface->report_error("%s", str); return MB_FAILURE;}
 
 namespace moab {
 
@@ -37,19 +30,15 @@ bool NCHelperEuler::can_read_file(ReadNC* readNC, int fileId)
 
     // Make sure it is CAM grid
     std::map<std::string, ReadNC::AttData>::iterator attIt = readNC->globalAtts.find("source");
-    if (attIt == readNC->globalAtts.end()) {
-      readNC->readMeshIface->report_error("%s", "File does not have source global attribute.");
+    if (attIt == readNC->globalAtts.end())
       return false;
-    }
     unsigned int sz = attIt->second.attLen;
     std::string att_data;
     att_data.resize(sz + 1);
     att_data[sz] = '\000';
     int success = NCFUNC(get_att_text)(fileId, attIt->second.attVarId, attIt->second.attName.c_str(), &att_data[0]);
-    if (success != 0) {
-      readNC->readMeshIface->report_error("%s", "Failed to read source global attribute char data.");
+    if (success)
       return false;
-    }
     if (att_data.find("CAM") == std::string::npos)
       return false;
 
@@ -77,7 +66,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lon")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lon' dimension.");
+    SET_ERR(MB_FAILURE, "Couldn't find 'lon' dimension");
   }
   iCDim = idx;
   gCDims[0] = 0;
@@ -85,8 +74,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
 
   // Check i periodicity and set globallyPeriodic[0]
   std::vector<double> til_vals(2);
-  ErrorCode rval = read_coordinate("lon", gCDims[3] - 1, gCDims[3], til_vals);
-  ERRORR(rval, "Trouble reading 'lon' variable.");
+  ErrorCode rval = read_coordinate("lon", gCDims[3] - 1, gCDims[3], til_vals);CHK_ERR1(rval, "Trouble reading 'lon' variable");
   if (std::fabs(2 * til_vals[1] - til_vals[0] - 360) < 0.001)
     globallyPeriodic[0] = 1;
 
@@ -98,7 +86,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   if ((vit = std::find(dimNames.begin(), dimNames.end(), "lat")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lat' dimension.");
+    SET_ERR(MB_FAILURE, "Couldn't find 'lat' dimension");
   }
   jCDim = idx;
   gCDims[1] = 0;
@@ -118,7 +106,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   else if ((vit = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
+    SET_ERR(MB_FAILURE, "Couldn't find 'time' or 't' dimension");
   }
   tDim = idx;
   nTimeSteps = dimLens[idx];
@@ -129,7 +117,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   else if ((vit = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
     idx = vit - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
+    SET_ERR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension");
   }
   levDim = idx;
   nLevels = dimLens[idx];
@@ -151,9 +139,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
     parData.partMethod = partMethod;
     int pdims[3];
 
-    rval = ScdInterface::compute_partition(procs, rank, parData, lDims, locallyPeriodic, pdims);
-    if (MB_SUCCESS != rval)
-      return rval;
+    rval = ScdInterface::compute_partition(procs, rank, parData, lDims, locallyPeriodic, pdims);CHK_ERR(rval);
     for (int i = 0; i < 3; i++)
       parData.pDims[i] = pdims[i];
 
@@ -202,21 +188,19 @@ ErrorCode NCHelperEuler::init_mesh_vals()
   std::map<std::string, ReadNC::VarData>::iterator vmit;
   if (-1 != lCDims[0]) {
     if ((vmit = varInfo.find("lon")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("lon", lCDims[0], lCDims[3], ilCVals);
-      ERRORR(rval, "Trouble reading 'lon' variable.");
+      rval = read_coordinate("lon", lCDims[0], lCDims[3], ilCVals);CHK_ERR1(rval, "Trouble reading 'lon' variable");
     }
     else {
-      ERRORR(MB_FAILURE, "Couldn't find 'lon' variable.");
+      SET_ERR(MB_FAILURE, "Couldn't find 'lon' variable");
     }
   }
 
   if (-1 != lCDims[1]) {
     if ((vmit = varInfo.find("lat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("lat", lCDims[1], lCDims[4], jlCVals);
-      ERRORR(rval, "Trouble reading 'lat' variable.");
+      rval = read_coordinate("lat", lCDims[1], lCDims[4], jlCVals);CHK_ERR1(rval, "Trouble reading 'lat' variable");
     }
     else {
-      ERRORR(MB_FAILURE, "Couldn't find 'lat' variable.");
+      SET_ERR(MB_FAILURE, "Couldn't find 'lat' variable");
     }
   }
 
@@ -231,7 +215,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
         ilVals[i] = ilCVals[i - 1] + dif;
     }
     else {
-      ERRORR(MB_FAILURE, "Couldn't find 'lon' variable.");
+      SET_ERR(MB_FAILURE, "Couldn't find 'lon' variable");
     }
   }
 
@@ -240,8 +224,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       if (!isParallel || ((gDims[4] - gDims[1]) == (lDims[4] - lDims[1]))) {
         std::string gwName("gw");
         std::vector<double> gwVals(lDims[4] - lDims[1] - 1);
-        rval = read_coordinate(gwName.c_str(), lDims[1], lDims[4] - 2, gwVals);
-        ERRORR(rval, "Trouble reading 'gw' variable.");
+        rval = read_coordinate(gwName.c_str(), lDims[1], lDims[4] - 2, gwVals);CHK_ERR1(rval, "Trouble reading 'gw' variable");
         // Copy the correct piece
         jlVals[0] = -(M_PI / 2) * 180 / M_PI;
         std::size_t i = 0;
@@ -259,8 +242,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
         // If this is the first row
         if (lDims[1] == gDims[1]) {
           std::vector<double> gwVals(lDims[4]);
-          rval = read_coordinate(gwName.c_str(), 0, lDims[4] - 1, gwVals);
-          ERRORR(rval, "Trouble reading 'gw' variable.");
+          rval = read_coordinate(gwName.c_str(), 0, lDims[4] - 1, gwVals);CHK_ERR1(rval, "Trouble reading 'gw' variable");
           // Copy the correct piece
           jlVals[0] = -(M_PI / 2) * 180 / M_PI;
           gwSum = -1;
@@ -272,9 +254,8 @@ ErrorCode NCHelperEuler::init_mesh_vals()
         // Or if it's the last row
         else if (lDims[4] == gDims[4]) {
           std::vector<double> gwVals(lDims[4] - 1);
-          rval = read_coordinate(gwName.c_str(), 0, lDims[4] - 2, gwVals);
-          ERRORR(rval, "Trouble reading 'gw' variable.");
-          // copy the correct piece
+          rval = read_coordinate(gwName.c_str(), 0, lDims[4] - 2, gwVals);CHK_ERR1(rval, "Trouble reading 'gw' variable");
+          // Copy the correct piece
           gwSum = -1;
           for (int j = 0; j != lDims[1] - 1; j++)
             gwSum += gwVals[j];
@@ -290,8 +271,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
           int start = lDims[1] - 1;
           int end = lDims[4] - 1;
           std::vector<double> gwVals(end);
-          rval = read_coordinate(gwName.c_str(), 0, end - 1, gwVals);
-          ERRORR(rval, "Trouble reading 'gw' variable.");
+          rval = read_coordinate(gwName.c_str(), 0, end - 1, gwVals);CHK_ERR1(rval, "Trouble reading 'gw' variable");
           gwSum = -1;
           for (int j = 0; j != start - 1; j++)
             gwSum += gwVals[j];
@@ -304,19 +284,17 @@ ErrorCode NCHelperEuler::init_mesh_vals()
       }
     }
     else {
-      ERRORR(MB_FAILURE, "Couldn't find 'lat' variable.");
+      SET_ERR(MB_FAILURE, "Couldn't find 'lat' variable");
     }
   }
 
   // Store time coordinate values in tVals
   if (nTimeSteps > 0) {
     if ((vmit = varInfo.find("time")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);
-      ERRORR(rval, "Trouble reading 'time' variable.");
+      rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);CHK_ERR1(rval, "Trouble reading 'time' variable");
     }
     else if ((vmit = varInfo.find("t")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);
-      ERRORR(rval, "Trouble reading 't' variable.");
+      rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);CHK_ERR1(rval, "Trouble reading 't' variable");
     }
     else {
       // If expected time variable is not available, set dummy time coordinate values to tVals
@@ -378,12 +356,11 @@ ErrorCode NCHelperEuler::init_mesh_vals()
     std::stringstream ss_tag_name;
     ss_tag_name << ijdimNames[i] << "_LOC_MINMAX";
     tag_name = ss_tag_name.str();
-    rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
-    ERRORR(rval, "Trouble creating __<dim_name>_LOC_MINMAX tag.");
-    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
-    ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_MINMAX tag.");
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh,
+                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_ERR1_STR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_ERR1_STR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
-      dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
+      dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
 
   // __<dim_name>_LOC_VALS (for virtual slon, virtual slat, lon and lat)
@@ -393,7 +370,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
     case NC_DOUBLE:
       break;
     default:
-      ERRORR(MB_FAILURE, "Unexpected variable data type for 'lon'");
+      SET_ERR(MB_FAILURE, "Unexpected variable data type for 'lon'");
   }
 
   for (unsigned int i = 0; i != ijdimNames.size(); i++) {
@@ -419,12 +396,11 @@ ErrorCode NCHelperEuler::init_mesh_vals()
     std::stringstream ss_tag_name;
     ss_tag_name << ijdimNames[i] << "_LOC_VALS";
     tag_name = ss_tag_name.str();
-    rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_DOUBLE, tagh, MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);
-    ERRORR(rval, "Trouble creating __<dim_name>_LOC_VALS tag.");
-    rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);
-    ERRORR(rval, "Trouble setting data for __<dim_name>_LOC_VALS tag.");
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_DOUBLE, tagh,
+                                  MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_ERR1_STR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);CHK_ERR1_STR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
-      dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
+      dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
 
   // __<dim_name>_GLOBAL_MINMAX (for virtual slon, virtual slat, lon and lat)
@@ -449,17 +425,15 @@ ErrorCode NCHelperEuler::init_mesh_vals()
     std::stringstream ss_tag_name;
     ss_tag_name << ijdimNames[i] << "_GLOBAL_MINMAX";
     tag_name = ss_tag_name.str();
-    rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh, MB_TAG_SPARSE | MB_TAG_CREAT);
-    ERRORR(rval, "Trouble creating __<dim_name>_GLOBAL_MINMAX tag.");
-    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);
-    ERRORR(rval, "Trouble setting data for __<dim_name>_GLOBAL_MINMAX tag.");
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh,
+                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_ERR1_STR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_ERR1_STR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
-      dbgOut.tprintf(2, "Tag created for variable %s\n", tag_name.c_str());
+      dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
 
   // Hack: create dummy variables, if needed, for dimensions with no corresponding coordinate variables
-  rval = create_dummy_variables();
-  ERRORR(rval, "Failed to create dummy variables.");
+  rval = create_dummy_variables();CHK_ERR1(rval, "Failed to create dummy variables");
 
   return MB_SUCCESS;
 }
