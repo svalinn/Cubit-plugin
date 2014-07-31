@@ -80,7 +80,7 @@ public:
       ArrayInfo();
       
       void print();
-      void init(const std::vector<unsigned int>& uint_buf);
+      void init(const std::vector<unsigned int>& uint_buf_in);
     };
     
     ArrayInfo geomArray, nodeArray, elementArray, groupArray, 

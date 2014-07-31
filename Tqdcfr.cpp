@@ -2728,9 +2728,9 @@ void Tqdcfr::FEModelHeader::ArrayInfo::print()
             << numEntities << ", " << tableOffset << ", " << metaDataOffset << std::endl;
 }
 
-void Tqdcfr::FEModelHeader::ArrayInfo::init(const std::vector<unsigned int>& uint_buf)
+void Tqdcfr::FEModelHeader::ArrayInfo::init(const std::vector<unsigned int>& uint_buf_in)
 {
-  numEntities = uint_buf[0]; tableOffset = uint_buf[1]; metaDataOffset = uint_buf[2];
+  numEntities = uint_buf_in[0]; tableOffset = uint_buf_in[1]; metaDataOffset = uint_buf_in[2];
 }
 
 void Tqdcfr::FEModelHeader::print()
