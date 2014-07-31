@@ -531,8 +531,12 @@ void ReadCGM::set_cgm_attributes(bool const act_attributes, bool const verbose)
 }
 
   ErrorCode ReadCGM::create_curve_facets( std::map<RefEntity*,EntityHandle>& curve_map,
-					  std::map<RefEntity*,EntityHandle>& vertex_map,
-                                        int norm_tol, 
+					                              std::map<RefEntity*,EntityHandle>& vertex_map,
+#if CGM_MAJOR_VERSION > 12
+                                        int norm_tol,
+#else
+                                        int /* norm_tol */,
+#endif
                                         double faceting_tol, 
                                         bool verbose_warn )
 {
