@@ -14,7 +14,7 @@ namespace moab {
 
 IODebugTrack::IODebugTrack( bool enabled,
                             const std::string name,
-                            std::ostream output_stream,
+                            std::ostream& output_stream,
                             unsigned long table_size )
           : enableOutput(enabled),
             tableName(name),

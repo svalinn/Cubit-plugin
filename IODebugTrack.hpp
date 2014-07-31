@@ -43,7 +43,7 @@ class IODebugTrack {
        */
     IODebugTrack( bool enable,
                   const std::string table_name,
-                  std::ostream output_stream,
+                  std::ostream& output_stream,
                   unsigned long table_size = 0 ) ;
   
       /**\brief Constuctor requires stream to which to log errors 
