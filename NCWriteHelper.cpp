@@ -23,12 +23,6 @@
 #endif
 #endif
 
-#define ERRORR(rval, str) \
-  if (MB_SUCCESS != rval) { _writeNC->mWriteIface->report_error("%s", str); return rval; }
-
-#define ERRORS(err, str) \
-  if (err) { _writeNC->mWriteIface->report_error("%s", str); return MB_FAILURE; }
-
 namespace moab {
 
 //! Get appropriate helper instance for WriteNC class; based on some info in the file set
@@ -74,7 +68,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
     std::string varname = var_names[i];
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(varname);
     if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find one variable.");
+      SET_ERR_STR(MB_FAILURE, "Can't find variable " << varname);
 
     WriteNC::VarData& currentVarData = vit->second;
 
@@ -83,7 +77,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       std::string dimName = dimNames[currentVarData.varDims[j]];
       vit = varInfo.find(dimName);
       if (vit == varInfo.end())
-        ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
+        SET_ERR_STR(MB_FAILURE, "Can't find coordinate variable " << dimName);
 
       usedCoordinates.insert(dimName); // Collect those used, we will need to write them to the file
       dbgOut.tprintf(2, "    for variable %s need dimension %s with length %d\n", varname.c_str(), dimName.c_str(), dimLens[currentVarData.varDims[j]]);
@@ -106,22 +100,20 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       if (currentVarData.has_tsteps) {
         // Set variables with timesteps, e.g. xtime(Time) or xtime(Time, StrLen)
         // TBD
+        SET_ERR(MB_NOT_IMPLEMENTED, "Writing set variables with timesteps is not implemented yet");
       }
       else {
         // Get the tag with varname
         Tag tag = 0;
-        rval = mbImpl->tag_get_handle(varname.c_str(), tag);
-        ERRORR(rval, "Can't find one tag.");
+        rval = mbImpl->tag_get_handle(varname.c_str(), tag);CHK_ERR1_STR(rval, "Can't find tag " << varname);
         currentVarData.varTags.push_back(tag); // Really, only one for these
         const void* data;
         int size;
-        rval = mbImpl->tag_get_by_ptr(tag, &_fileSet, 1, &data, &size);
-        ERRORR(rval, "Can't get tag values.");
+        rval = mbImpl->tag_get_by_ptr(tag, &_fileSet, 1, &data, &size);CHK_ERR1_STR(rval, "Can't get data of tag " << varname);
 
         // Find the type of tag, and use it
         DataType type;
-        rval = mbImpl->tag_get_data_type(tag, type);
-        ERRORR(rval, "Can't get tag type.");
+        rval = mbImpl->tag_get_data_type(tag, type);CHK_ERR1_STR(rval, "Can't get data type of tag " << varname);
 
         currentVarData.varDataType = NC_DOUBLE;
         if (MB_TYPE_INTEGER == type)
@@ -156,8 +148,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
         for (unsigned int t = 0; t < tstep_nums.size(); t++) {
           std::stringstream ssTagNameWithIndex;
           ssTagNameWithIndex << varname << tstep_nums[t];
-          rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);
-          ERRORR(rval, "Can't find one tag.");
+          rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);CHK_ERR1_STR(rval, "Can't find tag " << ssTagNameWithIndex.str());
           dbgOut.tprintf(2, "    found indexed tag %d with name %s\n", tstep_nums[t], ssTagNameWithIndex.str().c_str());
           currentVarData.varTags.push_back(indexedTag);
         }
@@ -167,16 +158,14 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
         // Treat it like having one, 0th, timestep
         std::stringstream ssTagNameWithIndex;
         ssTagNameWithIndex << varname << 0;
-        rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);
-        ERRORR(rval, "Can't find tag for a user-created variable.");
+        rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);CHK_ERR1_STR(rval, "Can't find tag " << ssTagNameWithIndex.str() << " for a user-created variable");
         dbgOut.tprintf(2, "    found indexed tag 0 with name %s\n", ssTagNameWithIndex.str().c_str());
         currentVarData.varTags.push_back(indexedTag);
       }
 
       // The type of the tag is fixed though
       DataType type;
-      rval = mbImpl->tag_get_data_type(indexedTag, type);
-      ERRORR(rval, "Can't get tag type.");
+      rval = mbImpl->tag_get_data_type(indexedTag, type);CHK_ERR1_STR(rval, "Can't get data type of tag " << varname);
 
       currentVarData.varDataType = NC_DOUBLE;
       if (MB_TYPE_INTEGER == type)
@@ -192,25 +181,22 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
 
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
     if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
+      SET_ERR_STR(MB_FAILURE, "Can't find coordinate variable " << coordName);
 
     WriteNC::VarData& varCoordData = vit->second;
     Tag coordTag = 0;
-    rval = mbImpl->tag_get_handle(coordName.c_str(), coordTag);
-    ERRORR(rval, "Can't find one tag.");
+    rval = mbImpl->tag_get_handle(coordName.c_str(), coordTag);CHK_ERR1_STR(rval, "Can't find tag " << coordName);
     varCoordData.varTags.push_back(coordTag); // Really, only one for these
 
     const void* data;
     int sizeCoordinate;
-    rval = mbImpl->tag_get_by_ptr(coordTag, &_fileSet, 1, &data, &sizeCoordinate);
-    ERRORR(rval, "Can't get coordinate values.");
+    rval = mbImpl->tag_get_by_ptr(coordTag, &_fileSet, 1, &data, &sizeCoordinate);CHK_ERR1_STR(rval, "Can't get coordinate values of " << coordName);
     dbgOut.tprintf(2, "    found coordinate tag with name %s and length %d\n", coordName.c_str(),
         sizeCoordinate);
 
     // Find the type of tag, and use it
     DataType type;
-    rval = mbImpl->tag_get_data_type(coordTag, type);
-    ERRORR(rval, "Can't get tag type.");
+    rval = mbImpl->tag_get_data_type(coordTag, type);CHK_ERR1_STR(rval, "Can't get data type of tag " << coordName);
     varCoordData.varDataType = NC_DOUBLE;
     if (MB_TYPE_INTEGER == type)
       varCoordData.varDataType = NC_INT;
@@ -285,7 +271,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
   if (append) {
     int errcode = NCFUNC(redef)(_fileId);
     if (errcode != NC_NOERR)
-      ERRORR(MB_FAILURE, "Can't open file in redefine mode");
+      SET_ERR(MB_FAILURE, "Can't open file in redefine mode");
   }
 
   // First initialize all coordinates, then fill VarData for actual variables (and dimensions)
@@ -296,7 +282,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
 
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
     if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
+      SET_ERR_STR(MB_FAILURE, "Can't find coordinate variable " << coordName);
 
     WriteNC::VarData& varCoordData = vit->second;
     varCoordData.varDims.resize(1);
@@ -326,7 +312,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
         // Inquire for a variable with the same name
         int varId;
         if (NCFUNC(inq_varid)(_fileId, coordName.c_str(), &varId) != NC_NOERR)
-          ERRORR(MB_FAILURE, "We do not have a variable with the same name.");
+          SET_ERR_STR(MB_FAILURE, "We do not have a variable with the same name " << coordName);
         // We should also check that this variable has one dimension, and it is dimId
         varCoordData.varId = varId;
         dbgOut.tprintf(2, "    file already has coordinate %s and varId is %d \n", coordName.c_str(), varId);
@@ -342,7 +328,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
     // Actually define a dimension
     if (NCFUNC(def_dim)(_fileId, coordName.c_str(), (size_t)varCoordData.sz,
         &varCoordData.varDims[0]) != NC_NOERR)
-     ERRORR(MB_FAILURE, "Failed to generate dimension.");
+      SET_ERR_STR(MB_FAILURE, "Failed to generate dimension " << coordName);
     dbgOut.tprintf(2, "    for coordName %s dim id is %d \n", coordName.c_str(), (int)varCoordData.varDims[0]);
 
     // Update tDim and levDim to actual dimension id
@@ -365,7 +351,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
     // Define a coordinate variable
     if (NCFUNC(def_var)(_fileId, coordName.c_str(), varCoordData.varDataType,
         1, &(varCoordData.varDims[0]), &varCoordData.varId) != NC_NOERR)
-      ERRORR(MB_FAILURE, "Failed to create coordinate variable.");
+      SET_ERR_STR(MB_FAILURE, "Failed to create coordinate variable " << coordName);
 
     dbgOut.tprintf(2, "    for coordName %s variable id is %d \n", coordName.c_str(), varCoordData.varId);
   }
@@ -374,7 +360,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
   for (size_t i = 0; i < var_names.size(); i++) {
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(var_names[i]);
     if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find variable requested.");
+      SET_ERR_STR(MB_FAILURE, "Can't find requested variable " << var_names[i]);
 
     // Skip coordinate variables
     if (usedCoordinates.find(var_names[i]) != usedCoordinates.end())
@@ -388,7 +374,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
       std::string dimName = dimNames[variableData.varDims[j]];
       std::map<std::string, WriteNC::VarData>::iterator vit2 = varInfo.find(dimName);
       if (vit2 == varInfo.end())
-        ERRORR(MB_FAILURE, "Can't find coordinate variable requested.");
+        SET_ERR_STR(MB_FAILURE, "Can't find requested coordinate variable " << dimName);
 
       WriteNC::VarData& coordData = vit2->second;
       // Index in dimNames to actual dimension id
@@ -402,7 +388,7 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
         (int)variableData.varDims.size(), &(variableData.varDims[0]),
         &variableData.varId);
     if (errCode != NC_NOERR)
-      ERRORR(MB_FAILURE, "Failed to create requested variable.");
+      SET_ERR_STR(MB_FAILURE, "Failed to create requested variable " << desired_names[i]);
 
     dbgOut.tprintf(2, "    for variable %s with desired name %s variable id is %d \n", var_names[i].c_str(),
         desired_names[i].c_str(), variableData.varId);
@@ -423,32 +409,32 @@ ErrorCode NCWriteHelper::init_file(std::vector<std::string>& var_names, std::vec
       case NC_BYTE:
       case NC_CHAR:
         if (NC_NOERR != NCFUNC(put_att_text)(_fileId, NC_GLOBAL, attName.c_str(), attLen, attValue.c_str()))
-          ERRORR(MB_FAILURE, "Failed to define text type attribute.");
+          SET_ERR(MB_FAILURE, "Failed to define text type attribute");
         break;
       case NC_DOUBLE:
         if (NC_NOERR != NCFUNC(put_att_double)(_fileId, NC_GLOBAL, attName.c_str(), NC_DOUBLE, 1, (double*)attValue.c_str()))
-          ERRORR(MB_FAILURE, "Failed to define double type attribute.");
+          SET_ERR(MB_FAILURE, "Failed to define double type attribute");
         break;
       case NC_FLOAT:
         if (NC_NOERR != NCFUNC(put_att_float)(_fileId, NC_GLOBAL, attName.c_str(), NC_FLOAT, 1, (float*)attValue.c_str()))
-          ERRORR(MB_FAILURE, "Failed to define float type attribute.");
+          SET_ERR(MB_FAILURE, "Failed to define float type attribute");
         break;
       case NC_INT:
         if (NC_NOERR != NCFUNC(put_att_int)(_fileId, NC_GLOBAL, attName.c_str(), NC_INT, 1, (int*)attValue.c_str()))
-          ERRORR(MB_FAILURE, "Failed to define int type attribute.");
+          SET_ERR(MB_FAILURE, "Failed to define int type attribute");
         break;
       case NC_SHORT:
         if (NC_NOERR != NCFUNC(put_att_short)(_fileId, NC_GLOBAL, attName.c_str(), NC_SHORT, 1, (short*)attValue.c_str()))
-          ERRORR(MB_FAILURE, "Failed to define short type attribute.");
+          SET_ERR(MB_FAILURE, "Failed to define short type attribute");
         break;
       default:
-        ERRORR(MB_FAILURE, "Unknown attribute data type.");
+        SET_ERR(MB_FAILURE, "Unknown attribute data type");
     }
   }
 
   // Take it out of define mode
   if (NC_NOERR != NCFUNC(enddef)(_fileId))
-    ERRORR(MB_FAILURE, "Failed to close define mode.");
+    SET_ERR(MB_FAILURE, "Failed to close define mode");
 
   return MB_SUCCESS;
 }
@@ -473,7 +459,7 @@ ErrorCode NCWriteHelper::write_values(std::vector<std::string>& var_names, std::
 
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(coordName);
     if (vit == varInfo.end()) {
-      ERRORR(MB_FAILURE, "Can't find one coordinate variable.");
+      SET_ERR_STR(MB_FAILURE, "Can't find coordinate variable " << coordName);
     }
 
      vsetdatas.push_back(vit->second);
@@ -483,7 +469,7 @@ ErrorCode NCWriteHelper::write_values(std::vector<std::string>& var_names, std::
   for (unsigned int i = 0; i < var_names.size(); i++) {
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(var_names[i]);
     if (vit == varInfo.end()) {
-      ERRORR(MB_FAILURE, "Can't find variable requested.");
+      SET_ERR_STR(MB_FAILURE, "Can't find requested variable " << var_names[i]);
     }
 
     WriteNC::VarData& variableData = vit->second;
@@ -518,7 +504,8 @@ ErrorCode NCWriteHelper::write_set_variables(std::vector<WriteNC::VarData>& vset
  #ifdef PNETCDF_FILE
    // Enter independent I/O mode
    success = NCFUNC(begin_indep_data)(_fileId);
-   ERRORS(success, "Failed to begin independent I/O mode.");
+   if (success)
+     SET_ERR(MB_FAILURE, "Failed to begin independent I/O mode");
  #endif
 
    int rank = 0;
@@ -535,7 +522,7 @@ ErrorCode NCWriteHelper::write_set_variables(std::vector<WriteNC::VarData>& vset
 
        // Set variables with timesteps, e.g. xtime(Time) or xtime(Time, StrLen)
        if (variableData.has_tsteps) {
-         ERRORR(MB_NOT_IMPLEMENTED, "Writing set variables with timesteps not implemented yet.");
+         SET_ERR(MB_NOT_IMPLEMENTED, "Writing set variables with timesteps is not implemented yet");
        }
 
        switch (variableData.varDataType) {
@@ -543,16 +530,18 @@ ErrorCode NCWriteHelper::write_set_variables(std::vector<WriteNC::VarData>& vset
            // Independent I/O mode put
            success = NCFUNCP(_vara_double)(_fileId, variableData.varId, &variableData.writeStarts[0],
                      &variableData.writeCounts[0], (double*)(variableData.memoryHogs[0]));
-           ERRORS(success, "Failed to write double data.");
+           if (success)
+             SET_ERR_STR(MB_FAILURE, "Failed to write double data for variable " << variableData.varName);
            break;
          case NC_INT:
            // Independent I/O mode put
            success = NCFUNCP(_vara_int)(_fileId, variableData.varId, &variableData.writeStarts[0],
                      &variableData.writeCounts[0], (int*)(variableData.memoryHogs[0]));
-           ERRORS(success, "Failed to write int data.");
+           if (success)
+             SET_ERR_STR(MB_FAILURE, "Failed to write int data for variable " << variableData.varName);
            break;
          default:
-           ERRORR(MB_NOT_IMPLEMENTED, "Writing with current data type not implemented yet.");
+           SET_ERR(MB_NOT_IMPLEMENTED, "Writing non-double or non-int data is not implemented yet");
        }
      }
    }
@@ -560,7 +549,8 @@ ErrorCode NCWriteHelper::write_set_variables(std::vector<WriteNC::VarData>& vset
  #ifdef PNETCDF_FILE
    // End independent I/O mode
    success = NCFUNC(end_indep_data)(_fileId);
-   ERRORS(success, "Failed to end independent I/O mode.");
+   if (success)
+     SET_ERR(MB_FAILURE, "Failed to end independent I/O mode");
  #endif
 
    return MB_SUCCESS;
@@ -581,7 +571,7 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
   else if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "t")) != dimNames.end())
     tDim = vecIt - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'time' or 't' dimension.");
+    SET_ERR(MB_FAILURE, "Couldn't find 'time' or 't' dimension");
   }
   nTimeSteps = dimLens[tDim];
 
@@ -591,44 +581,39 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
   else if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "ilev")) != dimNames.end())
     levDim = vecIt - dimNames.begin();
   else {
-    ERRORR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension.");
+    SET_ERR(MB_FAILURE, "Couldn't find 'lev' or 'ilev' dimension");
   }
   nLevels = dimLens[levDim];
 
   // __<dim_name>_LOC_MINMAX (for slon, slat, lon and lat)
   Tag convTag = 0;
-  rval = mbImpl->tag_get_handle("__slon_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag, MB_TAG_ANY);
-  ERRORR(rval, "Trouble getting conventional tag __slon_LOC_MINMAX.");
+  rval = mbImpl->tag_get_handle("__slon_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag,
+                                MB_TAG_ANY);CHK_ERR1(rval, "Trouble getting conventional tag __slon_LOC_MINMAX");
   int val[2];
-  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);
-  ERRORR(rval, "Trouble getting values for conventional tag __slon_LOC_MINMAX.");
+  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_ERR1(rval, "Trouble getting data of conventional tag __slon_LOC_MINMAX");
   lDims[0] = val[0];
   lDims[3] = val[1];
 
-  rval = mbImpl->tag_get_handle("__slat_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag, MB_TAG_ANY);
-  ERRORR(rval, "Trouble getting conventional tag __slat_LOC_MINMAX.");
-  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);
-  ERRORR(rval, "Trouble getting values for conventional tag __slat_LOC_MINMAX.");
+  rval = mbImpl->tag_get_handle("__slat_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag,
+                                MB_TAG_ANY);CHK_ERR1(rval, "Trouble getting conventional tag __slat_LOC_MINMAX");
+  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_ERR1(rval, "Trouble getting data of conventional tag __slat_LOC_MINMAX");
   lDims[1] = val[0];
   lDims[4] = val[1];
 
-  rval = mbImpl->tag_get_handle("__lon_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag, MB_TAG_ANY);
-  ERRORR(rval, "Trouble getting conventional tag __lon_LOC_MINMAX.");
-  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);
-  ERRORR(rval, "Trouble getting values for conventional tag __lon_LOC_MINMAX.");
+  rval = mbImpl->tag_get_handle("__lon_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag,
+                                MB_TAG_ANY);CHK_ERR1(rval, "Trouble getting conventional tag __lon_LOC_MINMAX");
+  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_ERR1(rval, "Trouble getting data of conventional tag __lon_LOC_MINMAX");
   lCDims[0] = val[0];
   lCDims[3] = val[1];
 
-  rval = mbImpl->tag_get_handle("__lat_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag, MB_TAG_ANY);
-  ERRORR(rval, "Trouble getting conventional tag __lat_LOC_MINMAX.");
-  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);
-  ERRORR(rval, "Trouble getting values for conventional tag __lat_LOC_MINMAX.");
+  rval = mbImpl->tag_get_handle("__lat_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag,
+                                MB_TAG_ANY);CHK_ERR1(rval, "Trouble getting conventional tag __lat_LOC_MINMAX");
+  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_ERR1(rval, "Trouble getting data of conventional tag __lat_LOC_MINMAX");
   lCDims[1] = val[0];
   lCDims[4] = val[1];
 
   // Get local faces
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);
-  ERRORR(rval, "Trouble getting local faces in current file set.");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);CHK_ERR1(rval, "Trouble getting local faces in current file set");
   assert(!localCellsOwned.empty());
 
 #ifdef USE_MPI
@@ -637,8 +622,7 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
     ParallelComm*& myPcomm = _writeNC->myPcomm;
     int procs = myPcomm->proc_config().proc_size();
     if (procs > 1) {
-      rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);
-      ERRORR(rval, "Trouble getting owned faces in current file set.");
+      rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_ERR1(rval, "Trouble getting owned faces in current file set");
     }
   }
 #endif
@@ -656,7 +640,7 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
     std::string varname = var_names[i];
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(varname);
     if (vit == varInfo.end())
-      ERRORR(MB_FAILURE, "Can't find one variable.");
+      SET_ERR_STR(MB_FAILURE, "Can't find variable " << varname);
 
     WriteNC::VarData& currentVarData = vit->second;
 #ifndef NDEBUG
@@ -721,7 +705,7 @@ ErrorCode ScdNCWriteHelper::collect_variable_data(std::vector<std::string>& var_
         currentVarData.writeCounts[dim_idx + 1] = lCDims[3] - lCDims[0] + 1;
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type.");
+        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << varname);
     }
     dim_idx += 2;
 
@@ -753,7 +737,7 @@ ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>
         // Faces
         break;
       default:
-        ERRORR(MB_FAILURE, "Unexpected entity location type.");
+        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << variableData.varName);
     }
 
     unsigned int num_timesteps;
@@ -803,8 +787,8 @@ ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>
         variableData.writeStarts[0] = t; // This is start for time
       int count;
       void* dataptr;
-      ErrorCode rval = mbImpl->tag_iterate(variableData.varTags[t], localCellsOwned.begin(), localCellsOwned.end(), count, dataptr);
-      ERRORR(rval, "Failed to get tag iterator on owned faces.");
+      ErrorCode rval = mbImpl->tag_iterate(variableData.varTags[t], localCellsOwned.begin(), localCellsOwned.end(),
+                                           count, dataptr);CHK_ERR1(rval, "Failed to iterate tag on owned faces");
       assert(count == (int)localCellsOwned.size());
 
       // Now transpose and write tag data
@@ -819,11 +803,12 @@ ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>
           success = NCFUNCAP(_vara_double)(_fileId, variableData.varId,
                     &variableData.writeStarts[0], &variableData.writeCounts[0],
                     &tmpdoubledata[0]);
-          ERRORS(success, "Failed to write double data.");
+          if (success)
+            SET_ERR_STR(MB_FAILURE, "Failed to write double data for variable " << variableData.varName);
           break;
         }
         default:
-          ERRORR(MB_NOT_IMPLEMENTED, "Writing with current data type not implemented yet.");
+          SET_ERR(MB_NOT_IMPLEMENTED, "Writing non-double data is not implemented yet");
       }
     }
   }
