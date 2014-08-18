@@ -43,15 +43,15 @@ ErrorCode NCWriteGCRM::collect_mesh_info()
   nLevels = dimLens[levDim];
 
   // Get local vertices
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, localVertsOwned);CHK_ERR1(rval, "Trouble getting local vertices in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, localVertsOwned);CHK_SET_ERR(rval, "Trouble getting local vertices in current file set");
   assert(!localVertsOwned.empty());
 
   // Get local edges
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 1, localEdgesOwned);CHK_ERR1(rval, "Trouble getting local edges in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 1, localEdgesOwned);CHK_SET_ERR(rval, "Trouble getting local edges in current file set");
   // There are no edges if NO_EDGES read option is set
 
   // Get local cells
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);CHK_ERR1(rval, "Trouble getting local cells in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);CHK_SET_ERR(rval, "Trouble getting local cells in current file set");
   assert(!localCellsOwned.empty());
 
 #ifdef USE_MPI
@@ -64,7 +64,7 @@ ErrorCode NCWriteGCRM::collect_mesh_info()
 #ifndef NDEBUG
       unsigned int num_local_verts = localVertsOwned.size();
 #endif
-      rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_ERR1(rval, "Trouble getting owned vertices in current file set");
+      rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_SET_ERR(rval, "Trouble getting owned vertices in current file set");
 
       // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
       // Verify that not all local vertices are owned by the last processor
@@ -72,30 +72,30 @@ ErrorCode NCWriteGCRM::collect_mesh_info()
         assert("PARALLEL_RESOLVE_SHARED_ENTS option is set" && localVertsOwned.size() < num_local_verts);
 
       if (!localEdgesOwned.empty()) {
-        rval = myPcomm->filter_pstatus(localEdgesOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_ERR1(rval, "Trouble getting owned edges in current file set");
+        rval = myPcomm->filter_pstatus(localEdgesOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_SET_ERR(rval, "Trouble getting owned edges in current file set");
       }
 
-      rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_ERR1(rval, "Trouble getting owned cells in current file set");
+      rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_SET_ERR(rval, "Trouble getting owned cells in current file set");
     }
   }
 #endif
 
   std::vector<int> gids(localVertsOwned.size());
-  rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);CHK_ERR1(rval, "Trouble getting global IDs on local vertices");
+  rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);CHK_SET_ERR(rval, "Trouble getting global IDs on local vertices");
 
   // Get localGidVertsOwned
   std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVertsOwned));
 
   if (!localEdgesOwned.empty()) {
     gids.resize(localEdgesOwned.size());
-    rval = mbImpl->tag_get_data(mGlobalIdTag, localEdgesOwned, &gids[0]);CHK_ERR1(rval, "Trouble getting global IDs on local edges");
+    rval = mbImpl->tag_get_data(mGlobalIdTag, localEdgesOwned, &gids[0]);CHK_SET_ERR(rval, "Trouble getting global IDs on local edges");
 
     // Get localGidEdgesOwned
     std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidEdgesOwned));
   }
 
   gids.resize(localCellsOwned.size());
-  rval = mbImpl->tag_get_data(mGlobalIdTag, localCellsOwned, &gids[0]);CHK_ERR1(rval, "Trouble getting global IDs on local cells");
+  rval = mbImpl->tag_get_data(mGlobalIdTag, localCellsOwned, &gids[0]);CHK_SET_ERR(rval, "Trouble getting global IDs on local cells");
 
   // Get localGidCellsOwned
   std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidCellsOwned));
@@ -308,7 +308,7 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
         variableData.writeStarts[0] = t; // This is start for time
       std::vector<double> tag_data(pLocalEntsOwned->size() * num_lev);
       ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[t], *pLocalEntsOwned,
-                                            &tag_data[0]);CHK_ERR1(rval, "Trouble getting tag data on owned entities");
+                                            &tag_data[0]);CHK_SET_ERR(rval, "Trouble getting tag data on owned entities");
 
 #ifdef PNETCDF_FILE
       size_t nb_writes = pLocalGidEntsOwned->psize();

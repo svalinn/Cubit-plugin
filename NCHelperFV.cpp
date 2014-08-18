@@ -81,7 +81,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
 
   // Check i periodicity and set globallyPeriodic[0]
   std::vector<double> til_vals(2);
-  ErrorCode rval = read_coordinate("lon", gCDims[3] - 1, gCDims[3], til_vals);CHK_ERR1(rval, "Trouble reading 'lon' variable");
+  ErrorCode rval = read_coordinate("lon", gCDims[3] - 1, gCDims[3], til_vals);CHK_SET_ERR(rval, "Trouble reading 'lon' variable");
   if (std::fabs(2 * til_vals[1] - til_vals[0] - 360) < 0.001)
     globallyPeriodic[0] = 1;
   if (globallyPeriodic[0])
@@ -194,7 +194,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
   std::map<std::string, ReadNC::VarData>::iterator vmit;
   if (-1 != lCDims[0]) {
     if ((vmit = varInfo.find("lon")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("lon", lCDims[0], lCDims[3], ilCVals);CHK_ERR1(rval, "Trouble reading 'lon' variable");
+      rval = read_coordinate("lon", lCDims[0], lCDims[3], ilCVals);CHK_SET_ERR(rval, "Trouble reading 'lon' variable");
     }
     else {
       SET_ERR(MB_FAILURE, "Couldn't find 'lon' variable");
@@ -203,7 +203,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
 
   if (-1 != lCDims[1]) {
     if ((vmit = varInfo.find("lat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("lat", lCDims[1], lCDims[4], jlCVals);CHK_ERR1(rval, "Trouble reading 'lat' variable");
+      rval = read_coordinate("lat", lCDims[1], lCDims[4], jlCVals);CHK_SET_ERR(rval, "Trouble reading 'lat' variable");
     }
     else {
       SET_ERR(MB_FAILURE, "Couldn't find 'lat' variable");
@@ -224,7 +224,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
         ilVals[i] = ilVals[i - 1] + dif;
       }
       else {
-        rval = read_coordinate("slon", lDims[0], lDims[3], ilVals);CHK_ERR1(rval, "Trouble reading 'slon' variable");
+        rval = read_coordinate("slon", lDims[0], lDims[3], ilVals);CHK_SET_ERR(rval, "Trouble reading 'slon' variable");
       }
     }
     else {
@@ -236,7 +236,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
     if ((vmit = varInfo.find("slat")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       if (!isParallel || ((gDims[4] - gDims[1]) == (lDims[4] - lDims[1]))) {
         std::vector<double> dummyVar(lDims[4] - lDims[1] - 1);
-        rval = read_coordinate("slat", lDims[1], lDims[4] - 2, dummyVar);CHK_ERR1(rval, "Trouble reading 'slat' variable");
+        rval = read_coordinate("slat", lDims[1], lDims[4] - 2, dummyVar);CHK_SET_ERR(rval, "Trouble reading 'slat' variable");
         // Copy the correct piece
         jlVals[0] = -90.0;
         std::size_t i = 0;
@@ -249,7 +249,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
         // Need to read one less then available and read it into a dummy var
         if (lDims[1] == gDims[1]) {
           std::vector<double> dummyVar(lDims[4] - lDims[1]);
-          rval = read_coordinate("slat", lDims[1], lDims[4] - 1, dummyVar);CHK_ERR1(rval, "Trouble reading 'slat' variable");
+          rval = read_coordinate("slat", lDims[1], lDims[4] - 1, dummyVar);CHK_SET_ERR(rval, "Trouble reading 'slat' variable");
           // Copy the correct piece
           jlVals[0] = -90.0;
           for (int i = 1; i < lDims[4] + 1; i++)
@@ -258,7 +258,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
         // Or if it's the last row
         else if (lDims[4] == gDims[4]) {
           std::vector<double> dummyVar(lDims[4] - lDims[1]);
-          rval = read_coordinate("slat", lDims[1] - 1, lDims[4] - 2, dummyVar);CHK_ERR1(rval, "Trouble reading 'slat' variable");
+          rval = read_coordinate("slat", lDims[1] - 1, lDims[4] - 2, dummyVar);CHK_SET_ERR(rval, "Trouble reading 'slat' variable");
           // Copy the correct piece
           std::size_t i = 0;
           for (i = 0; i != dummyVar.size(); i++)
@@ -267,7 +267,7 @@ ErrorCode NCHelperFV::init_mesh_vals()
         }
         // It's in the middle
         else {
-          rval = read_coordinate("slat", lDims[1] - 1, lDims[4] - 1, jlVals);CHK_ERR1(rval, "Trouble reading 'slat' variable");
+          rval = read_coordinate("slat", lDims[1] - 1, lDims[4] - 1, jlVals);CHK_SET_ERR(rval, "Trouble reading 'slat' variable");
         }
       }
     }
@@ -279,10 +279,10 @@ ErrorCode NCHelperFV::init_mesh_vals()
   // Store time coordinate values in tVals
   if (nTimeSteps > 0) {
     if ((vmit = varInfo.find("time")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);CHK_ERR1(rval, "Trouble reading 'time' variable");
+      rval = read_coordinate("time", 0, nTimeSteps - 1, tVals);CHK_SET_ERR(rval, "Trouble reading 'time' variable");
     }
     else if ((vmit = varInfo.find("t")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
-      rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);CHK_ERR1(rval, "Trouble reading 't' variable");
+      rval = read_coordinate("t", 0, nTimeSteps - 1, tVals);CHK_SET_ERR(rval, "Trouble reading 't' variable");
     }
     else {
       // If expected time variable is not available, set dummy time coordinate values to tVals
@@ -350,8 +350,8 @@ ErrorCode NCHelperFV::init_mesh_vals()
     ss_tag_name << ijdimNames[i] << "_LOC_MINMAX";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh,
-                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_ERR1_STR(rval, "Trouble creating conventional tag " << tag_name);
-    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_ERR1_STR(rval, "Trouble setting data to conventional tag " << tag_name);
+                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_SET_ERR_STR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_SET_ERR_STR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
@@ -390,8 +390,8 @@ ErrorCode NCHelperFV::init_mesh_vals()
     ss_tag_name << ijdimNames[i] << "_LOC_VALS";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_DOUBLE, tagh,
-                                  MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_ERR1_STR(rval, "Trouble creating conventional tag " << tag_name);
-    rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);CHK_ERR1_STR(rval, "Trouble setting data to conventional tag " << tag_name);
+                                  MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_SET_ERR_STR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);CHK_SET_ERR_STR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
@@ -419,14 +419,14 @@ ErrorCode NCHelperFV::init_mesh_vals()
     ss_tag_name << ijdimNames[i] << "_GLOBAL_MINMAX";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh,
-                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_ERR1_STR(rval, "Trouble creating conventional tag " << tag_name);
-    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_ERR1_STR(rval, "Trouble setting data to conventional tag " << tag_name);
+                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_SET_ERR_STR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_SET_ERR_STR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
 
   // Hack: create dummy variables, if needed, for dimensions with no corresponding coordinate variables
-  rval = create_dummy_variables();CHK_ERR1(rval, "Failed to create dummy variables");
+  rval = create_dummy_variables();CHK_SET_ERR(rval, "Failed to create dummy variables");
 
   return MB_SUCCESS;
 }

@@ -105,15 +105,15 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
       else {
         // Get the tag with varname
         Tag tag = 0;
-        rval = mbImpl->tag_get_handle(varname.c_str(), tag);CHK_ERR1_STR(rval, "Can't find tag " << varname);
+        rval = mbImpl->tag_get_handle(varname.c_str(), tag);CHK_SET_ERR_STR(rval, "Can't find tag " << varname);
         currentVarData.varTags.push_back(tag); // Really, only one for these
         const void* data;
         int size;
-        rval = mbImpl->tag_get_by_ptr(tag, &_fileSet, 1, &data, &size);CHK_ERR1_STR(rval, "Can't get data of tag " << varname);
+        rval = mbImpl->tag_get_by_ptr(tag, &_fileSet, 1, &data, &size);CHK_SET_ERR_STR(rval, "Can't get data of tag " << varname);
 
         // Find the type of tag, and use it
         DataType type;
-        rval = mbImpl->tag_get_data_type(tag, type);CHK_ERR1_STR(rval, "Can't get data type of tag " << varname);
+        rval = mbImpl->tag_get_data_type(tag, type);CHK_SET_ERR_STR(rval, "Can't get data type of tag " << varname);
 
         currentVarData.varDataType = NC_DOUBLE;
         if (MB_TYPE_INTEGER == type)
@@ -148,7 +148,7 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
         for (unsigned int t = 0; t < tstep_nums.size(); t++) {
           std::stringstream ssTagNameWithIndex;
           ssTagNameWithIndex << varname << tstep_nums[t];
-          rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);CHK_ERR1_STR(rval, "Can't find tag " << ssTagNameWithIndex.str());
+          rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);CHK_SET_ERR_STR(rval, "Can't find tag " << ssTagNameWithIndex.str());
           dbgOut.tprintf(2, "    found indexed tag %d with name %s\n", tstep_nums[t], ssTagNameWithIndex.str().c_str());
           currentVarData.varTags.push_back(indexedTag);
         }
@@ -158,14 +158,14 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
         // Treat it like having one, 0th, timestep
         std::stringstream ssTagNameWithIndex;
         ssTagNameWithIndex << varname << 0;
-        rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);CHK_ERR1_STR(rval, "Can't find tag " << ssTagNameWithIndex.str() << " for a user-created variable");
+        rval = mbImpl->tag_get_handle(ssTagNameWithIndex.str().c_str(), indexedTag);CHK_SET_ERR_STR(rval, "Can't find tag " << ssTagNameWithIndex.str() << " for a user-created variable");
         dbgOut.tprintf(2, "    found indexed tag 0 with name %s\n", ssTagNameWithIndex.str().c_str());
         currentVarData.varTags.push_back(indexedTag);
       }
 
       // The type of the tag is fixed though
       DataType type;
-      rval = mbImpl->tag_get_data_type(indexedTag, type);CHK_ERR1_STR(rval, "Can't get data type of tag " << varname);
+      rval = mbImpl->tag_get_data_type(indexedTag, type);CHK_SET_ERR_STR(rval, "Can't get data type of tag " << varname);
 
       currentVarData.varDataType = NC_DOUBLE;
       if (MB_TYPE_INTEGER == type)
@@ -185,18 +185,18 @@ ErrorCode NCWriteHelper::collect_variable_data(std::vector<std::string>& var_nam
 
     WriteNC::VarData& varCoordData = vit->second;
     Tag coordTag = 0;
-    rval = mbImpl->tag_get_handle(coordName.c_str(), coordTag);CHK_ERR1_STR(rval, "Can't find tag " << coordName);
+    rval = mbImpl->tag_get_handle(coordName.c_str(), coordTag);CHK_SET_ERR_STR(rval, "Can't find tag " << coordName);
     varCoordData.varTags.push_back(coordTag); // Really, only one for these
 
     const void* data;
     int sizeCoordinate;
-    rval = mbImpl->tag_get_by_ptr(coordTag, &_fileSet, 1, &data, &sizeCoordinate);CHK_ERR1_STR(rval, "Can't get coordinate values of " << coordName);
+    rval = mbImpl->tag_get_by_ptr(coordTag, &_fileSet, 1, &data, &sizeCoordinate);CHK_SET_ERR_STR(rval, "Can't get coordinate values of " << coordName);
     dbgOut.tprintf(2, "    found coordinate tag with name %s and length %d\n", coordName.c_str(),
         sizeCoordinate);
 
     // Find the type of tag, and use it
     DataType type;
-    rval = mbImpl->tag_get_data_type(coordTag, type);CHK_ERR1_STR(rval, "Can't get data type of tag " << coordName);
+    rval = mbImpl->tag_get_data_type(coordTag, type);CHK_SET_ERR_STR(rval, "Can't get data type of tag " << coordName);
     varCoordData.varDataType = NC_DOUBLE;
     if (MB_TYPE_INTEGER == type)
       varCoordData.varDataType = NC_INT;
@@ -588,32 +588,32 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
   // __<dim_name>_LOC_MINMAX (for slon, slat, lon and lat)
   Tag convTag = 0;
   rval = mbImpl->tag_get_handle("__slon_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag,
-                                MB_TAG_ANY);CHK_ERR1(rval, "Trouble getting conventional tag __slon_LOC_MINMAX");
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag __slon_LOC_MINMAX");
   int val[2];
-  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_ERR1(rval, "Trouble getting data of conventional tag __slon_LOC_MINMAX");
+  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_SET_ERR(rval, "Trouble getting data of conventional tag __slon_LOC_MINMAX");
   lDims[0] = val[0];
   lDims[3] = val[1];
 
   rval = mbImpl->tag_get_handle("__slat_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag,
-                                MB_TAG_ANY);CHK_ERR1(rval, "Trouble getting conventional tag __slat_LOC_MINMAX");
-  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_ERR1(rval, "Trouble getting data of conventional tag __slat_LOC_MINMAX");
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag __slat_LOC_MINMAX");
+  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_SET_ERR(rval, "Trouble getting data of conventional tag __slat_LOC_MINMAX");
   lDims[1] = val[0];
   lDims[4] = val[1];
 
   rval = mbImpl->tag_get_handle("__lon_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag,
-                                MB_TAG_ANY);CHK_ERR1(rval, "Trouble getting conventional tag __lon_LOC_MINMAX");
-  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_ERR1(rval, "Trouble getting data of conventional tag __lon_LOC_MINMAX");
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag __lon_LOC_MINMAX");
+  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_SET_ERR(rval, "Trouble getting data of conventional tag __lon_LOC_MINMAX");
   lCDims[0] = val[0];
   lCDims[3] = val[1];
 
   rval = mbImpl->tag_get_handle("__lat_LOC_MINMAX", 0, MB_TYPE_INTEGER, convTag,
-                                MB_TAG_ANY);CHK_ERR1(rval, "Trouble getting conventional tag __lat_LOC_MINMAX");
-  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_ERR1(rval, "Trouble getting data of conventional tag __lat_LOC_MINMAX");
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag __lat_LOC_MINMAX");
+  rval = mbImpl->tag_get_data(convTag, &_fileSet, 1, val);CHK_SET_ERR(rval, "Trouble getting data of conventional tag __lat_LOC_MINMAX");
   lCDims[1] = val[0];
   lCDims[4] = val[1];
 
   // Get local faces
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);CHK_ERR1(rval, "Trouble getting local faces in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);CHK_SET_ERR(rval, "Trouble getting local faces in current file set");
   assert(!localCellsOwned.empty());
 
 #ifdef USE_MPI
@@ -622,7 +622,7 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
     ParallelComm*& myPcomm = _writeNC->myPcomm;
     int procs = myPcomm->proc_config().proc_size();
     if (procs > 1) {
-      rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_ERR1(rval, "Trouble getting owned faces in current file set");
+      rval = myPcomm->filter_pstatus(localCellsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_SET_ERR(rval, "Trouble getting owned faces in current file set");
     }
   }
 #endif
@@ -788,7 +788,7 @@ ErrorCode ScdNCWriteHelper::write_nonset_variables(std::vector<WriteNC::VarData>
       int count;
       void* dataptr;
       ErrorCode rval = mbImpl->tag_iterate(variableData.varTags[t], localCellsOwned.begin(), localCellsOwned.end(),
-                                           count, dataptr);CHK_ERR1(rval, "Failed to iterate tag on owned faces");
+                                           count, dataptr);CHK_SET_ERR(rval, "Failed to iterate tag on owned faces");
       assert(count == (int)localCellsOwned.size());
 
       // Now transpose and write tag data

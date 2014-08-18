@@ -144,7 +144,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     // Note, two possible types for xtime variable: double(Time) or char(Time, StrLen)
     if ((vmit = varInfo.find("xtime")) != varInfo.end() && (*vmit).second.varDims.size() == 1) {
       // If xtime variable is double type, read time coordinate values to tVals
-      rval = read_coordinate("xtime", 0, nTimeSteps - 1, tVals);CHK_ERR1(rval, "Trouble reading 'xtime' variable");
+      rval = read_coordinate("xtime", 0, nTimeSteps - 1, tVals);CHK_SET_ERR(rval, "Trouble reading 'xtime' variable");
     }
     else {
       // If xtime variable does not exist, or it is string type, set dummy values to tVals
@@ -186,7 +186,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
   }
 
   // Hack: create dummy variables for dimensions (like nCells) with no corresponding coordinate variables
-  rval = create_dummy_variables();CHK_ERR1(rval, "Failed to create dummy variables");
+  rval = create_dummy_variables();CHK_SET_ERR(rval, "Failed to create dummy variables");
 
   return MB_SUCCESS;
 }
@@ -207,21 +207,21 @@ ErrorCode NCHelperMPAS::check_existing_mesh()
     // Restore numCellGroups
     if (0 == numCellGroups) {
       Tag numCellGroupsTag;
-      rval = mbImpl->tag_get_handle("__NUM_CELL_GROUPS", 1, MB_TYPE_INTEGER, numCellGroupsTag);CHK_ERR1(rval, "Trouble getting __NUM_CELL_GROUPS tag");
+      rval = mbImpl->tag_get_handle("__NUM_CELL_GROUPS", 1, MB_TYPE_INTEGER, numCellGroupsTag);CHK_SET_ERR(rval, "Trouble getting __NUM_CELL_GROUPS tag");
       if (MB_SUCCESS == rval)
-        rval = mbImpl->tag_get_data(numCellGroupsTag, &_fileSet, 1, &numCellGroups);CHK_ERR1(rval, "Trouble getting data of __NUM_CELL_GROUPS tag");
+        rval = mbImpl->tag_get_data(numCellGroupsTag, &_fileSet, 1, &numCellGroups);CHK_SET_ERR(rval, "Trouble getting data of __NUM_CELL_GROUPS tag");
     }
 
     if (localGidVerts.empty()) {
       // Get all vertices from current file set (it is the input set in no_mesh scenario)
       Range local_verts;
-      rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);CHK_ERR1(rval, "Trouble getting local vertices in current file set");
+      rval = mbImpl->get_entities_by_dimension(_fileSet, 0, local_verts);CHK_SET_ERR(rval, "Trouble getting local vertices in current file set");
 
       if (!local_verts.empty()) {
         std::vector<int> gids(local_verts.size());
 
         // !IMPORTANT : this has to be the GLOBAL_ID tag
-        rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);CHK_ERR1(rval, "Trouble getting local gid values of vertices");
+        rval = mbImpl->tag_get_data(mGlobalIdTag, local_verts, &gids[0]);CHK_SET_ERR(rval, "Trouble getting local gid values of vertices");
 
         // Restore localGidVerts
         std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVerts));
@@ -232,13 +232,13 @@ ErrorCode NCHelperMPAS::check_existing_mesh()
     if (localGidEdges.empty()) {
       // Get all edges from current file set (it is the input set in no_mesh scenario)
       Range local_edges;
-      rval = mbImpl->get_entities_by_dimension(_fileSet, 1, local_edges);CHK_ERR1(rval, "Trouble getting local edges in current file set");
+      rval = mbImpl->get_entities_by_dimension(_fileSet, 1, local_edges);CHK_SET_ERR(rval, "Trouble getting local edges in current file set");
 
       if (!local_edges.empty()) {
         std::vector<int> gids(local_edges.size());
 
         // !IMPORTANT : this has to be the GLOBAL_ID tag
-        rval = mbImpl->tag_get_data(mGlobalIdTag, local_edges, &gids[0]);CHK_ERR1(rval, "Trouble getting local gid values of edges");
+        rval = mbImpl->tag_get_data(mGlobalIdTag, local_edges, &gids[0]);CHK_SET_ERR(rval, "Trouble getting local gid values of edges");
 
         // Restore localGidEdges
         std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidEdges));
@@ -249,13 +249,13 @@ ErrorCode NCHelperMPAS::check_existing_mesh()
     if (localGidCells.empty()) {
       // Get all cells from current file set (it is the input set in no_mesh scenario)
       Range local_cells;
-      rval = mbImpl->get_entities_by_dimension(_fileSet, 2, local_cells);CHK_ERR1(rval, "Trouble getting local cells in current file set");
+      rval = mbImpl->get_entities_by_dimension(_fileSet, 2, local_cells);CHK_SET_ERR(rval, "Trouble getting local cells in current file set");
 
       if (!local_cells.empty()) {
         std::vector<int> gids(local_cells.size());
 
         // !IMPORTANT : this has to be the GLOBAL_ID tag
-        rval = mbImpl->tag_get_data(mGlobalIdTag, local_cells, &gids[0]);CHK_ERR1(rval, "Trouble getting local gid values of cells");
+        rval = mbImpl->tag_get_data(mGlobalIdTag, local_cells, &gids[0]);CHK_SET_ERR(rval, "Trouble getting local gid values of cells");
 
         // Restore localGidCells
         std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidCells));
@@ -321,7 +321,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
     start_cell_idx++; // 0 based -> 1 based
 
     // Redistribute local cells after trivial partition (e.g. apply Zoltan partition)
-    ErrorCode rval = redistribute_local_cells(start_cell_idx);CHK_ERR1(rval, "Failed to redistribute local cells after trivial partition");
+    ErrorCode rval = redistribute_local_cells(start_cell_idx);CHK_SET_ERR(rval, "Failed to redistribute local cells after trivial partition");
   }
   else {
     nLocalCells = nCells;
@@ -444,46 +444,46 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
 
   // Create local vertices
   EntityHandle start_vertex;
-  ErrorCode rval = create_local_vertices(vertices_on_local_cells, start_vertex);CHK_ERR1(rval, "Failed to create local vertices for MPAS mesh");
+  ErrorCode rval = create_local_vertices(vertices_on_local_cells, start_vertex);CHK_SET_ERR(rval, "Failed to create local vertices for MPAS mesh");
 
   // Create local edges (unless NO_EDGES read option is set)
   if (!noEdges) {
-    rval = create_local_edges(start_vertex, num_edges_on_local_cells);CHK_ERR1(rval, "Failed to create local edges for MPAS mesh");
+    rval = create_local_edges(start_vertex, num_edges_on_local_cells);CHK_SET_ERR(rval, "Failed to create local edges for MPAS mesh");
   }
 
   // Create local cells, either unpadded or padded
   if (noMixedElements) {
-    rval = create_padded_local_cells(vertices_on_local_cells, start_vertex, faces);CHK_ERR1(rval, "Failed to create padded local cells for MPAS mesh");
+    rval = create_padded_local_cells(vertices_on_local_cells, start_vertex, faces);CHK_SET_ERR(rval, "Failed to create padded local cells for MPAS mesh");
   }
   else {
-    rval = create_local_cells(vertices_on_local_cells, num_edges_on_local_cells, start_vertex, faces);CHK_ERR1(rval, "Failed to create local cells for MPAS mesh");
+    rval = create_local_cells(vertices_on_local_cells, num_edges_on_local_cells, start_vertex, faces);CHK_SET_ERR(rval, "Failed to create local cells for MPAS mesh");
   }
 
   // Set tag for numCellGroups
   Tag numCellGroupsTag = 0;
   rval = mbImpl->tag_get_handle("__NUM_CELL_GROUPS", 1, MB_TYPE_INTEGER, numCellGroupsTag,
-                                MB_TAG_SPARSE | MB_TAG_CREAT);CHK_ERR1(rval, "Trouble creating __NUM_CELL_GROUPS tag");
-  rval = mbImpl->tag_set_data(numCellGroupsTag, &_fileSet, 1, &numCellGroups);CHK_ERR1(rval, "Trouble setting data to __NUM_CELL_GROUPS tag");
+                                MB_TAG_SPARSE | MB_TAG_CREAT);CHK_SET_ERR(rval, "Trouble creating __NUM_CELL_GROUPS tag");
+  rval = mbImpl->tag_set_data(numCellGroupsTag, &_fileSet, 1, &numCellGroups);CHK_SET_ERR(rval, "Trouble setting data to __NUM_CELL_GROUPS tag");
 
   if (createGatherSet) {
     EntityHandle gather_set;
-    rval = _readNC->readMeshIface->create_gather_set(gather_set);CHK_ERR1(rval, "Failed to create gather set");
+    rval = _readNC->readMeshIface->create_gather_set(gather_set);CHK_SET_ERR(rval, "Failed to create gather set");
 
     // Create gather set vertices
     EntityHandle start_gather_set_vertex;
-    rval = create_gather_set_vertices(gather_set, start_gather_set_vertex);CHK_ERR1(rval, "Failed to create gather set vertices for MPAS mesh");
+    rval = create_gather_set_vertices(gather_set, start_gather_set_vertex);CHK_SET_ERR(rval, "Failed to create gather set vertices for MPAS mesh");
 
     // Create gather set edges (unless NO_EDGES read option is set)
     if (!noEdges) {
-      rval = create_gather_set_edges(gather_set, start_gather_set_vertex);CHK_ERR1(rval, "Failed to create gather set edges for MPAS mesh");
+      rval = create_gather_set_edges(gather_set, start_gather_set_vertex);CHK_SET_ERR(rval, "Failed to create gather set edges for MPAS mesh");
     }
 
     // Create gather set cells, either unpadded or padded
     if (noMixedElements) {
-      rval = create_padded_gather_set_cells(gather_set, start_gather_set_vertex);CHK_ERR1(rval, "Failed to create padded gather set cells for MPAS mesh");
+      rval = create_padded_gather_set_cells(gather_set, start_gather_set_vertex);CHK_SET_ERR(rval, "Failed to create padded gather set cells for MPAS mesh");
     }
     else {
-      rval = create_gather_set_cells(gather_set, start_gather_set_vertex);CHK_ERR1(rval, "Failed to create gather set cells for MPAS mesh");
+      rval = create_gather_set_cells(gather_set, start_gather_set_vertex);CHK_SET_ERR(rval, "Failed to create gather set cells for MPAS mesh");
     }
   }
 
@@ -503,23 +503,23 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
 
   // Get vertices
   Range verts;
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);CHK_ERR1(rval, "Trouble getting vertices in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);CHK_SET_ERR(rval, "Trouble getting vertices in current file set");
   assert("Should only have a single vertex subrange, since they were read in one shot" && verts.psize() == 1);
 
   // Get edges
   Range edges;
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 1, edges);CHK_ERR1(rval, "Trouble getting edges in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 1, edges);CHK_SET_ERR(rval, "Trouble getting edges in current file set");
 
   // Get faces
   Range faces;
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, faces);CHK_ERR1(rval, "Trouble getting faces in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 2, faces);CHK_SET_ERR(rval, "Trouble getting faces in current file set");
   // Note, for MPAS faces.psize() can be more than 1
 
 #ifdef USE_MPI
   bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
-    rval = myPcomm->filter_pstatus(faces, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &facesOwned);CHK_ERR1(rval, "Trouble getting owned faces in current file set");
+    rval = myPcomm->filter_pstatus(faces, PSTATUS_NOT_OWNED, PSTATUS_NOT, -1, &facesOwned);CHK_SET_ERR(rval, "Trouble getting owned faces in current file set");
   }
   else
     facesOwned = faces; // not running in parallel, but still with MPI
@@ -598,7 +598,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
 
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
-        rval = get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);CHK_ERR1_STR(rval, "Trouble getting tag for variable " << vdatas[i].varName);
+        rval = get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);CHK_SET_ERR_STR(rval, "Trouble getting tag for variable " << vdatas[i].varName);
       }
 
       // Get ptr to tag space
@@ -610,7 +610,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
         assert(1 == range->psize());
         void* data;
         int count;
-        rval = mbImpl->tag_iterate(vdatas[i].varTags[t], range->begin(), range->end(), count, data);CHK_ERR1_STR(rval, "Failed to iterate tag for variable " << vdatas[i].varName);
+        rval = mbImpl->tag_iterate(vdatas[i].varTags[t], range->begin(), range->end(), count, data);CHK_SET_ERR_STR(rval, "Failed to iterate tag for variable " << vdatas[i].varName);
         assert((unsigned)count == range->size());
         vdatas[i].varDatas[t] = data;
       }
@@ -627,7 +627,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);CHK_ERR1(rval, "Trouble allocating space to read non-set variables");
+  ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);CHK_SET_ERR(rval, "Trouble allocating space to read non-set variables");
 
   // Finally, read into that space
   int success;
@@ -709,7 +709,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
             while (iter != facesOwned.end()) {
               int count;
               void* ptr;
-              rval = mbImpl->tag_iterate(vdatas[i].varTags[t], iter, facesOwned.end(), count, ptr);CHK_ERR1(rval, "Failed to iterate tag on owned faces");
+              rval = mbImpl->tag_iterate(vdatas[i].varTags[t], iter, facesOwned.end(), count, ptr);CHK_SET_ERR(rval, "Failed to iterate tag on owned faces");
 
               for (int j = 0; j < count; j++) {
                 int global_cell_idx = cellHandleToGlobalID[*(iter + j)]; // Global cell index, 1 based
@@ -753,7 +753,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
   bool& noEdges = _readNC->noEdges;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);CHK_ERR1(rval, "Trouble allocating space to read non-set variables");
+  ErrorCode rval = read_ucd_variables_to_nonset_allocate(vdatas, tstep_nums);CHK_SET_ERR(rval, "Trouble allocating space to read non-set variables");
 
   // Finally, read into that space
   int success;
@@ -823,7 +823,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
             while (iter != facesOwned.end()) {
               int count;
               void* ptr;
-              rval = mbImpl->tag_iterate(vdatas[i].varTags[t], iter, facesOwned.end(), count, ptr);CHK_ERR1(rval, "Failed to iterate tag on owned faces");
+              rval = mbImpl->tag_iterate(vdatas[i].varTags[t], iter, facesOwned.end(), count, ptr);CHK_SET_ERR(rval, "Failed to iterate tag on owned faces");
 
               for (int j = 0; j < count; j++) {
                 int global_cell_idx = cellHandleToGlobalID[*(iter + j)]; // Global cell index, 1 based
@@ -904,7 +904,7 @@ ErrorCode NCHelperMPAS::redistribute_local_cells(int start_cell_idx)
     Interface*& mbImpl = _readNC->mbImpl;
     DebugOutput& dbgOut = _readNC->dbgOut;
     ZoltanPartitioner* mbZTool = new ZoltanPartitioner(mbImpl, false, 0, NULL);
-    ErrorCode rval = mbZTool->repartition(xCell, yCell, zCell, start_cell_idx, "RCB", localGidCells);delete mbZTool;CHK_ERR1(rval, "Error in Zoltan partitioning");
+    ErrorCode rval = mbZTool->repartition(xCell, yCell, zCell, start_cell_idx, "RCB", localGidCells);delete mbZTool;CHK_SET_ERR(rval, "Error in Zoltan partitioning");
 
     dbgOut.tprintf(1, "After Zoltan partitioning, localGidCells.psize() = %d\n", (int)localGidCells.psize());
     dbgOut.tprintf(1, "                           localGidCells.size() = %d\n", (int)localGidCells.size());
@@ -942,23 +942,23 @@ ErrorCode NCHelperMPAS::create_local_vertices(const std::vector<int>& vertices_o
   std::vector<double*> arrays;
   ErrorCode rval = _readNC->readMeshIface->get_node_coords(3, nLocalVertices, 0, start_vertex, arrays,
                                                           // Might have to create gather mesh later
-                                                          (createGatherSet ? nLocalVertices + nVertices : nLocalVertices));CHK_ERR1(rval, "Failed to create local vertices");
+                                                          (createGatherSet ? nLocalVertices + nVertices : nLocalVertices));CHK_SET_ERR(rval, "Failed to create local vertices");
 
   // Add local vertices to current file set
   Range local_verts_range(start_vertex, start_vertex + nLocalVertices - 1);
-  rval = _readNC->mbImpl->add_entities(_fileSet, local_verts_range);CHK_ERR1(rval, "Failed to add local vertices to current file set");
+  rval = _readNC->mbImpl->add_entities(_fileSet, local_verts_range);CHK_SET_ERR(rval, "Failed to add local vertices to current file set");
 
   // Get ptr to GID memory for local vertices
   int count = 0;
   void* data = NULL;
-  rval = mbImpl->tag_iterate(mGlobalIdTag, local_verts_range.begin(), local_verts_range.end(), count, data);CHK_ERR1(rval, "Failed to iterate global id tag on local vertices");
+  rval = mbImpl->tag_iterate(mGlobalIdTag, local_verts_range.begin(), local_verts_range.end(), count, data);CHK_SET_ERR(rval, "Failed to iterate global id tag on local vertices");
   assert(count == nLocalVertices);
   int* gid_data = (int*) data;
   std::copy(localGidVerts.begin(), localGidVerts.end(), gid_data);
 
   // Duplicate GID data, which will be used to resolve sharing
   if (mpFileIdTag) {
-    rval = mbImpl->tag_iterate(*mpFileIdTag, local_verts_range.begin(), local_verts_range.end(), count, data);CHK_ERR1(rval, "Failed to iterate file id tag on local vertices");
+    rval = mbImpl->tag_iterate(*mpFileIdTag, local_verts_range.begin(), local_verts_range.end(), count, data);CHK_SET_ERR(rval, "Failed to iterate file id tag on local vertices");
     assert(count == nLocalVertices);
     int bytes_per_tag=4;
     rval = mbImpl->tag_get_bytes(*mpFileIdTag, bytes_per_tag);
@@ -1177,16 +1177,16 @@ ErrorCode NCHelperMPAS::create_local_edges(EntityHandle start_vertex, const std:
   EntityHandle* conn_arr_edges = NULL;
   ErrorCode rval = _readNC->readMeshIface->get_element_connect(nLocalEdges, 2, MBEDGE, 0, start_edge, conn_arr_edges,
                                                               // Might have to create gather mesh later
-                                                              (createGatherSet ? nLocalEdges + nEdges : nLocalEdges));CHK_ERR1(rval, "Failed to create local edges");
+                                                              (createGatherSet ? nLocalEdges + nEdges : nLocalEdges));CHK_SET_ERR(rval, "Failed to create local edges");
 
   // Add local edges to current file set
   Range local_edges_range(start_edge, start_edge + nLocalEdges - 1);
-  rval = _readNC->mbImpl->add_entities(_fileSet, local_edges_range);CHK_ERR1(rval, "Failed to add local edges to current file set");
+  rval = _readNC->mbImpl->add_entities(_fileSet, local_edges_range);CHK_SET_ERR(rval, "Failed to add local edges to current file set");
 
   // Get ptr to GID memory for edges
   int count = 0;
   void* data = NULL;
-  rval = mbImpl->tag_iterate(mGlobalIdTag, local_edges_range.begin(), local_edges_range.end(), count, data);CHK_ERR1(rval, "Failed to iterate global id tag on local edges");
+  rval = mbImpl->tag_iterate(mGlobalIdTag, local_edges_range.begin(), local_edges_range.end(), count, data);CHK_SET_ERR(rval, "Failed to iterate global id tag on local edges");
   assert(count == nLocalEdges);
   int* gid_data = (int*) data;
   std::copy(localGidEdges.begin(), localGidEdges.end(), gid_data);
@@ -1279,17 +1279,17 @@ ErrorCode NCHelperMPAS::create_local_cells(const std::vector<int>& vertices_on_l
     // Create local cells for each non-empty cell group
     EntityHandle start_element;
     ErrorCode rval = _readNC->readMeshIface->get_element_connect(num_group_cells, num_edges_per_cell, MBPOLYGON, 0, start_element,
-                                                       conn_arr_local_cells_with_n_edges[num_edges_per_cell], num_group_cells);CHK_ERR1(rval, "Failed to create local cells");
+                                                       conn_arr_local_cells_with_n_edges[num_edges_per_cell], num_group_cells);CHK_SET_ERR(rval, "Failed to create local cells");
     faces.insert(start_element, start_element + num_group_cells - 1);
 
     // Add local cells to current file set
     Range local_cells_range(start_element, start_element + num_group_cells - 1);
-    rval = _readNC->mbImpl->add_entities(_fileSet, local_cells_range);CHK_ERR1(rval, "Failed to add local cells to current file set");
+    rval = _readNC->mbImpl->add_entities(_fileSet, local_cells_range);CHK_SET_ERR(rval, "Failed to add local cells to current file set");
 
     // Get ptr to gid memory for local cells
     int count = 0;
     void* data = NULL;
-    rval = mbImpl->tag_iterate(mGlobalIdTag, local_cells_range.begin(), local_cells_range.end(), count, data);CHK_ERR1(rval, "Failed to iterate global id tag on local cells");
+    rval = mbImpl->tag_iterate(mGlobalIdTag, local_cells_range.begin(), local_cells_range.end(), count, data);CHK_SET_ERR(rval, "Failed to iterate global id tag on local cells");
     assert(count == num_group_cells);
     int* gid_data = (int*) data;
     std::copy(local_cells_with_n_edges[num_edges_per_cell].begin(), local_cells_with_n_edges[num_edges_per_cell].end(), gid_data);
@@ -1332,17 +1332,17 @@ ErrorCode NCHelperMPAS::create_padded_local_cells(const std::vector<int>& vertic
   EntityHandle* conn_arr_local_cells = NULL;
   ErrorCode rval = _readNC->readMeshIface->get_element_connect(nLocalCells, maxEdgesPerCell, MBPOLYGON, 0, start_element, conn_arr_local_cells,
                                                               // Might have to create gather mesh later
-                                                              (createGatherSet ? nLocalCells + nCells : nLocalCells));CHK_ERR1(rval, "Failed to create local cells");
+                                                              (createGatherSet ? nLocalCells + nCells : nLocalCells));CHK_SET_ERR(rval, "Failed to create local cells");
   faces.insert(start_element, start_element + nLocalCells - 1);
 
   // Add local cells to current file set
   Range local_cells_range(start_element, start_element + nLocalCells - 1);
-  rval = _readNC->mbImpl->add_entities(_fileSet, local_cells_range);CHK_ERR1(rval, "Failed to add local cells to current file set");
+  rval = _readNC->mbImpl->add_entities(_fileSet, local_cells_range);CHK_SET_ERR(rval, "Failed to add local cells to current file set");
 
   // Get ptr to GID memory for local cells
   int count = 0;
   void* data = NULL;
-  rval = mbImpl->tag_iterate(mGlobalIdTag, local_cells_range.begin(), local_cells_range.end(), count, data);CHK_ERR1(rval, "Failed to iterate global id tag on local cells");
+  rval = mbImpl->tag_iterate(mGlobalIdTag, local_cells_range.begin(), local_cells_range.end(), count, data);CHK_SET_ERR(rval, "Failed to iterate global id tag on local cells");
   assert(count == nLocalCells);
   int* gid_data = (int*) data;
   std::copy(localGidCells.begin(), localGidCells.end(), gid_data);
@@ -1371,11 +1371,11 @@ ErrorCode NCHelperMPAS::create_gather_set_vertices(EntityHandle gather_set, Enti
   // Create gather set vertices
   std::vector<double*> arrays;
   // Don't need to specify allocation number here, because we know enough vertices were created before
-  ErrorCode rval = _readNC->readMeshIface->get_node_coords(3, nVertices, 0, gather_set_start_vertex, arrays);CHK_ERR1(rval, "Failed to create gather set vertices");
+  ErrorCode rval = _readNC->readMeshIface->get_node_coords(3, nVertices, 0, gather_set_start_vertex, arrays);CHK_SET_ERR(rval, "Failed to create gather set vertices");
 
   // Add vertices to the gather set
   Range gather_set_verts_range(gather_set_start_vertex, gather_set_start_vertex + nVertices - 1);
-  rval = mbImpl->add_entities(gather_set, gather_set_verts_range);CHK_ERR1(rval, "Failed to add vertices to the gather set");
+  rval = mbImpl->add_entities(gather_set, gather_set_verts_range);CHK_SET_ERR(rval, "Failed to add vertices to the gather set");
 
   // Read x coordinates for gather set vertices
   double* xptr = arrays[0];
@@ -1452,7 +1452,7 @@ ErrorCode NCHelperMPAS::create_gather_set_vertices(EntityHandle gather_set, Enti
   int count = 0;
   void* data = NULL;
   rval = mbImpl->tag_iterate(mGlobalIdTag, gather_set_verts_range.begin(), gather_set_verts_range.end(),
-                             count, data);CHK_ERR1(rval, "Failed to iterate global id tag on gather set vertices");
+                             count, data);CHK_SET_ERR(rval, "Failed to iterate global id tag on gather set vertices");
   assert(count == nVertices);
   int* gid_data = (int*) data;
   for (int j = 1; j <= nVertices; j++)
@@ -1461,7 +1461,7 @@ ErrorCode NCHelperMPAS::create_gather_set_vertices(EntityHandle gather_set, Enti
   // Set the file id tag too, it should be bigger something not interfering with global id
   if (mpFileIdTag) {
     rval = mbImpl->tag_iterate(*mpFileIdTag, gather_set_verts_range.begin(), gather_set_verts_range.end(),
-                               count, data);CHK_ERR1(rval, "Failed to iterate file id tag on gather set vertices");
+                               count, data);CHK_SET_ERR(rval, "Failed to iterate file id tag on gather set vertices");
     assert(count == nVertices);
     int bytes_per_tag=4;
     rval = mbImpl->tag_get_bytes(*mpFileIdTag, bytes_per_tag);
@@ -1492,11 +1492,11 @@ ErrorCode NCHelperMPAS::create_gather_set_edges(EntityHandle gather_set, EntityH
   EntityHandle* conn_arr_gather_set_edges = NULL;
   // Don't need to specify allocation number here, because we know enough edges were created before
   ErrorCode rval = _readNC->readMeshIface->get_element_connect(nEdges, 2, MBEDGE, 0, start_edge,
-                                                               conn_arr_gather_set_edges);CHK_ERR1(rval, "Failed to create gather set edges");
+                                                               conn_arr_gather_set_edges);CHK_SET_ERR(rval, "Failed to create gather set edges");
 
   // Add edges to the gather set
   Range gather_set_edges_range(start_edge, start_edge + nEdges - 1);
-  rval = mbImpl->add_entities(gather_set, gather_set_edges_range);CHK_ERR1(rval, "Failed to add edges to the gather set");
+  rval = mbImpl->add_entities(gather_set, gather_set_edges_range);CHK_SET_ERR(rval, "Failed to add edges to the gather set");
 
   // Read vertices on each edge
   int verticesOnEdgeVarId;
@@ -1607,11 +1607,11 @@ ErrorCode NCHelperMPAS::create_gather_set_cells(EntityHandle gather_set, EntityH
       EntityHandle start_element;
       ErrorCode rval = _readNC->readMeshIface->get_element_connect(num_group_cells, num_edges_per_cell, MBPOLYGON, 0, start_element,
                                                                    conn_arr_gather_set_cells_with_n_edges[num_edges_per_cell],
-                                                                   num_group_cells);CHK_ERR1(rval, "Failed to create gather set cells");
+                                                                   num_group_cells);CHK_SET_ERR(rval, "Failed to create gather set cells");
 
       // Add cells to the gather set
       Range gather_set_cells_range(start_element, start_element + num_group_cells - 1);
-      rval = mbImpl->add_entities(gather_set, gather_set_cells_range);CHK_ERR1(rval, "Failed to add cells to the gather set");
+      rval = mbImpl->add_entities(gather_set, gather_set_cells_range);CHK_SET_ERR(rval, "Failed to add cells to the gather set");
 
       for (int j = 0; j < num_group_cells; j++) {
         int gather_set_cell_idx = gather_set_cells_with_n_edges[num_edges_per_cell][j]; // Global cell index, 1 based
@@ -1666,11 +1666,11 @@ ErrorCode NCHelperMPAS::create_padded_gather_set_cells(EntityHandle gather_set, 
   EntityHandle* conn_arr_gather_set_cells = NULL;
   // Don't need to specify allocation number here, because we know enough cells were created before
   ErrorCode rval = _readNC->readMeshIface->get_element_connect(nCells, maxEdgesPerCell, MBPOLYGON, 0, start_element,
-                                                               conn_arr_gather_set_cells);CHK_ERR1(rval, "Failed to create gather set cells");
+                                                               conn_arr_gather_set_cells);CHK_SET_ERR(rval, "Failed to create gather set cells");
 
   // Add cells to the gather set
   Range gather_set_cells_range(start_element, start_element + nCells - 1);
-  rval = mbImpl->add_entities(gather_set, gather_set_cells_range);CHK_ERR1(rval, "Failed to add cells to the gather set");
+  rval = mbImpl->add_entities(gather_set, gather_set_cells_range);CHK_SET_ERR(rval, "Failed to add cells to the gather set");
 
   // Read vertices on each gather set cell (connectivity)
   int verticesOnCellVarId;

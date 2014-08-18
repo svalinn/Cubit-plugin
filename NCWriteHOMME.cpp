@@ -41,7 +41,7 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
   nLevels = dimLens[levDim];
 
   // Get local vertices
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, localVertsOwned);CHK_ERR1(rval, "Trouble getting local vertices in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, localVertsOwned);CHK_SET_ERR(rval, "Trouble getting local vertices in current file set");
   assert(!localVertsOwned.empty());
 
 #ifdef USE_MPI
@@ -54,7 +54,7 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
 #ifndef NDEBUG
       unsigned int num_local_verts = localVertsOwned.size();
 #endif
-      rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_ERR1(rval, "Trouble getting owned vertices in current set");
+      rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_SET_ERR(rval, "Trouble getting owned vertices in current set");
 
       // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
       // Verify that not all local vertices are owned by the last processor
@@ -65,7 +65,7 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
 #endif
 
   std::vector<int> gids(localVertsOwned.size());
-  rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);CHK_ERR1(rval, "Trouble getting global IDs on local vertices");
+  rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);CHK_SET_ERR(rval, "Trouble getting global IDs on local vertices");
 
   // Get localGidVertsOwned
   std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVertsOwned));
@@ -223,7 +223,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
         variableData.writeStarts[0] = t; // This is start for time
       std::vector<double> tag_data(num_local_verts_owned * num_lev);
       ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[t], localVertsOwned,
-                                            &tag_data[0]);CHK_ERR1(rval, "Trouble getting tag data on owned vertices");
+                                            &tag_data[0]);CHK_SET_ERR(rval, "Trouble getting tag data on owned vertices");
 
 #ifdef PNETCDF_FILE
       size_t nb_writes = localGidVertsOwned.psize();
