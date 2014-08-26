@@ -419,9 +419,9 @@ ErrorCode WriteNCDF::gather_mesh_information(
 
     int dimension = -1;
     if(entity_type == MBQUAD || entity_type == MBTRI)
-      dimension = 3;   // output shells by default
+      dimension = 2;   // output shells by default
     else if(entity_type == MBEDGE)
-      dimension = 2; // SHOULD THIS BE 1?? -- J.Kraftcheck, August, 2011
+      dimension = 1; // SHOULD THIS BE 1?? -- J.Kraftcheck, August, 2011
     else
       dimension = CN::Dimension(entity_type);
 
