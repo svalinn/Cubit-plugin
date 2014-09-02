@@ -421,7 +421,7 @@ ErrorCode WriteNCDF::gather_mesh_information(
     if(entity_type == MBQUAD || entity_type == MBTRI)
       dimension = 2;   // output shells by default
     else if(entity_type == MBEDGE)
-      dimension = 1; // SHOULD THIS BE 1?? -- J.Kraftcheck, August, 2011
+      dimension = 1; // I THINK THIS SHOULD BE 1 -- Rajeev Jain, August, 2014
     else
       dimension = CN::Dimension(entity_type);
 
@@ -665,8 +665,7 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
 
         //get the adjacent parent element of "side"
       if( mdbImpl->get_adjacencies( &(*iter), 1, dimension+1, false, parents) != MB_SUCCESS ) {
-        mWriteIface->report_error("Couldn't get adjacencies for sideset.");
-        return MB_FAILURE;
+        mWriteIface->report_error("Warning: Couldn't get adjacencies for sideset.");
       }
        
       if(!parents.empty())     
@@ -693,8 +692,7 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
       }
       else
       {
-        mWriteIface->report_error("No parent element exists for element in sideset %i", sideset_data.id);
-        return MB_FAILURE;
+        mWriteIface->report_error("Warning: No parent element exists for element in sideset %i", sideset_data.id);
       }
     }
 
