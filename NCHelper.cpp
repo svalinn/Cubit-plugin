@@ -210,7 +210,10 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
       mbImpl->tag_get_handle(tmptagname.c_str(), 0, MB_TYPE_OPAQUE, tmptag, MB_TAG_ANY);
       varDimTags[i] = tmptag;
     }
-    rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
+    // rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz, MB_TYPE_HANDLE, varNamesDimsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
+    // We should not use MB_TYPE_HANDLE for Tag here. Tag is a pointer, which is 4 bytes on 32 bit machines and 8 bytes on 64 bit machines.
+    // Normally, entity handle is 8 bytes on 64 bit machines, but it can also be configured to 4 bytes.
+    rval = mbImpl->tag_get_handle(tag_name.c_str(), varDimSz*sizeof(Tag), MB_TYPE_OPAQUE, varNamesDimsTag, MB_TAG_SPARSE | MB_TAG_CREAT);
     ERRORR(rval, "Trouble creating __<var_name>_DIMS tag.");
     rval = mbImpl->tag_set_data(varNamesDimsTag, &_fileSet, 1, &(varDimTags[0]));
     ERRORR(rval, "Trouble setting data for __<var_name>_DIMS tag.");
