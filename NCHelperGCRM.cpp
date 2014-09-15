@@ -828,8 +828,19 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     rval = mbImpl->tag_iterate(*mpFileIdTag, local_verts_range.begin(), local_verts_range.end(), count, data);
     ERRORR(rval, "Failed to iterate file id tag on local vertices.");
     assert(count == nLocalVertices);
-    gid_data = (int*) data;
-    std::copy(localGidVerts.begin(), localGidVerts.end(), gid_data);
+    int bytes_per_tag=4;
+    rval = mbImpl->tag_get_bytes(*mpFileIdTag, bytes_per_tag);
+    ERRORR(rval, "can't get number of bytes for file id tag");
+    if (4==bytes_per_tag)
+    {
+      gid_data = (int*) data;
+      std::copy(localGidVerts.begin(), localGidVerts.end(), gid_data);
+    }
+    else if (8==bytes_per_tag) // should be a handle tag on 64 bit machine?
+    {
+      long * handle_tag_data = (long *)data;
+      std::copy(localGidVerts.begin(), localGidVerts.end(), handle_tag_data);
+    }
   }
 
 #ifdef PNETCDF_FILE
@@ -1217,9 +1228,21 @@ ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, Enti
     rval = mbImpl->tag_iterate(*mpFileIdTag, gather_set_verts_range.begin(), gather_set_verts_range.end(), count, data);
     ERRORR(rval, "Failed to iterate file id tag on gather set vertices.");
     assert(count == nVertices);
-    gid_data = (int*) data;
-    for (int j = 1; j <= nVertices; j++)
-      gid_data[j - 1] = nVertices + j; // Bigger than global id tag
+    int bytes_per_tag=4;
+    rval = mbImpl->tag_get_bytes(*mpFileIdTag, bytes_per_tag);
+    ERRORR(rval, "can't get number of bytes for file id tag");
+    if (4==bytes_per_tag)
+    {
+      gid_data = (int*) data;
+      for (int j = 1; j <= nVertices; j++)
+        gid_data[j - 1] = nVertices + j; // bigger than global id tag
+    }
+    else if (8==bytes_per_tag) // should be a handle tag on 64 bit machine?
+    {
+      long * handle_tag_data = (long *)data;
+      for (int j = 1; j <= nVertices; j++)
+        handle_tag_data[j - 1] = nVertices + j; // bigger than global id tag
+    }
   }
 
   return MB_SUCCESS;
