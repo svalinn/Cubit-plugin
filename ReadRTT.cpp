@@ -199,6 +199,10 @@ ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
       rval = MBI->tag_set_data( category_tag, &handle, 1, &geom_categories[dim] );
       if (MB_SUCCESS != rval)
 	return rval;
+
+      if ( dim == 3 ) {
+	std::cout << dim << " " << cell_data[i].id << std::endl;
+      }
     }
   }
 
@@ -256,6 +260,7 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
   rval = MBI->tag_get_handle( "SURFACE_NUMBER", 1, MB_TYPE_INTEGER,
 			      surface_number_tag, MB_TAG_SPARSE|MB_TAG_CREAT); 
 
+
   // create the facets
   EntityHandle triangle;
   std::vector<facet>::iterator it_f;
@@ -267,15 +272,15 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
 			       mb_coords[tmp.connectivity[2]-1]};
     rval = MBI->create_element(MBTRI,tri_nodes,3,triangle);
     // tag in sense
-    rval = MBI->tag_set_data(side_id_tag,&triangle,1,&tmp.from);
+    rval = MBI->tag_set_data(side_id_tag,&triangle,1,&tmp.side_id);
     // tag out sense
-    rval = MBI->tag_set_data(surface_number_tag,&triangle,1,&tmp.to);
+    rval = MBI->tag_set_data(surface_number_tag,&triangle,1,&tmp.surface_number);
 
     // insert vertices and triangles into the appropriate surface meshset
-    EntityHandle meshset_handle = surface_map[tmp.to];
+    EntityHandle meshset_handle = surface_map[tmp.surface_number];
     // also set surface tags
-    rval = MBI->tag_set_data(side_id_tag,&meshset_handle,1,&tmp.from);
-    rval = MBI->tag_set_data(surface_number_tag,&meshset_handle,1,&tmp.to);
+    rval = MBI->tag_set_data(side_id_tag,&meshset_handle,1,&tmp.side_id);
+    rval = MBI->tag_set_data(surface_number_tag,&meshset_handle,1,&tmp.surface_number);
     // add vertices
     rval = MBI->add_entities(meshset_handle,&(*tri_nodes),3);
     // add triangles
@@ -564,8 +569,8 @@ facet ReadRTT::get_facet_data(std::string facetdata) {
   new_facet.connectivity[0] = std::atoi(tokens[3].c_str());
   new_facet.connectivity[1] = std::atoi(tokens[4].c_str());
   new_facet.connectivity[2] = std::atoi(tokens[5].c_str());
-  new_facet.from = std::atoi(tokens[6].c_str());
-  new_facet.to = std::atoi(tokens[7].c_str());
+  new_facet.side_id = std::atoi(tokens[6].c_str());
+  new_facet.surface_number = std::atoi(tokens[7].c_str());
 
   return new_facet;
 }

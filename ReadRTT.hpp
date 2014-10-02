@@ -71,8 +71,8 @@ struct node {
 struct facet {
   int id;
   int connectivity[3];
-  int from;
-  int to;
+  int side_id;
+  int surface_number;
 };
 
 // strucutre to hold tet data
