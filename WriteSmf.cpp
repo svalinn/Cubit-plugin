@@ -51,27 +51,27 @@ WriterIface *WriteSmf::factory(Interface* iface)
   return new WriteSmf(iface);
 }
 
-WriteSmf::WriteSmf(Interface *impl)
+WriteSmf::WriteSmf(Interface* impl)
   : mbImpl(impl), writeTool(0)
 {
   assert(impl != NULL);
   impl->query_interface(writeTool);
 }
 
-WriteSmf::~WriteSmf() 
+WriteSmf::~WriteSmf()
 {
   mbImpl->release_interface(writeTool);
 }
 
-ErrorCode WriteSmf::write_file(const char *file_name, 
-                                 const bool overwrite,
-                                 const FileOptions& opts,
-                                 const EntityHandle *output_list,
-                                 const int num_sets,
-                                 const std::vector<std::string>& ,
-                                 const Tag* /*tag_list*/,
-                                 int /*num_tags*/,
-                                 int /*export_dimension*/)
+ErrorCode WriteSmf::write_file(const char *file_name,
+                               const bool overwrite,
+                               const FileOptions& opts,
+                               const EntityHandle *output_list,
+                               const int num_sets,
+                               const std::vector<std::string>& /* qa_list */,
+                               const Tag* /* tag_list */,
+                               int /* num_tags */,
+                               int /* export_dimension */)
 {
   ErrorCode rval;
 
@@ -90,8 +90,7 @@ ErrorCode WriteSmf::write_file(const char *file_name,
   // Create file
   std::ofstream file(file_name);
   if (!file) {
-    writeTool->report_error("Could not open file: %s\n", file_name);
-    return MB_FILE_WRITE_ERROR;
+    SET_ERR_STR(MB_FILE_WRITE_ERROR, "Could not open file: " << file_name);
   }
   file.precision(precision);
 
@@ -105,13 +104,13 @@ ErrorCode WriteSmf::write_file(const char *file_name,
   // Somehow get all the nodes from this range, order them, uniquify, then use binary search
   }
   else {
-    // get all triangles from output sets
+    // Get all triangles from output sets
     for (int i = 0; i < num_sets; i++)
       rval = mbImpl->get_entities_by_type(output_list[i], MBTRI, triangles, false);
   }
   // Use an array with all the connectivities in the triangles; it will be converted later to ints
   int numTriangles = triangles.size();
-  int array_alloc = 3 * numTriangles;       // allocated size of 'array'
+  int array_alloc = 3 * numTriangles; // Allocated size of 'array'
   EntityHandle* array = new EntityHandle[array_alloc]; // ptr to working array of result handles
   // Fill up array with node handles; reorder and uniquify
   if (!array)
@@ -148,9 +147,9 @@ ErrorCode WriteSmf::write_file(const char *file_name,
   file << "# output from MOAB \n";
   file << "# \n";
 
-  // output first the nodes
+  // Output first the nodes
   // num nodes??
-  // write the nodes 
+  // Write the nodes
   double coord[3];
   for (int i = 0; i < numNodes; i++) {
     EntityHandle node_handle = array[i];
@@ -174,7 +173,7 @@ ErrorCode WriteSmf::write_file(const char *file_name,
       delete[] array;
       return rval;
     }
-    if (3!= conn_len) {
+    if (3 != conn_len) {
       delete[] array;
       return MB_INVALID_SIZE;
     }
