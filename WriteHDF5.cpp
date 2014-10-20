@@ -1296,7 +1296,9 @@ ErrorCode WriteHDF5::write_set_data( const WriteUtilIface::EntityListType which_
           
         
         if (count + remaining.size() <= buffer_size) {
-          memcpy( buffer + count, (remaining.empty())?NULL:&remaining[0], sizeof(id_t)*remaining.size() );
+          if(!remaining.empty()){
+            memcpy( buffer + count, &remaining[0], sizeof(id_t)*remaining.size() );
+          }
           count += remaining.size();
           remaining.clear();
           remaining_offset = 0;
