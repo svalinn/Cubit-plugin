@@ -1,3 +1,5 @@
+# Don't require GNU-standard files (Changelog, README, etc.)
+AUTOMAKE_OPTIONS = foreign subdir-objects
 
 noinst_LTLIBRARIES = libmhdf.la
 libmhdf_la_LIBADD = $(HDF5_LIBS)
