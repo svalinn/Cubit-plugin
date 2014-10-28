@@ -3539,10 +3539,7 @@ ErrorCode ReadHDF5::store_file_ids( Tag tag )
 
   CHECK_OPEN_HANDLES;
 
-  //typedef int tag_type;
-  typedef long tag_type;
-  // change it to be able to read much bigger files (long is 64 bits ...)
-
+  typedef int tag_type;
   tag_type* buffer = reinterpret_cast<tag_type*>(dataBuffer);
   const long buffer_size = bufferSize / sizeof(tag_type);
   for (IDMap::iterator i = idMap.begin(); i != idMap.end(); ++i) {
