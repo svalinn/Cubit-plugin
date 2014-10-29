@@ -366,6 +366,8 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       ERRORR(rval, "Failed to get tag for a variable dimensions.");
       rval = mbImpl->tag_get_length(dims_tag, sz);
       ERRORR(rval, " size of dimensions for variable");
+      sz /= sizeof(Tag); // The type is MB_TYPE_OPAQUE, but it is a list of tags, so we need to divide by the size of Tag
+      // sz is used for number of dimension tags in this list
       dbgOut.tprintf(2, "var name: %s has %d dimensions \n", var_name.c_str(), sz);
 
       variableDataStruct.varDims.resize(sz);

@@ -457,8 +457,19 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
     rval = mbImpl->tag_iterate(*mpFileIdTag, vert_range.begin(), vert_range.end(), count, data);
     ERRORR(rval, "Failed to iterate file id tag on local vertices.");
     assert(count == nLocalVertices);
-    gid_data = (int*) data;
-    std::copy(localGidVerts.begin(), localGidVerts.end(), gid_data);
+    int bytes_per_tag=4;
+    rval = mbImpl->tag_get_bytes(*mpFileIdTag, bytes_per_tag);
+    ERRORR(rval, "can't get number of bytes for file id tag");
+    if (4==bytes_per_tag)
+    {
+      gid_data = (int*) data;
+      std::copy(localGidVerts.begin(), localGidVerts.end(), gid_data);
+    }
+    else if (8==bytes_per_tag) // should be a handle tag on 64 bit machine?
+    {
+      long * handle_tag_data = (long *)data;
+      std::copy(localGidVerts.begin(), localGidVerts.end(), handle_tag_data);
+    }
   }
 
   // Create map from file ids to vertex handles, used later to set connectivity
@@ -529,9 +540,22 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
       rval = mbImpl->tag_iterate(*mpFileIdTag, gather_set_verts_range.begin(), gather_set_verts_range.end(), count, data);
       ERRORR(rval, "Failed to iterate file id tag on gather set vertices.");
       assert(count == nVertices);
-      gid_data = (int*) data;
-      for (int j = 1; j <= nVertices; j++)
-        gid_data[j - 1] = nVertices + j; // bigger than global id tag
+      int bytes_per_tag=4;
+      rval = mbImpl->tag_get_bytes(*mpFileIdTag, bytes_per_tag);
+      ERRORR(rval, "can't get number of bytes for file id tag");
+      if (4==bytes_per_tag)
+      {
+        gid_data = (int*) data;
+        for (int j = 1; j <= nVertices; j++)
+          gid_data[j - 1] = nVertices + j; // bigger than global id tag
+      }
+      else if (8==bytes_per_tag) // should be a handle tag on 64 bit machine?
+      {
+        long * handle_tag_data = (long *)data;
+        for (int j = 1; j <= nVertices; j++)
+          handle_tag_data[j - 1] = nVertices + j; // bigger than global id tag
+      }
+
     }
 
     rval = mbImpl->add_entities(gather_set, gather_set_verts_range);
