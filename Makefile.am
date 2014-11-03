@@ -53,8 +53,8 @@ if !NETCDF_FILE
 endif
 endif
 
-if ENABLE_mbzoltan
-  AM_CPPFLAGS += -I$(srcdir)/../../tools/mbzoltan $(ZOLTAN_INC_FLAGS) 
+if ENABLE_mbpart
+  AM_CPPFLAGS += $(ZOLTAN_INC_FLAGS) 
 endif
 
 if CGNS_FILE
