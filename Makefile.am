@@ -10,7 +10,7 @@ noinst_LTLIBRARIES = libmoabio.la
 libmoabio_la_LIBADD = $(NETCDF_LIBS) $(PNETCDF_LIBS) $(CGNS_LIBS) $(HDF5_LIBS) 
 
 AM_CPPFLAGS += -DIS_BUILDING_MB \
-               -I..  -I$(srcdir)/.. -I$(srcdir)/../parallel
+               -I..  -I$(srcdir)/.. -I$(srcdir)/../moab -I$(srcdir)/../parallel
 
 if NETCDF_FILE
   MOAB_NETCDF_SRCS = ReadNCDF.cpp  ReadNCDF.hpp \
@@ -53,8 +53,8 @@ if !NETCDF_FILE
 endif
 endif
 
-if ENABLE_mbzoltan
-  AM_CPPFLAGS += -I$(srcdir)/../../tools/mbzoltan $(ZOLTAN_INC_FLAGS) 
+if ENABLE_mbpart
+  AM_CPPFLAGS += $(ZOLTAN_INC_FLAGS) 
 endif
 
 if CGNS_FILE

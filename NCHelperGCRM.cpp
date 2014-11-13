@@ -5,7 +5,7 @@
 #include "MBTagConventions.hpp"
 
 #ifdef HAVE_ZOLTAN
-#include "MBZoltan.hpp"
+#include "ZoltanPartitioner.hpp"
 #endif
 
 #include <cmath>
@@ -764,7 +764,7 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
     // is better
     Interface*& mbImpl = _readNC->mbImpl;
     DebugOutput& dbgOut = _readNC->dbgOut;
-    MBZoltan* mbZTool = new MBZoltan(mbImpl, false, 0, NULL);
+    ZoltanPartitioner* mbZTool = new ZoltanPartitioner(mbImpl, false, 0, NULL);
     ErrorCode rval = mbZTool->repartition(xCell, yCell, zCell, start_cell_idx, "RCB", localGidCells);
     delete mbZTool;
     ERRORR(rval, "Error in Zoltan partitioning.");
