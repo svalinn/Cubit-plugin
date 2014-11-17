@@ -743,7 +743,8 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
     Interface*& mbImpl = _readNC->mbImpl;
     DebugOutput& dbgOut = _readNC->dbgOut;
     ZoltanPartitioner* mbZTool = new ZoltanPartitioner(mbImpl, false, 0, NULL);
-    ErrorCode rval = mbZTool->repartition(xCell, yCell, zCell, start_cell_idx, "RCB", localGidCells);delete mbZTool;CHK_SET_ERR(rval, "Error in Zoltan partitioning");
+    ErrorCode rval = mbZTool->repartition(xCell, yCell, zCell, start_cell_idx, "RCB", localGidCells);CHK_SET_ERR(rval, "Error in Zoltan partitioning");
+    delete mbZTool;
 
     dbgOut.tprintf(1, "After Zoltan partitioning, localGidCells.psize() = %d\n", (int)localGidCells.psize());
     dbgOut.tprintf(1, "                           localGidCells.size() = %d\n", (int)localGidCells.size());
