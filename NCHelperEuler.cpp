@@ -1,10 +1,10 @@
-#include "NCHelperEuler.hpp"
-#include "moab/ReadUtilIface.hpp"
-#include "moab/FileOptions.hpp"
-
 #ifdef WIN32  /* windows */
 #  define _USE_MATH_DEFINES //For M_PI
 #endif
+
+#include "NCHelperEuler.hpp"
+#include "moab/ReadUtilIface.hpp"
+#include "moab/FileOptions.hpp"
 
 #include <cmath>
 #include <sstream>
