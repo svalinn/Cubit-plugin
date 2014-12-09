@@ -278,24 +278,24 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
   }
 
   if (subset_list) {
-    SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for CUB files");
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for CUB files");
   }
 
   // Open file
   cubFile = fopen(file_name, "rb");
   if (NULL == cubFile) {
-    SET_ERR(MB_FAILURE, "File not found");
+    MB_SET_ERR(MB_FAILURE, "File not found");
   }
 
   // Verify magic string
   FREADC(4);
   if (!(char_buf[0] == 'C' && char_buf[1] == 'U' && 
         char_buf[2] == 'B' && char_buf[3] == 'E')) {
-    SET_ERR(MB_FAILURE, "This doesn't appear to be a .cub file");
+    MB_SET_ERR(MB_FAILURE, "This doesn't appear to be a .cub file");
   }
 
   // Get "before" entities
-  result = mdbImpl->get_entities_by_handle(0, beforeEnts);CHK_SET_ERR(result, "Couldn't get \"before\" entities");
+  result = mdbImpl->get_entities_by_handle(0, beforeEnts);MB_CHK_SET_ERR(result, "Couldn't get \"before\" entities");
 
   // ***********************
   // Read model header type information...
@@ -2048,7 +2048,7 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
       // the expected value of 52
       assert(52 == block_headers[i].blockElemType);
 
-      //SET_ERR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
+      //MB_SET_ERR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
     }
 
     // Set the material set tag and id tag both to id

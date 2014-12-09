@@ -81,32 +81,32 @@ WriteDamsel::WriteDamsel(Interface *impl)
   assert(sequenceManager);
 
   ErrorCode rval = mbImpl->tag_get_handle("mbdmsl_XCOORDS", 1, MB_TYPE_DOUBLE,
-                                         dU.xcoordsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT);CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_XCOORDS");
+                                         dU.xcoordsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT);MB_CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_XCOORDS");
   dU.xcoordsTag.tagType = MB_TAG_ANY;
   dU.tagMap.push_back(dU.xcoordsTag);
   rval = mbImpl->tag_get_handle("mbdmsl_YCOORDS", 1, MB_TYPE_DOUBLE,
-                               dU.ycoordsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT);CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_YCOORDS");
+                               dU.ycoordsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT);MB_CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_YCOORDS");
   dU.ycoordsTag.tagType = MB_TAG_ANY;
   dU.tagMap.push_back(dU.ycoordsTag);
 
   rval = mbImpl->tag_get_handle("mbdmsl_ZCOORDS", 1, MB_TYPE_DOUBLE,
-                               dU.zcoordsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT);CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_ZCOORDS");
+                               dU.zcoordsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT);MB_CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_ZCOORDS");
   dU.zcoordsTag.tagType = MB_TAG_ANY;
   dU.tagMap.push_back(dU.zcoordsTag);
 
   rval = mbImpl->tag_get_handle("mbdmsl_COLL_FLAGS", 1, MB_TYPE_INTEGER,
-                               dU.collFlagsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT);CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_COLL_FLAGS");
+                               dU.collFlagsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT);MB_CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_COLL_FLAGS");
   dU.collFlagsTag.tagType = MB_TAG_ANY;
   dU.tagMap.push_back(dU.collFlagsTag);
 
 /*
   rval = mbImpl->tag_get_handle("mbdmsl_PARENTS", 1, MB_TYPE_HANDLE,
-                               dU.parentsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT | MB_TAG_VARLEN);CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_PARENTS");
+                               dU.parentsTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT | MB_TAG_VARLEN);MB_CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_PARENTS");
   dU.parentsTag.tagType = MB_TAG_DENSE;
   dU.tagMap.push_back(dU.parentsTag);
 
   rval = mbImpl->tag_get_handle("mbdmsl_CHILDREN", 1, MB_TYPE_HANDLE,
-                               dU.childrenTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT | MB_TAG_VARLEN);CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_CHILDREN");
+                               dU.childrenTag.mTagh, MB_TAG_DENSE | MB_TAG_CREAT | MB_TAG_VARLEN);MB_CHK_SET_ERR_CONT(rval, "Failed to create_tag mbdmsl_CHILDREN");
   dU.childrenTag.tagType = MB_TAG_DENSE;
   dU.tagMap.push_back(dU.childrenTag);
 */
@@ -147,13 +147,13 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   unlink(file_name);
   err = DMSLmodel_attach(dU.dmslModel, file_name, comm, NULL);CHK_DMSL_ERR(err, "DMSLmodel_attach failed");
 
-  rval = mWriteIface->gather_entities(all_ents, meshset_list, num_sets);CHK_SET_ERR(rval, "Gather entities failed in WriteDamsel");
+  rval = mWriteIface->gather_entities(all_ents, meshset_list, num_sets);MB_CHK_SET_ERR(rval, "Gather entities failed in WriteDamsel");
 
   if (all_ents.empty())
     return MB_SUCCESS;
 
   // Create damsel tags for MOAB dense, sparse, and conventional tags
-  rval = init_tag_info();CHK_ERR(rval);
+  rval = init_tag_info();MB_CHK_ERR(rval);
 
   // Iterate through the groups of contiguous sequences of handles
   RangeSeqIntersectIter rsi(sequenceManager);
@@ -162,7 +162,7 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   while (MB_SUCCESS == rval) {
     // Write subrange of things to damsel: map handles, map entity definition data (connectivity/coords/set contents),
     // map dense tags
-    rval = write_subrange(rsi);CHK_SET_ERR(rval, "Failed to write subrange");
+    rval = write_subrange(rsi);MB_CHK_SET_ERR(rval, "Failed to write subrange");
 
     rval = rsi.step();
     while (MB_ENTITY_NOT_FOUND == rval)
@@ -170,7 +170,7 @@ ErrorCode WriteDamsel::write_file(const char *file_name,
   }
 
   // Write sparse tags
-  rval = map_sparse_tags();CHK_SET_ERR(rval, "Failed to write sparse tags");
+  rval = map_sparse_tags();MB_CHK_SET_ERR(rval, "Failed to write sparse tags");
 
   //damsel_request_t request;
   //err = DMSLmodel_transfer_async(dU.dmslModel, DAMSEL_TRANSFER_TYPE_WRITE, &request);
@@ -191,7 +191,7 @@ ErrorCode WriteDamsel::init_tag_info()
 {
   // Initialize allTags and tagIndices
   std::vector<Tag> tmp_mtags;
-  ErrorCode rval = mbImpl->tag_get_tags(tmp_mtags);CHK_SET_ERR(rval, "Failed to get all tag handles.");
+  ErrorCode rval = mbImpl->tag_get_tags(tmp_mtags);MB_CHK_SET_ERR(rval, "Failed to get all tag handles.");
   int dum_size;
   damsel_err_t err;
 
@@ -260,14 +260,14 @@ ErrorCode WriteDamsel::init_tag_info()
                                            DamselUtil::mtod_data_type[(dU.collFlagsTagPair.first)->get_data_type()],
                                            (dU.parentsTagPair.first)->get_name().c_str());
   if (DAMSEL_TAG_INVALID == dtag)
-    SET_ERR(MB_FAILURE, "Failure to get Damsel tag for MOAB tag " << (dU.parentsTagPair.first)->get_name());
+    MB_SET_ERR(MB_FAILURE, "Failure to get Damsel tag for MOAB tag " << (dU.parentsTagPair.first)->get_name());
 
   // CHILDREN
   dU.childrenTagPair.second = DMSLtag_define(dU.dmslModel, (damsel_handle_ptr)&(dU.collFlagsTagPair.first), 
                                            DamselUtil::mtod_data_type[(dU.collFlagsTagPair.first)->get_data_type()],
                                            (dU.childrenTagPair.first)->get_name().c_str());
   if (DAMSEL_TAG_INVALID == dtag)
-    SET_ERR(MB_FAILURE, "Failure to get Damsel tag for MOAB tag " << (dU.childrenTagPair.first)->get_name());
+    MB_SET_ERR(MB_FAILURE, "Failure to get Damsel tag for MOAB tag " << (dU.childrenTagPair.first)->get_name());
 */
 
   // Map the tag handles in one big call
@@ -297,7 +297,7 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
   damsel_container vertex_cont = DMSLcontainer_create_sequence(dU.dmslModel, start_vert, (int)(end_vert-start_vert+1), 1);
   std::cerr << "MOAB: created model container: vertex_cont = " << vertex_cont <<std::endl;
   if (DAMSEL_CONTAINER_INVALID == vertex_cont)
-    SET_ERR(MB_FAILURE, "Failed to create vertex sequence for vertices starting with handle " << rsi.get_start_handle());
+    MB_SET_ERR(MB_FAILURE, "Failed to create vertex sequence for vertices starting with handle " << rsi.get_start_handle());
 
   damsel_err_t err = DMSLmodel_map_handles_inventing_file_handles(vertex_cont);CHK_DMSL_ERR(err, "Failed to map handles");
 
@@ -309,9 +309,9 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
   double *xcoords = NULL, *ycoords = NULL, *zcoords = NULL;
   int count;
   ErrorCode rval = mbImpl->coords_iterate(vert_range.begin(), vert_range.end(),
-                                          xcoords, ycoords, zcoords, count);CHK_SET_ERR(rval, "Failed to get coordinate iterator for vertices starting with handle " << rsi.get_start_handle());
+                                          xcoords, ycoords, zcoords, count);MB_CHK_SET_ERR(rval, "Failed to get coordinate iterator for vertices starting with handle " << rsi.get_start_handle());
   if (count != (int)vert_range.size()) {
-    SET_ERR(MB_FAILURE, "Vertex subrange not in the same sequence for vertices starting with handle " << rsi.get_start_handle());
+    MB_SET_ERR(MB_FAILURE, "Vertex subrange not in the same sequence for vertices starting with handle " << rsi.get_start_handle());
   }
 
   if (xcoords && !ycoords && !zcoords) {
@@ -328,7 +328,7 @@ ErrorCode WriteDamsel::write_vertices(RangeSeqIntersectIter &rsi)
   }
 
   // Write/map dense tags
-  rval = map_dense_tags(rsi, vertex_cont);CHK_ERR(rval);
+  rval = map_dense_tags(rsi, vertex_cont);MB_CHK_ERR(rval);
 
   err = DMSLcontainer_release(vertex_cont);CHK_DMSL_ERR(err, "Problem releasing vertex handle container");
 
@@ -345,7 +345,7 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
   ent_cont = DMSLcontainer_create_sequence(dU.dmslModel, start_ent, (int)(end_ent-start_ent+1), 1);
   std::cerr << "MOAB: created model container: ent_cont = " << ent_cont <<std::endl;
   if (DAMSEL_CONTAINER_INVALID == ent_cont)
-    SET_ERR(MB_FAILURE, "Bad sequence returned by Damsel");
+    MB_SET_ERR(MB_FAILURE, "Bad sequence returned by Damsel");
 
   damsel_err_t err = DMSLmodel_map_handles_inventing_file_handles(ent_cont);CHK_DMSL_ERR(err, "Failed to map handles");
 
@@ -360,15 +360,15 @@ ErrorCode WriteDamsel::write_entities(RangeSeqIntersectIter &rsi)
   int count;
   EntityHandle *connect;
   int verts_per_ent;
-  ErrorCode rval = mbImpl->connect_iterate(ent_range.begin(), ent_range.end(), connect, verts_per_ent, count);CHK_SET_ERR(rval, "Failed to get connect iterator for entities starting with handle " << rsi.get_start_handle());
+  ErrorCode rval = mbImpl->connect_iterate(ent_range.begin(), ent_range.end(), connect, verts_per_ent, count);MB_CHK_SET_ERR(rval, "Failed to get connect iterator for entities starting with handle " << rsi.get_start_handle());
   if (count != (int)ent_range.size())
-    SET_ERR(MB_FAILURE, "Entity subrange not in the same sequence for entities starting with handle " << rsi.get_start_handle());
+    MB_SET_ERR(MB_FAILURE, "Entity subrange not in the same sequence for entities starting with handle " << rsi.get_start_handle());
 
   // Define the entities to damsel
   err = DMSLentity_define_fast(ent_cont, DamselUtil::mtod_entity_type[etype], num_connect, (damsel_handle*)connect);CHK_DMSL_ERR(err, "DMSLentity_define failed for entities starting with handle " << rsi.get_start_handle());
 
   // Write dense tags
-  rval = map_dense_tags(rsi, ent_cont);CHK_ERR(rval);
+  rval = map_dense_tags(rsi, ent_cont);MB_CHK_ERR(rval);
 
   err = DMSLcontainer_release(ent_cont);CHK_DMSL_ERR(err, "Problem releasing entity handle container");
 
@@ -391,7 +391,7 @@ ErrorCode WriteDamsel::map_dense_tags(RangeSeqIntersectIter &rsi, damsel_contain
     DenseTag *dtag = dynamic_cast<DenseTag*>((*tagit).mTagh);
     assert(dtag);
     rval = dtag->get_array(rsi.get_sequence(), val_ptr);
-    CHK_SET_ERR(rval, "Failed to get tag coordinates pointer for vertices starting with handle " << rsi.get_start_handle());
+    MB_CHK_SET_ERR(rval, "Failed to get tag coordinates pointer for vertices starting with handle " << rsi.get_start_handle());
 
     // If ptr is NULL, no data for this tag in this sequence
     if (!val_ptr)
@@ -421,7 +421,7 @@ ErrorCode WriteDamsel::map_sparse_tags()
     SparseTag *stag = dynamic_cast<SparseTag*>((*tagit).mTagh);
     assert(stag);
     Range output_ents;
-    rval = stag->get_tagged_entities(sequenceManager, output_ents);CHK_SET_ERR(rval, "Trouble getting tagged entities for tag " << stag->get_name());
+    rval = stag->get_tagged_entities(sequenceManager, output_ents);MB_CHK_SET_ERR(rval, "Trouble getting tagged entities for tag " << stag->get_name());
 
     // If no entities have this tag set, don't map it
     if (output_ents.empty())
@@ -430,7 +430,7 @@ ErrorCode WriteDamsel::map_sparse_tags()
     // Else, register with damsel
     // Allocate space for and get values
     tag_values.resize(stag->get_size() * output_ents.size());
-    rval = mbImpl->tag_get_data(stag, output_ents, &tag_values[0]);CHK_SET_ERR(rval, "Trouble getting tag values for tag " << stag->get_name());
+    rval = mbImpl->tag_get_data(stag, output_ents, &tag_values[0]);MB_CHK_SET_ERR(rval, "Trouble getting tag values for tag " << stag->get_name());
 
     // Build a vector of entity handles from the range, and a container from that
     tagged_ents.resize(output_ents.size());
@@ -438,7 +438,7 @@ ErrorCode WriteDamsel::map_sparse_tags()
     ent_cont = DMSLcontainer_create_vector(dU.dmslModel, (damsel_handle_ptr)&tagged_ents[0], tagged_ents.size());
     std::cerr << "MOAB: created model container: sparse_tag_ent_cont = " << ent_cont <<std::endl;
     if (DAMSEL_CONTAINER_INVALID == ent_cont)
-      SET_ERR(MB_FAILURE, "Trouble creating entity handle container for tag " << stag->get_name());
+      MB_SET_ERR(MB_FAILURE, "Trouble creating entity handle container for tag " << stag->get_name());
 
     // Now map it
     err = DMSLmodel_map_tag((void*)&tag_values[0], ent_cont, (damsel_handle_ptr)&stag);CHK_DMSL_ERR(err, "Failed to write tag " << stag->get_name());
@@ -462,7 +462,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
   for (seth = rsi.get_start_handle(), i = 0; seth <= rsi.get_end_handle(); seth++, i++) {
     // Get all the entities in the set
     ents.clear();
-    rval = mbImpl->get_entities_by_handle(seth, ents);CHK_SET_ERR(rval, "get_entities_by_handle failed for set " << seth);
+    rval = mbImpl->get_entities_by_handle(seth, ents);MB_CHK_SET_ERR(rval, "get_entities_by_handle failed for set " << seth);
     if (!ents.empty()) {
       mcont = DMSLcontainer_create_vector(dU.dmslModel, (damsel_handle*)&ents[0], ents.size());
     }
@@ -473,7 +473,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
 
     // Get the set type (range or set)
     unsigned int opts;
-    rval = mbImpl->get_meshset_options(seth, opts);CHK_SET_ERR(rval, "Failed to get options for meshset " << seth);
+    rval = mbImpl->get_meshset_options(seth, opts);MB_CHK_SET_ERR(rval, "Failed to get options for meshset " << seth);
     damsel_collection_type coll_type = (opts&MESHSET_SET ? DAMSEL_HANDLE_COLLECTION_TYPE_SET :
                      DAMSEL_HANDLE_COLLECTION_TYPE_VECTOR);
 
@@ -504,7 +504,7 @@ ErrorCode WriteDamsel::write_sets(RangeSeqIntersectIter &rsi)
   err = DMSLmodel_map_handles_inventing_file_handles(mcont);CHK_DMSL_ERR(err, "Failed to map set handles");
 
   // Map other dense tags
-  rval = map_dense_tags(rsi, mcont);CHK_SET_ERR(rval, "Failed to map dense tags for sets");
+  rval = map_dense_tags(rsi, mcont);MB_CHK_SET_ERR(rval, "Failed to map dense tags for sets");
 
   return rval;
 }

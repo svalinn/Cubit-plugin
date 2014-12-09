@@ -45,13 +45,13 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   // Get and cache predefined tag handles
   int dum_val = 0;
   rval = mbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER, mGlobalIdTag, MB_TAG_DENSE | MB_TAG_CREAT,
-                                &dum_val);CHK_SET_ERR(rval, "Trouble getting global ID tag");
+                                &dum_val);MB_CHK_SET_ERR(rval, "Trouble getting global ID tag");
 
   // Store the pointer to the tag; if not null, set when global id tag
   // is set too, with the same data, duplicated
   mpFileIdTag = file_id_tag;
 
-  rval = parse_options(opts, var_names, tstep_nums, tstep_vals);CHK_SET_ERR(rval, "Trouble parsing option string");
+  rval = parse_options(opts, var_names, tstep_nums, tstep_vals);MB_CHK_SET_ERR(rval, "Trouble parsing option string");
 
   // Open the file
   dbgOut.tprintf(1, "Opening file %s\n", file_name);
@@ -67,18 +67,18 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   success = NCFUNC(open)(file_name, 0, &fileId);
 #endif
   if (success)
-    SET_ERR(MB_FAILURE, "Trouble opening file " << file_name);
+    MB_SET_ERR(MB_FAILURE, "Trouble opening file " << file_name);
 
   // Read the header (num dimensions, dimensions, num variables, global attribs)
-  rval = read_header();CHK_SET_ERR(rval, "Trouble reading file header");
+  rval = read_header();MB_CHK_SET_ERR(rval, "Trouble reading file header");
 
   // Make sure there's a file set to put things in
   EntityHandle tmp_set;
   if (noMesh && !file_set) {
-    SET_ERR(MB_FAILURE, "NOMESH option requires non-NULL file set on input");
+    MB_SET_ERR(MB_FAILURE, "NOMESH option requires non-NULL file set on input");
   }
   else if (!file_set || (file_set && *file_set == 0)) {
-    rval = mbImpl->create_meshset(MESHSET_SET, tmp_set);CHK_SET_ERR(rval, "Trouble creating file set");
+    rval = mbImpl->create_meshset(MESHSET_SET, tmp_set);MB_CHK_SET_ERR(rval, "Trouble creating file set");
   }
   else
     tmp_set = *file_set;
@@ -95,15 +95,15 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   // Get appropriate NC helper instance based on information read from the header
   myHelper = NCHelper::get_nc_helper(this, fileId, opts, tmp_set);
   if (NULL == myHelper) {
-    SET_ERR(MB_FAILURE, "Failed to get NCHelper class instance");
+    MB_SET_ERR(MB_FAILURE, "Failed to get NCHelper class instance");
   }
 
   // Initialize mesh values
-  rval = myHelper->init_mesh_vals();CHK_SET_ERR(rval, "Trouble initializing mesh values");
+  rval = myHelper->init_mesh_vals();MB_CHK_SET_ERR(rval, "Trouble initializing mesh values");
 
   // Check existing mesh from last read
   if (noMesh && !noVars) {
-    rval = myHelper->check_existing_mesh();CHK_SET_ERR(rval, "Trouble checking mesh from last read");
+    rval = myHelper->check_existing_mesh();MB_CHK_SET_ERR(rval, "Trouble checking mesh from last read");
   }
 
   // Create some conventional tags, e.g. __NUM_DIMS
@@ -113,40 +113,40 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   Tag convTagsCreated = 0;
   int def_val = 0;
   rval = mbImpl->tag_get_handle("__CONV_TAGS_CREATED", 1, MB_TYPE_INTEGER, convTagsCreated,
-                                MB_TAG_SPARSE | MB_TAG_CREAT, &def_val);CHK_SET_ERR(rval, "Trouble getting _CONV_TAGS_CREATED tag");
+                                MB_TAG_SPARSE | MB_TAG_CREAT, &def_val);MB_CHK_SET_ERR(rval, "Trouble getting _CONV_TAGS_CREATED tag");
   int create_conv_tags_flag = 0;
   rval = mbImpl->tag_get_data(convTagsCreated, &tmp_set, 1, &create_conv_tags_flag);
   // The first read to the file set
   if (0 == create_conv_tags_flag) {
     // Read dimensions (coordinate variables) by default to create tags like __<var_name>_DIMS
     // This is done only once (assume that all files read to the file set have the same dimensions)
-    rval = myHelper->read_variables(dimNames, tstep_nums);CHK_SET_ERR(rval, "Trouble reading dimensions");
+    rval = myHelper->read_variables(dimNames, tstep_nums);MB_CHK_SET_ERR(rval, "Trouble reading dimensions");
 
-    rval = myHelper->create_conventional_tags(tstep_nums);CHK_SET_ERR(rval, "Trouble creating NC conventional tags");
+    rval = myHelper->create_conventional_tags(tstep_nums);MB_CHK_SET_ERR(rval, "Trouble creating NC conventional tags");
 
     create_conv_tags_flag = 1;
-    rval = mbImpl->tag_set_data(convTagsCreated, &tmp_set, 1, &create_conv_tags_flag);CHK_SET_ERR(rval, "Trouble setting data to _CONV_TAGS_CREATED tag");
+    rval = mbImpl->tag_set_data(convTagsCreated, &tmp_set, 1, &create_conv_tags_flag);MB_CHK_SET_ERR(rval, "Trouble setting data to _CONV_TAGS_CREATED tag");
   }
   // Another read to the file set
   else {
     if (tStepBase > -1) {
       // If timesteps spread across files, merge time values read
       // from current file to existing time tag
-      rval = myHelper->update_time_tag_vals();CHK_SET_ERR(rval, "Trouble updating time tag values");
+      rval = myHelper->update_time_tag_vals();MB_CHK_SET_ERR(rval, "Trouble updating time tag values");
     }
   }
 
   // Create mesh vertex/edge/face sequences
   Range faces;
   if (!noMesh) {
-    rval = myHelper->create_mesh(faces);CHK_SET_ERR(rval, "Trouble creating mesh");
+    rval = myHelper->create_mesh(faces);MB_CHK_SET_ERR(rval, "Trouble creating mesh");
   }
 
   // Read specified variables onto grid
   if (!noVars) {
     if (var_names.empty()) {
       // If VARIABLE option is missing, read all variables
-      rval = myHelper->read_variables(var_names, tstep_nums);CHK_SET_ERR(rval, "Trouble reading all variables");
+      rval = myHelper->read_variables(var_names, tstep_nums);MB_CHK_SET_ERR(rval, "Trouble reading all variables");
     }
     else {
       // Exclude dimensions that are read to the file set by default
@@ -157,7 +157,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
       }
 
       if (!non_dim_var_names.empty()) {
-        rval = myHelper->read_variables(non_dim_var_names, tstep_nums);CHK_SET_ERR(rval, "Trouble reading specified variables");
+        rval = myHelper->read_variables(non_dim_var_names, tstep_nums);MB_CHK_SET_ERR(rval, "Trouble reading specified variables");
       }
     }
   }
@@ -166,21 +166,21 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   // Create partition set, and populate with elements
   if (isParallel) {
     EntityHandle partn_set;
-    rval = mbImpl->create_meshset(MESHSET_SET, partn_set);CHK_SET_ERR(rval, "Trouble creating partition set");
+    rval = mbImpl->create_meshset(MESHSET_SET, partn_set);MB_CHK_SET_ERR(rval, "Trouble creating partition set");
 
-    rval = mbImpl->add_entities(partn_set, faces);CHK_SET_ERR(rval, "Couldn't add new faces to partition set");
+    rval = mbImpl->add_entities(partn_set, faces);MB_CHK_SET_ERR(rval, "Couldn't add new faces to partition set");
 
     Range verts;
-    rval = mbImpl->get_connectivity(faces, verts);CHK_SET_ERR(rval, "Couldn't get verts of faces");
+    rval = mbImpl->get_connectivity(faces, verts);MB_CHK_SET_ERR(rval, "Couldn't get verts of faces");
 
-    rval = mbImpl->add_entities(partn_set, verts);CHK_SET_ERR(rval, "Couldn't add new verts to partition set");
+    rval = mbImpl->add_entities(partn_set, verts);MB_CHK_SET_ERR(rval, "Couldn't add new verts to partition set");
 
     myPcomm->partition_sets().insert(partn_set);
 
     // Write partition tag name on partition set
     Tag part_tag = myPcomm->partition_tag();
     int dum_rank = myPcomm->proc_config().proc_rank();
-    rval = mbImpl->tag_set_data(part_tag, &partn_set, 1, &dum_rank);CHK_SET_ERR(rval, "Trouble writing partition tag name on partition set");
+    rval = mbImpl->tag_set_data(part_tag, &partn_set, 1, &dum_rank);MB_CHK_SET_ERR(rval, "Trouble writing partition tag name on partition set");
   }
 #endif
 
@@ -190,7 +190,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   // Close the file
   success = NCFUNC(close)(fileId);
   if (success)
-    SET_ERR(MB_FAILURE, "Trouble closing file");
+    MB_SET_ERR(MB_FAILURE, "Trouble closing file");
 
   return MB_SUCCESS;
 }
@@ -254,17 +254,17 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
 
   rval = opts.get_int_option("GATHER_SET", 0, gatherSetRank);
   if (MB_TYPE_OUT_OF_RANGE == rval) {
-    SET_ERR(rval, "Invalid value for GATHER_SET option");
+    MB_SET_ERR(rval, "Invalid value for GATHER_SET option");
   }
 
   rval = opts.get_int_option("TIMESTEPBASE", 0, tStepBase);
   if (MB_TYPE_OUT_OF_RANGE == rval) {
-    SET_ERR(rval, "Invalid value for TIMESTEPBASE option");
+    MB_SET_ERR(rval, "Invalid value for TIMESTEPBASE option");
   }
 
   rval = opts.get_int_option("TRIVIAL_PARTITION_SHIFT", 1, trivialPartitionShift);
   if (MB_TYPE_OUT_OF_RANGE == rval) {
-    SET_ERR(rval, "Invalid value for TRIVIAL_PARTITION_SHIFT option");
+    MB_SET_ERR(rval, "Invalid value for TRIVIAL_PARTITION_SHIFT option");
   }
 
 #ifdef USE_MPI
@@ -279,7 +279,7 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
   int pcomm_no = 0;
   rval = opts.get_int_option("PARALLEL_COMM", pcomm_no);
   if (MB_TYPE_OUT_OF_RANGE == rval) {
-    SET_ERR(rval, "Invalid value for PARALLEL_COMM option");
+    MB_SET_ERR(rval, "Invalid value for PARALLEL_COMM option");
   }
   myPcomm = ParallelComm::get_pcomm(mbImpl, pcomm_no);
   if (0 == myPcomm) {
@@ -291,7 +291,7 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
   int dum;
   rval = opts.match_option("PARTITION_METHOD", ScdParData::PartitionMethodNames, dum);
   if (MB_FAILURE == rval) {
-    SET_ERR(rval, "Unknown partition method specified");
+    MB_SET_ERR(rval, "Unknown partition method specified");
   }
   else if (MB_ENTITY_NOT_FOUND == rval)
     partMethod = ScdParData::ALLJORKORI;
@@ -311,18 +311,18 @@ ErrorCode ReadNC::read_header()
   int success;
   success = NCFUNC(inq_natts )(fileId, &numgatts);
   if (success)
-    SET_ERR(MB_FAILURE, "Couldn't get number of global attributes");
+    MB_SET_ERR(MB_FAILURE, "Couldn't get number of global attributes");
 
   // Read attributes into globalAtts
-  ErrorCode result = get_attributes(NC_GLOBAL, numgatts, globalAtts);CHK_SET_ERR(result, "Trouble getting global attributes");
+  ErrorCode result = get_attributes(NC_GLOBAL, numgatts, globalAtts);MB_CHK_SET_ERR(result, "Trouble getting global attributes");
   dbgOut.tprintf(1, "Read %u attributes\n", (unsigned int) globalAtts.size());
 
   // Read in dimensions into dimNames and dimLens
-  result = get_dimensions(fileId, dimNames, dimLens);CHK_SET_ERR(result, "Trouble getting dimensions");
+  result = get_dimensions(fileId, dimNames, dimLens);MB_CHK_SET_ERR(result, "Trouble getting dimensions");
   dbgOut.tprintf(1, "Read %u dimensions\n", (unsigned int) dimNames.size());
 
   // Read in variables into varInfo
-  result = get_variables();CHK_SET_ERR(result, "Trouble getting variables");
+  result = get_variables();MB_CHK_SET_ERR(result, "Trouble getting variables");
   dbgOut.tprintf(1, "Read %u variables\n", (unsigned int) varInfo.size());
 
   return MB_SUCCESS;
@@ -336,13 +336,13 @@ ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string,
     // Get the name
     int success = NCFUNC(inq_attname)(fileId, var_id, i, dum_name);
     if (success)
-      SET_ERR(MB_FAILURE, "Trouble getting attribute name");
+      MB_SET_ERR(MB_FAILURE, "Trouble getting attribute name");
 
     AttData &data = atts[std::string(dum_name)];
     data.attName = std::string(dum_name);
     success = NCFUNC(inq_att)(fileId, var_id, dum_name, &data.attDataType, &data.attLen);
     if (success)
-      SET_ERR(MB_FAILURE, "Trouble getting info for attribute " << data.attName);
+      MB_SET_ERR(MB_FAILURE, "Trouble getting info for attribute " << data.attName);
     data.attVarId = var_id;
 
     dbgOut.tprintf(2, "%sAttribute %s: length=%u, varId=%d, type=%d\n", (prefix ? prefix : ""), data.attName.c_str(),
@@ -358,10 +358,10 @@ ErrorCode ReadNC::get_dimensions(int file_id, std::vector<std::string>& dim_name
   int num_dims;
   int success = NCFUNC(inq_ndims)(file_id, &num_dims);
   if (success)
-    SET_ERR(MB_FAILURE, "Trouble getting number of dimensions");
+    MB_SET_ERR(MB_FAILURE, "Trouble getting number of dimensions");
 
   if (num_dims > NC_MAX_DIMS) {
-    SET_ERR(MB_FAILURE, "ReadNC: File contains " << num_dims << " dims but NetCDF library supports only " << NC_MAX_DIMS);
+    MB_SET_ERR(MB_FAILURE, "ReadNC: File contains " << num_dims << " dims but NetCDF library supports only " << NC_MAX_DIMS);
   }
 
   char dim_name[NC_MAX_NAME + 1];
@@ -372,7 +372,7 @@ ErrorCode ReadNC::get_dimensions(int file_id, std::vector<std::string>& dim_name
   for (int i = 0; i < num_dims; i++) {
     success = NCFUNC(inq_dim)(file_id, i, dim_name, &dim_len);
     if (success)
-      SET_ERR(MB_FAILURE, "Trouble getting dimension info");
+      MB_SET_ERR(MB_FAILURE, "Trouble getting dimension info");
 
     dim_names[i] = std::string(dim_name);
     dim_lens[i] = dim_len;
@@ -400,10 +400,10 @@ ErrorCode ReadNC::get_variables()
   int num_vars;
   int success = NCFUNC(inq_nvars)(fileId, &num_vars);
   if (success)
-    SET_ERR(MB_FAILURE, "Trouble getting number of variables");
+    MB_SET_ERR(MB_FAILURE, "Trouble getting number of variables");
 
   if (num_vars > NC_MAX_VARS) {
-    SET_ERR(MB_FAILURE, "ReadNC: File contains " << num_vars << " vars but NetCDF library supports only " << NC_MAX_VARS);
+    MB_SET_ERR(MB_FAILURE, "ReadNC: File contains " << num_vars << " vars but NetCDF library supports only " << NC_MAX_VARS);
   }
 
   char var_name[NC_MAX_NAME + 1];
@@ -413,7 +413,7 @@ ErrorCode ReadNC::get_variables()
     // Get the name first, so we can allocate a map iterate for this var
     success = NCFUNC(inq_varname )(fileId, i, var_name);
     if (success)
-      SET_ERR(MB_FAILURE, "Trouble getting variable name");
+      MB_SET_ERR(MB_FAILURE, "Trouble getting variable name");
     VarData &data = varInfo[std::string(var_name)];
     data.varName = std::string(var_name);
     data.varId = i;
@@ -422,28 +422,28 @@ ErrorCode ReadNC::get_variables()
     // Get the data type
     success = NCFUNC(inq_vartype)(fileId, i, &data.varDataType);
     if (success)
-      SET_ERR(MB_FAILURE, "Trouble getting data type for variable " << data.varName);
+      MB_SET_ERR(MB_FAILURE, "Trouble getting data type for variable " << data.varName);
 
     // Get the number of dimensions, then the dimensions
     success = NCFUNC(inq_varndims)(fileId, i, &var_ndims);
     if (success)
-      SET_ERR(MB_FAILURE, "Trouble getting number of dims for variable " << data.varName);
+      MB_SET_ERR(MB_FAILURE, "Trouble getting number of dims for variable " << data.varName);
     data.varDims.resize(var_ndims);
 
     success = NCFUNC(inq_vardimid)(fileId, i, &data.varDims[0]);
     if (success)
-      SET_ERR(MB_FAILURE, "Trouble getting dimensions for variable " << data.varName);
+      MB_SET_ERR(MB_FAILURE, "Trouble getting dimensions for variable " << data.varName);
 
     // Finally, get the number of attributes, then the attributes
     success = NCFUNC(inq_varnatts)(fileId, i, &data.numAtts);
     if (success)
-      SET_ERR(MB_FAILURE, "Trouble getting number of dims for variable " << data.varName);
+      MB_SET_ERR(MB_FAILURE, "Trouble getting number of dims for variable " << data.varName);
 
     // Print debug info here so attribute info comes afterwards
     dbgOut.tprintf(2, "Variable %s: Id=%d, numAtts=%d, datatype=%d, num_dims=%u\n", data.varName.c_str(), data.varId, data.numAtts,
         data.varDataType, (unsigned int) data.varDims.size());
 
-    ErrorCode rval = get_attributes(i, data.numAtts, data.varAtts, "   ");CHK_SET_ERR(rval, "Trouble getting attributes for variable " << data.varName);
+    ErrorCode rval = get_attributes(i, data.numAtts, data.varAtts, "   ");MB_CHK_SET_ERR(rval, "Trouble getting attributes for variable " << data.varName);
   }
 
   return MB_SUCCESS;

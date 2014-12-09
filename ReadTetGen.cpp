@@ -56,7 +56,7 @@ ErrorCode ReadTetGen::open_file(const std::string& filename,
   if (!real_file_name.empty())
     file_stream.open(real_file_name.c_str(), std::ios::in);
   if (file_required && !file_stream.is_open()) {
-    SET_ERR(MB_FILE_DOES_NOT_EXIST, real_file_name << ": cannot read file");
+    MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, real_file_name << ": cannot read file");
   }
 
   return MB_SUCCESS;
@@ -81,7 +81,7 @@ ErrorCode ReadTetGen::load_file(const char* file_name_c,
   ErrorCode rval;
 
   if (subset_list) {
-    SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for TetGen");
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for TetGen");
   }
 
   std::string suffix, base, filename(file_name_c);
@@ -126,7 +126,7 @@ ErrorCode ReadTetGen::load_file(const char* file_name_c,
       continue;
     rval = parse_attr_list(opt_str, attr_tags[i], attr_idx[i], group_names[i]);
     if (MB_SUCCESS != rval) {
-      SET_ERR(MB_TYPE_OUT_OF_RANGE, option_names[i] << ": invalid option value");
+      MB_SET_ERR(MB_TYPE_OUT_OF_RANGE, option_names[i] << ": invalid option value");
     }
   }
 
@@ -236,7 +236,7 @@ ErrorCode ReadTetGen::read_line(std::istream& file,
   for (int i = 0; i < num_values; ++i) {
     double v;
     if (!(str >> v)) {
-      SET_ERR(MB_FAILURE, "Error reading node data at line " << lineno);
+      MB_SET_ERR(MB_FAILURE, "Error reading node data at line " << lineno);
     }
     values_out[i] = v;
   }
@@ -244,7 +244,7 @@ ErrorCode ReadTetGen::read_line(std::istream& file,
   // Check that we're at the end of the line
   int junk;
   if ((str >> junk) || !str.eof()) {
-    SET_ERR(MB_FAILURE, "Unexpected trailing data for line " << lineno << " of node data");
+    MB_SET_ERR(MB_FAILURE, "Unexpected trailing data for line " << lineno << " of node data");
   }
 
   return MB_SUCCESS;
@@ -270,7 +270,7 @@ ErrorCode ReadTetGen::read_node_file(std::istream& file,
   const int num_attr = (int)header_vals[2];
   const int bdry_flag = (int)header_vals[3];
   if (num_vtx < 1 || dim < 2 || dim > 3 || num_attr < 0 || bdry_flag < 0 || bdry_flag > 1) {
-    SET_ERR(MB_FAILURE, "Invalid header line for node data");
+    MB_SET_ERR(MB_FAILURE, "Invalid header line for node data");
   }
   if (attr_tag_list_len > num_attr)
     attr_tag_list_len = num_attr;
@@ -392,7 +392,7 @@ ErrorCode ReadTetGen::read_elem_file(EntityType type,
     return rval;
   const int num_elem = (int)header_vals[0];
   if (num_elem < 1 || node_per_elem < 2 || have_group_id < 0 || have_group_id > 1) {
-    SET_ERR(MB_FAILURE, "Invalid header line for element data");
+    MB_SET_ERR(MB_FAILURE, "Invalid header line for element data");
   }
 
   // Create group map

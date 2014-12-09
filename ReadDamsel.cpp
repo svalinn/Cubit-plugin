@@ -59,7 +59,7 @@ ErrorCode ReadDamsel::parse_options(const FileOptions &opts,
   parallel = (rval != MB_ENTITY_NOT_FOUND);
   nativeParallel = (rval == MB_SUCCESS);
   if (use_mpio && !parallel) {
-    SET_ERR(MB_NOT_IMPLEMENTED, "'USE_MPIO' option specified w/out 'PARALLEL' option");
+    MB_SET_ERR(MB_NOT_IMPLEMENTED, "'USE_MPIO' option specified w/out 'PARALLEL' option");
   }
 
   return MB_SUCCESS;
@@ -106,7 +106,7 @@ ErrorCode ReadDamsel::load_file(const char* filename,
   num_ent_infos = DMSLmodel_get_entity_count(dU.dmslModel);
   int num_coll_infos = DMSLmodel_get_collection_count(dU.dmslModel);CHK_DMSL_ERR(err, "DMSLmodel_get_collection_count failed");
   if (-1 == num_containers || -1 == num_tag_infos || -1 == num_ent_infos) 
-    SET_ERR(MB_FAILURE, "Bad count for containers/tags/ents");
+    MB_SET_ERR(MB_FAILURE, "Bad count for containers/tags/ents");
 
   std::vector<damsel_entity_buf_type> ent_infos(num_ent_infos);
   std::vector<damsel_collection_buf_type> coll_infos(num_coll_infos);
@@ -118,7 +118,7 @@ ErrorCode ReadDamsel::load_file(const char* filename,
   err = DMSLmodel_get_container_infos(dU.dmslModel, &cont_infos[0]);CHK_DMSL_ERR(err, "Failure getting container infos");
 
   // Create MOAB-side tags for all damsel tags except pre-defined ones
-  rval = process_tags(tag_infos);CHK_SET_ERR(rval, "Error processing tags");
+  rval = process_tags(tag_infos);MB_CHK_SET_ERR(rval, "Error processing tags");
 
 /*
   if (nativeParallel) {
@@ -168,7 +168,7 @@ ErrorCode ReadDamsel::load_file(const char* filename,
 
     // - Create moab entity sets for partition collection(s)
     EntityHandle start_handle;
-    rval = readMeshIface->create_entity_sets(my_num_handles, &char_tagvals[first_ind], 0, start_handle);CHK_SET_ERR(rval, "Problem creating entity sets");
+    rval = readMeshIface->create_entity_sets(my_num_handles, &char_tagvals[first_ind], 0, start_handle);MB_CHK_SET_ERR(rval, "Problem creating entity sets");
   }
   else {
 */
@@ -182,13 +182,13 @@ ErrorCode ReadDamsel::load_file(const char* filename,
     // Process verts info first
     for (eiit =  ent_infos.begin(); eiit != ent_infos.end(); ++eiit) {
       if ((*eiit).entity_type == DAMSEL_ENTITY_TYPE_VERTEX) {
-        rval = process_ent_info(*eiit);CHK_ERR(rval);
+        rval = process_ent_info(*eiit);MB_CHK_ERR(rval);
       }
     }
 
     for (eiit =  ent_infos.begin(); eiit != ent_infos.end(); ++eiit) {
       if ((*eiit).entity_type != DAMSEL_ENTITY_TYPE_VERTEX) {
-        rval = process_ent_info(*eiit);CHK_ERR(rval);
+        rval = process_ent_info(*eiit);MB_CHK_ERR(rval);
       }
     }
 
@@ -196,7 +196,7 @@ ErrorCode ReadDamsel::load_file(const char* filename,
   }
 
   // Process collections
-  rval = process_coll_infos(coll_infos);CHK_ERR(rval);
+  rval = process_coll_infos(coll_infos);MB_CHK_ERR(rval);
 
   // STEP 5: Process into list of local info structs, each represents file-side struct and
   // portion of that struct
@@ -315,7 +315,7 @@ ErrorCode ReadDamsel::process_ent_info(const damsel_entity_buf_type &einfo)
     // Create the moab entities
     rval = readMeshIface->get_element_connect(einfo.count, einfo.vertices_per_entity,
                                               DamselUtil::dtom_entity_type[einfo.entity_type],
-                                              0, start_handle, connect);CHK_ERR(rval);
+                                              0, start_handle, connect);MB_CHK_ERR(rval);
     these_ents.insert(start_handle, start_handle + einfo.count - 1);
 
     // Create an app-side sequence and map to file-side container
@@ -324,7 +324,7 @@ ErrorCode ReadDamsel::process_ent_info(const damsel_entity_buf_type &einfo)
 
     // Map connectivity
     assert(DMSLcontainer_count(einfo.vertex_container) == (int)(einfo.vertices_per_entity*einfo.count));
-    rval = get_contents(dU.dmslModel, einfo.vertex_container, connect);CHK_SET_ERR(rval, "Error returned mapping connectivity");
+    rval = get_contents(dU.dmslModel, einfo.vertex_container, connect);MB_CHK_SET_ERR(rval, "Error returned mapping connectivity");
   }
   else {
     // Get the number of coordinate arrays
@@ -342,7 +342,7 @@ ErrorCode ReadDamsel::process_ent_info(const damsel_entity_buf_type &einfo)
     // Should have one vertex per entity
     assert(einfo.vertices_per_entity == 1);
     std::vector<double*> coord_arrays;
-    rval = readMeshIface->get_node_coords(num_ctags, einfo.count, 0, start_handle, coord_arrays);CHK_ERR(rval);
+    rval = readMeshIface->get_node_coords(num_ctags, einfo.count, 0, start_handle, coord_arrays);MB_CHK_ERR(rval);
 
     these_ents.insert(start_handle, start_handle + einfo.count - 1);
 
@@ -385,13 +385,13 @@ ErrorCode ReadDamsel::process_entity_tags(int count, damsel_container tag_contai
     if ((*vit).tagType == MB_TAG_ANY)
       continue;
     else if (vit == dU.tagMap.end())
-      SET_ERR(MB_FAILURE, "Failed to find tag");
+      MB_SET_ERR(MB_FAILURE, "Failed to find tag");
 
     Tag tagh = (*vit).mTagh;
     assert(tagh);
     void *tag_data;
     int ecount = these_ents.size();
-    rval = mbImpl->tag_iterate(tagh, these_ents.begin(), these_ents.end(), ecount, tag_data);CHK_SET_ERR(rval, "Problem getting tag iterator");
+    rval = mbImpl->tag_iterate(tagh, these_ents.begin(), these_ents.end(), ecount, tag_data);MB_CHK_SET_ERR(rval, "Problem getting tag iterator");
     assert(ecount == (int)these_ents.size());
     damsel_err_t err = DMSLmodel_map_tag(tag_data, app_cont, (damsel_handle_ptr)&tagh);CHK_DMSL_ERR(err, "Problem calling DMSLmodel_map_tag");
   }

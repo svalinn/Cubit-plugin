@@ -80,7 +80,7 @@ ErrorCode ReadMCNP5::load_file(const char* filename,
 {
   // At this time there is no support for reading a subset of the file
   if (subset_list) {
-    SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for meshtal");
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for meshtal");
   }
 
   nodeId = elemId = 0;

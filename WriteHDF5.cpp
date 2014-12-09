@@ -172,7 +172,7 @@ static herr_t handle_hdf5_error(void* data)
 #define CHK_MHDF_ERR_0(A) \
 do { \
   if (mhdf_isError(&(A))) { \
-    SET_ERR_CONT(mhdf_message(&(A))); \
+    MB_SET_ERR_CONT(mhdf_message(&(A))); \
     myassert(0); \
     return error(MB_FAILURE); \
   } \
@@ -181,7 +181,7 @@ do { \
 #define CHK_MHDF_ERR_1(A, B) \
 do { \
   if (mhdf_isError(&(A))) { \
-    SET_ERR_CONT(mhdf_message(&(A))); \
+    MB_SET_ERR_CONT(mhdf_message(&(A))); \
     myassert(0); \
     mhdf_closeData(filePtr, (B), &(A)); \
     return error(MB_FAILURE); \
@@ -191,7 +191,7 @@ do { \
 #define CHK_MHDF_ERR_2(A, B) \
 do { \
   if (mhdf_isError(&(A))) { \
-    SET_ERR_CONT(mhdf_message(&(A))); \
+    MB_SET_ERR_CONT(mhdf_message(&(A))); \
     myassert(0); \
     mhdf_closeData(filePtr, (B)[0], &(A)); \
     mhdf_closeData(filePtr, (B)[1], &(A)); \
@@ -202,7 +202,7 @@ do { \
 #define CHK_MHDF_ERR_3(A, B) \
 do { \
   if (mhdf_isError(&(A))) { \
-    SET_ERR_CONT(mhdf_message(&(A))); \
+    MB_SET_ERR_CONT(mhdf_message(&(A))); \
     myassert(0); \
     mhdf_closeData(filePtr, (B)[0], &(A)); \
     mhdf_closeData(filePtr, (B)[1], &(A)); \
@@ -214,7 +214,7 @@ do { \
 #define CHK_MHDF_ERR_2C(A, B, C, D) \
 do { \
   if (mhdf_isError(&(A))) { \
-    SET_ERR_CONT(mhdf_message(&(A))); \
+    MB_SET_ERR_CONT(mhdf_message(&(A))); \
     myassert(0); \
     mhdf_closeData(filePtr, (B), &(A)); \
     if (C) mhdf_closeData(filePtr, (D), &(A)); \
@@ -225,7 +225,7 @@ do { \
 #define CHK_MB_ERR_0(A) \
 do { \
   if (MB_SUCCESS != (A)) { \
-    CHK_ERR_CONT((A)); \
+    MB_CHK_ERR_CONT((A)); \
     return error(A); \
   } \
 } while (false)
@@ -233,7 +233,7 @@ do { \
 #define CHK_MB_ERR_1(A, B, C) \
 do { \
   if (MB_SUCCESS != (A)) { \
-    CHK_ERR_CONT((A)); \
+    MB_CHK_ERR_CONT((A)); \
     mhdf_closeData(filePtr, (B), &(C)); \
     myassert(0); \
     return error(A); \
@@ -243,7 +243,7 @@ do { \
 #define CHK_MB_ERR_2(A, B, C) \
 do { \
   if (MB_SUCCESS != (A)) { \
-    CHK_ERR_CONT((A)); \
+    MB_CHK_ERR_CONT((A)); \
     mhdf_closeData(filePtr, (B)[0], &(C)); \
     mhdf_closeData(filePtr, (B)[1], &(C)); \
     write_finished(); \
@@ -255,7 +255,7 @@ do { \
 #define CHK_MB_ERR_3(A, B, C) \
 do { \
   if (MB_SUCCESS != (A)) { \
-    CHK_ERR_CONT((A)); \
+    MB_CHK_ERR_CONT((A)); \
     mhdf_closeData(filePtr, (B)[0], &(C)); \
     mhdf_closeData(filePtr, (B)[1], &(C)); \
     mhdf_closeData(filePtr, (B)[2], &(C)); \
@@ -268,7 +268,7 @@ do { \
 #define CHK_MB_ERR_2C(A, B, C, D, E) \
 do { \
   if (MB_SUCCESS != (A)) { \
-    CHK_ERR_CONT((A)); \
+    MB_CHK_ERR_CONT((A)); \
     mhdf_closeData(filePtr, (B), &(E)); \
     if (C) \
       mhdf_closeData(filePtr, (D), &(E)); \
@@ -551,7 +551,7 @@ ErrorCode WriteHDF5::write_file(const char* filename,
     mhdf_closeFile(filePtr, &status);
     filePtr = 0;
     if (mhdf_isError(&status)) {
-      SET_ERR_CONT(mhdf_message(&status));
+      MB_SET_ERR_CONT(mhdf_message(&status));
       if (MB_SUCCESS == result)
         result = MB_FAILURE;
     }
@@ -624,7 +624,7 @@ ErrorCode WriteHDF5::write_file_impl(const char* filename,
     elem_count += ex_itor->range.size();
   max_id = (EntityHandle)1 << (8*sizeof(id_t) - 1);
   if (elem_count > max_id) {
-    SET_ERR_CONT("ID space insufficient for mesh size");
+    MB_SET_ERR_CONT("ID space insufficient for mesh size");
     return error(result);
   }
 
@@ -1047,7 +1047,7 @@ ErrorCode WriteHDF5::write_elems(ExportSet& elems)
     for (long i = 0; i < count*nodes_per_elem; ++i) {
       buffer[i] = idMap.find(buffer[i]);
       if (0 == buffer[i]) {
-        SET_ERR_CONT("Invalid " << elems.name() << " element connectivity. Write Aborted");
+        MB_SET_ERR_CONT("Invalid " << elems.name() << " element connectivity. Write Aborted");
         mhdf_closeData(filePtr, elem_table, &status);
         return error(MB_FAILURE);
       }
@@ -2424,7 +2424,7 @@ ErrorCode WriteHDF5::parallel_create_file(const char* /* filename */,
                                           int /* dimension */,
                                           double* /* times */)
 {
-  SET_ERR(MB_NOT_IMPLEMENTED, "WriteHDF5 does not support parallel writing");
+  MB_SET_ERR(MB_NOT_IMPLEMENTED, "WriteHDF5 does not support parallel writing");
 }
 
 ErrorCode WriteHDF5::serial_create_file(const char* filename,

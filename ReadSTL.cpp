@@ -75,7 +75,7 @@ ErrorCode ReadSTL::load_file(const char* filename,
                              const Tag* file_id_tag)
 {
   if (subset_list) {
-    SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for STL");
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for STL");
   }
 
   ErrorCode result;
@@ -88,7 +88,7 @@ ErrorCode ReadSTL::load_file(const char* filename,
   if (MB_SUCCESS == opts.get_null_option("BINARY"))
     is_binary = true;
   if (is_ascii && is_binary) {
-    SET_ERR(MB_FAILURE, "Conflicting options: BINARY ASCII");
+    MB_SET_ERR(MB_FAILURE, "Conflicting options: BINARY ASCII");
   }
 
   bool big_endian = false, little_endian = false;
@@ -97,7 +97,7 @@ ErrorCode ReadSTL::load_file(const char* filename,
   if (MB_SUCCESS == opts.get_null_option("LITTLE_ENDIAN"))
     little_endian = true;
   if (big_endian && little_endian) {
-    SET_ERR(MB_FAILURE, "Conflicting options: BIG_ENDIAN LITTLE_ENDIAN");
+    MB_SET_ERR(MB_FAILURE, "Conflicting options: BIG_ENDIAN LITTLE_ENDIAN");
   }
   ByteOrder byte_order =    big_endian ? STL_BIG_ENDIAN
                        : little_endian ? STL_LITTLE_ENDIAN
@@ -188,7 +188,7 @@ ErrorCode ReadSTL::ascii_read_triangles(const char* name,
 {
   FILE* file = fopen(name, "r");
   if (!file) {
-    SET_ERR(MB_FILE_DOES_NOT_EXIST, name << ": " << strerror(errno));
+    MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, name << ": " << strerror(errno));
   }
 
   char header[82];
@@ -198,7 +198,7 @@ ErrorCode ReadSTL::ascii_read_triangles(const char* name,
       memcmp(header, "solid", 5)           || // Must begin with "solid"
       !isspace(header[5])) {                  // Followed by a whitespace char
     fclose(file);
-    SET_ERR(MB_FILE_WRITE_ERROR, name << ": " << strerror(errno));
+    MB_SET_ERR(MB_FILE_WRITE_ERROR, name << ": " << strerror(errno));
   }
 
   // Use tokenizer for remainder of parsing
@@ -262,14 +262,14 @@ ErrorCode ReadSTL::binary_read_triangles(const char* name,
 {
   FILE* file = fopen(name, "rb");
   if (!file) {
-    SET_ERR(MB_FILE_DOES_NOT_EXIST, name << ": " << strerror(errno));
+    MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, name << ": " << strerror(errno));
   }
 
   // Read header block
   BinaryHeader header;
   if (fread(&header, 84, 1, file) != 1) {
     fclose(file);
-    SET_ERR(MB_FILE_WRITE_ERROR, name << ": " << strerror(errno));
+    MB_SET_ERR(MB_FILE_WRITE_ERROR, name << ": " << strerror(errno));
   }
 
   // Allow user setting for byte order, default to little endian
@@ -309,7 +309,7 @@ ErrorCode ReadSTL::binary_read_triangles(const char* name,
           ULONG_MAX / 50 - 84 < num_tri_swap || // Watch for overflow in next line
           84 + 50 * num_tri_swap != (unsigned long)filesize) {
         fclose(file);
-        SET_ERR(MB_FILE_DOES_NOT_EXIST, name << ": not a binary STL file");
+        MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, name << ": not a binary STL file");
       }
       swap_bytes = !swap_bytes;
       num_tri = num_tri_swap;
@@ -324,7 +324,7 @@ ErrorCode ReadSTL::binary_read_triangles(const char* name,
   for (std::vector<Triangle>::iterator i = tris.begin(); i != tris.end(); ++i) {
     if (fread(&tri, 50, 1, file) != 1) {
       fclose(file);
-      SET_ERR(MB_FILE_WRITE_ERROR, name << ": " << strerror(errno));
+      MB_SET_ERR(MB_FILE_WRITE_ERROR, name << ": " << strerror(errno));
     }
 
     if (swap_bytes)

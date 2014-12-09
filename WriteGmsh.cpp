@@ -131,7 +131,7 @@ ErrorCode WriteGmsh::write_file(const char *file_name,
   }
 
   if (elements.empty()) {
-    SET_ERR(MB_ENTITY_NOT_FOUND, "Nothing to write");
+    MB_SET_ERR(MB_ENTITY_NOT_FOUND, "Nothing to write");
   }
 
   // Get global IDs for all elements.
@@ -178,7 +178,7 @@ ErrorCode WriteGmsh::write_file(const char *file_name,
 
     ei.type = GmshUtil::get_gmsh_type(type, num_vtx);
     if (ei.type < 0) {
-      SET_ERR(MB_FILE_WRITE_ERROR, "Gmem file format does not support element of type " << CN::EntityTypeName(type) << " with " << num_vtx << " vertices");
+      MB_SET_ERR(MB_FILE_WRITE_ERROR, "Gmem file format does not support element of type " << CN::EntityTypeName(type) << " with " << num_vtx << " vertices");
     }
   }
   // Don't need these any more, free memory.

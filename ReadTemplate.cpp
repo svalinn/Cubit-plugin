@@ -61,12 +61,12 @@ ErrorCode ReadTemplate::load_file(const char* filename,
 
   // Process options; see src/FileOptions.hpp for API for FileOptions class, and doc/metadata_info.doc for
   // a description of various options used by some of the readers in MOAB
-  ErrorCode result = process_options(opts);CHK_SET_ERR(result, fileName << ": problem reading options");
+  ErrorCode result = process_options(opts);MB_CHK_SET_ERR(result, fileName << ": problem reading options");
 
   // Open file; filePtr is member of ReadTemplate, change to whatever mechanism is used to identify file
   FILE* filePtr = fopen(fileName, "r");
   if (!filePtr) {
-    SET_ERR(MB_FILE_DOES_NOT_EXIST, fileName << ": fopen returned error");
+    MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, fileName << ": fopen returned error");
   }
 
   // Read number of verts, elements, sets
@@ -116,7 +116,7 @@ ErrorCode ReadTemplate::read_vertices(int num_verts, EntityHandle &start_vertex,
   // for those verts
   std::vector<double*> coord_arrays;
   ErrorCode result = readMeshIface->get_node_coords(3, num_verts, 1, start_vertex,
-                                                    coord_arrays);CHK_SET_ERR(result, fileName << ": Trouble reading vertices");
+                                                    coord_arrays);MB_CHK_SET_ERR(result, fileName << ": Trouble reading vertices");
 
   // Fill in vertex coordinate arrays
   double *x = coord_arrays[0], 
@@ -147,7 +147,7 @@ ErrorCode ReadTemplate::read_elements(int num_elems, EntityHandle start_vertex,
   // starting entity handle
   EntityHandle* conn_array;
   ErrorCode result = readMeshIface->get_element_connect(num_elems, verts_per_elem, ent_type,
-                                                        1, start_elem, conn_array);CHK_SET_ERR(result, fileName << ": Trouble reading elements");
+                                                        1, start_elem, conn_array);MB_CHK_SET_ERR(result, fileName << ": Trouble reading elements");
 
   // Read connectivity into conn_array directly
   for (long i = 0; i < num_elems; i++) {
@@ -190,13 +190,13 @@ ErrorCode ReadTemplate::create_sets(int num_sets, EntityHandle /*start_vertex*/,
 
   for (int i = 0; i < num_sets; i++) {
     // Create set
-    result = mbImpl->create_meshset(MESHSET_SET, this_set);CHK_SET_ERR(result, fileName << ": Trouble creating set");
+    result = mbImpl->create_meshset(MESHSET_SET, this_set);MB_CHK_SET_ERR(result, fileName << ": Trouble creating set");
 
     Range set_ents;
     // Read/compute what's in this set; REMEMBER TO CONVERT THESE TO MOAB HANDLES
 
     // Add them to the set
-    result = mbImpl->add_entities(this_set, set_ents);CHK_SET_ERR(result, fileName << ": Trouble putting entities in set");
+    result = mbImpl->add_entities(this_set, set_ents);MB_CHK_SET_ERR(result, fileName << ": Trouble putting entities in set");
 
     // Add the new set to read_ents
     read_ents.insert(this_set);

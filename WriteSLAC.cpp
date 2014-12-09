@@ -268,7 +268,7 @@ ErrorCode WriteSLAC::gather_mesh_information(MeshInfo &mesh_info,
 
     // Get the matset's id
     if (mbImpl->tag_get_data(mMaterialSetTag, &(*vector_iter), 1, &id) != MB_SUCCESS) {
-      SET_ERR(MB_FAILURE, "Couldn't get matset id from a tag for an element matset");
+      MB_SET_ERR(MB_FAILURE, "Couldn't get matset id from a tag for an element matset");
     }
 
     matset_data.id = id; 
@@ -284,7 +284,7 @@ ErrorCode WriteSLAC::gather_mesh_information(MeshInfo &mesh_info,
     EntityType entity_type = TYPE_FROM_HANDLE(*elem_range_iter);
     --end_elem_range_iter;
     if (entity_type != TYPE_FROM_HANDLE(*(end_elem_range_iter++))) {
-      SET_ERR(MB_FAILURE, "Entities in matset " << id << " not of common type");
+      MB_SET_ERR(MB_FAILURE, "Entities in matset " << id << " not of common type");
     }
 
     int dimension = -1;
@@ -308,7 +308,7 @@ ErrorCode WriteSLAC::gather_mesh_information(MeshInfo &mesh_info,
       ExoIIUtil::get_element_type_from_num_verts(tmp_conn.size(), entity_type, dimension);
 
     if (matset_data.element_type == EXOII_MAX_ELEM_TYPE) {
-      SET_ERR(MB_FAILURE, "Element type in matset " << id << " didn't get set correctly");
+      MB_SET_ERR(MB_FAILURE, "Element type in matset " << id << " didn't get set correctly");
     }
 
     matset_data.number_nodes_per_element = ExoIIUtil::VerticesPerElement[matset_data.element_type];
@@ -361,7 +361,7 @@ ErrorCode WriteSLAC::gather_mesh_information(MeshInfo &mesh_info,
 
     // Get the dirset's id
     if (mbImpl->tag_get_data(mDirichletSetTag,&(*vector_iter), 1,&id) != MB_SUCCESS) {
-      SET_ERR(MB_FAILURE, "Couldn't get id tag for dirset " << id);
+      MB_SET_ERR(MB_FAILURE, "Couldn't get id tag for dirset " << id);
     }
 
     dirset_data.id = id;
@@ -369,7 +369,7 @@ ErrorCode WriteSLAC::gather_mesh_information(MeshInfo &mesh_info,
     std::vector<EntityHandle> node_vector;
     // Get the nodes of the dirset that are in mesh_info.nodes
     if (mbImpl->get_entities_by_handle(*vector_iter, node_vector, true) != MB_SUCCESS ) {
-      SET_ERR(MB_FAILURE, "Couldn't get nodes in dirset " << id);
+      MB_SET_ERR(MB_FAILURE, "Couldn't get nodes in dirset " << id);
     }
 
     std::vector<EntityHandle>::iterator iter, end_iter;
@@ -382,7 +382,7 @@ ErrorCode WriteSLAC::gather_mesh_information(MeshInfo &mesh_info,
     for (; iter != end_iter; ++iter) {
       if (TYPE_FROM_HANDLE(*iter) != MBVERTEX)
         continue;
-      result = mbImpl->tag_get_data(mEntityMark, &(*iter), 1, &node_marked);CHK_SET_ERR(result, "Couldn't get mark data");
+      result = mbImpl->tag_get_data(mEntityMark, &(*iter), 1, &node_marked);MB_CHK_SET_ERR(result, "Couldn't get mark data");
 
       if (0x1 == node_marked)
         dirset_data.nodes.push_back(*iter);
@@ -413,8 +413,8 @@ ErrorCode WriteSLAC::gather_mesh_information(MeshInfo &mesh_info,
     if (get_neuset_elems(*vector_iter, 0, forward_elems, reverse_elems) == MB_FAILURE)
       return MB_FAILURE;
 
-    ErrorCode result = get_valid_sides(forward_elems, 1, neuset_data);CHK_SET_ERR(result, "Couldn't get valid sides data");
-    result = get_valid_sides(reverse_elems, -1, neuset_data);CHK_SET_ERR(result, "Couldn't get valid sides data");
+    ErrorCode result = get_valid_sides(forward_elems, 1, neuset_data);MB_CHK_SET_ERR(result, "Couldn't get valid sides data");
+    result = get_valid_sides(reverse_elems, -1, neuset_data);MB_CHK_SET_ERR(result, "Couldn't get valid sides data");
 
     neuset_data.number_elements = neuset_data.elements.size();
     neuset_info.push_back(neuset_data);
@@ -433,7 +433,7 @@ ErrorCode WriteSLAC::get_valid_sides(Range &elems, const int sense,
   ErrorCode result;
   for (Range::iterator iter = elems.begin(); iter != elems.end(); ++iter) {
     // Should insert here if "side" is a quad/tri on a quad/tri mesh
-    result = mbImpl->tag_get_data(mEntityMark, &(*iter), 1, &element_marked);CHK_SET_ERR(result, "Couldn't get mark data");
+    result = mbImpl->tag_get_data(mEntityMark, &(*iter), 1, &element_marked);MB_CHK_SET_ERR(result, "Couldn't get mark data");
 
     if (0x1 == element_marked) {
       neuset_data.elements.push_back(*iter);
@@ -447,13 +447,13 @@ ErrorCode WriteSLAC::get_valid_sides(Range &elems, const int sense,
 
       // Get the adjacent parent element of "side"
       if (mbImpl->get_adjacencies(&(*iter), 1, dimension + 1, false, parents) != MB_SUCCESS) {
-        SET_ERR(MB_FAILURE, "Couldn't get adjacencies for neuset");
+        MB_SET_ERR(MB_FAILURE, "Couldn't get adjacencies for neuset");
       }
 
       if (!parents.empty()) {
         // Make sure the adjacent parent element will be output
         for (unsigned int k = 0; k < parents.size(); k++) {
-          result = mbImpl->tag_get_data(mEntityMark, &(parents[k]), 1, &element_marked);CHK_SET_ERR(result, "Couldn't get mark data");
+          result = mbImpl->tag_get_data(mEntityMark, &(parents[k]), 1, &element_marked);MB_CHK_SET_ERR(result, "Couldn't get mark data");
 
           int side_no, this_sense, this_offset;
           if (0x1 == element_marked &&
@@ -467,7 +467,7 @@ ErrorCode WriteSLAC::get_valid_sides(Range &elems, const int sense,
         }
       }
       else {
-        SET_ERR(MB_FAILURE, "No parent element exists for element in neuset " << neuset_data.id);
+        MB_SET_ERR(MB_FAILURE, "No parent element exists for element in neuset " << neuset_data.id);
       }
     }
   }
@@ -508,7 +508,7 @@ ErrorCode WriteSLAC::write_nodes(const int num_nodes, const Range& nodes, const 
   if (transform_needed ) {
     double trans_matrix[16];
     const EntityHandle mesh = 0;
-    result = mbImpl->tag_get_data(trans_tag, &mesh, 1, trans_matrix);CHK_SET_ERR(result, "Couldn't get transform data");
+    result = mbImpl->tag_get_data(trans_tag, &mesh, 1, trans_matrix);MB_CHK_SET_ERR(result, "Couldn't get transform data");
 
     for (int i = 0; i < num_nodes; i++) {
       double vec1[3];
@@ -833,47 +833,47 @@ ErrorCode WriteSLAC::initialize_file(MeshInfo &mesh_info)
   int tetinterior = -1, tetinteriorsize, tetexterior = -1, tetexteriorsize = -1;
   
   if (nc_def_dim(ncFile, "coord_size", (size_t)mesh_info.num_dim, &coord_size) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of dimensions");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of dimensions");
   }
 
   if (nc_def_dim(ncFile, "ncoords", (size_t)mesh_info.num_nodes, &ncoords) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of nodes");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of nodes");
   }
 
   if (0 != mesh_info.num_int_hexes &&
       nc_def_dim(ncFile, "hexinterior", (size_t)mesh_info.num_int_hexes, &hexinterior) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of interior hex elements");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of interior hex elements");
   }
 
   if (nc_def_dim(ncFile, "hexinteriorsize", (size_t)9, &hexinteriorsize) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define interior hex element size");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define interior hex element size");
   }
 
   if (0 != mesh_info.bdy_hexes.size() &&
       nc_def_dim(ncFile, "hexexterior", (size_t)mesh_info.bdy_hexes.size(), &hexexterior) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of exterior hex elements");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of exterior hex elements");
   }
 
   if (nc_def_dim(ncFile, "hexexteriorsize", (size_t)15, &hexexteriorsize) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define exterior hex element size");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define exterior hex element size");
   }
 
   if (0 != mesh_info.num_int_tets &&
       nc_def_dim(ncFile, "tetinterior", (size_t)mesh_info.num_int_tets, &tetinterior) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of interior tet elements");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of interior tet elements");
   }
 
   if (nc_def_dim(ncFile, "tetinteriorsize", (size_t)5, &tetinteriorsize) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define interior tet element size");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define interior tet element size");
   }
 
   if (0 != mesh_info.bdy_tets.size() &&
       nc_def_dim(ncFile, "tetexterior", (size_t)mesh_info.bdy_tets.size(), &tetexterior) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of exterior tet elements");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define number of exterior tet elements");
   }
 
   if (nc_def_dim(ncFile, "tetexteriorsize", (size_t)9, &tetexteriorsize) != NC_NOERR) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define exterior tet element size");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define exterior tet element size");
   }
 
   /* ...and some variables */
@@ -884,28 +884,28 @@ ErrorCode WriteSLAC::initialize_file(MeshInfo &mesh_info)
   int dum_var;
   if (0 != mesh_info.num_int_hexes &&
       NC_NOERR != nc_def_var(ncFile, "hexahedron_interior", NC_LONG, 2, dims, &dum_var)) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to create connectivity array for interior hexes");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to create connectivity array for interior hexes");
   }
 
   dims[0] = hexexterior;
   dims[1] = hexexteriorsize;
   if (0 != mesh_info.bdy_hexes.size() &&
       NC_NOERR != nc_def_var(ncFile, "hexahedron_exterior", NC_LONG, 2, dims, &dum_var)) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to create connectivity array for exterior hexes");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to create connectivity array for exterior hexes");
   }
 
   dims[0] = tetinterior;
   dims[1] = tetinteriorsize;
   if (0 != mesh_info.num_int_tets &&
       NC_NOERR != nc_def_var(ncFile, "tetrahedron_exterior", NC_LONG, 2, dims, &dum_var)) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to create connectivity array for interior tets");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to create connectivity array for interior tets");
   }
 
   dims[0] = tetexterior;
   dims[1] = tetexteriorsize;
   if (0 != mesh_info.bdy_tets.size() &&
       NC_NOERR != nc_def_var(ncFile, "tetrahedron_exterior", NC_LONG, 2, dims, &dum_var)) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to create connectivity array for exterior tets");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to create connectivity array for exterior tets");
   }
 
   /* Node coordinate arrays: */
@@ -913,7 +913,7 @@ ErrorCode WriteSLAC::initialize_file(MeshInfo &mesh_info)
   dims[0] = ncoords;
   dims[1] = coord_size;
   if (NC_NOERR != nc_def_var(ncFile, "coords", NC_DOUBLE, 2, dims, &dum_var)) {
-    SET_ERR(MB_FAILURE, "WriteSLAC: failed to define node coordinate array");
+    MB_SET_ERR(MB_FAILURE, "WriteSLAC: failed to define node coordinate array");
   }
 
   return MB_SUCCESS;
@@ -923,13 +923,13 @@ ErrorCode WriteSLAC::open_file(const char* filename)
 {
   // Not a valid filname
   if (strlen((const char*)filename) == 0) {
-    SET_ERR(MB_FAILURE, "Output filename not specified");
+    MB_SET_ERR(MB_FAILURE, "Output filename not specified");
   }
 
   int fail = nc_create(filename, NC_CLOBBER, &ncFile);
   // File couldn't be opened
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FAILURE, "Cannot open " << filename);
+    MB_SET_ERR(MB_FAILURE, "Cannot open " << filename);
   }
 
   return MB_SUCCESS;

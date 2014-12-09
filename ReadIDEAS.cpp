@@ -43,12 +43,12 @@ ErrorCode ReadIDEAS::load_file(const char* fname,
                                const Tag* file_id_tag)
 {
   if (subset_list) {
-    SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for IDEAS");
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for IDEAS");
   }
 
   file.open(fname);
   if (!file.good()) {
-    SET_ERR(MB_FILE_DOES_NOT_EXIST, "Failed to open file: " << fname);
+    MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, "Failed to open file: " << fname);
   }
 
   ErrorCode rval;

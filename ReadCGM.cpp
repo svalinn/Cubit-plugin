@@ -775,7 +775,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   ErrorCode rval;
 
   if (subset_list) {
-    SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for CGM data");
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for CGM data");
   }
 
   int norm_tol;
@@ -815,7 +815,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
 
   s = CubitCompat_import_solid_model(cgm_file_name, file_type);
   if (CUBIT_SUCCESS != s) {
-    SET_ERR(MB_FAILURE, cgm_file_name << ": Failed to read file of type \"" << file_type << "\"");
+    MB_SET_ERR(MB_FAILURE, cgm_file_name << ": Failed to read file of type \"" << file_type << "\"");
   }
 
   // Create entity sets for all geometric entities

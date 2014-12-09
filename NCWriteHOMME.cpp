@@ -28,7 +28,7 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
   if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "time")) != dimNames.end())
     tDim = vecIt - dimNames.begin();
   else {
-    SET_ERR(MB_FAILURE, "Couldn't find 'time' dimension");
+    MB_SET_ERR(MB_FAILURE, "Couldn't find 'time' dimension");
   }
   nTimeSteps = dimLens[tDim];
 
@@ -36,12 +36,12 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
   if ((vecIt = std::find(dimNames.begin(), dimNames.end(), "lev")) != dimNames.end())
     levDim = vecIt - dimNames.begin();
   else {
-    SET_ERR(MB_FAILURE, "Couldn't find 'lev' dimension");
+    MB_SET_ERR(MB_FAILURE, "Couldn't find 'lev' dimension");
   }
   nLevels = dimLens[levDim];
 
   // Get local vertices
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, localVertsOwned);CHK_SET_ERR(rval, "Trouble getting local vertices in current file set");
+  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, localVertsOwned);MB_CHK_SET_ERR(rval, "Trouble getting local vertices in current file set");
   assert(!localVertsOwned.empty());
 
 #ifdef USE_MPI
@@ -54,7 +54,7 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
 #ifndef NDEBUG
       unsigned int num_local_verts = localVertsOwned.size();
 #endif
-      rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);CHK_SET_ERR(rval, "Trouble getting owned vertices in current set");
+      rval = myPcomm->filter_pstatus(localVertsOwned, PSTATUS_NOT_OWNED, PSTATUS_NOT);MB_CHK_SET_ERR(rval, "Trouble getting owned vertices in current set");
 
       // Assume that PARALLEL_RESOLVE_SHARED_ENTS option is set
       // Verify that not all local vertices are owned by the last processor
@@ -65,7 +65,7 @@ ErrorCode NCWriteHOMME::collect_mesh_info()
 #endif
 
   std::vector<int> gids(localVertsOwned.size());
-  rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);CHK_SET_ERR(rval, "Trouble getting global IDs on local vertices");
+  rval = mbImpl->tag_get_data(mGlobalIdTag, localVertsOwned, &gids[0]);MB_CHK_SET_ERR(rval, "Trouble getting global IDs on local vertices");
 
   // Get localGidVertsOwned
   std::copy(gids.rbegin(), gids.rend(), range_inserter(localGidVertsOwned));
@@ -83,7 +83,7 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
     std::string varname = var_names[i];
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(varname);
     if (vit == varInfo.end())
-      SET_ERR(MB_FAILURE, "Can't find variable " << varname);;
+      MB_SET_ERR(MB_FAILURE, "Can't find variable " << varname);;
 
     WriteNC::VarData& currentVarData = vit->second;
 #ifndef NDEBUG
@@ -148,7 +148,7 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
         currentVarData.writeCounts[dim_idx] = localGidVertsOwned.size();
         break;
       default:
-        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << varname);
+        MB_SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << varname);
     }
     dim_idx++;
 
@@ -178,7 +178,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
         // Vertices
         break;
       default:
-        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << variableData.varName);
+        MB_SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << variableData.varName);
     }
 
     unsigned int num_timesteps;
@@ -223,7 +223,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
         variableData.writeStarts[0] = t; // This is start for time
       std::vector<double> tag_data(num_local_verts_owned * num_lev);
       ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[t], localVertsOwned,
-                                            &tag_data[0]);CHK_SET_ERR(rval, "Trouble getting tag data on owned vertices");
+                                            &tag_data[0]);MB_CHK_SET_ERR(rval, "Trouble getting tag data on owned vertices");
 
 #ifdef PNETCDF_FILE
       size_t nb_writes = localGidVertsOwned.psize();
@@ -263,7 +263,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
                            &(tmpdoubledata[indexInDoubleArray]));
 #endif
             if (success)
-              SET_ERR(MB_FAILURE, "Failed to write double data in a loop for variable " << variableData.varName);
+              MB_SET_ERR(MB_FAILURE, "Failed to write double data in a loop for variable " << variableData.varName);
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * num_lev;
@@ -272,12 +272,12 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
 #ifdef PNETCDF_FILE
           success = ncmpi_wait_all(_fileId, requests.size(), &requests[0], &statuss[0]);
           if (success)
-            SET_ERR(MB_FAILURE, "Failed on wait_all");
+            MB_SET_ERR(MB_FAILURE, "Failed on wait_all");
 #endif
           break;
         }
         default:
-          SET_ERR(MB_NOT_IMPLEMENTED, "Writing non-double data is not implemented yet");
+          MB_SET_ERR(MB_NOT_IMPLEMENTED, "Writing non-double data is not implemented yet");
       }
     }
   }

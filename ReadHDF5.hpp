@@ -102,7 +102,7 @@ private:
   inline int is_error(mhdf_Status& status) {
     int i;
     if ((i = mhdf_isError(&status)))
-      SET_ERR_CONT(mhdf_message(&status));
+      MB_SET_ERR_CONT(mhdf_message(&status));
     return i;
   }
 

@@ -75,7 +75,7 @@ ErrorCode ReadNASTRAN::load_file(const char *filename,
 {
   // At this time there is no support for reading a subset of the file
   if (subset_list) {
-    SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for NASTRAN");
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for NASTRAN");
   }
 
   nodeIdMap.clear();

@@ -54,7 +54,7 @@ namespace moab {
       size_t tmp_val; \
       gdfail = nc_inq_dimlen(ncFile, ncdim, &tmp_val); \
       if (NC_NOERR != gdfail) { \
-        SET_ERR(MB_FAILURE, "ReadNCDF:: couldn't get dimension length"); \
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: couldn't get dimension length"); \
       } \
       else \
         val = tmp_val; \
@@ -91,7 +91,7 @@ namespace moab {
       size_t ntmp1 = 0; \
       ivfail = nc_get_vara_int(ncFile, id, &ntmp1, &ntmp, &vals[0]); \
       if (NC_NOERR != ivfail) { \
-        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
         return MB_FAILURE; \
       } \
     } \
@@ -108,7 +108,7 @@ namespace moab {
       size_t ntmp1 = 0; \
       dvfail = nc_get_vara_double(ncFile, id, &ntmp1, &ntmp, &vals[0]); \
       if (NC_NOERR != dvfail) { \
-        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
       } \
     } \
   }
@@ -197,13 +197,13 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
                                     const SubsetList* subset_list)
 {
   if (subset_list) {
-    SET_ERR(MB_UNSUPPORTED_OPERATION, "ExodusII reader supports subset read only by material ID");
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "ExodusII reader supports subset read only by material ID");
   }
 
   // Open netcdf/exodus file
   int fail = nc_open(file_name, 0, &ncFile);
   if (NC_NOWRITE != fail) {
-    SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << file_name);
+    MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << file_name);
   }
 
   // 1. Read the header
@@ -238,7 +238,7 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
     int nc_var = -1;
     GET_1D_INT_VAR(prop, nc_var, id_array);
     if (!nc_var) {
-      SET_ERR(MB_FAILURE, "Problem getting prop variable");
+      MB_SET_ERR(MB_FAILURE, "Problem getting prop variable");
     }
   }
 
@@ -259,10 +259,10 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
   if (subset_list) {
     if (subset_list->tag_list_length > 1 ||
         !strcmp(subset_list->tag_list[0].tag_name, MATERIAL_SET_TAG_NAME)) {
-      SET_ERR(MB_UNSUPPORTED_OPERATION, "ExodusII reader supports subset read only by material ID");
+      MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "ExodusII reader supports subset read only by material ID");
     }
     if (subset_list->num_parts) {
-      SET_ERR(MB_UNSUPPORTED_OPERATION, "ExodusII reader does not support mesh partitioning");
+      MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "ExodusII reader does not support mesh partitioning");
     }
     blocks_to_load = subset_list->tag_list[0].tag_values;
     num_blocks = subset_list->tag_list[0].num_tag_values;
@@ -285,7 +285,7 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
   // open netcdf/exodus file
   fail = nc_open(exodus_file_name, 0, &ncFile);
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << exodus_file_name);
+    MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << exodus_file_name);
   }
 
   // 1. Read the header
@@ -351,12 +351,12 @@ ErrorCode ReadNCDF::read_exodus_header()
   int ndims;
   int fail = nc_inq_ndims(ncFile, &ndims);
   if (NC_NOERR != fail || ndims > NC_MAX_DIMS) {
-    SET_ERR(MB_FAILURE, "ReadNCDF: File contains " << ndims << " dims but NetCDF library supports only " << (int)NC_MAX_DIMS);
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF: File contains " << ndims << " dims but NetCDF library supports only " << (int)NC_MAX_DIMS);
   }
   int nvars;
   fail = nc_inq_nvars(ncFile, &nvars);
   if (nvars > NC_MAX_VARS) {
-    SET_ERR(MB_FAILURE, "ReadNCDF: File contains " << nvars << " vars but NetCDF library supports only " << (int)NC_MAX_VARS);
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF: File contains " << nvars << " vars but NetCDF library supports only " << (int)NC_MAX_VARS);
   }
 
   // Get the attributes
@@ -366,23 +366,23 @@ ErrorCode ReadNCDF::read_exodus_header()
   size_t att_len;
   fail = nc_inq_att(ncFile, NC_GLOBAL, "floating_point_word_size", &att_type, &att_len);
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting floating_point_word_size attribute");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting floating_point_word_size attribute");
   }
   if (att_type != NC_INT || att_len != 1) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Word size didn't have type int or size 1");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Word size didn't have type int or size 1");
   }
   fail = nc_get_att_int(ncFile, NC_GLOBAL, "floating_point_word_size", &IO_WORD_SIZE);
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Trouble getting word size");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Trouble getting word size");
   }
 
   // Exodus version
   fail = nc_inq_att(ncFile, NC_GLOBAL, "version", &att_type, &att_len);
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting version attribute");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting version attribute");
   }
   if (att_type != NC_FLOAT || att_len != 1) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Version didn't have type float or size 1");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Version didn't have type float or size 1");
   }
   //float version = temp_att->as_float(0);
 
@@ -401,16 +401,16 @@ ErrorCode ReadNCDF::read_exodus_header()
   // Title; why are we even bothering if we're not going to keep it???
   fail = nc_inq_att(ncFile, NC_GLOBAL, "title", &att_type, &att_len);
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting title attribute");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting title attribute");
   }
   if (att_type != NC_CHAR) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: title didn't have type char");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: title didn't have type char");
   }
   char *title = new char[att_len + 1];
   fail = nc_get_att_text(ncFile, NC_GLOBAL, "title", title);
   if (NC_NOERR != fail) {
     delete[] title;
-    SET_ERR(MB_FAILURE, "ReadNCDF:: trouble getting title");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: trouble getting title");
   }
   delete[] title;
 
@@ -445,7 +445,7 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
       start[0] = d;
       fail = nc_get_vara_double(ncFile, coord, start, count, arrays[d]);
       if (NC_NOERR != fail) {
-        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord array");
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord array");
       }
     }
   }
@@ -456,12 +456,12 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
       varname[5] = 'x'+ (char)d;
       fail = nc_inq_varid(ncFile, varname, &coord);
       if (NC_NOERR != fail) {
-        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord variable");
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord variable");
       }
 
       fail = nc_get_vara_double(ncFile, coord, start, &count[1], arrays[d]);
       if (NC_NOERR != fail) {
-        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord array");
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord array");
       }
     }
   }
@@ -492,7 +492,7 @@ ErrorCode ReadNCDF::read_block_headers(const int *blocks_to_load,
   int nc_block_ids = -1;
   GET_1D_INT_VAR("eb_prop1", nc_block_ids, block_ids);
   if (-1 == nc_block_ids) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting eb_prop1 variable");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting eb_prop1 variable");
   }
 
   int exodus_id = 1;
@@ -578,18 +578,18 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
     INS_ID(temp_string, "connect%d", block_seq_id);
     GET_VAR(temp_string, nc_var, dims);
     if (!nc_var) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting connect variable");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting connect variable");
     }
     nc_type att_type;
     size_t att_len;
     int fail = nc_inq_att(ncFile, nc_var, "elem_type", &att_type, &att_len);
     if (NC_NOERR != fail) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting elem type attribute");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting elem type attribute");
     }
     std::vector<char> dum_str(att_len + 1);
     fail = nc_get_att_text(ncFile, nc_var, "elem_type", &dum_str[0]);
     if (NC_NOERR != fail) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting elem type");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting elem type");
     }
     ExoIIElementType elem_type = 
       ExoIIUtil::static_element_name_to_type(&dum_str[0]);
@@ -643,14 +643,14 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
     count[1] = verts_per_element;
     fail = nc_get_vara_int(ncFile, nc_var, start, count, tmp_ptr);
     if (NC_NOERR != fail) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting connectivity");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting connectivity");
     }
 
     // Convert from exodus indices to vertex handles.
     // Iterate backwards in case handles are larger than ints.
     for (int i = number_nodes - 1; i >= 0; --i) {
       if ((unsigned)tmp_ptr[i] >= nodesInLoadedBlocks.size()) {
-        SET_ERR(MB_FAILURE, "Invalid node ID in block connectivity");
+        MB_SET_ERR(MB_FAILURE, "Invalid node ID in block connectivity");
       }
       nodesInLoadedBlocks[tmp_ptr[i]] = 1;
       conn[i] = static_cast<EntityHandle>(tmp_ptr[i]) + vertexOffset;
@@ -665,7 +665,7 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
                                       ExoIIUtil::VerticesPerElement[(*this_it).elemType], conn);
 
     if (result == -1) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: error getting element connectivity for block " << block_id);
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: error getting element connectivity for block " << block_id);
     }
 
     // Set the block id with an offset
@@ -719,7 +719,7 @@ ErrorCode ReadNCDF::read_global_ids()
     ErrorCode error = mdbImpl->tag_set_data(mGlobalIdTag,
                                             range, &ids[0]);
     if (MB_SUCCESS != error)
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem setting node global ids");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem setting node global ids");
   }
 
   return MB_SUCCESS;
@@ -737,7 +737,7 @@ ErrorCode ReadNCDF::read_nodesets()
   int nc_var;
   GET_1D_INT_VAR("ns_prop1", nc_var, id_array);
   if (-1 == nc_var) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting ns_prop1 variable");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting ns_prop1 variable");
   }
 
   // Use a vector of ints to read node handles
@@ -762,7 +762,7 @@ ErrorCode ReadNCDF::read_nodesets()
       INS_ID(temp_string, "dist_fact_ns%d", i + 1);
       GET_1D_DBL_VAR(temp_string, temp_dim, temp_dist_factor_vector);
       if (-1 == temp_dim) {
-        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting dist fact variable");
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting dist fact variable");
       }
     }
 
@@ -776,7 +776,7 @@ ErrorCode ReadNCDF::read_nodesets()
     int temp_var = -1;
     GET_1D_INT_VAR(temp_string, temp_var, node_handles);
     if (-1 == temp_var) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting nodeset node variable");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting nodeset node variable");
     }
 
     // Maybe there is already a nodesets meshset here we can append to
@@ -892,7 +892,7 @@ ErrorCode ReadNCDF::read_sidesets()
   int temp_var = -1;
   GET_1D_INT_VAR("ss_prop1", temp_var, id_array);
   if (-1 == temp_var) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting ss_prop1 variable");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting ss_prop1 variable");
   }
 
   // Create a side set for each one
@@ -925,14 +925,14 @@ ErrorCode ReadNCDF::read_sidesets()
     temp_var = -1;
     GET_1D_INT_VAR(temp_string, temp_var, side_list);
     if (-1 == temp_var) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting sideset side variable");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting sideset side variable");
     }
 
     INS_ID(temp_string, "elem_ss%d", i + 1);
     temp_var = -1;
     GET_1D_INT_VAR(temp_string, temp_var, element_list);
     if (-1 == temp_var) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting sideset elem variable");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting sideset elem variable");
     }
 
     std::vector<double> temp_dist_factor_vector;
@@ -1052,7 +1052,7 @@ ErrorCode ReadNCDF::create_ss_elements(int *element_ids,
     temp_var = -1;
     GET_1D_DBL_VAR(temp_string, temp_var, temp_dist_factor_vector);
     if (-1 == temp_var) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting dist fact variable");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting dist fact variable");
     }
   }
 
@@ -1429,7 +1429,7 @@ ErrorCode ReadNCDF::read_qa_string(char *temp_string,
   int temp_var = -1;
   GET_VAR("qa_records", temp_var, dims);
   if (-1 == temp_var) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting qa record variable");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting qa record variable");
     return MB_FAILURE;
   }
   size_t count[3], start[3];
@@ -1437,7 +1437,7 @@ ErrorCode ReadNCDF::read_qa_string(char *temp_string,
   count[0] = 1; count[1] = 1; count[2] = max_str_length;
   int fail = nc_get_vara_text(ncFile, temp_var, start, count, temp_string);
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem setting current record number variable position");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem setting current record number variable position");
   }
   // Get the variable id in the exodus file
 
@@ -1484,7 +1484,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   std::string s;
   rval = opts.get_str_option("tdata", s);
   if (MB_SUCCESS != rval) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem reading file options");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem reading file options");
   }
   std::vector<std::string> tokens;
   tokenize(s, tokens, ",");
@@ -1510,7 +1510,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   // 2. Check for the operations, currently support set.
   const char* op;
   if (tokens.size() < 3 || (tokens[2] != "set" && tokens[2] != "add")) {
-    SET_ERR(MB_TYPE_OUT_OF_RANGE, "ReadNCDF: invalid operation specified for update");
+    MB_SET_ERR(MB_TYPE_OUT_OF_RANGE, "ReadNCDF: invalid operation specified for update");
   }
   op = tokens[2].c_str();
 
@@ -1518,7 +1518,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   ncFile = 0;
   int fail = nc_open(exodus_file_name, 0, &ncFile);
   if (!ncFile) {
-    SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << exodus_file_name);
+    MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << exodus_file_name);
   }
 
   rval = read_exodus_header();
@@ -1557,7 +1557,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   int varid = -1;
   GET_1D_INT_VAR("node_num_map", varid, ptr);
   if (-1 == varid) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting node number map data");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting node number map data");
   }
 
   // Read in the deformations.
@@ -1578,38 +1578,38 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     GET_VAR("vals_nod_var3", coordz, dims);
   if (-1 == coordx || -1 == coordy ||
       (numberDimensions_loading == 3 && -1 == coordz)) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting coords variable");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting coords variable");
   }
 
   fail = nc_get_vara_double(ncFile, coordx, start, count, &deformed_arrays[0][0]);
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting x deformation array");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting x deformation array");
   }
 
   fail = nc_get_vara_double(ncFile, coordy, start, count, &deformed_arrays[1][0]);
   if (NC_NOERR != fail) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting y deformation array");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting y deformation array");
   }
   if (numberDimensions_loading == 3) {
     fail = nc_get_vara_double(ncFile, coordz, start, count, &deformed_arrays[2][0]);
     if (NC_NOERR != fail) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting z deformation array");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting z deformation array");
     }
   }
 
   int coord1 = -1, coord2 = -1, coord3 = -1;
   GET_1D_DBL_VAR("coordx", coord1, orig_coords[0]);
   if (-1 == coord1) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting x coord array");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting x coord array");
   }
   GET_1D_DBL_VAR("coordy", coord2, orig_coords[1]);
   if (-1 == coord2) {
-    SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting y coord array");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting y coord array");
   }
   if (numberDimensions_loading == 3) {
     GET_1D_DBL_VAR("coordz", coord3, orig_coords[2]);
     if (-1 == coord3) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting z coord array");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting z coord array");
     }
   }
 
@@ -1809,7 +1809,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   }
   int status = nc_get_var_text(ncFile, varid, &names_memory[0]);
   if (NC_NOERR != status) {
-    SET_ERR(MB_FAILURE, "ReadNCDF: Problem getting element variable names");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF: Problem getting element variable names");
   }
 
   // Is one of the element variable names "death_status"? If so, get its index
@@ -1828,7 +1828,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     }
   }
   if (!found_death_index) {
-    SET_ERR(MB_FAILURE, "ReadNCDF: Problem getting index of death_status variable");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF: Problem getting index of death_status variable");
   }
 
   // The exodus header has already been read. This contains the number of element
@@ -1838,7 +1838,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   // many elements are in each block.
   rval = read_block_headers(blocks_to_load, num_blocks);
   if (MB_FAILURE == rval) {
-    SET_ERR(MB_FAILURE, "ReadNCDF: Problem reading block headers");
+    MB_SET_ERR(MB_FAILURE, "ReadNCDF: Problem reading block headers");
   }
 
   // Dead elements from the Exodus file can be located in the cub_file_set by id
@@ -1853,7 +1853,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   if (!match_elems_by_connectivity) {
     GET_1D_INT_VAR("elem_num_map", varid, elem_ids);
     if (-1 == varid) {
-      SET_ERR(MB_FAILURE, "ReadNCDF: Problem getting element number map data");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF: Problem getting element number map data");
     }
   }
 
@@ -1873,19 +1873,19 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     std::vector<int> ldims;
     GET_VAR(temp_string.c_str(), nc_var, ldims);
     if (!nc_var) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting connect variable");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting connect variable");
     }
     // The element type is an attribute of the connectivity variable
     nc_type att_type;
     size_t att_len;
     fail = nc_inq_att(ncFile, nc_var, "elem_type", &att_type, &att_len);
     if (NC_NOERR != fail) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting elem type attribute");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting elem type attribute");
     }
     std::vector<char> dum_str(att_len + 1);
     fail = nc_get_att_text(ncFile, nc_var, "elem_type", &dum_str[0]);
     if (NC_NOERR != fail) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting elem type");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting elem type");
     }
     ExoIIElementType elem_type = ExoIIUtil::static_element_name_to_type(&dum_str[0]);
     (*i).elemType = elem_type;
@@ -1904,7 +1904,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     fail = nc_get_vara_int(ncFile, nc_var, lstart, lcount, exo_conn);
     if (NC_NOERR != fail) {
       delete [] exo_conn;
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting connectivity");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting connectivity");
     }
 
     // Get the death_status at the correct time step.
@@ -1920,7 +1920,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     array_name += "\0";
     GET_VAR(array_name.c_str(), nc_var, ldims);
     if (!nc_var) {
-      SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting death status variable");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting death status variable");
     }
     lstart[0] = time_step - 1; lstart[1] = 0;
     lcount[0] = 1;
@@ -1928,7 +1928,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
     status = nc_get_vara_double(ncFile, nc_var, lstart, lcount, &death_status[0]);
     if (NC_NOERR != status) {
       delete[] exo_conn;
-      SET_ERR(MB_FAILURE, "ReadNCDF: Problem setting time step for death_status");
+      MB_SET_ERR(MB_FAILURE, "ReadNCDF: Problem setting time step for death_status");
     }
 
     // Look for dead elements. If there is too many dead elements and this starts

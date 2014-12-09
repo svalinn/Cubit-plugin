@@ -81,7 +81,7 @@ ErrorCode WriteSTL::write_file(const char *file_name,
   ErrorCode rval;
 
   if (tag_list && num_tags) {
-    SET_ERR(MB_TYPE_OUT_OF_RANGE, "STL file does not support tag data");
+    MB_SET_ERR(MB_TYPE_OUT_OF_RANGE, "STL file does not support tag data");
   }
 
   rval = make_header(header, qa_list);
@@ -93,7 +93,7 @@ ErrorCode WriteSTL::write_file(const char *file_name,
     return rval;
 
   if (triangles.empty()) {
-    SET_ERR(MB_ENTITY_NOT_FOUND, "No triangles to write");
+    MB_SET_ERR(MB_ENTITY_NOT_FOUND, "No triangles to write");
   }
 
   bool is_ascii = false, is_binary = false;
@@ -102,7 +102,7 @@ ErrorCode WriteSTL::write_file(const char *file_name,
   if (MB_SUCCESS == opts.get_null_option("BINARY"))
     is_binary = true;
   if (is_ascii && is_binary) {
-    SET_ERR(MB_FAILURE, "Conflicting options: BINARY ASCII");
+    MB_SET_ERR(MB_FAILURE, "Conflicting options: BINARY ASCII");
   }
 
   bool big_endian = false, little_endian = false;
@@ -111,7 +111,7 @@ ErrorCode WriteSTL::write_file(const char *file_name,
   if (MB_SUCCESS == opts.get_null_option("LITTLE_ENDIAN"))
     little_endian = true;
   if (big_endian && little_endian) {
-    SET_ERR(MB_FAILURE, "Conflicting options: BIG_ENDIAN LITTLE_ENDIAN");
+    MB_SET_ERR(MB_FAILURE, "Conflicting options: BIG_ENDIAN LITTLE_ENDIAN");
   }
   ByteOrder byte_order = big_endian ? STL_BIG_ENDIAN : little_endian ? STL_LITTLE_ENDIAN : STL_UNKNOWN_BYTE_ORDER;
 
@@ -164,7 +164,7 @@ FILE* WriteSTL::open_file(const char* name, bool overwrite, bool binary)
   // Open the file.
   int fd = open(name, flags, creat_mode);
   if (fd < 0) {
-    SET_ERR_RET_VAL(name << ": " << strerror(errno), NULL);
+    MB_SET_ERR_RET_VAL(name << ": " << strerror(errno), NULL);
   }
   FILE* result = fdopen(fd, binary ? "wb": "w");
   if (!result)
