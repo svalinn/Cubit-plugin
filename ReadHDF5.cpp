@@ -702,12 +702,12 @@ ErrorCode ReadHDF5::find_int_tag(const char* name, int& index)
       break;
 
   if (index == fileInfo->num_tag_desc) {
-    SET_ERR_STR(MB_TAG_NOT_FOUND, "File does not contain subset tag '" << name << "'");
+    SET_ERR(MB_TAG_NOT_FOUND, "File does not contain subset tag '" << name << "'");
   }
 
   if (fileInfo->tags[index].type != mhdf_INTEGER ||
       fileInfo->tags[index].size != 1) {
-    SET_ERR_STR(MB_TAG_NOT_FOUND, "Tag ' " << name << "' does not contain single integer value");
+    SET_ERR(MB_TAG_NOT_FOUND, "Tag ' " << name << "' does not contain single integer value");
   }
 
   return MB_SUCCESS;
@@ -1496,7 +1496,7 @@ ErrorCode ReadHDF5::read_elems(const mhdf_ElemDesc& elems, const Range& file_ids
 
   EntityType type = CN::EntityTypeFromName(elems.type);
   if (type == MBMAXTYPE) {
-    SET_ERR_STR(MB_FAILURE, "Unknown element type: \"" << elems.type << "\"");
+    SET_ERR(MB_FAILURE, "Unknown element type: \"" << elems.type << "\"");
   }
 
   const int nodes_per_elem = elems.desc.vals_per_ent;
@@ -1791,7 +1791,7 @@ ErrorCode ReadHDF5::read_poly(const mhdf_ElemDesc& elems, const Range& file_ids)
 
   EntityType type = CN::EntityTypeFromName(elems.type);
   if (type == MBMAXTYPE) {
-    SET_ERR_STR(MB_FAILURE, "Unknown element type: \"" << elems.type << "\"");
+    SET_ERR(MB_FAILURE, "Unknown element type: \"" << elems.type << "\"");
   }
 
   hid_t handles[2];
@@ -2748,7 +2748,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
 
     if (count > desc->count) {
       mhdf_closeData(filePtr, handle, &status);
-      SET_ERR_STR(MB_FAILURE, "Invalid data length for dense tag data: " << name << "/" << fileInfo->tags[tag_index].name);
+      SET_ERR(MB_FAILURE, "Invalid data length for dense tag data: " << name << "/" << fileInfo->tags[tag_index].name);
     }
 
     table_type = false;
@@ -2808,13 +2808,13 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
       storage = MB_TAG_MESH;
       break;
     default:
-      SET_ERR_STR(MB_FAILURE, "Invalid storage type for tag '" << info.name << "': " << info.storage);
+      SET_ERR(MB_FAILURE, "Invalid storage type for tag '" << info.name << "': " << info.storage);
   }
 
   // Type-specific stuff
   if (info.type == mhdf_BITFIELD) {
     if (info.size < 1 || info.size > 8) {
-      SET_ERR_STR(MB_FAILURE, "Invalid bit tag: class is MB_TAG_BIT, num bits = " << info.size);
+      SET_ERR(MB_FAILURE, "Invalid bit tag: class is MB_TAG_BIT, num bits = " << info.size);
     }
     hdf_type = H5Tcopy(H5T_NATIVE_B8);
     mb_type = MB_TYPE_BIT;
@@ -2925,7 +2925,7 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
   if (MB_SUCCESS != rval) {
     if (hdf_type)
       H5Tclose(hdf_type);
-    SET_ERR_STR(MB_FAILURE, "Tag type in file does not match type in database for \"" << info.name << "\"");
+    SET_ERR(MB_FAILURE, "Tag type in file does not match type in database for \"" << info.name << "\"");
   }
 
   if (info.global_value) {

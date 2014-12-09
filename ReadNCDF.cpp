@@ -91,7 +91,7 @@ namespace moab {
       size_t ntmp1 = 0; \
       ivfail = nc_get_vara_int(ncFile, id, &ntmp1, &ntmp, &vals[0]); \
       if (NC_NOERR != ivfail) { \
-        SET_ERR_STR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
+        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
         return MB_FAILURE; \
       } \
     } \
@@ -108,7 +108,7 @@ namespace moab {
       size_t ntmp1 = 0; \
       dvfail = nc_get_vara_double(ncFile, id, &ntmp1, &ntmp, &vals[0]); \
       if (NC_NOERR != dvfail) { \
-        SET_ERR_STR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
+        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
       } \
     } \
   }
@@ -203,7 +203,7 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
   // Open netcdf/exodus file
   int fail = nc_open(file_name, 0, &ncFile);
   if (NC_NOWRITE != fail) {
-    SET_ERR_STR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << file_name);
+    SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << file_name);
   }
 
   // 1. Read the header
@@ -285,7 +285,7 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
   // open netcdf/exodus file
   fail = nc_open(exodus_file_name, 0, &ncFile);
   if (NC_NOERR != fail) {
-    SET_ERR_STR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << exodus_file_name);
+    SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << exodus_file_name);
   }
 
   // 1. Read the header
@@ -351,12 +351,12 @@ ErrorCode ReadNCDF::read_exodus_header()
   int ndims;
   int fail = nc_inq_ndims(ncFile, &ndims);
   if (NC_NOERR != fail || ndims > NC_MAX_DIMS) {
-    SET_ERR_STR(MB_FAILURE, "ReadNCDF: File contains " << ndims << " dims but NetCDF library supports only " << (int)NC_MAX_DIMS);
+    SET_ERR(MB_FAILURE, "ReadNCDF: File contains " << ndims << " dims but NetCDF library supports only " << (int)NC_MAX_DIMS);
   }
   int nvars;
   fail = nc_inq_nvars(ncFile, &nvars);
   if (nvars > NC_MAX_VARS) {
-    SET_ERR_STR(MB_FAILURE, "ReadNCDF: File contains " << nvars << " vars but NetCDF library supports only " << (int)NC_MAX_VARS);
+    SET_ERR(MB_FAILURE, "ReadNCDF: File contains " << nvars << " vars but NetCDF library supports only " << (int)NC_MAX_VARS);
   }
 
   // Get the attributes
@@ -445,7 +445,7 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
       start[0] = d;
       fail = nc_get_vara_double(ncFile, coord, start, count, arrays[d]);
       if (NC_NOERR != fail) {
-        SET_ERR_STR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord array");
+        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord array");
       }
     }
   }
@@ -456,12 +456,12 @@ ErrorCode ReadNCDF::read_nodes(const Tag* file_id_tag)
       varname[5] = 'x'+ (char)d;
       fail = nc_inq_varid(ncFile, varname, &coord);
       if (NC_NOERR != fail) {
-        SET_ERR_STR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord variable");
+        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord variable");
       }
 
       fail = nc_get_vara_double(ncFile, coord, start, &count[1], arrays[d]);
       if (NC_NOERR != fail) {
-        SET_ERR_STR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord array");
+        SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting " << (char)('x' + d) << " coord array");
       }
     }
   }
@@ -665,7 +665,7 @@ ErrorCode ReadNCDF::read_elements(const Tag* file_id_tag)
                                       ExoIIUtil::VerticesPerElement[(*this_it).elemType], conn);
 
     if (result == -1) {
-      SET_ERR_STR(MB_FAILURE, "ReadNCDF:: error getting element connectivity for block " << block_id);
+      SET_ERR(MB_FAILURE, "ReadNCDF:: error getting element connectivity for block " << block_id);
     }
 
     // Set the block id with an offset
@@ -1518,7 +1518,7 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   ncFile = 0;
   int fail = nc_open(exodus_file_name, 0, &ncFile);
   if (!ncFile) {
-    SET_ERR_STR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << exodus_file_name);
+    SET_ERR(MB_FILE_DOES_NOT_EXIST, "ReadNCDF:: problem opening Netcdf/Exodus II file " << exodus_file_name);
   }
 
   rval = read_exodus_header();

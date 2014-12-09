@@ -102,7 +102,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
     success = NCFUNC(open)(file_name, omode, &fileId);
 #endif
     if (success)
-      SET_ERR_STR(MB_FAILURE, "Trouble opening file " << file_name << " for appending");
+      SET_ERR(MB_FAILURE, "Trouble opening file " << file_name << " for appending");
   }
   else { // Case when the file is new, will be overwritten, most likely
     int cmode = overwrite ? NC_CLOBBER : NC_NOCLOBBER;
@@ -116,7 +116,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
     success = NCFUNC(create)(file_name, cmode, &fileId);
 #endif
     if (success)
-      SET_ERR_STR(MB_FAILURE, "Trouble creating file " << file_name << " for writing");
+      SET_ERR(MB_FAILURE, "Trouble creating file " << file_name << " for writing");
   }
 
   if (NULL != myHelper)
@@ -247,8 +247,8 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   const void* data = NULL;
   int dimNamesSz = 0;
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, dimNamesTag,
-                                MB_TAG_ANY);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
-  rval = mbImpl->tag_get_by_ptr(dimNamesTag, &fileSet, 1, &data, &dimNamesSz);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
+  rval = mbImpl->tag_get_by_ptr(dimNamesTag, &fileSet, 1, &data, &dimNamesSz);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
   const char* p = static_cast<const char*>(data);
   dbgOut.tprintf(1, "__DIM_NAMES tag has string length %d\n", dimNamesSz);
 
@@ -259,8 +259,8 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   data = NULL;
   int dimLensSz = 0;
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, dimLensTag,
-                                MB_TAG_ANY);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
-  rval = mbImpl->tag_get_by_ptr(dimLensTag, &fileSet, 1, &data, &dimLensSz);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
+  rval = mbImpl->tag_get_by_ptr(dimLensTag, &fileSet, 1, &data, &dimLensSz);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
   const int* int_p = static_cast<const int*>(data);
   dbgOut.tprintf(1, "__DIM_LENS tag has %d values\n", dimLensSz);
 
@@ -289,8 +289,8 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   data = NULL;
   int meshTypeSz = 0;
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, meshTypeTag,
-                                MB_TAG_ANY);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
-  rval = mbImpl->tag_get_by_ptr(meshTypeTag, &fileSet, 1, &data, &meshTypeSz);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
+  rval = mbImpl->tag_get_by_ptr(meshTypeTag, &fileSet, 1, &data, &meshTypeSz);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
   p = static_cast<const char*>(data);
   grid_type = std::string(&p[0], meshTypeSz);
   dbgOut.tprintf(2, "Mesh type: %s\n", grid_type.c_str());
@@ -301,8 +301,8 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   data = NULL;
   int varNamesLocsSz = 0;
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, varNamesLocsTag,
-                                MB_TAG_ANY);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
-  rval = mbImpl->tag_get_by_ptr(varNamesLocsTag, &fileSet, 1, &data, &varNamesLocsSz);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
+  rval = mbImpl->tag_get_by_ptr(varNamesLocsTag, &fileSet, 1, &data, &varNamesLocsSz);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
   int_p = static_cast<const int*>(data);
   std::vector<int> varNamesLocs(varNamesLocsSz);
   std::copy(int_p, int_p + varNamesLocsSz, varNamesLocs.begin());
@@ -310,10 +310,10 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   Tag varNamesTag = 0;
   tag_name = "__VAR_NAMES";
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varNamesTag,
-                                MB_TAG_ANY);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
   data = NULL;
   int varNamesSz = 0;
-  rval = mbImpl->tag_get_by_ptr(varNamesTag, &fileSet, 1, &data, &varNamesSz);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+  rval = mbImpl->tag_get_by_ptr(varNamesTag, &fileSet, 1, &data, &varNamesSz);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
   dbgOut.tprintf(2, "__VAR_NAMES tag has string length %d\n", varNamesSz);
   p = static_cast<const char*>(data);
 
@@ -346,9 +346,9 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
           idxVar++;
           continue;
         }
-        SET_ERR_STR(rval, "Trouble getting conventional tag " << dim_names);
+        SET_ERR(rval, "Trouble getting conventional tag " << dim_names);
       }
-      rval = mbImpl->tag_get_length(dims_tag, sz);CHK_SET_ERR_STR(rval, "Trouble getting size of dimensions for variable " << var_name);
+      rval = mbImpl->tag_get_length(dims_tag, sz);CHK_SET_ERR(rval, "Trouble getting size of dimensions for variable " << var_name);
       sz /= sizeof(Tag); // The type is MB_TYPE_OPAQUE, but it is a list of tags, so we need to divide by the size of Tag
       // sz is used for number of dimension tags in this list
       dbgOut.tprintf(2, "var name: %s has %d dimensions \n", var_name.c_str(), sz);
@@ -360,11 +360,11 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       const Tag* ptags = static_cast<const moab::Tag*>(ptr);
       for (std::size_t j = 0; j != static_cast<std::size_t>(sz); j++) {
         std::string dim_name;
-        rval = mbImpl->tag_get_name(ptags[j], dim_name);CHK_SET_ERR_STR(rval, "Trouble getting dimension of variable " << var_name);
+        rval = mbImpl->tag_get_name(ptags[j], dim_name);CHK_SET_ERR(rval, "Trouble getting dimension of variable " << var_name);
         dbgOut.tprintf(2, "var name: %s has %s as dimension \n", var_name.c_str(), dim_name.c_str());
         std::vector<std::string>::iterator vit = std::find(dimNames.begin(), dimNames.end(), dim_name);
         if (vit == dimNames.end())
-          SET_ERR_STR(MB_FAILURE, "Dimension " << dim_name << " not found for variable " << var_name);
+          SET_ERR(MB_FAILURE, "Dimension " << dim_name << " not found for variable " << var_name);
         variableDataStruct.varDims[j] = (int)(vit - dimNames.begin()); // Will be used for writing
         // This will have to change to actual file dimension, for writing
       }
@@ -375,10 +375,10 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
       tag_name = ssTagName.str();
       Tag varAttTag = 0;
       rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, varAttTag,
-                                    MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
+                                    MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
       const void* varAttPtr = NULL;
       int varAttSz = 0;
-      rval = mbImpl->tag_get_by_ptr(varAttTag, &fileSet, 1, &varAttPtr, &varAttSz);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+      rval = mbImpl->tag_get_by_ptr(varAttTag, &fileSet, 1, &varAttPtr, &varAttSz);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
       if (MB_SUCCESS == rval)
         dbgOut.tprintf(2, "Tag retrieved for variable %s\n", tag_name.c_str());
 
@@ -397,13 +397,13 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
         tag_name = ssTagName.str();
         Tag varAttLenTag = 0;
         rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, varAttLenTag,
-                                      MB_TAG_ANY);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
+                                      MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
         int varAttLenSz = 0;
-        rval = mbImpl->tag_get_length(varAttLenTag, varAttLenSz);CHK_SET_ERR_STR(rval, "Trouble getting length of conventional tag " << tag_name);
+        rval = mbImpl->tag_get_length(varAttLenTag, varAttLenSz);CHK_SET_ERR(rval, "Trouble getting length of conventional tag " << tag_name);
         std::vector<int> varAttLen(varAttLenSz);
-        rval = mbImpl->tag_get_data(varAttLenTag, &fileSet, 1, &varAttLen[0]);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+        rval = mbImpl->tag_get_data(varAttLenTag, &fileSet, 1, &varAttLen[0]);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
 
-        rval = process_concatenated_attribute(varAttPtr, varAttSz, varAttLen, variableDataStruct.varAtts);CHK_SET_ERR_STR(rval, "Trouble processing attributes of variable " << var_name);
+        rval = process_concatenated_attribute(varAttPtr, varAttSz, varAttLen, variableDataStruct.varAtts);CHK_SET_ERR(rval, "Trouble processing attributes of variable " << var_name);
 
         if (MB_SUCCESS == rval)
           dbgOut.tprintf(2, "Tag metadata for variable %s\n", tag_name.c_str());
@@ -419,13 +419,13 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   tag_name = "__GLOBAL_ATTRIBS";
   Tag globalAttTag = 0;
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_OPAQUE, globalAttTag,
-                                MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
+                                MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
   std::string gattVal;
   std::vector<int> gattLen;
 
   const void* gattptr = NULL;
   int globalAttSz = 0;
-  rval = mbImpl->tag_get_by_ptr(globalAttTag, &fileSet, 1, &gattptr, &globalAttSz);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+  rval = mbImpl->tag_get_by_ptr(globalAttTag, &fileSet, 1, &gattptr, &globalAttSz);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
 
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag value retrieved for %s size %d\n", tag_name.c_str(), globalAttSz);
@@ -435,11 +435,11 @@ ErrorCode WriteNC::process_conventional_tags(EntityHandle fileSet)
   Tag globalAttLenTag = 0;
 
   rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_INTEGER, globalAttLenTag,
-                                MB_TAG_ANY);CHK_SET_ERR_STR(rval, "Trouble getting conventional tag " << tag_name);
+                                MB_TAG_ANY);CHK_SET_ERR(rval, "Trouble getting conventional tag " << tag_name);
   int sizeGAtt = 0;
-  rval = mbImpl->tag_get_length(globalAttLenTag, sizeGAtt);CHK_SET_ERR_STR(rval, "Trouble getting length of conventional tag " << tag_name);
+  rval = mbImpl->tag_get_length(globalAttLenTag, sizeGAtt);CHK_SET_ERR(rval, "Trouble getting length of conventional tag " << tag_name);
   gattLen.resize(sizeGAtt);
-  rval = mbImpl->tag_get_data(globalAttLenTag, &fileSet, 1, &gattLen[0]);CHK_SET_ERR_STR(rval, "Trouble getting data of conventional tag " << tag_name);
+  rval = mbImpl->tag_get_data(globalAttLenTag, &fileSet, 1, &gattLen[0]);CHK_SET_ERR(rval, "Trouble getting data of conventional tag " << tag_name);
   if (MB_SUCCESS == rval)
     dbgOut.tprintf(2, "Tag retrieved for variable %s\n", tag_name.c_str());
 

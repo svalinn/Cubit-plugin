@@ -1047,7 +1047,7 @@ ErrorCode WriteHDF5::write_elems(ExportSet& elems)
     for (long i = 0; i < count*nodes_per_elem; ++i) {
       buffer[i] = idMap.find(buffer[i]);
       if (0 == buffer[i]) {
-        SET_ERR_STR_CONT("Invalid " << elems.name() << " element connectivity. Write Aborted");
+        SET_ERR_CONT("Invalid " << elems.name() << " element connectivity. Write Aborted");
         mhdf_closeData(filePtr, elem_table, &status);
         return error(MB_FAILURE);
       }

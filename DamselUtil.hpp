@@ -19,14 +19,6 @@
     } \
   } while (false)
 
-#define CHK_DMSL_ERR_STR(A, B) \
-  do { \
-    if (DMSL_OK.id != A.id) { \
-      SET_ERR_STR_CONT(B); \
-      return error(MB_FAILURE); \
-    } \
-  } while (false)
-
 #define CHK_DMSL_ERR_NM(A) \
   do { \
     if (DMSL_OK.id != A.id) { \

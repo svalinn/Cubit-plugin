@@ -64,7 +64,7 @@ ErrorCode NCHelperMPAS::init_mesh_vals()
     idx = vit - dimNames.begin();
     maxEdgesPerCell = dimLens[idx];
     if (maxEdgesPerCell > DEFAULT_MAX_EDGES_PER_CELL) {
-      SET_ERR_STR(MB_INVALID_SIZE, "maxEdgesPerCell read from the MPAS file header has exceeded " << DEFAULT_MAX_EDGES_PER_CELL);
+      SET_ERR(MB_INVALID_SIZE, "maxEdgesPerCell read from the MPAS file header has exceeded " << DEFAULT_MAX_EDGES_PER_CELL);
     }
   }
 
@@ -574,7 +574,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
         range = &edges;
         break;
       default:
-        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << vdatas[i].varName);
+        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << vdatas[i].varName);
     }
 
     // Finally: nVertLevels or other optional levels, it is possible that there is no
@@ -593,12 +593,12 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
       dbgOut.tprintf(2, "Reading variable %s, time step %d\n", vdatas[i].varName.c_str(), tstep_nums[t]);
 
       if (tstep_nums[t] >= dimLens[tDim]) {
-        SET_ERR_STR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number " << tstep_nums[t]);
+        SET_ERR(MB_INDEX_OUT_OF_RANGE, "Wrong value for timestep number " << tstep_nums[t]);
       }
 
       // Get the tag to read into
       if (!vdatas[i].varTags[t]) {
-        rval = get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);CHK_SET_ERR_STR(rval, "Trouble getting tag for variable " << vdatas[i].varName);
+        rval = get_tag_to_nonset(vdatas[i], tstep_nums[t], vdatas[i].varTags[t], vdatas[i].numLev);CHK_SET_ERR(rval, "Trouble getting tag for variable " << vdatas[i].varName);
       }
 
       // Get ptr to tag space
@@ -610,7 +610,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
         assert(1 == range->psize());
         void* data;
         int count;
-        rval = mbImpl->tag_iterate(vdatas[i].varTags[t], range->begin(), range->end(), count, data);CHK_SET_ERR_STR(rval, "Failed to iterate tag for variable " << vdatas[i].varName);
+        rval = mbImpl->tag_iterate(vdatas[i].varTags[t], range->begin(), range->end(), count, data);CHK_SET_ERR(rval, "Failed to iterate tag for variable " << vdatas[i].varName);
         assert((unsigned)count == range->size());
         vdatas[i].varDatas[t] = data;
       }
@@ -649,7 +649,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
         pLocalGid = &localGidEdges;
         break;
       default:
-        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << vdatas[i].varName);
+        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << vdatas[i].varName);
     }
 
     std::size_t sz = vdatas[i].sz;
@@ -691,7 +691,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
                 &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]), &requests[idxReq++]);
             if (success)
-              SET_ERR_STR(MB_FAILURE, "Failed to read double data in a loop for variable " << vdatas[i].varName);
+              SET_ERR(MB_FAILURE, "Failed to read double data in a loop for variable " << vdatas[i].varName);
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
@@ -731,7 +731,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset_async(std::vector<ReadNC::V
           break;
         }
         default:
-          SET_ERR_STR(MB_FAILURE, "Unexpected data type for variable " << vdatas[i].varName);
+          SET_ERR(MB_FAILURE, "Unexpected data type for variable " << vdatas[i].varName);
       }
     }
   }
@@ -775,7 +775,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
         pLocalGid = &localGidEdges;
         break;
       default:
-        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << vdatas[i].varName);
+        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << vdatas[i].varName);
     }
 
     std::size_t sz = vdatas[i].sz;
@@ -809,7 +809,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
                 &(vdatas[i].readStarts[0]), &(vdatas[i].readCounts[0]),
                             &(tmpdoubledata[indexInDoubleArray]));
             if (success)
-              SET_ERR_STR(MB_FAILURE, "Failed to read double data in a loop for variable " << vdatas[i].varName);
+              SET_ERR(MB_FAILURE, "Failed to read double data in a loop for variable " << vdatas[i].varName);
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * 1 * vdatas[i].numLev;
@@ -845,7 +845,7 @@ ErrorCode NCHelperMPAS::read_ucd_variables_to_nonset(std::vector<ReadNC::VarData
           break;
         }
         default:
-          SET_ERR_STR(MB_FAILURE, "Unexpected data type for variable " << vdatas[i].varName);
+          SET_ERR(MB_FAILURE, "Unexpected data type for variable " << vdatas[i].varName);
       }
     }
   }

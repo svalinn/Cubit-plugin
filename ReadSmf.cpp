@@ -215,12 +215,12 @@ ErrorCode ReadSmf::annotation(char *cmd, std::vector<std::string> & argv)
     // If SMF version is specified, it must be the first
     // thing specified in the file.
     if (commandNo > 1) {
-      SET_ERR_STR(MB_FILE_WRITE_ERROR, "SMF file version specified at line " << lineNo);
+      SET_ERR(MB_FILE_WRITE_ERROR, "SMF file version specified at line " << lineNo);
     }
 
     if (2 == sscanf(argv[0].c_str(), "%d.%d", &versionMajor, &versionMinor)) {
       if (versionMajor != 1 || versionMinor != 0) {
-        SET_ERR_STR(MB_FILE_WRITE_ERROR, "Unsupported SMF file version: " << versionMajor << "." << versionMinor);
+        SET_ERR(MB_FILE_WRITE_ERROR, "Unsupported SMF file version: " << versionMajor << "." << versionMinor);
       }
     }
     else {
@@ -317,7 +317,7 @@ ErrorCode ReadSmf::parse_line(char *ln)
         return MB_FILE_WRITE_ERROR;
 
       // Invalid command:
-      SET_ERR_STR(MB_UNSUPPORTED_OPERATION, "Illegal SMF command at line " << lineNo << ": \"" << cmd << "\"");
+      SET_ERR(MB_UNSUPPORTED_OPERATION, "Illegal SMF command at line " << lineNo << ": \"" << cmd << "\"");
     }
   }
 
@@ -329,7 +329,7 @@ ErrorCode ReadSmf::check_length(int count,
 {
   if ((argv.size() < (unsigned)count) ||
       (argv.size() > (unsigned)count && argv[count][0] != '#')) {
-    SET_ERR_STR(MB_FILE_WRITE_ERROR, "Expect " << count << " arguments at line " << lineNo);
+    SET_ERR(MB_FILE_WRITE_ERROR, "Expect " << count << " arguments at line " << lineNo);
   }
 
   return MB_SUCCESS;
@@ -347,7 +347,7 @@ ErrorCode ReadSmf::parse_doubles(int count,
   for (int i = 0; i < count; i++) {
     results[i] = strtod(argv[i].c_str(), &endptr);
     if (*endptr) {
-      SET_ERR_STR(MB_FILE_WRITE_ERROR, "Invalid vertex coordinates at line " << lineNo);
+      SET_ERR(MB_FILE_WRITE_ERROR, "Invalid vertex coordinates at line " << lineNo);
     }
   }
 
@@ -396,7 +396,7 @@ ErrorCode ReadSmf::face(std::vector<std::string> & argv)
   for (unsigned int i = 0; i < argv.size(); i++) {
     vert[i] = strtol(argv[i].c_str(), &endptr, 0);
     if (*endptr) {
-      SET_ERR_STR(MB_FILE_WRITE_ERROR, "Invalid face spec at line " << lineNo);
+      SET_ERR(MB_FILE_WRITE_ERROR, "Invalid face spec at line " << lineNo);
     }
   }
 
@@ -422,7 +422,7 @@ ErrorCode ReadSmf::end(std::vector<std::string> & /*argv*/)
   // Don't let mismatched begin/end statements cause us
   // to read from an empty vector.
   if (state.size() == 1) {
-    SET_ERR_STR(MB_FILE_WRITE_ERROR, "End w/out Begin at line " << lineNo);
+    SET_ERR(MB_FILE_WRITE_ERROR, "End w/out Begin at line " << lineNo);
   }
 
   state.pop_back();
@@ -438,7 +438,7 @@ ErrorCode ReadSmf::set(std::vector<std::string> & argv)
   char* endptr;
   int val = strtol(argv[1].c_str(), &endptr, 0);
   if (*endptr) {
-    SET_ERR_STR(MB_FILE_WRITE_ERROR, "Invalid value at line " << lineNo);
+    SET_ERR(MB_FILE_WRITE_ERROR, "Invalid value at line " << lineNo);
   }
 
   state.back().set_vertex_correction(val);
@@ -496,7 +496,7 @@ ErrorCode ReadSmf::rot(std::vector<std::string> & argv)
   std::string axisname = argv.front();
   argv.erase(argv.begin());
   if (axisname.size() != 1) {
-    SET_ERR_STR(MB_FILE_WRITE_ERROR, "Malformed rotation command at line " << lineNo);
+    SET_ERR(MB_FILE_WRITE_ERROR, "Malformed rotation command at line " << lineNo);
   }
   switch (axisname[0]) {
     case 'x':
@@ -509,7 +509,7 @@ ErrorCode ReadSmf::rot(std::vector<std::string> & argv)
       axis[2] = 1.;
       break;
     default:
-      SET_ERR_STR(MB_FILE_WRITE_ERROR, "Malformed rotation command at line " << lineNo);
+      SET_ERR(MB_FILE_WRITE_ERROR, "Malformed rotation command at line " << lineNo);
   }
 
   double angle;

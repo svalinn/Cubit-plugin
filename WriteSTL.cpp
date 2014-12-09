@@ -164,7 +164,7 @@ FILE* WriteSTL::open_file(const char* name, bool overwrite, bool binary)
   // Open the file.
   int fd = open(name, flags, creat_mode);
   if (fd < 0) {
-    SET_ERR_STR_RET_VAL(name << ": " << strerror(errno), NULL);
+    SET_ERR_RET_VAL(name << ": " << strerror(errno), NULL);
   }
   FILE* result = fdopen(fd, binary ? "wb": "w");
   if (!result)

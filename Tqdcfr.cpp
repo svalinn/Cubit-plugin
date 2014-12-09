@@ -2048,7 +2048,7 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
       // the expected value of 52
       assert(52 == block_headers[i].blockElemType);
 
-      //SET_ERR_STR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
+      //SET_ERR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
     }
 
     // Set the material set tag and id tag both to id

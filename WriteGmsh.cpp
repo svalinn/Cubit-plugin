@@ -178,7 +178,7 @@ ErrorCode WriteGmsh::write_file(const char *file_name,
 
     ei.type = GmshUtil::get_gmsh_type(type, num_vtx);
     if (ei.type < 0) {
-      SET_ERR_STR(MB_FILE_WRITE_ERROR, "Gmem file format does not support element of type " << CN::EntityTypeName(type) << " with " << num_vtx << " vertices");
+      SET_ERR(MB_FILE_WRITE_ERROR, "Gmem file format does not support element of type " << CN::EntityTypeName(type) << " with " << num_vtx << " vertices");
     }
   }
   // Don't need these any more, free memory.

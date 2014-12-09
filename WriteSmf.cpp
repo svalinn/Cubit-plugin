@@ -90,7 +90,7 @@ ErrorCode WriteSmf::write_file(const char *file_name,
   // Create file
   std::ofstream file(file_name);
   if (!file) {
-    SET_ERR_STR(MB_FILE_WRITE_ERROR, "Could not open file: " << file_name);
+    SET_ERR(MB_FILE_WRITE_ERROR, "Could not open file: " << file_name);
   }
   file.precision(precision);
 

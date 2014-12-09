@@ -87,7 +87,7 @@ ErrorCode ReadSms::load_file(const char* filename,
   // Open file
   FILE* file_ptr = fopen(filename, "r");
   if (!file_ptr) {
-    SET_ERR_STR(MB_FILE_DOES_NOT_EXIST, filename << ": " << strerror(errno));
+    SET_ERR(MB_FILE_DOES_NOT_EXIST, filename << ": " << strerror(errno));
   }
 
   const ErrorCode result = load_file_impl(file_ptr, file_id_tag);

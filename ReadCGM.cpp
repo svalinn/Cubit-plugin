@@ -815,7 +815,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
 
   s = CubitCompat_import_solid_model(cgm_file_name, file_type);
   if (CUBIT_SUCCESS != s) {
-    SET_ERR_STR(MB_FAILURE, cgm_file_name << ": Failed to read file of type \"" << file_type << "\"");
+    SET_ERR(MB_FAILURE, cgm_file_name << ": Failed to read file of type \"" << file_type << "\"");
   }
 
   // Create entity sets for all geometric entities

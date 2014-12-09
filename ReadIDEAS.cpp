@@ -48,7 +48,7 @@ ErrorCode ReadIDEAS::load_file(const char* fname,
 
   file.open(fname);
   if (!file.good()) {
-    SET_ERR_STR(MB_FILE_DOES_NOT_EXIST, "Failed to open file: " << fname);
+    SET_ERR(MB_FILE_DOES_NOT_EXIST, "Failed to open file: " << fname);
   }
 
   ErrorCode rval;

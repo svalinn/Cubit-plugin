@@ -95,7 +95,7 @@ ErrorCode ReadCGNS::load_file(const char* filename,
 
   // Process options; see src/FileOptions.hpp for API for FileOptions class, and doc/metadata_info.doc for
   // a description of various options used by some of the readers in MOAB
-  result = process_options(opts);CHK_SET_ERR_STR(result, fileName << ": problem reading options");
+  result = process_options(opts);CHK_SET_ERR(result, fileName << ": problem reading options");
 
   // Open file
   int filePtr = 0;
@@ -103,7 +103,7 @@ ErrorCode ReadCGNS::load_file(const char* filename,
   cg_open(filename, CG_MODE_READ, &filePtr);
 
   if (filePtr <= 0) {
-    SET_ERR_STR(MB_FILE_DOES_NOT_EXIST, fileName << ": fopen returned error");
+    SET_ERR(MB_FILE_DOES_NOT_EXIST, fileName << ": fopen returned error");
   }
 
   // Read number of verts, elements, sets
@@ -119,7 +119,7 @@ ErrorCode ReadCGNS::load_file(const char* filename,
   cg_nbases(filePtr, &num_bases);
 
   if (num_bases > 1) {
-    SET_ERR_STR(MB_NOT_IMPLEMENTED, fileName << ": support for number of bases > 1 not implemented");
+    SET_ERR(MB_NOT_IMPLEMENTED, fileName << ": support for number of bases > 1 not implemented");
   }
 
   for (int indexBase = 1; indexBase <= num_bases; ++indexBase) {
@@ -127,7 +127,7 @@ ErrorCode ReadCGNS::load_file(const char* filename,
     cg_nzones(filePtr, indexBase, &num_zones);
 
     if (num_zones > 1) {
-      SET_ERR_STR(MB_NOT_IMPLEMENTED, fileName << ": support for number of zones > 1 not implemented");
+      SET_ERR(MB_NOT_IMPLEMENTED, fileName << ": support for number of zones > 1 not implemented");
     }
 
     for (int indexZone = 1; indexZone <= num_zones; ++indexZone) {
@@ -154,7 +154,7 @@ ErrorCode ReadCGNS::load_file(const char* filename,
       std::vector<double*> coord_arrays;
       EntityHandle handle = 0;
       result = readMeshIface->get_node_coords(3, num_verts, MB_START_ID, handle,
-                                              coord_arrays);CHK_SET_ERR_STR(result, fileName << ": Trouble reading vertices");
+                                              coord_arrays);CHK_SET_ERR(result, fileName << ": Trouble reading vertices");
 
       // Fill in vertex coordinate arrays
       cgsize_t beginPos = 1, endPos = num_verts;
@@ -272,7 +272,7 @@ ErrorCode ReadCGNS::load_file(const char* filename,
             verts_per_elem = 0;
             break;
           default:
-            SET_ERR_STR(MB_INDEX_OUT_OF_RANGE, fileName << ": Trouble determining element type");
+            SET_ERR(MB_INDEX_OUT_OF_RANGE, fileName << ": Trouble determining element type");
         }
 
         if (elemsType == TETRA_4 || elemsType == PYRA_5 || elemsType == PENTA_6 || elemsType == HEXA_8 ||
@@ -349,7 +349,7 @@ ErrorCode ReadCGNS::load_file(const char* filename,
                 count_HEX += 1;
                 break;
               default:
-                SET_ERR_STR(MB_INDEX_OUT_OF_RANGE, fileName << ": Trouble determining element type");
+                SET_ERR(MB_INDEX_OUT_OF_RANGE, fileName << ": Trouble determining element type");
             }
 
             connIndex += (verts_per_elem + 1); // Add one to skip next element descriptor
@@ -414,7 +414,7 @@ ErrorCode ReadCGNS::load_file(const char* filename,
                 idx_hex += 8;
                 break;
               default:
-                SET_ERR_STR(MB_INDEX_OUT_OF_RANGE, fileName << ": Trouble determining element type");
+                SET_ERR(MB_INDEX_OUT_OF_RANGE, fileName << ": Trouble determining element type");
             }
 
             connIndex += (verts_per_elem + 1); // Add one to skip next element descriptor
@@ -471,7 +471,7 @@ ErrorCode ReadCGNS::create_elements(char *sectionName,
   EntityHandle handle = 0;
 
   result = readMeshIface->get_element_connect(elems_count, verts_per_elem, ent_type, 1, handle,
-                                              conn_array);CHK_SET_ERR_STR(result, fileName << ": Trouble reading elements");
+                                              conn_array);CHK_SET_ERR(result, fileName << ": Trouble reading elements");
 
   memcpy(conn_array, &elemsConn[0], elemsConn.size() * sizeof(EntityHandle));
 
@@ -528,7 +528,7 @@ ErrorCode ReadCGNS::create_sets(char *sectionName,
   mbImpl->tag_get_handle(setName, 1, MB_TYPE_INTEGER, tag_handle, MB_TAG_SPARSE | MB_TAG_CREAT);
 
   // Create set
-  result = mbImpl->create_meshset(MESHSET_SET, set_handle);CHK_SET_ERR_STR(result, fileName << ": Trouble creating set");
+  result = mbImpl->create_meshset(MESHSET_SET, set_handle);CHK_SET_ERR(result, fileName << ": Trouble creating set");
 
   //// Add dummy values to current set
   //std::vector<int> tags(set_ids.size(), 1);
@@ -536,7 +536,7 @@ ErrorCode ReadCGNS::create_sets(char *sectionName,
   //if (MB_SUCCESS != result) return result;
 
   // Add them to the set
-  result = mbImpl->add_entities(set_handle, elements);CHK_SET_ERR_STR(result, fileName << ": Trouble putting entities in set");
+  result = mbImpl->add_entities(set_handle, elements);CHK_SET_ERR(result, fileName << ": Trouble putting entities in set");
 
   return MB_SUCCESS;
 }

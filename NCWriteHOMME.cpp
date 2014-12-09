@@ -83,7 +83,7 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
     std::string varname = var_names[i];
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(varname);
     if (vit == varInfo.end())
-      SET_ERR_STR(MB_FAILURE, "Can't find variable " << varname);;
+      SET_ERR(MB_FAILURE, "Can't find variable " << varname);;
 
     WriteNC::VarData& currentVarData = vit->second;
 #ifndef NDEBUG
@@ -148,7 +148,7 @@ ErrorCode NCWriteHOMME::collect_variable_data(std::vector<std::string>& var_name
         currentVarData.writeCounts[dim_idx] = localGidVertsOwned.size();
         break;
       default:
-        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << varname);
+        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << varname);
     }
     dim_idx++;
 
@@ -178,7 +178,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
         // Vertices
         break;
       default:
-        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << variableData.varName);
+        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << variableData.varName);
     }
 
     unsigned int num_timesteps;
@@ -263,7 +263,7 @@ ErrorCode NCWriteHOMME::write_nonset_variables(std::vector<WriteNC::VarData>& vd
                            &(tmpdoubledata[indexInDoubleArray]));
 #endif
             if (success)
-              SET_ERR_STR(MB_FAILURE, "Failed to write double data in a loop for variable " << variableData.varName);
+              SET_ERR(MB_FAILURE, "Failed to write double data in a loop for variable " << variableData.varName);
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * num_lev;

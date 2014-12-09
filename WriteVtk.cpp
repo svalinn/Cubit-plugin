@@ -107,7 +107,7 @@ ErrorCode WriteVtk::write_file(const char *file_name,
   // Create file
   std::ofstream file(file_name);
   if (!file) {
-    SET_ERR_STR(MB_FILE_WRITE_ERROR, "Could not open file: " << file_name);
+    SET_ERR(MB_FILE_WRITE_ERROR, "Could not open file: " << file_name);
   }
   file.precision(precision);
 
@@ -281,7 +281,7 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
       if (vtk_type)
         conn_len--;
       else {
-        SET_ERR_STR(MB_FAILURE, "Vtk file format does not support elements of type " << CN::EntityTypeName(type) << " (" << (int)type << ") with " << conn_len << " nodes");
+        SET_ERR(MB_FAILURE, "Vtk file format does not support elements of type " << CN::EntityTypeName(type) << " (" << (int)type << ") with " << conn_len << " nodes");
       }
     }
 
@@ -497,7 +497,7 @@ ErrorCode WriteVtk::write_bit_tag(std::ostream& stream,
     return MB_FAILURE;
 
   if (vals_per_tag > 8) {
-    SET_ERR_STR(MB_FAILURE, "Invalid tag size for bit tag \"" << name << "\"");
+    SET_ERR(MB_FAILURE, "Invalid tag size for bit tag \"" << name << "\"");
   }
 
   // Get a tag value for each entity.

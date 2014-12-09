@@ -105,7 +105,7 @@ ErrorCode ReadGmsh::load_file(const char* filename,
   // Open file and hand off pointer to tokenizer
   FILE* file_ptr = fopen(filename, "r");
   if (!file_ptr) {
-    SET_ERR_STR(MB_FILE_DOES_NOT_EXIST, filename << ": " << strerror(errno));
+    SET_ERR(MB_FILE_DOES_NOT_EXIST, filename << ": " << strerror(errno));
   }
   FileTokenizer tokens(file_ptr, readMeshIface);
 
@@ -122,7 +122,7 @@ ErrorCode ReadGmsh::load_file(const char* filename,
       return MB_FILE_WRITE_ERROR;
 
     if (version != 2.0 && version != 2.1) {
-      SET_ERR_STR(MB_FILE_DOES_NOT_EXIST, filename << ": unknown format version: " << version);
+      SET_ERR(MB_FILE_DOES_NOT_EXIST, filename << ": unknown format version: " << version);
       return MB_FILE_DOES_NOT_EXIST;
     }
 
@@ -160,7 +160,7 @@ ErrorCode ReadGmsh::load_file(const char* filename,
       return MB_FILE_WRITE_ERROR;
 
     if (!node_id_map.insert(std::pair<long, EntityHandle>(id, handle)).second) {
-      SET_ERR_STR(MB_FILE_WRITE_ERROR, "Duplicate node ID at line " << tokens.line_number());
+      SET_ERR(MB_FILE_WRITE_ERROR, "Duplicate node ID at line " << tokens.line_number());
     }
   }
 
@@ -213,7 +213,7 @@ ErrorCode ReadGmsh::load_file(const char* filename,
       tag_data[1] = int_data[3];
       if ((unsigned)tag_data[1] < GmshUtil::numGmshElemType &&
            GmshUtil::gmshElemTypes[tag_data[1]].num_nodes != (unsigned)int_data[4]) {
-        SET_ERR_STR(MB_FILE_WRITE_ERROR, "Invalid node count for element type at line " << tokens.line_number());
+        SET_ERR(MB_FILE_WRITE_ERROR, "Invalid node count for element type at line " << tokens.line_number());
       }
     }
     // File format 2.0
@@ -258,7 +258,7 @@ ErrorCode ReadGmsh::load_file(const char* filename,
       curr_elem_type = int_data[1];
       if ((unsigned)curr_elem_type >= GmshUtil::numGmshElemType ||
           GmshUtil::gmshElemTypes[curr_elem_type].mb_type == MBMAXTYPE) {
-        SET_ERR_STR(MB_FILE_WRITE_ERROR, "Unsupported element type " << curr_elem_type << " at line " << tokens.line_number());
+        SET_ERR(MB_FILE_WRITE_ERROR, "Unsupported element type " << curr_elem_type << " at line " << tokens.line_number());
       }
       tmp_conn.resize(GmshUtil::gmshElemTypes[curr_elem_type].num_nodes);
     }
@@ -277,7 +277,7 @@ ErrorCode ReadGmsh::load_file(const char* filename,
     for (unsigned j = 0; j < tmp_conn.size(); ++j) {
       std::map<long, EntityHandle>::iterator k = node_id_map.find(tmp_conn[j]);
       if (k == node_id_map.end()) {
-        SET_ERR_STR(MB_FILE_WRITE_ERROR, "Invalid node ID at line " << tokens.line_number());
+        SET_ERR(MB_FILE_WRITE_ERROR, "Invalid node ID at line " << tokens.line_number());
       }
       connectivity.push_back(k->second);
     }

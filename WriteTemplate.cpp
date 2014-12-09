@@ -254,7 +254,7 @@ ErrorCode WriteTemplate::gather_mesh_information(MeshInfo &mesh_info,
     EntityType entity_type = TYPE_FROM_HANDLE(*elem_range_iter);
     end_elem_range_iter--;
     if (entity_type != TYPE_FROM_HANDLE(*(end_elem_range_iter++))) {
-      SET_ERR_STR(MB_FAILURE, "Entities in matset " << id << " not of common type");
+      SET_ERR(MB_FAILURE, "Entities in matset " << id << " not of common type");
     }
 
     int dimension = CN::Dimension(entity_type);
@@ -272,7 +272,7 @@ ErrorCode WriteTemplate::gather_mesh_information(MeshInfo &mesh_info,
       ExoIIUtil::get_element_type_from_num_verts(tmp_conn.size(), entity_type, dimension);
 
     if (matset_data.element_type == EXOII_MAX_ELEM_TYPE) {
-      SET_ERR_STR(MB_FAILURE, "Element type in matset " << id << " didn't get set correctly");
+      SET_ERR(MB_FAILURE, "Element type in matset " << id << " didn't get set correctly");
     }
 
     matset_data.number_nodes_per_element = ExoIIUtil::VerticesPerElement[matset_data.element_type];
@@ -325,7 +325,7 @@ ErrorCode WriteTemplate::gather_mesh_information(MeshInfo &mesh_info,
 
     // Get the dirset's id
     if (mbImpl->tag_get_data(mDirichletSetTag, &(*vector_iter), 1, &id) != MB_SUCCESS) {
-      SET_ERR_STR(MB_FAILURE, "Couldn't get id tag for dirset " << id);
+      SET_ERR(MB_FAILURE, "Couldn't get id tag for dirset " << id);
     }
 
     dirset_data.id = id; 
@@ -333,7 +333,7 @@ ErrorCode WriteTemplate::gather_mesh_information(MeshInfo &mesh_info,
     std::vector<EntityHandle> node_vector;
     // Get the nodes of the dirset that are in mesh_info.nodes
     if (mbImpl->get_entities_by_handle(*vector_iter, node_vector, true) != MB_SUCCESS) {
-      SET_ERR_STR(MB_FAILURE, "Couldn't get nodes in dirset " << id);
+      SET_ERR(MB_FAILURE, "Couldn't get nodes in dirset " << id);
     }
 
     std::vector<EntityHandle>::iterator iter, end_iter;
@@ -430,7 +430,7 @@ ErrorCode WriteTemplate::get_valid_sides(Range &elems, const int sense,
         }
       }
       else {
-        SET_ERR_STR(MB_FAILURE, "No parent element exists for element in neuset " << neuset_data.id);
+        SET_ERR(MB_FAILURE, "No parent element exists for element in neuset " << neuset_data.id);
       }
     }
   }
@@ -580,7 +580,7 @@ ErrorCode WriteTemplate::open_file(const char* filename)
 
   // File couldn't be opened
   if (/* Template - check for file open error here! */ false) {
-    SET_ERR_STR(MB_FAILURE, "Cannot open " << filename);
+    SET_ERR(MB_FAILURE, "Cannot open " << filename);
   }
 
   return MB_SUCCESS;

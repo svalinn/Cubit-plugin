@@ -140,7 +140,7 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
     std::string varname = var_names[i];
     std::map<std::string, WriteNC::VarData>::iterator vit = varInfo.find(varname);
     if (vit == varInfo.end())
-      SET_ERR_STR(MB_FAILURE, "Can't find variable " << varname);
+      SET_ERR(MB_FAILURE, "Can't find variable " << varname);
 
     WriteNC::VarData& currentVarData = vit->second;
     std::vector<int>& varDims = currentVarData.varDims;
@@ -213,7 +213,7 @@ ErrorCode NCWriteMPAS::collect_variable_data(std::vector<std::string>& var_names
         currentVarData.writeCounts[dim_idx] = localGidEdgesOwned.size();
         break;
       default:
-        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << varname);
+        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << varname);
     }
     dim_idx++;
 
@@ -279,7 +279,7 @@ ErrorCode NCWriteMPAS::write_nonset_variables(std::vector<WriteNC::VarData>& vda
         pLocalGidEntsOwned = &localGidCellsOwned;
         break;
       default:
-        SET_ERR_STR(MB_FAILURE, "Unexpected entity location type for variable " << variableData.varName);
+        SET_ERR(MB_FAILURE, "Unexpected entity location type for variable " << variableData.varName);
     }
 
     unsigned int num_timesteps;
@@ -353,7 +353,7 @@ ErrorCode NCWriteMPAS::write_nonset_variables(std::vector<WriteNC::VarData>& vda
                            &(tag_data[indexInDoubleArray]));
 #endif
             if (success)
-              SET_ERR_STR(MB_FAILURE, "Failed to write double data in a loop for variable " << variableData.varName);
+              SET_ERR(MB_FAILURE, "Failed to write double data in a loop for variable " << variableData.varName);
             // We need to increment the index in double array for the
             // next subrange
             indexInDoubleArray += (endh - starth + 1) * num_lev;

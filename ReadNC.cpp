@@ -67,7 +67,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   success = NCFUNC(open)(file_name, 0, &fileId);
 #endif
   if (success)
-    SET_ERR_STR(MB_FAILURE, "Trouble opening file " << file_name);
+    SET_ERR(MB_FAILURE, "Trouble opening file " << file_name);
 
   // Read the header (num dimensions, dimensions, num variables, global attribs)
   rval = read_header();CHK_SET_ERR(rval, "Trouble reading file header");
@@ -342,7 +342,7 @@ ErrorCode ReadNC::get_attributes(int var_id, int num_atts, std::map<std::string,
     data.attName = std::string(dum_name);
     success = NCFUNC(inq_att)(fileId, var_id, dum_name, &data.attDataType, &data.attLen);
     if (success)
-      SET_ERR_STR(MB_FAILURE, "Trouble getting info for attribute " << data.attName);
+      SET_ERR(MB_FAILURE, "Trouble getting info for attribute " << data.attName);
     data.attVarId = var_id;
 
     dbgOut.tprintf(2, "%sAttribute %s: length=%u, varId=%d, type=%d\n", (prefix ? prefix : ""), data.attName.c_str(),
@@ -361,7 +361,7 @@ ErrorCode ReadNC::get_dimensions(int file_id, std::vector<std::string>& dim_name
     SET_ERR(MB_FAILURE, "Trouble getting number of dimensions");
 
   if (num_dims > NC_MAX_DIMS) {
-    SET_ERR_STR(MB_FAILURE, "ReadNC: File contains " << num_dims << " dims but NetCDF library supports only " << NC_MAX_DIMS);
+    SET_ERR(MB_FAILURE, "ReadNC: File contains " << num_dims << " dims but NetCDF library supports only " << NC_MAX_DIMS);
   }
 
   char dim_name[NC_MAX_NAME + 1];
@@ -403,7 +403,7 @@ ErrorCode ReadNC::get_variables()
     SET_ERR(MB_FAILURE, "Trouble getting number of variables");
 
   if (num_vars > NC_MAX_VARS) {
-    SET_ERR_STR(MB_FAILURE, "ReadNC: File contains " << num_vars << " vars but NetCDF library supports only " << NC_MAX_VARS);
+    SET_ERR(MB_FAILURE, "ReadNC: File contains " << num_vars << " vars but NetCDF library supports only " << NC_MAX_VARS);
   }
 
   char var_name[NC_MAX_NAME + 1];
@@ -422,28 +422,28 @@ ErrorCode ReadNC::get_variables()
     // Get the data type
     success = NCFUNC(inq_vartype)(fileId, i, &data.varDataType);
     if (success)
-      SET_ERR_STR(MB_FAILURE, "Trouble getting data type for variable " << data.varName);
+      SET_ERR(MB_FAILURE, "Trouble getting data type for variable " << data.varName);
 
     // Get the number of dimensions, then the dimensions
     success = NCFUNC(inq_varndims)(fileId, i, &var_ndims);
     if (success)
-      SET_ERR_STR(MB_FAILURE, "Trouble getting number of dims for variable " << data.varName);
+      SET_ERR(MB_FAILURE, "Trouble getting number of dims for variable " << data.varName);
     data.varDims.resize(var_ndims);
 
     success = NCFUNC(inq_vardimid)(fileId, i, &data.varDims[0]);
     if (success)
-      SET_ERR_STR(MB_FAILURE, "Trouble getting dimensions for variable " << data.varName);
+      SET_ERR(MB_FAILURE, "Trouble getting dimensions for variable " << data.varName);
 
     // Finally, get the number of attributes, then the attributes
     success = NCFUNC(inq_varnatts)(fileId, i, &data.numAtts);
     if (success)
-      SET_ERR_STR(MB_FAILURE, "Trouble getting number of dims for variable " << data.varName);
+      SET_ERR(MB_FAILURE, "Trouble getting number of dims for variable " << data.varName);
 
     // Print debug info here so attribute info comes afterwards
     dbgOut.tprintf(2, "Variable %s: Id=%d, numAtts=%d, datatype=%d, num_dims=%u\n", data.varName.c_str(), data.varId, data.numAtts,
         data.varDataType, (unsigned int) data.varDims.size());
 
-    ErrorCode rval = get_attributes(i, data.numAtts, data.varAtts, "   ");CHK_SET_ERR_STR(rval, "Trouble getting attributes for variable " << data.varName);
+    ErrorCode rval = get_attributes(i, data.numAtts, data.varAtts, "   ");CHK_SET_ERR(rval, "Trouble getting attributes for variable " << data.varName);
   }
 
   return MB_SUCCESS;

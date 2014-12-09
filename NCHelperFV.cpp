@@ -350,8 +350,8 @@ ErrorCode NCHelperFV::init_mesh_vals()
     ss_tag_name << ijdimNames[i] << "_LOC_MINMAX";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh,
-                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_SET_ERR_STR(rval, "Trouble creating conventional tag " << tag_name);
-    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_SET_ERR_STR(rval, "Trouble setting data to conventional tag " << tag_name);
+                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_SET_ERR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_SET_ERR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
@@ -390,8 +390,8 @@ ErrorCode NCHelperFV::init_mesh_vals()
     ss_tag_name << ijdimNames[i] << "_LOC_VALS";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 0, MB_TYPE_DOUBLE, tagh,
-                                  MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_SET_ERR_STR(rval, "Trouble creating conventional tag " << tag_name);
-    rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);CHK_SET_ERR_STR(rval, "Trouble setting data to conventional tag " << tag_name);
+                                  MB_TAG_CREAT | MB_TAG_SPARSE | MB_TAG_VARLEN);CHK_SET_ERR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_by_ptr(tagh, &_fileSet, 1, &val, &val_len);CHK_SET_ERR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
@@ -419,8 +419,8 @@ ErrorCode NCHelperFV::init_mesh_vals()
     ss_tag_name << ijdimNames[i] << "_GLOBAL_MINMAX";
     tag_name = ss_tag_name.str();
     rval = mbImpl->tag_get_handle(tag_name.c_str(), 2, MB_TYPE_INTEGER, tagh,
-                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_SET_ERR_STR(rval, "Trouble creating conventional tag " << tag_name);
-    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_SET_ERR_STR(rval, "Trouble setting data to conventional tag " << tag_name);
+                                  MB_TAG_SPARSE | MB_TAG_CREAT);CHK_SET_ERR(rval, "Trouble creating conventional tag " << tag_name);
+    rval = mbImpl->tag_set_data(tagh, &_fileSet, 1, &val[0]);CHK_SET_ERR(rval, "Trouble setting data to conventional tag " << tag_name);
     if (MB_SUCCESS == rval)
       dbgOut.tprintf(2, "Conventional tag %s is created.\n", tag_name.c_str());
   }
