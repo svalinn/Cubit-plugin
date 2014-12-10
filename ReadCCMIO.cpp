@@ -100,24 +100,24 @@ ReadCCMIO::ReadCCMIO(Interface* impl)
   //! Get and cache predefined tag handles
   const int negone = -1;
   ErrorCode result = impl->tag_get_handle(MATERIAL_SET_TAG_NAME,  1, MB_TYPE_INTEGER,
-                                          mMaterialSetTag, MB_TAG_CREAT | MB_TAG_SPARSE, &negone);MB_CHK_SET_ERR_RET_VOID(result, "Failed to get MATERIAL_SET tag");
+                                          mMaterialSetTag, MB_TAG_CREAT | MB_TAG_SPARSE, &negone);MB_CHK_SET_ERR_RET(result, "Failed to get MATERIAL_SET tag");
 
   result = impl->tag_get_handle(DIRICHLET_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mDirichletSetTag, MB_TAG_CREAT | MB_TAG_SPARSE, &negone);MB_CHK_SET_ERR_RET_VOID(result, "Failed to get DIRICHLET_SET tag");
+                                mDirichletSetTag, MB_TAG_CREAT | MB_TAG_SPARSE, &negone);MB_CHK_SET_ERR_RET(result, "Failed to get DIRICHLET_SET tag");
 
   result = impl->tag_get_handle(NEUMANN_SET_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mNeumannSetTag, MB_TAG_CREAT | MB_TAG_SPARSE, &negone);MB_CHK_SET_ERR_RET_VOID(result, "Failed to get NEUMANN_SET tag");
+                                mNeumannSetTag, MB_TAG_CREAT | MB_TAG_SPARSE, &negone);MB_CHK_SET_ERR_RET(result, "Failed to get NEUMANN_SET tag");
 
   const int negonearr[] = {-1, -1, -1, -1};
   result = impl->tag_get_handle(HAS_MID_NODES_TAG_NAME, 4, MB_TYPE_INTEGER,
-                                mHasMidNodesTag, MB_TAG_CREAT | MB_TAG_SPARSE, negonearr);MB_CHK_SET_ERR_RET_VOID(result, "Failed to get HAS_MID_NODES tag");
+                                mHasMidNodesTag, MB_TAG_CREAT | MB_TAG_SPARSE, negonearr);MB_CHK_SET_ERR_RET(result, "Failed to get HAS_MID_NODES tag");
 
   const int zero = 0;
   result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-                                mGlobalIdTag, MB_TAG_CREAT | MB_TAG_SPARSE, &zero);MB_CHK_SET_ERR_RET_VOID(result, "Failed to get GLOBAL_ID tag");
+                                mGlobalIdTag, MB_TAG_CREAT | MB_TAG_SPARSE, &zero);MB_CHK_SET_ERR_RET(result, "Failed to get GLOBAL_ID tag");
 
   result = impl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
-                                mNameTag, MB_TAG_CREAT | MB_TAG_SPARSE);MB_CHK_SET_ERR_RET_VOID(result, "Failed to get NAME tag");
+                                mNameTag, MB_TAG_CREAT | MB_TAG_SPARSE);MB_CHK_SET_ERR_RET(result, "Failed to get NAME tag");
 }
 
 ReadCCMIO::~ReadCCMIO()
