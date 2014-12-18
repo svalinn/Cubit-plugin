@@ -116,7 +116,7 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
   CHECK("Failed to create geom dim tag.");
 
   int n;
-  char line[256];
+  char line[1024];
   int file_type;
   n = fscanf(file_ptr, "%s %d", line, &file_type);
   CHECKN(2);
