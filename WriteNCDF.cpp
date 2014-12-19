@@ -449,17 +449,26 @@ ErrorCode WriteNCDF::gather_mesh_information(ExodusMeshInfo &mesh_info,
 
     block_info.push_back(block_data);
 
-    std::vector<char*> *qa_rec = NULL;
-
-    if (mdbImpl->tag_get_data(mQaRecordTag, &(*vector_iter), 1, &qa_rec) == MB_SUCCESS &&
-        NULL != qa_rec) {
+    const void* data = NULL;
+    int size = 0;
+    if (MB_SUCCESS == mdbImpl->tag_get_by_ptr(mQaRecordTag, &(*vector_iter), 1, &data, &size) &&
+        NULL != data) {
       // There are qa records on this block - copy over to mesh qa records
+      const char* qa_rec = static_cast<const char*>(data);
+      int start = 0;
+      int count = 0;
+      for (int i = 0; i < size; i++) {
+        if (qa_rec[i] == '\0') {
+          std::string qa_string(&qa_rec[start], i - start);
+          mesh_info.qaRecords.push_back(qa_string);
+          start = i + 1;
+          count++;
+        }
+      }
 
       // Constrained to multiples of 4 qa records
-      assert(qa_rec->size() % 4 == 0);
-
-      for (unsigned int k = 0; k < qa_rec->size(); k++)
-        mesh_info.qaRecords.push_back((*qa_rec)[k]);
+      if (count > 0)
+        assert(count % 4 == 0);
     }
   }
 
