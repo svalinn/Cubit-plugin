@@ -619,8 +619,12 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
       int dimension = CN::Dimension(TYPE_FROM_HANDLE(*iter));
 
       // Get the adjacent parent element of "side"
-      if ( mdbImpl->get_adjacencies(&(*iter), 1, dimension + 1, false, parents) != MB_SUCCESS) {
-        MB_SET_ERR_CONT("Warning: Couldn't get adjacencies for sideset");
+      if (mdbImpl->get_adjacencies(&(*iter), 1, dimension + 1, false, parents) != MB_SUCCESS) {
+        // This is not treated as an error, print warning messages for debugging only
+        bool mydebug = false;
+        if (mydebug) {
+          fprintf(stderr, "[Warning]: Couldn't get adjacencies for sideset.\n");
+        }
       }
 
       if (!parents.empty()) {
@@ -640,7 +644,11 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
         }
       }
       else {
-        MB_SET_ERR_CONT("Warning: No parent element exists for element in sideset " << sideset_data.id);
+        // This is not treated as an error, print warning messages for debugging only
+        bool mydebug = false;
+        if (mydebug) {
+          fprintf(stderr, "[Warning]: No parent element exists for element in sideset %i\n", sideset_data.id);
+        }
       }
     }
 
@@ -881,7 +889,7 @@ ErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_dat
 
     int status = 1;
     if (0 == block.number_elements) {
-      MB_SET_ERR(MB_FAILURE, "Warning: No elements in block " << id);
+      MB_SET_ERR(MB_FAILURE, "No elements in block " << id);
     }
 
     if (write_exodus_integer_variable("eb_status", &status, block_index, num_values) != MB_SUCCESS) {
