@@ -60,7 +60,7 @@ const unsigned  qhex[] = {  0,  1,  2,  3, // corners (same)
 // List of VtkElemType structs, indexed by the VTK type number.
 const VtkElemType VtkUtil::vtkElemTypes[] = {
       { 0,                         0, MBMAXTYPE, 0, 0 },
-      { "vertex",                  1, MBMAXTYPE, 1, 0 },
+      { "vertex",                  1, MBVERTEX, 1, 0 },
       { "polyvertex",              2, MBMAXTYPE, 0, 0 },
       { "line",                    3, MBEDGE,    2, 0 },
       { "polyline",                4, MBMAXTYPE, 0, 0 },

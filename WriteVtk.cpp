@@ -239,6 +239,12 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
 {
   ErrorCode rval;
 
+  Range connected_nodes;
+  rval = mbImpl->get_connectivity(elems, connected_nodes);
+  if (MB_SUCCESS != rval)
+    return rval;
+  Range free_nodes = subtract(nodes, connected_nodes);
+
   // Get and write counts
   unsigned long num_elems, num_uses;
   num_elems = num_uses = elems.size();
@@ -255,12 +261,18 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
 
     num_uses += connect.size();
   }
-  stream << "CELLS " << num_elems << ' ' << num_uses << std::endl;
+  stream << "CELLS " << num_elems + free_nodes.size()<< ' ' << num_uses + 2*free_nodes.size() << std::endl;
 
   // Write element connectivity
   std::vector<int> conn_data;
-  std::vector<unsigned> vtk_types(elems.size());
+  std::vector<unsigned> vtk_types(elems.size() + free_nodes.size() );
   std::vector<unsigned>::iterator t = vtk_types.begin();
+  for (Range::const_iterator v=free_nodes.begin(); v!= free_nodes.end(); ++v, t++)
+  {
+    EntityHandle node=*v;
+    stream << "1 " << nodes.index(node) << std::endl;
+    *t = 1;
+  }
   for (Range::const_iterator i = elems.begin(); i != elems.end(); ++i) {
     // Get type information for element
     EntityType type = TYPE_FROM_HANDLE(*i);
