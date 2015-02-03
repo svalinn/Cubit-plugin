@@ -267,12 +267,6 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
   std::vector<int> conn_data;
   std::vector<unsigned> vtk_types(elems.size() + free_nodes.size() );
   std::vector<unsigned>::iterator t = vtk_types.begin();
-  for (Range::const_iterator v=free_nodes.begin(); v!= free_nodes.end(); ++v, t++)
-  {
-    EntityHandle node=*v;
-    stream << "1 " << nodes.index(node) << std::endl;
-    *t = 1;
-  }
   for (Range::const_iterator i = elems.begin(); i != elems.end(); ++i) {
     // Get type information for element
     EntityType type = TYPE_FROM_HANDLE(*i);
@@ -316,6 +310,12 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
       for (int k = 0; k < conn_len; ++k)
         stream << ' ' << conn_data[k];
     stream << std::endl;
+  }
+  for (Range::const_iterator v=free_nodes.begin(); v!= free_nodes.end(); ++v, t++)
+  {
+    EntityHandle node=*v;
+    stream << "1 " << nodes.index(node) << std::endl;
+    *t = 1;
   }
 
   // Write element types
