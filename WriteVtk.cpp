@@ -319,7 +319,7 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
   }
 
   // Write element types
-  stream << "CELL_TYPES " << num_elems << std::endl;
+  stream << "CELL_TYPES " << vtk_types.size() << std::endl;
   for (std::vector<unsigned>::const_iterator i = vtk_types.begin(); i != vtk_types.end(); ++i)
     stream << *i << std::endl;
 
