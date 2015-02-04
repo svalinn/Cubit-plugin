@@ -60,7 +60,7 @@ const char* FileTokenizer::get_string()
       size_t count = fread(buffer, 1, sizeof(buffer) - 1, filePtr);
       if (0 == count) {
         if (feof(filePtr))
-          MB_SET_ERR_RET_VAL("File truncated at line " << line_number(), NULL);
+          return NULL;
         else
           MB_SET_ERR_RET_VAL("I/O Error", NULL);
       }
