@@ -121,17 +121,38 @@ ErrorCode ReadGmsh::load_file(const char* filename,
     if (!tokens.get_doubles(1, &version))
       return MB_FILE_WRITE_ERROR;
 
-    if (version != 2.0 && version != 2.1) {
+    if (version != 2.0 && version != 2.1 && version != 2.2) {
       MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, filename << ": unknown format version: " << version);
       return MB_FILE_DOES_NOT_EXIST;
     }
 
     int file_format;
-    if (!tokens.get_integers(1, &file_format) ||
-        !tokens.get_integers(1, &data_size) ||
-        !tokens.match_token("$EndMeshFormat") ||
-        !tokens.match_token("$Nodes"))
-      return MB_FILE_WRITE_ERROR;
+    if (!tokens.get_integers(1, &file_format) || !tokens.get_integers(1,
+        &data_size) || !tokens.match_token("$EndMeshFormat"))
+           return MB_FILE_WRITE_ERROR;
+           // If physical entities in the gmsh file -> discard this
+    const char* const phys_tokens[] = { "$Nodes", "$PhysicalNames", 0 };
+    int hasPhys = tokens.match_token(phys_tokens);
+
+    if (hasPhys == 2) {
+      long num_phys;
+      if (!tokens.get_long_ints(1, &num_phys))
+        return MB_FILE_WRITE_ERROR;
+      for (int loop_phys = 0; loop_phys < num_phys; loop_phys++) {
+        long physDim;
+        long physGroupNum;
+        //char const * physName;
+        if (!tokens.get_long_ints(1, &physDim))
+          return MB_FILE_WRITE_ERROR;
+        if (!tokens.get_long_ints(1, &physGroupNum))
+          return MB_FILE_WRITE_ERROR;
+        if (!tokens.get_string())
+          return MB_FILE_WRITE_ERROR;
+      }
+      if (!tokens.match_token("$EndPhysicalNames") || !tokens.match_token(
+          "$Nodes"))
+        return MB_FILE_WRITE_ERROR;
+    }
   }
 
   // Read number of nodes
