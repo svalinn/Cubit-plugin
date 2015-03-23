@@ -381,7 +381,7 @@ int FileTokenizer::match_token(const char* const* list, bool print_error)
   return 0;
 }
 
-bool FileTokenizer::get_newline()
+bool FileTokenizer::get_newline(bool report_error)
 {
   if (lastChar == '\n') {
     lastChar = ' ';
@@ -408,7 +408,8 @@ bool FileTokenizer::get_newline()
 
     // If the current character is not a space, the we've failed.
     if (!isspace(*nextToken))
-      MB_SET_ERR_RET_VAL("Expected newline at line " << line_number(), false);
+      if (report_error)
+        MB_SET_ERR_RET_VAL("Expected newline at line " << line_number(), false);
 
     // If the current space character is a newline,
     // increment the line number count.

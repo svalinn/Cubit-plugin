@@ -85,7 +85,7 @@ class FileTokenizer
        * \return True if a newline was found before any non-space
        *         character.  False otherwise.
        */
-    bool get_newline( );
+    bool get_newline( bool report_error = true );
     
     
       /** \brief Parse a sequence of double values.

@@ -146,8 +146,13 @@ ErrorCode ReadGmsh::load_file(const char* filename,
           return MB_FILE_WRITE_ERROR;
         if (!tokens.get_long_ints(1, &physGroupNum))
           return MB_FILE_WRITE_ERROR;
-        if (!tokens.get_string())
+        const char * ptc = tokens.get_string();
+        if (!ptc)
           return MB_FILE_WRITE_ERROR;
+        // try to get to the end of the line, without reporting errors
+        // really, we need to skip this
+        while(!tokens.get_newline(false))
+          ptc = tokens.get_string();
       }
       if (!tokens.match_token("$EndPhysicalNames") || !tokens.match_token(
           "$Nodes"))
