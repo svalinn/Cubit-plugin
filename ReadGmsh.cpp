@@ -346,6 +346,9 @@ ErrorCode ReadGmsh::create_elements(const GmshElemType& type,
     return MB_FAILURE;
 
   // Create the element sequence
+  // do not do anything for point type
+  if (type.mb_type==MBVERTEX)
+    return MB_SUCCESS; // do not create anything
   EntityHandle handle = 0;
   EntityHandle* conn_array;
   result = readMeshIface->get_element_connect(num_elem, node_per_elem, type.mb_type,

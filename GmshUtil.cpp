@@ -59,7 +59,7 @@ const GmshElemType GmshUtil::gmshElemTypes[] = {
       { "2nd order hexahedron",  12, MBHEX,     27, hex_27_node_order }, 
       { "2nd order prism",       13, MBMAXTYPE,  0, 0 }, // prism w/ mid-face nodes on quads but not tris
       { "2nd order pyramid",     14, MBMAXTYPE,  0, 0 }, // pyramid w/ mid-face nodes on quad but not tris
-      { "point",                 15, MBMAXTYPE,  0, 0 }, // point element (0-rad sphere element?)
+      { "point",                 15, MBVERTEX,   1, 0 }, // point element (0-rad sphere element?) // will be skipped
       { "2nd order quadrangle",  16, MBQUAD,     8, 0 },
       { "2nd order hexahedron",  17, MBHEX,     20, hex_27_node_order },
       { "2nd order prism",       18, MBPRISM,   15, pri_15_node_order },
