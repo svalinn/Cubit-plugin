@@ -138,7 +138,7 @@ ErrorCode ReadGmsh::load_file(const char* filename,
       long num_phys;
       if (!tokens.get_long_ints(1, &num_phys))
         return MB_FILE_WRITE_ERROR;
-      for (int loop_phys = 0; loop_phys < num_phys; loop_phys++) {
+      for (long loop_phys = 0; loop_phys < num_phys; loop_phys++) {
         long physDim;
         long physGroupNum;
         //char const * physName;
