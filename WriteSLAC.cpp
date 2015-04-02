@@ -21,10 +21,6 @@
 #endif
 #endif
 
-#ifndef NETCDF_FILE
-#error Attempt to compile WriteSLAC with NetCDF disabled.
-#endif
-
 #include "WriteSLAC.hpp"
 
 #include <utility>
@@ -45,6 +41,10 @@
 #include "ExoIIUtil.hpp"
 #include "MBTagConventions.hpp"
 #include "moab/WriteUtilIface.hpp"
+
+#ifndef MOAB_HAVE_NETCDF
+#error Attempt to compile WriteSLAC with NetCDF disabled.
+#endif
 
 namespace moab {
 

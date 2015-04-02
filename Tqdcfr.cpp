@@ -20,7 +20,7 @@
 #include <iostream>
 #include <string>
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
 #include "moab_mpi.h"
 #endif
 
@@ -36,9 +36,6 @@
 #include <sstream>
 #include <assert.h>
 #include <string.h>
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 
 namespace moab {
 

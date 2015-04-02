@@ -21,10 +21,6 @@
 #endif
 #endif
 
-#ifndef NETCDF_FILE
-#error Attempt to compile WriteNCDF with NetCDF support disabled
-#endif
-
 #include "WriteNCDF.hpp"
 
 #include "netcdf.h"
@@ -45,6 +41,10 @@
 #include "ExoIIUtil.hpp"
 #include "moab/WriteUtilIface.hpp"
 #include "exodus_order.h"
+
+#ifndef MOAB_HAVE_NETCDF
+#error Attempt to compile WriteNCDF with NetCDF support disabled
+#endif
 
 namespace moab {
 

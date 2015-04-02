@@ -24,9 +24,10 @@
 //-------------------------------------------------------------------------
 
 #include <assert.h>
+#include "moab/MOABConfig.h"
 /* Include our MPI header before any HDF5 because otherwise
    it will get included indirectly by HDF5 */
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
 #  include "moab_mpi.h"
 #  include "moab/ParallelComm.hpp"
 #endif 
@@ -39,7 +40,7 @@
 #include "ReadHDF5.hpp"
 #include "moab/CN.hpp"
 #include "moab/FileOptions.hpp"
-#ifdef HDF5_PARALLEL
+#ifdef MOAB_HAVE_HDF5_PARALLEL
 #include <H5FDmpi.h>
 #include <H5FDmpio.h>
 #endif
@@ -99,7 +100,7 @@ static inline ErrorCode process_error(ErrorCode code, DebugOutput* dbgOut, const
   if (MB_SUCCESS != code) {
     if (dbgOut)
       dbgOut->printf(1, "Failure with error code %s at %s:%d\n", ErrorCodeStr[code], file, line);
-#if defined(WITH_MPI) && !defined(NDEBUG)
+#if defined(MOAB_HAVE_MPI) && !defined(NDEBUG)
     MPI_Abort(MPI_COMM_WORLD):
 #endif
   }
@@ -157,7 +158,7 @@ static void intersect(const mhdf_EntDesc& group, const Range& range, Range& resu
 #define debug_barrier() debug_barrier_line(__LINE__)
 void ReadHDF5::debug_barrier_line(int lineno)
 {
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   if (mpiComm) {
     const unsigned threshold = 2;
     static unsigned long count = 0;
@@ -364,7 +365,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
       pfilename = std::string("bglockless:") + pfilename;
     }
 
-#ifndef HDF5_PARALLEL
+#ifndef MOAB_HAVE_HDF5_PARALLEL
     free(dataBuffer);
     dataBuffer = NULL;
     MB_SET_ERR(MB_NOT_IMPLEMENTED, "MOAB not configured with parallel HDF5 support");
@@ -894,7 +895,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
         max_dim = dim;
     }
   }
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   if (nativeParallel) {
     int send = max_dim;
     MPI_Allreduce(&send, &max_dim, 1, MPI_INT, MPI_MAX, *mpiComm);
@@ -1982,7 +1983,7 @@ ErrorCode ReadHDF5::read_all_set_meta()
   int rank = 0;
   bool bcast = false;
   hid_t ioprop = H5P_DEFAULT;
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   MPI_Comm comm = 0;
   if (nativeParallel) {
     rank = myPcomm->proc_config().proc_rank();
@@ -2009,7 +2010,7 @@ ErrorCode ReadHDF5::read_all_set_meta()
   H5Tclose(meta_type);
 
   if (bcast) {
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
     int ierr = MPI_Bcast(setMeta, num_sets*4, MPI_LONG, 0, comm);
     if (MPI_SUCCESS != ierr)
       return error(MB_FAILURE);
@@ -2186,7 +2187,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
 
   int rank = 0;
   bool bcast = false;
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   MPI_Comm comm = 0;
   if (nativeParallel) {
     rank = myPcomm->proc_config().proc_rank();
@@ -2258,7 +2259,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
           H5Tconvert(content_type, H5T_NATIVE_LONG, content_count, content_buffer, 0, H5P_DEFAULT);
         }
         if (bcast) {
-          #ifdef USE_MPI
+          #ifdef MOAB_HAVE_MPI
             int ierr = MPI_Bcast(content_buffer, content_count, MPI_LONG, 0, comm);
             if (MPI_SUCCESS != ierr)
               return error(MB_FAILURE);
@@ -2305,7 +2306,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
         H5Tconvert(content_type, H5T_NATIVE_LONG, read_num, content_buffer, 0, H5P_DEFAULT);
       }
       if (bcast) {
-        #ifdef USE_MPI
+        #ifdef MOAB_HAVE_MPI
           int ierr = MPI_Bcast(content_buffer, read_num, MPI_LONG, 0, comm);
           if (MPI_SUCCESS != ierr)
             return error(MB_FAILURE);

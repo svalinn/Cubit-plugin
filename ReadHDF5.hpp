@@ -16,10 +16,6 @@
 #ifndef READ_HDF5_HPP
 #define READ_HDF5_HPP
 
-#ifdef USE_MPI
-# include <moab_mpi.h>
-#endif
-
 #include <stdlib.h>
 #include <list>
 #include "mhdf.h"
@@ -30,6 +26,10 @@
 #include "moab/RangeMap.hpp"
 #include "DebugOutput.hpp"
 #include "HDF5Common.hpp"
+
+#ifdef MOAB_HAVE_MPI
+# include <moab_mpi.h>
+#endif
 
 namespace moab {
 
@@ -45,7 +45,7 @@ class ReadHDF5 : public ReaderIface
 {
 public:
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   typedef MPI_Comm Comm;
 #else
   typedef int Comm;

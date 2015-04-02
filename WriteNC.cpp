@@ -30,7 +30,7 @@ WriterIface *WriteNC::factory(Interface* iface)
 
 WriteNC::WriteNC(Interface* impl) :
   mbImpl(impl), dbgOut(stderr),
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   myPcomm(NULL),
 #endif
   noMesh(false), noVars(false), append(false),
@@ -92,7 +92,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
 
   if (append) {
     int omode = NC_WRITE;
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
     if (isParallel)
       success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), file_name, omode, MPI_INFO_NULL, &fileId);
     else
@@ -106,7 +106,7 @@ ErrorCode WriteNC::write_file(const char* file_name,
   }
   else { // Case when the file is new, will be overwritten, most likely
     int cmode = overwrite ? NC_CLOBBER : NC_NOCLOBBER;
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
     if (isParallel)
       success = NCFUNC(create)(myPcomm->proc_config().proc_comm(), file_name, cmode, MPI_INFO_NULL, &fileId);
     else
@@ -201,7 +201,7 @@ ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::strin
   }
 
 // FIXME: copied from ReadNC, may need revise
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   isParallel = (opts.match_option("PARALLEL", "WRITE_PART") != MB_ENTITY_NOT_FOUND);
 
   if (!isParallel)
@@ -221,7 +221,7 @@ ErrorCode WriteNC::parse_options(const FileOptions& opts, std::vector<std::strin
     myPcomm = new ParallelComm(mbImpl, MPI_COMM_WORLD);
   }
 
-#ifndef PNETCDF_FILE
+#ifndef MOAB_HAVE_PNETCDF
   const int procs = myPcomm->proc_config().proc_size();
   if (procs > 1) {
     MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Attempt to launch NC writer in parallel without pnetcdf support");

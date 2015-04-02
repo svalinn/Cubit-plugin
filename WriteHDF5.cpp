@@ -25,10 +25,6 @@
 // Creation Date : 04/01/04
 //-------------------------------------------------------------------------
 
-#ifndef HDF5_FILE
-#error Attempt to compile WriteHDF5 with HDF5 support disabled
-#endif
-
 #include <assert.h>
 #if defined(_MSC_VER)
   typedef int id_t;
@@ -56,6 +52,10 @@
 #include "IODebugTrack.hpp"
 #include "mhdf.h"
 
+#ifndef MOAB_HAVE_HDF5
+#error Attempt to compile WriteHDF5 with HDF5 support disabled
+#endif
+
 /* Access HDF5 file handle for debugging
 #include <H5Fpublic.h>
 struct file { uint32_t magic; hid_t handle; };
@@ -78,7 +78,7 @@ struct file { uint32_t magic; hid_t handle; };
 # define myassert(A)
 #endif
 
-#ifdef VALGRIND
+#ifdef MOAB_HAVE_VALGRIND
 #  include <valgrind/memcheck.h>
 #else
 #  ifndef VALGRIND_CHECK_MEM_IS_DEFINED
@@ -2288,7 +2288,7 @@ ErrorCode WriteHDF5::write_tag_values(Tag tag_id,
 ErrorCode WriteHDF5::write_qa(const std::vector<std::string>& list)
 {
   const char* app = "MOAB";
-  const char* vers = MB_VERSION;
+  const char* vers = MOAB_VERSION;
   char date_str[64];
   char time_str[64];
 

@@ -201,7 +201,7 @@ private:
   //! Read non-set variables for ucd mesh (implemented differently in child classes)
   virtual ErrorCode read_ucd_variables_to_nonset_allocate(std::vector<ReadNC::VarData>& vdatas,
                                                          std::vector<int>& tstep_nums) = 0;
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   virtual ErrorCode read_ucd_variables_to_nonset_async(std::vector<ReadNC::VarData>& vdatas,
                                                       std::vector<int>& tstep_nums) = 0;
 #else

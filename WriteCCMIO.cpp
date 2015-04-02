@@ -71,7 +71,7 @@
 #include "Internals.hpp"
 #include "ExoIIUtil.hpp"
 #include "MBTagConventions.hpp"
-#ifdef USE_MPI  
+#ifdef MOAB_HAVE_MPI  
 #include "MBParallelConventions.h"
 #endif
 #include "moab/WriteUtilIface.hpp"
@@ -137,7 +137,7 @@ namespace moab {
     impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
                          mGlobalIdTag, MB_TAG_SPARSE | MB_TAG_CREAT, &zero);
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
     impl->tag_get_handle(PARALLEL_PARTITION_TAG_NAME,
                          1, MB_TYPE_INTEGER, mPartitionSetTag,
                          MB_TAG_SPARSE);

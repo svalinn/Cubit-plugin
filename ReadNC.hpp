@@ -10,7 +10,7 @@
 #define READNC_HPP
 
 #ifndef IS_BUILDING_MB
-//#error "ReadNC.hpp isn't supposed to be included into an application"
+#error "ReadNC.hpp isn't supposed to be included into an application"
 #endif
 
 #include <vector>
@@ -18,16 +18,17 @@
 #include <set>
 #include <string>
 
+#include "MOABConfig.h"
 #include "moab/ReaderIface.hpp"
 #include "moab/ScdInterface.hpp"
 #include "DebugOutput.hpp"
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
 #include "moab_mpi.h"
 #include "moab/ParallelComm.hpp"
 #endif 
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
 #include "pnetcdf.h"
 #define NCFUNC(func) ncmpi_ ## func
 
@@ -197,7 +198,7 @@ private:
   //! Parallel data object, to be cached with ScdBox
   ScdParData parData;
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   ParallelComm* myPcomm;
 #endif
 

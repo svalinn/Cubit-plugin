@@ -995,7 +995,7 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC:
   assert("Should only have a single face subrange, since they were read in one shot" &&
       faces.psize() == 1);
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   moab::Range faces_owned;
   bool& isParallel = _readNC->isParallel;
   if (isParallel) {
@@ -1046,7 +1046,7 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC:
         vdatas[i].readCounts[2] = lCDims[4] - lCDims[1] + 1;
         vdatas[i].readStarts[3] = lCDims[0];
         vdatas[i].readCounts[3] = lCDims[3] - lCDims[0] + 1;
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
         range = &faces_owned;
 #else
         range = &faces;
@@ -1182,7 +1182,7 @@ ErrorCode ScdNCHelper::create_quad_coordinate_tag() {
   ErrorCode rval = mbImpl->get_entities_by_type(_fileSet, moab::MBQUAD, ents);MB_CHK_SET_ERR(rval, "Trouble getting quads");
 
   std::size_t numOwnedEnts = 0;
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   Range ents_owned;
   bool& isParallel = _readNC->isParallel;
   if (isParallel) {
@@ -1219,7 +1219,7 @@ ErrorCode ScdNCHelper::create_quad_coordinate_tag() {
 
   void *data;
   int count;
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   rval = mbImpl->tag_iterate(tagh, ents_owned.begin(), ents_owned.end(), count, data);MB_CHK_SET_ERR(rval, "Failed to iterate COORDS tag on quads");
 #else
   rval = mbImpl->tag_iterate(tagh, ents.begin(), ents.end(), count, data);MB_CHK_SET_ERR(rval, "Failed to iterate COORDS tag on quads");
@@ -1243,7 +1243,7 @@ ErrorCode UcdNCHelper::read_variables(std::vector<std::string>& var_names, std::
   }
 
   if (!vdatas.empty()) {
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
     // With pnetcdf support, we will use async read
     rval = read_ucd_variables_to_nonset_async(vdatas, tstep_nums);MB_CHK_SET_ERR(rval, "Trouble reading variables to verts/edges/faces");
 #else

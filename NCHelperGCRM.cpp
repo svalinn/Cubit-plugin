@@ -233,7 +233,7 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
 
   int rank = 0;
   int procs = 1;
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
@@ -286,7 +286,7 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
   std::vector<int> vertices_on_local_cells(nLocalCells * EDGES_PER_CELL);
   dbgOut.tprintf(1, " nLocalCells = %d\n", (int)nLocalCells);
   dbgOut.tprintf(1, " vertices_on_local_cells.size() = %d\n", (int)vertices_on_local_cells.size());
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   size_t nb_reads = localGidCells.psize();
   std::vector<int> requests(nb_reads);
   std::vector<int> statuss(nb_reads);
@@ -305,7 +305,7 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
                                 static_cast<NCDF_SIZE>(EDGES_PER_CELL)};
 
     // Do a partial read in each subrange
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
     success = NCFUNCREQG(_vara_int)(_fileId, verticesOnCellVarId, read_starts, read_counts,
                                       &(vertices_on_local_cells[indexInArray]), &requests[idxReq++]);
 #else
@@ -319,7 +319,7 @@ ErrorCode NCHelperGCRM::create_mesh(Range& faces)
     indexInArray += (endh - starth + 1) * EDGES_PER_CELL;
   }
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   // Wait outside the loop
   success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
   if (success)
@@ -402,7 +402,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
   rval = mbImpl->get_entities_by_dimension(_fileSet, 2, faces);MB_CHK_SET_ERR(rval, "Trouble getting faces in current file set");
   assert("Should only have a single face subrange, since they were read in one shot" && faces.psize() == 1);
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
@@ -501,7 +501,7 @@ ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_allocate(std::vector<ReadNC
   return rval;
 }
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
 ErrorCode NCHelperGCRM::read_ucd_variables_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   bool& noEdges = _readNC->noEdges;
@@ -813,7 +813,7 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     }
   }
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   size_t nb_reads = localGidVerts.psize();
   std::vector<int> requests(nb_reads);
   std::vector<int> statuss(nb_reads);
@@ -856,7 +856,7 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     NCDF_SIZE read_count = (NCDF_SIZE) (endh - starth + 1);
 
     // Do a partial read in each subrange
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
     success = NCFUNCREQG(_vara_double)(_fileId, xVertexVarId, &read_start, &read_count,
                                       &(xptr[indexInArray]), &requests[idxReq++]);
 #else
@@ -870,7 +870,7 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     indexInArray += (endh - starth + 1);
   }
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   // Wait outside the loop
   success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
   if (success)
@@ -883,7 +883,7 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
   success = NCFUNC(inq_varid)(_fileId, "grid_corner_lat", &yVertexVarId);
   if (success)
     MB_SET_ERR(MB_FAILURE, "Failed to get variable id of grid_corner_lat");
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   idxReq = 0;
 #endif
   indexInArray = 0;
@@ -896,7 +896,7 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     NCDF_SIZE read_count = (NCDF_SIZE) (endh - starth + 1);
 
     // Do a partial read in each subrange
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
     success = NCFUNCREQG(_vara_double)(_fileId, yVertexVarId, &read_start, &read_count,
                                       &(yptr[indexInArray]), &requests[idxReq++]);
 #else
@@ -910,7 +910,7 @@ ErrorCode NCHelperGCRM::create_local_vertices(const std::vector<int>& vertices_o
     indexInArray += (endh - starth + 1);
   }
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   // Wait outside the loop
   success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
   if (success)
@@ -948,7 +948,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
   std::vector<int> edges_on_local_cells(nLocalCells * EDGES_PER_CELL);
   dbgOut.tprintf(1, "   edges_on_local_cells.size() = %d\n", (int)edges_on_local_cells.size());
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   size_t nb_reads = localGidCells.psize();
   std::vector<int> requests(nb_reads);
   std::vector<int> statuss(nb_reads);
@@ -966,7 +966,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), static_cast<NCDF_SIZE>(EDGES_PER_CELL)};
 
     // Do a partial read in each subrange
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
     success = NCFUNCREQG(_vara_int)(_fileId, edgesOnCellVarId, read_starts, read_counts,
                                       &(edges_on_local_cells[indexInArray]), &requests[idxReq++]);
 #else
@@ -980,7 +980,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     indexInArray += (endh - starth + 1) * EDGES_PER_CELL;
   }
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   // Wait outside the loop
   success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
   if (success)
@@ -1026,7 +1026,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     MB_SET_ERR(MB_FAILURE, "Failed to get variable id of edge_corners");
   // Utilize the memory storage pointed by conn_arr_edges
   int* vertices_on_local_edges = (int*) conn_arr_edges;
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   nb_reads = localGidEdges.psize();
   requests.resize(nb_reads);
   statuss.resize(nb_reads);
@@ -1042,7 +1042,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(endh - starth + 1), 2};
 
     // Do a partial read in each subrange
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
     success = NCFUNCREQG(_vara_int)(_fileId, verticesOnEdgeVarId, read_starts, read_counts,
                                     &(vertices_on_local_edges[indexInArray]), &requests[idxReq++]);
 #else
@@ -1056,7 +1056,7 @@ ErrorCode NCHelperGCRM::create_local_edges(EntityHandle start_vertex)
     indexInArray += (endh - starth + 1) * 2;
   }
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   // Wait outside the loop
   success = NCFUNC(wait_all)(_fileId, requests.size(), &requests[0], &statuss[0]);
   if (success)
@@ -1142,7 +1142,7 @@ ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, Enti
     MB_SET_ERR(MB_FAILURE, "Failed to get variable id of grid_corner_lon");
   NCDF_SIZE read_start = 0;
   NCDF_SIZE read_count = static_cast<NCDF_SIZE>(nVertices);
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   // Enter independent I/O mode, since this read is only for the gather processor
   success = NCFUNC(begin_indep_data)(_fileId);
   if (success)
@@ -1165,7 +1165,7 @@ ErrorCode NCHelperGCRM::create_gather_set_vertices(EntityHandle gather_set, Enti
   success = NCFUNC(inq_varid)(_fileId, "grid_corner_lat", &yVertexVarId);
   if (success)
     MB_SET_ERR(MB_FAILURE, "Failed to get variable id of grid_corner_lat");
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   // Enter independent I/O mode, since this read is only for the gather processor
   success = NCFUNC(begin_indep_data)(_fileId);
   if (success)
@@ -1251,7 +1251,7 @@ ErrorCode NCHelperGCRM::create_gather_set_edges(EntityHandle gather_set, EntityH
   int* vertices_on_gather_set_edges = (int*) conn_arr_gather_set_edges;
   NCDF_SIZE read_starts[2] = {0, 0};
   NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(nEdges), 2};
- #ifdef PNETCDF_FILE
+ #ifdef MOAB_HAVE_PNETCDF
    // Enter independent I/O mode, since this read is only for the gather processor
    success = NCFUNC(begin_indep_data)(_fileId);
    if (success)
@@ -1305,7 +1305,7 @@ ErrorCode NCHelperGCRM::create_padded_gather_set_cells(EntityHandle gather_set, 
   int* vertices_on_gather_set_cells = (int*) conn_arr_gather_set_cells;
   NCDF_SIZE read_starts[2] = {0, 0};
   NCDF_SIZE read_counts[2] = {static_cast<NCDF_SIZE>(nCells), static_cast<NCDF_SIZE>(EDGES_PER_CELL)};
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   // Enter independent I/O mode, since this read is only for the gather processor
   success = NCFUNC(begin_indep_data)(_fileId);
   if (success)

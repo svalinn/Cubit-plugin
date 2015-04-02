@@ -89,7 +89,7 @@ ErrorCode ReadDamsel::load_file(const char* filename,
                                   DAMSEL_HANDLE_TYPE_HANDLE32);
 
   // Model attach - need model id from make model, filename
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   MPI_Comm comm = MPI_COMM_WORLD;
   if (nativeParallel) {
     comm = myPcomm->proc_config().proc_comm();

@@ -17,7 +17,7 @@
 #define WRITENC_HPP_
 
 #ifndef IS_BUILDING_MB
-//#error "WriteNC.hpp isn't supposed to be included into an application"
+#error "WriteNC.hpp isn't supposed to be included into an application"
 #endif
 
 #include <vector>
@@ -25,16 +25,17 @@
 #include <set>
 #include <string>
 
+#include "MOABConfig.h"
 #include "moab/WriterIface.hpp"
 #include "moab/ScdInterface.hpp"
 #include "DebugOutput.hpp"
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
 #include "moab_mpi.h"
 #include "moab/ParallelComm.hpp"
 #endif
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
 #include "pnetcdf.h"
 #define NCFUNC(func) ncmpi_ ## func
 
@@ -180,7 +181,7 @@ private:
   //! Debug stuff
   DebugOutput dbgOut;
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   ParallelComm* myPcomm;
 #endif
 

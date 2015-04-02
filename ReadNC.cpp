@@ -15,7 +15,7 @@ ReaderIface* ReadNC::factory(Interface* iface)
 ReadNC::ReadNC(Interface* impl) :
   mbImpl(impl), fileId(-1), mGlobalIdTag(0), mpFileIdTag(NULL), dbgOut(stderr), isParallel(false),
   partMethod(ScdParData::ALLJORKORI), scdi(NULL),
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   myPcomm(NULL),
 #endif
   noMesh(false), noVars(false), spectralMesh(false), noMixedElements(false), noEdges(false),
@@ -58,7 +58,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
   fileName = std::string(file_name);
   int success;
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
   if (isParallel)
     success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), file_name, 0, MPI_INFO_NULL, &fileId);
   else
@@ -162,7 +162,7 @@ ErrorCode ReadNC::load_file(const char* file_name, const EntityHandle* file_set,
     }
   }
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   // Create partition set, and populate with elements
   if (isParallel) {
     EntityHandle partn_set;
@@ -267,7 +267,7 @@ ErrorCode ReadNC::parse_options(const FileOptions& opts, std::vector<std::string
     MB_SET_ERR(rval, "Invalid value for TRIVIAL_PARTITION_SHIFT option");
   }
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   isParallel = (opts.match_option("PARALLEL", "READ_PART") != MB_ENTITY_NOT_FOUND);
 
   if (!isParallel)

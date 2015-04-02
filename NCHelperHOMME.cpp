@@ -238,7 +238,7 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
 
   int rank = 0;
   int procs = 1;
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   bool& isParallel = _readNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
@@ -269,8 +269,8 @@ ErrorCode NCHelperHOMME::create_mesh(Range& faces)
       else
         conn_fname = "HommeMapping.nc";
     }
-#ifdef PNETCDF_FILE
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_PNETCDF
+#ifdef MOAB_HAVE_MPI
     if (isParallel) {
       ParallelComm*& myPcomm = _readNC->myPcomm;
       success = NCFUNC(open)(myPcomm->proc_config().proc_comm(), conn_fname.c_str(), 0, MPI_INFO_NULL, &connectId);
@@ -620,7 +620,7 @@ ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset_allocate(std::vector<ReadN
   return rval;
 }
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
 ErrorCode NCHelperHOMME::read_ucd_variables_to_nonset_async(std::vector<ReadNC::VarData>& vdatas, std::vector<int>& tstep_nums)
 {
   DebugOutput& dbgOut = _readNC->dbgOut;

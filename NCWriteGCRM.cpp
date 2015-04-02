@@ -54,7 +54,7 @@ ErrorCode NCWriteGCRM::collect_mesh_info()
   rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);MB_CHK_SET_ERR(rval, "Trouble getting local cells in current file set");
   assert(!localCellsOwned.empty());
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   bool& isParallel = _writeNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _writeNC->myPcomm;
@@ -310,7 +310,7 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
       ErrorCode rval = mbImpl->tag_get_data(variableData.varTags[t], *pLocalEntsOwned,
                                             &tag_data[0]);MB_CHK_SET_ERR(rval, "Trouble getting tag data on owned entities");
 
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
       size_t nb_writes = pLocalGidEntsOwned->psize();
       std::vector<int> requests(nb_writes), statuss(nb_writes);
       size_t idxReq = 0;
@@ -330,7 +330,7 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
             variableData.writeCounts[ents_idx] = (NCDF_SIZE)(endh - starth + 1);
 
             // Do a partial write, in each subrange
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
             // Wait outside this loop
             success = NCFUNCREQP(_vara_double)(_fileId, variableData.varId,
                 &(variableData.writeStarts[0]), &(variableData.writeCounts[0]),
@@ -347,7 +347,7 @@ ErrorCode NCWriteGCRM::write_nonset_variables(std::vector<WriteNC::VarData>& vda
             indexInDoubleArray += (endh - starth + 1) * num_lev;
           }
           assert(ic == pLocalGidEntsOwned->psize());
-#ifdef PNETCDF_FILE
+#ifdef MOAB_HAVE_PNETCDF
           success = ncmpi_wait_all(_fileId, requests.size(), &requests[0], &statuss[0]);
           if (success)
             MB_SET_ERR(MB_FAILURE, "Failed on wait_all");

@@ -22,7 +22,7 @@
 #include <H5Spublic.h>
 #include <H5Tpublic.h>
 #include <H5Apublic.h>
-#ifdef HDF5_PARALLEL
+#ifdef MOAB_HAVE_HDF5_PARALLEL
 #  include <H5FDmpi.h>
 #  include <H5FDmpio.h>
 #endif
@@ -300,7 +300,7 @@ mhdf_openFileWithOpt( const char* filename,
   unsigned int flags;
   hid_t group_id;
   int check_is_hdf5 = 1;
-#ifdef HDF5_PARALLEL
+#ifdef MOAB_HAVE_HDF5_PARALLEL
   herr_t err;
   MPI_Comm comm;
   MPI_Info info;
@@ -310,7 +310,7 @@ mhdf_openFileWithOpt( const char* filename,
     /* Check if file is HDF5 */
   /* Don't do this because it can't handle MPI-IO driver code that
      passes options via prefixes on the file name. */
-#ifdef HDF5_PARALLEL
+#ifdef MOAB_HAVE_HDF5_PARALLEL
   if (access_prop != H5P_DEFAULT) {
     err = H5Pget_fapl_mpio( access_prop, &comm, &info );
     if (err >= 0) {

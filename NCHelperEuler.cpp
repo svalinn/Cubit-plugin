@@ -1,3 +1,4 @@
+#include "moab/MOABConfig.h"
 #ifdef WIN32  /* windows */
 #  define _USE_MATH_DEFINES //For M_PI
 #endif
@@ -124,7 +125,7 @@ ErrorCode NCHelperEuler::init_mesh_vals()
 
   // Parse options to get subset
   int rank = 0, procs = 1;
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   if (isParallel) {
     ParallelComm*& myPcomm = _readNC->myPcomm;
     rank = myPcomm->proc_config().proc_rank();

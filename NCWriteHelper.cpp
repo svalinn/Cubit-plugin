@@ -501,7 +501,7 @@ ErrorCode NCWriteHelper::write_set_variables(std::vector<WriteNC::VarData>& vset
 // CAUTION: if the NetCDF ID is from a previous call to ncmpi_create rather than ncmpi_open,
 // all processors need to call ncmpi_begin_indep_data(). If only the root processor does so,
 // ncmpi_begin_indep_data() call will be blocked forever :(
- #ifdef PNETCDF_FILE
+ #ifdef MOAB_HAVE_PNETCDF
    // Enter independent I/O mode
    success = NCFUNC(begin_indep_data)(_fileId);
    if (success)
@@ -509,7 +509,7 @@ ErrorCode NCWriteHelper::write_set_variables(std::vector<WriteNC::VarData>& vset
  #endif
 
    int rank = 0;
- #ifdef USE_MPI
+ #ifdef MOAB_HAVE_MPI
    bool& isParallel = _writeNC->isParallel;
    if (isParallel) {
      ParallelComm*& myPcomm = _writeNC->myPcomm;
@@ -546,7 +546,7 @@ ErrorCode NCWriteHelper::write_set_variables(std::vector<WriteNC::VarData>& vset
      }
    }
 
- #ifdef PNETCDF_FILE
+ #ifdef MOAB_HAVE_PNETCDF
    // End independent I/O mode
    success = NCFUNC(end_indep_data)(_fileId);
    if (success)
@@ -616,7 +616,7 @@ ErrorCode ScdNCWriteHelper::collect_mesh_info()
   rval = mbImpl->get_entities_by_dimension(_fileSet, 2, localCellsOwned);MB_CHK_SET_ERR(rval, "Trouble getting local faces in current file set");
   assert(!localCellsOwned.empty());
 
-#ifdef USE_MPI
+#ifdef MOAB_HAVE_MPI
   bool& isParallel = _writeNC->isParallel;
   if (isParallel) {
     ParallelComm*& myPcomm = _writeNC->myPcomm;
