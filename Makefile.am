@@ -1,5 +1,5 @@
 # Subdirectories to build
-if HDF5_FILE
+if HAVE_HDF5
   SUBDIRS = mhdf .
 else
   SUBDIRS = .
@@ -13,7 +13,7 @@ AM_CPPFLAGS += -DIS_BUILDING_MB \
                -DLOCDIR=src/io/ \
                -I..  -I$(srcdir)/.. -I$(srcdir)/../moab -I$(srcdir)/../parallel
 
-if NETCDF_FILE
+if HAVE_NETCDF
   MOAB_NETCDF_SRCS = ReadNCDF.cpp  ReadNCDF.hpp \
                      WriteNCDF.cpp WriteNCDF.hpp \
                      WriteSLAC.cpp WriteSLAC.hpp \
@@ -35,8 +35,8 @@ else
   MOAB_NETCDF_SRCS =
 endif
 
-if PNETCDF_FILE
-if !NETCDF_FILE
+if HAVE_PNETCDF
+if !HAVE_NETCDF
      MOAB_NETCDF_SRCS += ReadNC.cpp ReadNC.hpp \
                      WriteNC.cpp WriteNC.hpp \
                      NCHelper.cpp NCHelper.hpp \
@@ -58,14 +58,14 @@ if ENABLE_mbpart
   AM_CPPFLAGS += $(ZOLTAN_INC_FLAGS) 
 endif
 
-if CGNS_FILE
+if HAVE_CGNS
   MOAB_CGNS_SRCS = ReadCGNS.cpp  ReadCGNS.hpp \
                    WriteCGNS.cpp  WriteCGNS.hpp
 else
   MOAB_CGNS_SRCS =
 endif
 
-if HDF5_FILE
+if HAVE_HDF5
   libmoabio_la_LIBADD += mhdf/libmhdf.la
   MOAB_HDF5_SRCS = HDF5Common.cpp \
                    HDF5Common.hpp \
@@ -82,14 +82,14 @@ else
   MOAB_HDF5_SRCS = 
 endif
 
-if CCMIO_FILE
+if HAVE_CCMIO
   MOAB_CCMIO_SRCS = WriteCCMIO.cpp WriteCCMIO.hpp ReadCCMIO.cpp ReadCCMIO.hpp
   libmoabio_la_LIBADD += $(CCMIO_LIBS)
 else
   MOAB_CCMIO_SRCS = 
 endif
 
-if DAMSEL_FILE
+if HAVE_DAMSEL
   MOAB_DAMSEL_SRCS = WriteDamsel.cpp WriteDamsel.hpp ReadDamsel.cpp ReadDamsel.hpp DamselUtil.cpp DamselUtil.hpp
   libmoabio_la_LIBADD += $(DAMSEL_LIBS)
 else
