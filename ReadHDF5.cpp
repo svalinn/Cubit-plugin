@@ -101,7 +101,7 @@ static inline ErrorCode process_error(ErrorCode code, DebugOutput* dbgOut, const
     if (dbgOut)
       dbgOut->printf(1, "Failure with error code %s at %s:%d\n", ErrorCodeStr[code], file, line);
 #if defined(MOAB_HAVE_MPI) && !defined(NDEBUG)
-    MPI_Abort(MPI_COMM_WORLD):
+    MPI_Abort(MPI_COMM_WORLD, 1);
 #endif
   }
   return code;

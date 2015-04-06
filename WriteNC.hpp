@@ -25,7 +25,6 @@
 #include <set>
 #include <string>
 
-#include "MOABConfig.h"
 #include "moab/WriterIface.hpp"
 #include "moab/ScdInterface.hpp"
 #include "DebugOutput.hpp"

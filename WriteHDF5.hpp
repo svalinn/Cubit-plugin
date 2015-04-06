@@ -18,7 +18,7 @@
 #define WRITE_HDF5_HPP
 
 #include <list>
-#include "MOABConfig.h"
+#include "moab/MOABConfig.h"
 #ifdef MOAB_HAVE_MPI // include this before HDF5 headers to avoid conflicts
 #  include "moab_mpi.h"
 #endif

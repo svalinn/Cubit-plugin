@@ -18,7 +18,6 @@
 #include <set>
 #include <string>
 
-#include "MOABConfig.h"
 #include "moab/ReaderIface.hpp"
 #include "moab/ScdInterface.hpp"
 #include "DebugOutput.hpp"
