@@ -752,6 +752,14 @@ ErrorCode ReadVtk::vtk_read_unstructured_grid(FileTokenizer& tokens,
     EntityHandle start_handle = 0;
     EntityHandle* conn_array;
 
+    // if type is MBVERTEX, skip, we will not create elements with one vertex
+    if (MBVERTEX==type)
+    {
+      id+=num_elem;
+      conn_iter+=2*num_elem;// skip 2 * number of 1-vertex elements
+      continue;
+    }
+
     result = allocate_elements(num_elem, num_vtx, type, start_handle,
                                conn_array, elem_list);
     if (MB_SUCCESS != result)
