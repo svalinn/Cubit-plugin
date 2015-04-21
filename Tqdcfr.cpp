@@ -252,6 +252,22 @@ Tqdcfr::~Tqdcfr()
 
   if (NULL != cubMOABVertexMap)
     delete cubMOABVertexMap;
+  if (attribVectorTag)
+  {
+    // get all sets, and release the string vectors
+    Range allSets; // although only geom sets should have these attributes
+    mdbImpl->get_entities_by_type(0, MBENTITYSET, allSets);
+    for (Range::iterator sit=allSets.begin(); sit!=allSets.end(); sit++)
+    {
+      EntityHandle gset=*sit;
+      std::vector<std::string> *dum_vec;
+      mdbImpl->tag_get_data(attribVectorTag, &gset, 1, &dum_vec);
+      if(NULL!=dum_vec)
+        delete dum_vec; //
+    }
+    mdbImpl->tag_delete(attribVectorTag);
+    attribVectorTag = NULL;
+  }
 }
 
 ErrorCode Tqdcfr::read_tag_values(const char* /* file_name */,
@@ -470,6 +486,8 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
   if (file_id_tag)
     readUtilIface->assign_ids(*file_id_tag, after_ents);
 
+  // done with the cubit file
+  fclose(cubFile); 
   return result;
 }
 
