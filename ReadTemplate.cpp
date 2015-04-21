@@ -81,8 +81,10 @@ ErrorCode ReadTemplate::load_file(const char* filename,
   // need to subtract one; see read_elements for details
   EntityHandle start_vertex;
   result = read_vertices(num_verts, start_vertex, read_ents);
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    fclose(filePtr);
     return result;
+  }
 
   // Create/read elements; this template assumes that all elements are the same type, so can be read in a single
   // call to read_elements, and kept track of with a single start_elem handle. If there are more entity types,
@@ -90,21 +92,29 @@ ErrorCode ReadTemplate::load_file(const char* filename,
   // sets later, and need to convert some file-based index to an entity handle
   EntityHandle start_elem;
   result = read_elements(num_elems, start_vertex, start_elem, read_ents);
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    fclose(filePtr);
     return result;
+  }
 
   // Read/create entity sets; typically these sets have some tag identifying what they're for, see doc/metadata_info.doc
   // for examples of different kinds of sets and how they're marked
   result = create_sets(num_sets, start_vertex, num_verts, start_elem, num_elems, read_ents);
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    fclose(filePtr);
     return result;
+  }
 
   // Finally, add all read_ents into the file set, if one was input
   if (file_set && *file_set) {
     result = mbImpl->add_entities(*file_set, read_ents);
-    if (MB_SUCCESS != result)
+    if (MB_SUCCESS != result) {
+      fclose(filePtr);
       return result;
+    }
   }
+
+  fclose(filePtr);
 
   return result;
 }
