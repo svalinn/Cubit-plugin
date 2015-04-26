@@ -89,24 +89,6 @@ const bool DEFAULT_BCAST_DUPLICATE_READS = true;
 #define assert_range(PTR, CNT) \
   assert((PTR) >= (void*)dataBuffer); assert(((PTR) + (CNT)) <= (void*)(dataBuffer + bufferSize));
 
-#define error(A) process_error(A, &dbgOut, __FILE__, __LINE__)
-
-// This function doesn't do anything useful. It's just a nice
-// place to set a break point to determine why the reader fails.
-//static inline ErrorCode process_error(ErrorCode rval)
-//  { return rval; }
-static inline ErrorCode process_error(ErrorCode code, DebugOutput* dbgOut, const char* file, int line)
-{
-  if (MB_SUCCESS != code) {
-    if (dbgOut)
-      dbgOut->printf(1, "Failure with error code %s at %s:%d\n", ErrorCodeStr[code], file, line);
-#if defined(MOAB_HAVE_MPI) && !defined(NDEBUG)
-    MPI_Abort(MPI_COMM_WORLD, 1);
-#endif
-  }
-  return code;
-}
-
 // Call \c error function during HDF5 library errors to make
 // it easier to trap such errors in the debugger. This function
 // gets registered with the HDF5 library as a callback. It
@@ -119,7 +101,7 @@ static herr_t handle_hdf5_error(hid_t stack, void* data)
   herr_t result = 0;
   if (h->func)
     result = (*h->func)(stack, h->data);
-  process_error(MB_FAILURE, 0, __FILE__, __LINE__);
+  MB_CHK_ERR_CONT(MB_FAILURE);
   return result;
 }
 #else
@@ -129,7 +111,7 @@ static herr_t handle_hdf5_error(void* data)
   herr_t result = 0;
   if (h->func)
     result = (*h->func)(h->data);
-  process_error(MB_FAILURE, 0, __FILE__, __LINE__);
+  MB_CHK_ERR_CONT(MB_FAILURE);
   return result;
 }
 #endif
@@ -240,17 +222,17 @@ ErrorCode ReadHDF5::init()
 
   handleType = H5Tcopy(H5T_NATIVE_ULONG);
   if (handleType < 0)
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   if (H5Tset_size(handleType, sizeof(EntityHandle)) < 0) {
     H5Tclose(handleType);
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   rval = iFace->query_interface(readUtil);
   if (MB_SUCCESS != rval) {
     H5Tclose(handleType);
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   idMap.clear();
@@ -281,7 +263,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
   mpiComm = 0;
 
   if (MB_SUCCESS != init())
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
 #if defined(H5Eget_auto_vers) && H5Eget_auto_vers > 1
   herr_t err = H5Eget_auto(H5E_DEFAULT, &errorHandler.func, &errorHandler.data);
@@ -341,12 +323,12 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
     bufferSize = READ_HDF5_BUFFER_SIZE;
   }
   else if (bufferSize < (int)std::max(sizeof(EntityHandle), sizeof(void*))) {
-    return error(MB_INVALID_SIZE);
+    MB_CHK_ERR(MB_INVALID_SIZE);
   }
 
   dataBuffer = (char*)malloc(bufferSize);
   if (!dataBuffer)
-    return error(MB_MEMORY_ALLOCATION_FAILED);
+    MB_CHK_ERR(MB_MEMORY_ALLOCATION_FAILED);
 
   if (use_mpio || nativeParallel) {
     // Lockless file IO on IBM BlueGene
@@ -474,7 +456,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
         free(dataBuffer);
         dataBuffer = NULL;
         mhdf_closeFile(filePtr, &status);
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
       }
     }
 #endif // HDF5_PARALLEL
@@ -494,7 +476,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
       free(dataBuffer);
       dataBuffer = NULL;
       mhdf_closeFile(filePtr, &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
   }
 
@@ -631,7 +613,7 @@ ErrorCode ReadHDF5::load_file_impl(const FileOptions&)
                fileInfo->nodes.start_id + fileInfo->nodes.count - 1);
     rval = read_nodes(ids);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   dbgOut.tprint(1, "Reading all element connectivity...\n");
@@ -644,13 +626,13 @@ ErrorCode ReadHDF5::load_file_impl(const FileOptions&)
 
     rval = read_elems(i);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
   for (std::vector<int>::iterator it = polyhedra.begin();
        it != polyhedra.end(); ++it) {
     rval = read_elems(*it);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   dbgOut.tprint(1, "Reading all sets...\n");
@@ -660,7 +642,7 @@ ErrorCode ReadHDF5::load_file_impl(const FileOptions&)
                fileInfo->sets.start_id + fileInfo->sets.count - 1);
     rval = read_sets(ids);
     if (rval != MB_SUCCESS) {
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
   }
 
@@ -675,21 +657,21 @@ ErrorCode ReadHDF5::load_file_impl(const FileOptions&)
                                      &table_len,
                                      &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
     rval = read_adjacencies(table, table_len);
     mhdf_closeData(filePtr, table, &status);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   dbgOut.tprint(1, "Reading all tags...\n");
   for (i = 0; i < fileInfo->num_tag_desc; ++i) {
     rval = read_tag(i);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   dbgOut.tprint(1, "Core read finished.  Cleaning up...\n");
@@ -724,7 +706,7 @@ ErrorCode ReadHDF5::get_subset_ids(const ReaderIface::IDTag* subset_list,
     int tag_index;
     rval = find_int_tag(subset_list[i].tag_name, tag_index);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
 
     Range tmp_file_ids;
     if (!subset_list[i].num_tag_values) {
@@ -736,11 +718,11 @@ ErrorCode ReadHDF5::get_subset_ids(const ReaderIface::IDTag* subset_list,
       std::sort(ids.begin(), ids.end());
       rval = search_tag_values(tag_index, ids, tmp_file_ids);
       if (MB_SUCCESS != rval)
-        return error(rval);
+        MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
 
     if (tmp_file_ids.empty())
-      return error(MB_ENTITY_NOT_FOUND);
+      MB_CHK_ERR(MB_ENTITY_NOT_FOUND);
 
     if (i == 0) 
       file_ids.swap(tmp_file_ids);
@@ -824,12 +806,12 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
   Range file_ids;
   ErrorCode rval = get_subset_ids(subset_list, subset_list_length, file_ids);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   if (num_parts) {
     rval = get_partition(file_ids, num_parts, part_number);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   dbgOut.print_ints(4, "Set file IDs for partial read: ", file_ids);
@@ -863,7 +845,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
     dbgOut.tprint(1, "  doing read_set_ids_recursive\n");
     rval = read_set_ids_recursive(sets, content_mode == RSM_CONTENTS, child_mode == RSM_CONTENTS);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   debug_barrier();
@@ -872,7 +854,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
   dbgOut.tprint(1, "  doing get_set_contents\n");
   rval = get_set_contents(sets, file_ids);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   dbgOut.print_ints(5, "File IDs for partial read: ", file_ids);
   debug_barrier();
@@ -919,7 +901,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
     rval = read_elems(i, polyhedra, &file_ids);
     mpe_event.end(rval);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   // Get node file ids for all elements
@@ -954,7 +936,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
       rval = read_elems(i, subset, nodes);
     mpe_event.end(rval);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   debug_barrier();
@@ -968,7 +950,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
   rval = read_nodes(nodes);
   mpe_event.end(rval);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   debug_barrier();
   dbgOut.tprint(1, "READING ELEMENTS\n");
@@ -1006,7 +988,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
           rval = read_node_adj_elems(fileInfo->elems[i]);
           mpe_event.end(rval);
           if (MB_SUCCESS != rval)
-            return error(rval);
+            MB_SET_ERR(rval, "ReadHDF5 Failure");
           if (!ents.empty())
             max_dim = 3;
         }
@@ -1030,7 +1012,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
           rval = read_node_adj_elems(fileInfo->elems[i], &side_entities);
           mpe_event.end(rval);
           if (MB_SUCCESS != rval)
-            return error(rval);
+            MB_SET_ERR(rval, "ReadHDF5 Failure");
         }
       }
     }
@@ -1046,7 +1028,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
   rval = update_connectivity();
   mpe_event.end();
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   dbgOut.tprint(1, "READING ADJACENCIES\n");
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
@@ -1056,13 +1038,13 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
       long len;
       hid_t th = mhdf_openAdjacency(filePtr, fileInfo->elems[i].handle, &len, &status);
       if (is_error(status))
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
       rval = read_adjacencies(th, len);
       mhdf_closeData(filePtr, th, &status);
       mpe_event.end(rval);
       if (MB_SUCCESS != rval)
-        return error(rval);
+        MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
   }
 
@@ -1078,7 +1060,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
     rval = delete_non_side_elements(side_entities);
     mpe_event.end(rval);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   debug_barrier();
@@ -1093,7 +1075,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
     rval = read_set_ids_recursive(sets, content_mode == RSM_SETS, child_mode == RSM_SETS);
     mpe_event.end(rval);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   dbgOut.tprint(1, "  doing find_sets_containing\n");
@@ -1111,7 +1093,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
   rval = find_sets_containing(sets, read_set_containing_parents);
   mpe_event.end(rval);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
   // Now actually read all set data and instantiate sets in MOAB.
   // Get any contained sets out of file_ids.
   mpe_event.start("reading set contents/parents/children");
@@ -1122,7 +1104,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
   rval = read_sets(sets);
   mpe_event.end(rval);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   dbgOut.tprint(1, "READING TAGS\n");
 
@@ -1130,7 +1112,7 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
     mpe_event.start("reading tag: ", fileInfo->tags[i].name);
     rval = read_tag(i);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   dbgOut.tprint(1, "PARTIAL READ COMPLETE.\n");
@@ -1177,17 +1159,17 @@ ErrorCode ReadHDF5::search_tag_values(int tag_index,
     }
     else {
       if (idx < 0 || idx >= fileInfo->num_elem_desc) 
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
       name = fileInfo->elems[idx].handle;
       start_id = fileInfo->elems[idx].desc.start_id;
     }
     table = mhdf_openDenseTagData(filePtr, tag.name, name, &size, &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     rval = search_tag_values(table, size, sorted_values, indices);
     mhdf_closeData(filePtr, table, &status);
     if (MB_SUCCESS != rval || is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     // Convert from table indices to file IDs and add to result list
     std::sort(indices.begin(), indices.end(), std::greater<EntityHandle>());
     std::transform(indices.begin(), indices.end(), range_inserter(file_ids),
@@ -1204,12 +1186,12 @@ ErrorCode ReadHDF5::search_tag_values(int tag_index,
   long junk; // Redundant value for non-variable-length tags
   mhdf_openSparseTagData(filePtr, tag.name, &size, &junk, tables, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   rval = search_tag_values(tables[1], size, sorted_values, indices);
   mhdf_closeData(filePtr, tables[1], &status);
   if (MB_SUCCESS != rval || is_error(status)) {
     mhdf_closeData(filePtr, tables[0], &status);
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
   // Convert to ranges
   std::sort(indices.begin(), indices.end());
@@ -1231,13 +1213,13 @@ ErrorCode ReadHDF5::search_tag_values(int tag_index,
                                       handleType, &indices[offset], indepIO, &status);
     if (is_error(status)) {
       mhdf_closeData(filePtr, tables[0], &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
     offset += end - begin + 1;
   }
   mhdf_closeData(filePtr, tables[0], &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   assert(offset == indices.size());
   std::sort(indices.begin(), indices.end());
 
@@ -1271,7 +1253,7 @@ ErrorCode ReadHDF5::get_tagged_entities(int tag_index, Range& file_ids)
       ents = &fileInfo->nodes;
     else {
       if (idx < 0 || idx >= fileInfo->num_elem_desc) 
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
       ents = &(fileInfo->elems[idx].desc);
     }
 
@@ -1289,16 +1271,16 @@ ErrorCode ReadHDF5::get_tagged_entities(int tag_index, Range& file_ids)
   long size, junk; 
   mhdf_openSparseTagData(filePtr, tag.name, &size, &junk, tables, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   mhdf_closeData(filePtr, tables[1], &status);
   if (is_error(status)) {
     mhdf_closeData(filePtr, tables[0], &status);
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   hid_t file_type = H5Dget_type(tables[0]);
   if (file_type < 0) 
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   hint = file_ids.begin();
   EntityHandle* buffer = reinterpret_cast<EntityHandle*>(dataBuffer);
@@ -1312,7 +1294,7 @@ ErrorCode ReadHDF5::get_tagged_entities(int tag_index, Range& file_ids)
     if (is_error(status)) {
       H5Tclose(file_type);
       mhdf_closeData(filePtr, *tables, &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
     H5Tconvert(file_type, handleType, count, buffer, NULL, H5P_DEFAULT);
 
@@ -1327,7 +1309,7 @@ ErrorCode ReadHDF5::get_tagged_entities(int tag_index, Range& file_ids)
   H5Tclose(file_type);
   mhdf_closeData(filePtr, *tables, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   return MB_SUCCESS;  
 }
@@ -1351,7 +1333,7 @@ ErrorCode ReadHDF5::search_tag_values(hid_t tag_table,
     assert_range(buffer, count);
     mhdf_readTagValuesWithOpt(tag_table, offset, count, H5T_NATIVE_INT, buffer, collIO, &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
     // Search tag values
     for (size_t i = 0; i < count; ++i)
@@ -1380,17 +1362,17 @@ ErrorCode ReadHDF5::read_nodes(const Range& node_file_ids)
   int cdim;
   rval = iFace->get_dimension(cdim);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   if (cdim < dim) {
     rval = iFace->set_dimension(dim);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   hid_t data_id = mhdf_openNodeCoordsSimple(filePtr, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   EntityHandle handle;
   std::vector<double*> arrays(dim);
@@ -1398,7 +1380,7 @@ ErrorCode ReadHDF5::read_nodes(const Range& node_file_ids)
   rval = readUtil->get_node_coords(dim, (int)num_nodes, 0, handle, arrays);
   if (MB_SUCCESS != rval) {
     mhdf_closeData(filePtr, data_id, &status);
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   if (blockedCoordinateIO) {
@@ -1426,7 +1408,7 @@ ErrorCode ReadHDF5::read_nodes(const Range& node_file_ids)
     }
     catch (ReadHDF5Dataset::Exception) {
       mhdf_closeData(filePtr, data_id, &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
   }
   else { // !blockedCoordinateIO
@@ -1452,7 +1434,7 @@ ErrorCode ReadHDF5::read_nodes(const Range& node_file_ids)
     }
     catch (ReadHDF5Dataset::Exception) {
       mhdf_closeData(filePtr, data_id, &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
   }
 
@@ -1477,7 +1459,7 @@ ErrorCode ReadHDF5::read_elems(int i, const Range& file_ids, Range* node_ids)
 {
   if (fileInfo->elems[i].desc.vals_per_ent < 0) {
     if (node_ids != 0) // Not implemented for version 3 format of poly data
-      return error(MB_TYPE_OUT_OF_RANGE);
+      MB_CHK_ERR(MB_TYPE_OUT_OF_RANGE);
     return read_poly(fileInfo->elems[i], file_ids);
   }
   else
@@ -1504,7 +1486,7 @@ ErrorCode ReadHDF5::read_elems(const mhdf_ElemDesc& elems, const Range& file_ids
   const size_t count = file_ids.size();
   hid_t data_id = mhdf_openConnectivitySimple(filePtr, elems.handle, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   EntityHandle handle;
   EntityHandle* array = 0;
@@ -1512,7 +1494,7 @@ ErrorCode ReadHDF5::read_elems(const mhdf_ElemDesc& elems, const Range& file_ids
     rval = readUtil->get_element_connect(count, nodes_per_elem, type,
                                          0, handle, array);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   try {
     EntityHandle* buffer = reinterpret_cast<EntityHandle*>(dataBuffer);
@@ -1539,17 +1521,17 @@ ErrorCode ReadHDF5::read_elems(const mhdf_ElemDesc& elems, const Range& file_ids
     assert(iter - array == (ptrdiff_t)count * nodes_per_elem);
   }
   catch (ReadHDF5Dataset::Exception) {
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   if (!node_ids) {
     rval = convert_id_to_handle(array, count * nodes_per_elem);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
 
     rval = readUtil->update_adjacencies(handle, count, nodes_per_elem, array);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
   else {
     IDConnectivity t;
@@ -1570,11 +1552,11 @@ ErrorCode ReadHDF5::update_connectivity()
   for (i = idConnectivityList.begin(); i != idConnectivityList.end(); ++i) {
     rval = convert_id_to_handle(i->array, i->count * i->nodes_per_elem);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
 
     rval = readUtil->update_adjacencies(i->handle, i->count, i->nodes_per_elem, i->array);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
   idConnectivityList.clear();
 
@@ -1590,13 +1572,13 @@ ErrorCode ReadHDF5::read_node_adj_elems(const mhdf_ElemDesc& group, Range* handl
 
   hid_t table = mhdf_openConnectivitySimple(filePtr, group.handle, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   rval = read_node_adj_elems(group, table, handles_out);
 
   mhdf_closeData(filePtr, table, &status);
   if (MB_SUCCESS == rval && is_error(status))
-    return error(rval = MB_FAILURE);
+    MB_SET_ERR_RET_VAL("ReadHDF5 Failure", MB_FAILURE);
 
   return rval;
 }
@@ -1639,7 +1621,7 @@ ErrorCode ReadHDF5::read_node_adj_elems(const mhdf_ElemDesc& group,
     assert_range(buffer, count * node_per_elem);
     mhdf_readConnectivityWithOpt(table_handle, offset, count, H5T_NATIVE_LONG, buffer, collIO, &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     offset += count;
     remaining -= count;
 
@@ -1675,7 +1657,7 @@ ErrorCode ReadHDF5::read_node_adj_elems(const mhdf_ElemDesc& group,
                                          handle,
                                          array);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
 
     // Copy all non-zero connectivity values
     iter = buffer;
@@ -1687,7 +1669,7 @@ ErrorCode ReadHDF5::read_node_adj_elems(const mhdf_ElemDesc& group,
         continue;
       }
       if (!idMap.insert(start_id + i, h++, 1).second)
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
       long* const end = iter + node_per_elem;
       for ( ; iter != end; ++iter, ++iter2)
@@ -1698,7 +1680,7 @@ ErrorCode ReadHDF5::read_node_adj_elems(const mhdf_ElemDesc& group,
 
     rval = readUtil->update_adjacencies(handle, num_elem, node_per_elem, array);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
     if (handles_out)
       hint = handles_out->insert(hint, handle, handle + num_elem - 1);
    }
@@ -1727,12 +1709,12 @@ ErrorCode ReadHDF5::read_elems(int i, const Range& elems_in, Range& nodes)
 
   // We don't support version 3 style poly element data
   if (fileInfo->elems[i].desc.vals_per_ent <= 0)
-    return error(MB_TYPE_OUT_OF_RANGE);
+    MB_CHK_ERR(MB_TYPE_OUT_OF_RANGE);
 
   mhdf_Status status;
   hid_t table = mhdf_openConnectivitySimple(filePtr, fileInfo->elems[i].handle, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   try {
     ReadHDF5Dataset reader(fileInfo->elems[i].handle, table, nativeParallel, mpiComm);
@@ -1750,7 +1732,7 @@ ErrorCode ReadHDF5::read_elems(int i, const Range& elems_in, Range& nodes)
     }
   }
   catch (ReadHDF5Dataset::Exception) {
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   return MB_SUCCESS;
@@ -1775,11 +1757,11 @@ ErrorCode ReadHDF5::read_poly(const mhdf_ElemDesc& elems, const Range& file_ids)
       EntityHandle* conn = reinterpret_cast<EntityHandle*>(data);
       readHDF5->convert_id_to_handle(conn, len, valid);
       if (valid != (size_t)len)
-        return error(MB_ENTITY_NOT_FOUND);
+        MB_CHK_ERR(MB_ENTITY_NOT_FOUND);
       EntityHandle handle;
       ErrorCode rval = readHDF5->moab()->create_element(type, conn, len, handle);
       if (MB_SUCCESS != rval)
-        return error(rval);
+        MB_SET_ERR(rval, "ReadHDF5 Failure");
 
       rval = readHDF5->insert_in_id_map(file_id, handle);
       return rval;
@@ -1801,7 +1783,7 @@ ErrorCode ReadHDF5::read_poly(const mhdf_ElemDesc& elems, const Range& file_ids)
   mhdf_openPolyConnectivity(filePtr, elems.handle, &num_poly, &num_conn, &first_id,
                             handles, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   std::string nm(elems.handle);
   ReadHDF5Dataset offset_reader((nm + " offsets").c_str(), handles[0], nativeParallel, mpiComm, true);
@@ -1862,7 +1844,7 @@ ErrorCode ReadHDF5::delete_non_side_elements(const Range& side_ents)
   dbgOut.print(4, "\tDead entities: ", dead_ents);
   rval = iFace->delete_entities(dead_ents);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   // Remove dead entities from ID map
   while (!dead_ents.empty()) {
@@ -1873,7 +1855,7 @@ ErrorCode ReadHDF5::delete_non_side_elements(const Range& side_ents)
       if (rit->value <= start && (EntityID)(start - rit->value) < rit->count)
         break;
     if (rit == idMap.end())
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
     EntityID offset = start - rit->value;
     EntityID avail = rit->count - offset;
@@ -1908,22 +1890,22 @@ ErrorCode ReadHDF5::read_sets(const Range& file_ids)
   EntityHandle start_handle;
   rval = readUtil->create_entity_sets(flags.size(), &flags[0], 0, start_handle);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
   rval = insert_in_id_map(file_ids, start_handle);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   // Read contents
   if (fileInfo->have_set_contents) {
     long len = 0;
     hid_t handle = mhdf_openSetData(filePtr, &len, &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
     ReadHDF5Dataset dat("set contents", handle, nativeParallel, mpiComm, true);
     rval = read_set_data(file_ids, start_handle, dat, CONTENT);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   // Read set child lists
@@ -1931,12 +1913,12 @@ ErrorCode ReadHDF5::read_sets(const Range& file_ids)
     long len = 0;
     hid_t handle = mhdf_openSetChildren(filePtr, &len, &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
     ReadHDF5Dataset dat("set children", handle, nativeParallel, mpiComm, true);
     rval = read_set_data(file_ids, start_handle, dat, CHILD);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   // Read set parent lists
@@ -1944,12 +1926,12 @@ ErrorCode ReadHDF5::read_sets(const Range& file_ids)
     long len = 0;
     hid_t handle = mhdf_openSetParents(filePtr, &len, &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
     ReadHDF5Dataset dat("set parents", handle, nativeParallel, mpiComm, true);
     rval = read_set_data(file_ids, start_handle, dat, PARENT);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   return MB_SUCCESS;
@@ -1967,7 +1949,7 @@ ErrorCode ReadHDF5::read_all_set_meta()
   mhdf_Status status;
   hid_t handle = mhdf_openSetMetaSimple(filePtr, &status);
   if (is_error(status)) {
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   // Allocate extra space if we need it for data conversion
@@ -1999,21 +1981,21 @@ ErrorCode ReadHDF5::read_all_set_meta()
     if (is_error(status)) {
       H5Tclose(meta_type);
       mhdf_closeData(filePtr, handle, &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
 
      H5Tconvert(meta_type, H5T_NATIVE_LONG, num_sets*4, setMeta, 0, H5P_DEFAULT);
   }
   mhdf_closeData(filePtr, handle, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   H5Tclose(meta_type);
 
   if (bcast) {
 #ifdef MOAB_HAVE_MPI
     int ierr = MPI_Bcast(setMeta, num_sets*4, MPI_LONG, 0, comm);
     if (MPI_SUCCESS != ierr)
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 #else
     assert(rank == 0); // If not MPI, then only one proc
 #endif
@@ -2052,12 +2034,12 @@ ErrorCode ReadHDF5::read_set_ids_recursive(Range& sets_in_out,
     long content_len = 0;
     hid_t content_handle = mhdf_openSetData(filePtr, &content_len, &status);
     if (is_error(status))
-       return error(MB_FAILURE);
+       MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     try {
       cont.init(content_handle, true);
     }
     catch (ReadHDF5Dataset::Exception) {
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
   }
 
@@ -2065,12 +2047,12 @@ ErrorCode ReadHDF5::read_set_ids_recursive(Range& sets_in_out,
     long child_len = 0;
     hid_t child_handle = mhdf_openSetChildren(filePtr, &child_len, &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     try {
       child.init(child_handle, true);
     }
     catch (ReadHDF5Dataset::Exception) {
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
   }
 
@@ -2120,7 +2102,7 @@ ErrorCode ReadHDF5::find_sets_containing(Range& sets_out,
   long content_len = 0;
   hid_t content_handle = mhdf_openSetData(filePtr, &content_len, &status);
   if (is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   hid_t data_type = H5Dget_type(content_handle);
 
@@ -2131,7 +2113,7 @@ ErrorCode ReadHDF5::find_sets_containing(Range& sets_out,
 
   mhdf_closeData(filePtr, content_handle, &status);
   if (MB_SUCCESS == rval && is_error(status))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   return rval;
 }
@@ -2205,7 +2187,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
                 << i << ": index " << setMeta[i][CONTENT] 
                 << " is less than previous index " << prev << std::endl;
       std::cerr.flush();
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
     prev = setMeta[i][CONTENT];
   }
@@ -2214,7 +2196,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
               << " exceeds contents table length of " << contents_len
               << std::endl;
     std::cerr.flush();
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   // Set up buffer for reading set contents
@@ -2254,7 +2236,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
                              content_count, content_type,
                              content_buffer, &status);
           if (is_error(status))
-            return error(MB_FAILURE);
+            MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
           H5Tconvert(content_type, H5T_NATIVE_LONG, content_count, content_buffer, 0, H5P_DEFAULT);
         }
@@ -2262,7 +2244,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
           #ifdef MOAB_HAVE_MPI
             int ierr = MPI_Bcast(content_buffer, content_count, MPI_LONG, 0, comm);
             if (MPI_SUCCESS != ierr)
-              return error(MB_FAILURE);
+              MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
           #else
             assert(rank == 0); // If not MPI, then only one proc
           #endif
@@ -2301,7 +2283,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
           mhdf_readSetData(contents_handle, prev_idx + 1, read_num,
                            content_type, content_buffer, &status);
         if (is_error(status))
-          return error(MB_FAILURE);
+          MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
         H5Tconvert(content_type, H5T_NATIVE_LONG, read_num, content_buffer, 0, H5P_DEFAULT);
       }
@@ -2309,7 +2291,7 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
         #ifdef MOAB_HAVE_MPI
           int ierr = MPI_Bcast(content_buffer, read_num, MPI_LONG, 0, comm);
           if (MPI_SUCCESS != ierr)
-            return error(MB_FAILURE);
+            MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
         #else
           assert(rank == 0); // If not MPI, then only one proc
         #endif
@@ -2453,7 +2435,7 @@ ErrorCode ReadHDF5::read_set_data(const Range& set_file_ids,
           case CONTENT:
             if (setMeta[idx][3] & ranged_flag) {
               if (len % 2) 
-                return error(MB_INDEX_OUT_OF_RANGE);
+                MB_CHK_ERR(MB_INDEX_OUT_OF_RANGE);
               Range range;
               convert_range_to_handle(&partial[0], len / 2, range);
               rval = moab()->add_entities(h, range);
@@ -2475,7 +2457,7 @@ ErrorCode ReadHDF5::read_set_data(const Range& set_file_ids,
             break;
         }
         if (MB_SUCCESS != rval)
-          return error(rval);
+          MB_SET_ERR(rval, "ReadHDF5 Failure");
       }
 
       ++fileid_iter;
@@ -2507,7 +2489,7 @@ ErrorCode ReadHDF5::read_set_data(const Range& set_file_ids,
           case CONTENT:
             if (setMeta[idx][3] & ranged_flag) {
               if (len % 2) 
-                return error(MB_INDEX_OUT_OF_RANGE);
+                MB_CHK_ERR(MB_INDEX_OUT_OF_RANGE);
               Range range;
               convert_range_to_handle(buffer + offset, len / 2, range);
               rval = moab()->add_entities(h, range);
@@ -2529,7 +2511,7 @@ ErrorCode ReadHDF5::read_set_data(const Range& set_file_ids,
             break;
         }
         if (MB_SUCCESS != rval)
-          return error(rval);
+          MB_SET_ERR(rval, "ReadHDF5 Failure");
       }
 
       ++fileid_iter;
@@ -2553,13 +2535,13 @@ ErrorCode ReadHDF5::get_set_contents(const Range& sets, Range& file_ids)
     long content_len;
     hid_t contents = mhdf_openSetData(filePtr, &content_len, &status);
     if (is_error(status)) 
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     ReadHDF5Dataset data("set contents", contents, nativeParallel, mpiComm, true);
 
     return read_set_data(sets, 0, data, CONTENT, &file_ids);
   }
   catch (ReadHDF5Dataset::Exception) {
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 }
 
@@ -2574,7 +2556,7 @@ ErrorCode ReadHDF5::read_adjacencies(hid_t table, long table_len)
 
   hid_t read_type = H5Dget_type(table);
   if (read_type < 0) 
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   const bool convert = !H5Tequal(read_type, handleType);
 
   EntityHandle* buffer = (EntityHandle*)dataBuffer;
@@ -2596,12 +2578,12 @@ ErrorCode ReadHDF5::read_adjacencies(hid_t table, long table_len)
     mhdf_readAdjacencyWithOpt(table, offset, count, read_type, buffer + left_over,
                               collIO, &status);
     if (is_error(status))
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     
     if (convert) {
       herr_t err = H5Tconvert(read_type, handleType, count, buffer + left_over, 0, H5P_DEFAULT);
       if (err < 0)
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
 
     EntityHandle* iter = buffer;
@@ -2615,7 +2597,7 @@ ErrorCode ReadHDF5::read_adjacencies(hid_t table, long table_len)
       }
 
       if (count2 < 1)
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
       if (end < count2 + iter) {
         iter -= 2;
@@ -2626,7 +2608,7 @@ ErrorCode ReadHDF5::read_adjacencies(hid_t table, long table_len)
       convert_id_to_handle(iter, count2, valid, idMap);
       rval = iFace->add_adjacencies(h, iter, valid, false);
       if (MB_SUCCESS != rval)
-        return error(rval);
+        MB_SET_ERR(rval, "ReadHDF5 Failure");
 
       iter += count2;
     }
@@ -2657,7 +2639,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
   bool table_type;
   rval = create_tag(fileInfo->tags[tag_index], tag, read_type);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   if (fileInfo->tags[tag_index].have_sparse) {
     hid_t handles[3];
@@ -2668,7 +2650,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
                            handles, &status);
     if (is_error(status)) {
       if (read_type) H5Tclose(read_type);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
 
     table_type = false;
@@ -2679,7 +2661,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
         mhdf_closeData(filePtr, handles[0], &status);
         if (fileInfo->tags[tag_index].size <= 0)
           mhdf_closeData(filePtr, handles[2], &status);
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
       }
       table_type = true;
     }
@@ -2711,7 +2693,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
     }
     if (MB_SUCCESS != rval) {
       if (read_type) H5Tclose(read_type);
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
   }
 
@@ -2733,7 +2715,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
       name = fileInfo->elems[elem_idx].handle;
     }
     else {
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
 
     dbgOut.printf(2, "Read dense data block for tag \"%s\" on \"%s\"\n", fileInfo->tags[tag_index].name, name);
@@ -2743,7 +2725,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
                                          name,
                                          &count, &status);
     if (is_error(status)) {
-      rval = error(MB_FAILURE);
+      rval = MB_FAILURE; // rval = error(MB_FAILURE);
       break;
     }
 
@@ -2757,7 +2739,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
       read_type = H5Dget_type(handle);
       if (read_type == 0) {
         mhdf_closeData(filePtr, handle, &status);
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
       }
       table_type = true;
     }
@@ -2773,7 +2755,7 @@ ErrorCode ReadHDF5::read_tag(int tag_index)
     if (MB_SUCCESS != rval)
       break;
     if (is_error(status)) {
-      rval = error(MB_FAILURE);
+      rval = MB_FAILURE;
       break;
     }
   }
@@ -2820,7 +2802,7 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
     hdf_type = H5Tcopy(H5T_NATIVE_B8);
     mb_type = MB_TYPE_BIT;
     if (hdf_type < 0)
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
   else if (info.type == mhdf_OPAQUE) {
     mb_type = MB_TYPE_OPAQUE;
@@ -2834,7 +2816,7 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
       EntityHandle root = 0;
       rval = iFace->tag_get_data(type_handle, &root, 1, &hdf_type);
       if (MB_SUCCESS != rval)
-        return error(rval);
+        MB_SET_ERR(rval, "ReadHDF5 Failure");
       hdf_type = H5Tcopy(hdf_type);
       re_read_default = true;
     }
@@ -2842,10 +2824,10 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
       hdf_type = 0;
     }
     else
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
 
     if (hdf_type < 0)
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
   else {
     switch (info.type) {
@@ -2866,7 +2848,7 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
         mb_type = MB_TYPE_HANDLE;
         break;
       default:
-        return error(MB_FAILURE);
+        MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
 
     if (info.size > 1) { // Array
@@ -2881,7 +2863,7 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
       hdf_type = H5Tcopy(hdf_type);
     }
     if (hdf_type < 0)
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   // If default or global/mesh value in file, read it.
@@ -2901,7 +2883,7 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
         if (MB_SUCCESS != rval) {
           if (hdf_type)
             H5Tclose(hdf_type);
-          return error(rval);
+          MB_SET_ERR(rval, "ReadHDF5 Failure");
         }
       }
       if (info.global_value) {
@@ -2909,7 +2891,7 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
         if (MB_SUCCESS != rval) {
           if (hdf_type)
             H5Tclose(hdf_type);
-          return error(rval);
+          MB_SET_ERR(rval, "ReadHDF5 Failure");
         }
       }
     }
@@ -2941,7 +2923,7 @@ ErrorCode ReadHDF5::create_tag(const mhdf_TagDesc& info,
     if (MB_SUCCESS != rval) {
       if (hdf_type)
         H5Tclose(hdf_type);
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
   }
 
@@ -2962,19 +2944,19 @@ ErrorCode ReadHDF5::read_dense_tag(Tag tag_handle,
 
   rval = iFace->tag_get_data_type(tag_handle, mb_type);
   if (MB_SUCCESS != rval) 
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   int read_size;
   rval = iFace->tag_get_bytes(tag_handle, read_size);
   if (MB_SUCCESS != rval) // Wrong function for variable-length tags
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
   //if (MB_TYPE_BIT == mb_type) 
     //read_size = (read_size + 7) / 8; // Convert bits to bytes, plus 7 for ceiling
 
   if (hdf_read_type) { // If not opaque
     hsize_t hdf_size = H5Tget_size(hdf_read_type);
     if (hdf_size != (hsize_t)read_size)
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   // Get actual entities read from file
@@ -3035,7 +3017,7 @@ ErrorCode ReadHDF5::read_dense_tag(Tag tag_handle,
       if (MB_TYPE_HANDLE == mb_type) {
         rval = convert_id_to_handle((EntityHandle*)dataBuffer, count * read_size / sizeof(EntityHandle));
         if (MB_SUCCESS != rval)
-          return error(rval);
+          MB_SET_ERR(rval, "ReadHDF5 Failure");
       }
 
       Range ents;
@@ -3047,13 +3029,13 @@ ErrorCode ReadHDF5::read_dense_tag(Tag tag_handle,
       rval = iFace->tag_set_data(tag_handle, ents, dataBuffer);
       if (MB_SUCCESS != rval) {
         dbgOut.printf(1, "Internal error setting data for tag \"%s\"\n", tn.c_str());
-        return error(rval);
+        MB_SET_ERR(rval, "ReadHDF5 Failure");
       }
     }
   }
   catch (ReadHDF5Dataset::Exception) {
     dbgOut.printf(1, "Internal error reading dense data for tag \"%s\"\n", tn.c_str());
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   return MB_SUCCESS;
@@ -3100,7 +3082,7 @@ ErrorCode ReadHDF5::read_sparse_tag_indices(const char* name,
 
       rval = convert_id_to_handle(idbuf, count);
       if (MB_SUCCESS != rval)
-        return error(rval);
+        MB_SET_ERR(rval, "ReadHDF5 Failure");
 
       // idbuf will now contain zero-valued handles for those
       // tag values that correspond to entities we are not reading
@@ -3128,7 +3110,7 @@ ErrorCode ReadHDF5::read_sparse_tag_indices(const char* name,
     }
   }
   catch (ReadHDF5Dataset::Exception) {
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   return MB_SUCCESS;
@@ -3159,19 +3141,19 @@ ErrorCode ReadHDF5::read_sparse_tag(Tag tag_handle,
   DataType mbtype;
   rval = iFace->tag_get_data_type(tag_handle, mbtype);
   if (MB_SUCCESS != rval) 
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   int read_size;
   rval = iFace->tag_get_bytes(tag_handle, read_size);
   if (MB_SUCCESS != rval) // Wrong function for variable-length tags
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
   //if (MB_TYPE_BIT == mbtype) 
     //read_size = (read_size + 7) / 8; // Convert bits to bytes, plus 7 for ceiling
 
   if (hdf_read_type) { // If not opaque
     hsize_t hdf_size = H5Tget_size(hdf_read_type);
     if (hdf_size != (hsize_t)read_size) 
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   const int handles_per_tag = read_size / sizeof(EntityHandle);
@@ -3191,7 +3173,7 @@ ErrorCode ReadHDF5::read_sparse_tag(Tag tag_handle,
       if (MB_TYPE_HANDLE == mbtype) {
         rval = convert_id_to_handle((EntityHandle*)dataBuffer, count*handles_per_tag);
         if (MB_SUCCESS != rval)
-          return error(rval);
+          MB_SET_ERR(rval, "ReadHDF5 Failure");
       }
 
       if (!handle_vect.empty()) {
@@ -3205,11 +3187,11 @@ ErrorCode ReadHDF5::read_sparse_tag(Tag tag_handle,
         rval = iFace->tag_set_data(tag_handle, r, dataBuffer);
       }
       if (MB_SUCCESS != rval)
-        return error(rval);
+        MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
   }
   catch (ReadHDF5Dataset::Exception) {
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   return MB_SUCCESS;
@@ -3230,24 +3212,24 @@ ErrorCode ReadHDF5::read_var_len_tag(Tag tag_handle,
 
   rval = iFace->tag_get_data_type(tag_handle, mbtype);
   if (MB_SUCCESS != rval) 
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   // Can't do variable-length bit tags
   if (MB_TYPE_BIT == mbtype)
-    return error(MB_VARIABLE_DATA_LENGTH);
+    MB_CHK_ERR(MB_VARIABLE_DATA_LENGTH);
 
   // If here, MOAB tag must be variable-length
   int mbsize;
   if (MB_VARIABLE_DATA_LENGTH != iFace->tag_get_bytes(tag_handle, mbsize)) {
     assert(false);
-    return error(MB_VARIABLE_DATA_LENGTH);
+    MB_CHK_ERR(MB_VARIABLE_DATA_LENGTH);
   }
 
   int read_size;
   if (hdf_read_type) {
     hsize_t hdf_size = H5Tget_size(hdf_read_type);
     if (hdf_size < 1)
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     read_size = hdf_size;
   }
   else {
@@ -3289,9 +3271,7 @@ ErrorCode ReadHDF5::read_var_len_tag(Tag tag_handle,
         ErrorCode rval1;
         if (isHandle) {
           assert(readSize == sizeof(EntityHandle));
-          rval1 = readHDF5->convert_id_to_handle((EntityHandle*)data, count);
-          if (MB_SUCCESS != rval1)
-            return error(rval1);
+          rval1 = readHDF5->convert_id_to_handle((EntityHandle*)data, count);MB_CHK_ERR(rval1);
         }
         int n = count;
         return readHDF5->moab()->tag_set_by_ptr(tagHandle, &file_id, 1, &data, &n);
@@ -3316,7 +3296,7 @@ ErrorCode ReadHDF5::read_var_len_tag(Tag tag_handle,
     rval = tool.read_offsets(off_reader, offset_range, base_offset,
                              base_offset, offsets, counts);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
 
     // Read tag values
     Range empty;
@@ -3324,10 +3304,10 @@ ErrorCode ReadHDF5::read_var_len_tag(Tag tag_handle,
     rval = tool.read_data(val_reader, offsets, base_offset, hdf_read_type,
                           handle_range, counts, empty);
     if (MB_SUCCESS != rval)
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
   catch (ReadHDF5Dataset::Exception) {
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   }
 
   return MB_SUCCESS;
@@ -3418,11 +3398,11 @@ ErrorCode ReadHDF5::insert_in_id_map(const Range& file_ids,
   for (p = file_ids.const_pair_begin(); p != file_ids.const_pair_end(); ++p) {
     size_t count = p->second - p->first + 1;
     if (!map.insert(p->first, start_id, count).second)
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     start_id += count;
   }
   if (merge && !idMap.merge(tmp_map))
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   return MB_SUCCESS;
 }
@@ -3431,7 +3411,7 @@ ErrorCode ReadHDF5::insert_in_id_map(long file_id,
                                      EntityHandle handle)
 {
   if (!idMap.insert(file_id, handle, 1).second)
-    return error(MB_FAILURE);
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
   return MB_SUCCESS;
 }
 
@@ -3509,13 +3489,13 @@ ErrorCode ReadHDF5::read_tag_values(const char* file_name,
 
   rval = set_up_read(file_name, opts);
   if (MB_SUCCESS != rval)
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   int tag_index;
   rval = find_int_tag(tag_name, tag_index);
   if (MB_SUCCESS != rval) {
     clean_up_read(opts);
-    return error(rval);
+    MB_SET_ERR(rval, "ReadHDF5 Failure");
   }
 
   if (subset_list) {
@@ -3523,20 +3503,20 @@ ErrorCode ReadHDF5::read_tag_values(const char* file_name,
     rval = get_subset_ids(subset_list->tag_list, subset_list->tag_list_length, file_ids);
     if (MB_SUCCESS != rval) {
       clean_up_read(opts);
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
 
     rval = read_tag_values_partial(tag_index, file_ids, tag_values_out);
     if (MB_SUCCESS != rval) {
       clean_up_read(opts);
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
   }
   else {
     rval = read_tag_values_all(tag_index, tag_values_out);
     if (MB_SUCCESS != rval) {
       clean_up_read(opts);
-      return error(rval);
+      MB_SET_ERR(rval, "ReadHDF5 Failure");
     }
   }
 
@@ -3613,7 +3593,7 @@ ErrorCode ReadHDF5::read_tag_values_partial(int tag_index,
       }
     }
     catch (ReadHDF5Dataset::Exception) {
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
   }
 
@@ -3671,7 +3651,7 @@ ErrorCode ReadHDF5::read_tag_values_partial(int tag_index,
       }
     }
     catch (ReadHDF5Dataset::Exception) {
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
 
     std::sort(curr_data.begin(), curr_data.end());
@@ -3707,7 +3687,7 @@ ErrorCode ReadHDF5::read_tag_values_all(int tag_index,
     if (mhdf_isError(&status)) {
       MB_SET_ERR_CONT(mhdf_message(&status));
       mhdf_closeData(filePtr, handles[1], &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
 
     hid_t file_type = H5Dget_type(handles[1]);
@@ -3718,7 +3698,7 @@ ErrorCode ReadHDF5::read_tag_values_all(int tag_index,
       MB_SET_ERR_CONT(mhdf_message(&status));
       H5Tclose(file_type);
       mhdf_closeData(filePtr, handles[1], &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
     H5Tconvert(file_type, H5T_NATIVE_INT, num_val, &tag_values[0], 0, H5P_DEFAULT);
     H5Tclose(file_type);
@@ -3755,7 +3735,7 @@ ErrorCode ReadHDF5::read_tag_values_all(int tag_index,
       MB_SET_ERR_CONT(mhdf_message(&status));
       H5Tclose(file_type);
       mhdf_closeData(filePtr, handle, &status);
-      return error(MB_FAILURE);
+      MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
     }
 
     H5Tconvert(file_type, H5T_NATIVE_INT, num_val, &curr_data[0], 0, H5P_DEFAULT);
