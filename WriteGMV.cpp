@@ -299,7 +299,7 @@ ErrorCode WriteGMV::local_write_mesh(const char *file_name,
 
     ofile << "faces " << polygons.size() << " " << polyhedra.size() << std::endl;
 
-    for (Range::iterator rit = polygons.begin(); rit != polygons.end(); rit++) {
+    for (Range::iterator rit = polygons.begin(); rit != polygons.end(); ++rit) {
         // get the vertices
       connecth.clear();
       result = mbImpl->get_connectivity(&(*rit), 1, connecth, true);

@@ -254,7 +254,7 @@ Tqdcfr::~Tqdcfr()
     // get all sets, and release the string vectors
     Range allSets; // although only geom sets should have these attributes
     mdbImpl->get_entities_by_type(0, MBENTITYSET, allSets);
-    for (Range::iterator sit=allSets.begin(); sit!=allSets.end(); sit++)
+    for (Range::iterator sit=allSets.begin(); sit!=allSets.end(); ++sit)
     {
       EntityHandle gset=*sit;
       std::vector<std::string> *dum_vec;
@@ -1419,7 +1419,7 @@ ErrorCode Tqdcfr::read_nodes(const unsigned int gindex,
     // Initialize to zero then put previous vertices into the map
     std::fill(cubMOABVertexMap->begin(), cubMOABVertexMap->end(), 0);
     Range::iterator rit;
-    for (rit = vrange.begin(); rit != vrange.end(); rit++) {
+    for (rit = vrange.begin(); rit != vrange.end(); ++rit) {
       assert(((long)*rit) - currVHandleOffset >= 0 &&
              ((long)*rit) - currVHandleOffset <= max_cid);
       (*cubMOABVertexMap)[*rit - currVHandleOffset] = *rit;

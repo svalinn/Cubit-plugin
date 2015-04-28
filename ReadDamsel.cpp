@@ -415,7 +415,7 @@ ErrorCode ReadDamsel::get_contents(damsel_model m, damsel_container c, Range &en
         unsigned long num = std::min(count - diff, (size_t)(*beg).count);
         ents.insert((*beg).begin + diff, (*beg).begin + diff + num - 1);
         count -= (diff + num);
-        beg++;
+        ++beg;
       }
     }
     else {
@@ -467,7 +467,7 @@ ErrorCode ReadDamsel::get_contents(damsel_model m, damsel_container c, EntityHan
         for (EntityHandle hdl = (*beg).begin + diff; hdl <= (int)(*beg).begin + diff + num - 1; hdl++)
           ents[ind++] = hdl;
         count -= (diff + num);
-        beg++;
+        ++beg;
       }
     }
     else {
