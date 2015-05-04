@@ -4,7 +4,7 @@
 #include "moab/SpectralMeshTool.hpp"
 #include "MBTagConventions.hpp"
 
-#ifdef HAVE_ZOLTAN
+#ifdef MOAB_HAVE_ZOLTAN
 #include "ZoltanPartitioner.hpp"
 #endif
 
@@ -701,7 +701,7 @@ ErrorCode NCHelperGCRM::redistribute_local_cells(int start_cell_idx)
 {
   // If possible, apply Zoltan partition
   if (_readNC->partMethod == ScdParData::RCBZOLTAN) {
-#if defined(USE_MPI) && defined(HAVE_ZOLTAN)
+#if defined(MOAB_HAVE_MPI) && defined(MOAB_HAVE_ZOLTAN)
     // Read lat/lon coordinates of cell centers, then convert spherical to
     // Cartesian, and use them as input to Zoltan partition
     int xCellVarId;

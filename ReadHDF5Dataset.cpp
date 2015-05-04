@@ -34,7 +34,7 @@ void ReadHDF5Dataset::default_hyperslab_selection_limit()
 
 H5S_seloper_t ReadHDF5Dataset::hyperslabSelectOp = H5S_SELECT_OR;
 
-#ifdef USE_MPE
+#ifdef MOAB_HAVE_LIBMPE
 static std::pair<int,int> allocate_mpe_state( const char* name, const char* color )
 {
   std::pair<int,int> result;
