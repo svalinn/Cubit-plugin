@@ -1,4 +1,5 @@
 include_directories( ${MOAB_BINARY_DIR}/src
+                     ${MOAB_SOURCE_DIR}/src
                      ${MOAB_SOURCE_DIR}/src/io
                      ${MOAB_SOURCE_DIR}/src/mhdf
                      ${MOAB_BINARY_DIR}/src/parallel
@@ -49,12 +50,9 @@ if( MOAB_HAVE_NETCDF )
           NCWriteEuler.hpp  NCWriteEuler.cpp
           NCHelperFV.hpp    NCHelperFV.cpp
           NCWriteFV.hpp     NCWriteFV.cpp
-          NCHelperGCRM.hpp  NCHelperGCRM.cpp
-          NCWriteGCRM.hpp   NCWriteGCRM.cpp
           NCHelperHOMME.hpp NCHelperHOMME.cpp
           NCWriteHOMME.hpp  NCWriteHOMME.cpp
-          NCHelperMPAS.hpp  NCHelperMPAS.cpp
-          NCWriteMPAS.hpp   NCWriteMPAS.cpp )
+        )
         set( MOABIO_LIBS ${MOABIO_LIBS} ${NETCDF_LIBRARIES} )
         include_directories(${NETCDF_INCLUDES})
   # check for PNetCDF dependencies also
@@ -64,6 +62,16 @@ if( MOAB_HAVE_NETCDF )
   endif( MOAB_HAVE_PNETCDF )
 endif( MOAB_HAVE_NETCDF )
 
+if( MOAB_HAVE_ZOLTAN )
+  set( MOAB_ZOLTAN_SRCS 
+          NCHelperGCRM.hpp  NCHelperGCRM.cpp
+          NCWriteGCRM.hpp   NCWriteGCRM.cpp
+          NCHelperMPAS.hpp  NCHelperMPAS.cpp
+          NCWriteMPAS.hpp   NCWriteMPAS.cpp 
+      )
+  include_directories(${ZOLTAN_INCLUDES})
+endif (MOAB_HAVE_ZOLTAN)
+ 
 if ( MOAB_HAVE_CGNS )
   set( MOAB_CGNS_SRCS ReadCGNS.hpp ReadCGNS.cpp
                       WriteCGNS.hpp WriteCGNS.cpp)
@@ -99,7 +107,7 @@ if( MOAB_HAVE_CGM )
   set( MOAB_CGM_SRCS ReadCGM.hpp ReadCGM.cpp )
 endif()
 
-add_library( moabio OBJECT ${MOABIO_LIB_SRCS} ${MOAB_NETCDF_SRCS}
+add_library( moabio OBJECT ${MOABIO_LIB_SRCS} ${MOAB_NETCDF_SRCS} ${MOAB_ZOLTAN_SRCS}
                            ${MOAB_CGNS_SRCS}  ${MOAB_HDF5_SRCS}
                            ${MOAB_CCMIO_SRCS} ${MOAB_DAMSEL_SRCS}
                            ${MOAB_CGM_SRCS}   ${MOABIO_INSTALL_HEADERS} )

@@ -5,7 +5,7 @@
 #include "MBTagConventions.hpp"
 
 #ifdef MOAB_HAVE_ZOLTAN
-#include "ZoltanPartitioner.hpp"
+#include "moab/ZoltanPartitioner.hpp"
 #endif
 
 #include <cmath>
