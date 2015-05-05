@@ -29,7 +29,8 @@
 #ifndef READCGM_HPP
 #define READCGM_HPP
 
-#ifndef CGM
+#include "moab/MOABConfig.h"
+#ifndef MOAB_HAVE_CGM
 #error "ReadCGM.hpp isn't supposed to be included without building CGM"
 #endif
 
