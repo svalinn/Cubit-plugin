@@ -1410,7 +1410,7 @@ ErrorCode ReadABAQUS::get_nodes_by_id(EntityHandle parent_set,
 
 ErrorCode ReadABAQUS::get_set_by_name(EntityHandle parent_set,
                                       int ABQ_set_type,
-                                      std::string set_name,
+                                      const std::string &set_name,
                                       EntityHandle &set_handle)
 {
   ErrorCode status;
@@ -1466,7 +1466,7 @@ ErrorCode ReadABAQUS::get_set_elements(EntityHandle set_handle,
 
 ErrorCode ReadABAQUS::get_set_elements_by_name(EntityHandle parent_set,
                                                int ABQ_set_type,
-                                               std::string set_name,
+                                               const std::string &set_name,
                                                Range &element_range)
 {
   ErrorCode status;
@@ -1487,7 +1487,7 @@ ErrorCode ReadABAQUS::get_set_elements_by_name(EntityHandle parent_set,
 
 ErrorCode ReadABAQUS::get_set_nodes(EntityHandle parent_set,
                                     int ABQ_set_type,
-                                    std::string set_name,
+                                    const std::string &set_name,
                                     Range &node_range)
 {
   ErrorCode status;
@@ -1534,8 +1534,8 @@ Tag ReadABAQUS::get_tag(const char* tag_name,
 
 ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
                                               const EntityHandle assembly_set,
-                                              const std::string part_name,
-                                              const std::string /*instance_name*/,
+                                              const std::string &part_name,
+                                              const std::string &/*instance_name*/,
                                               EntityHandle &instance_set,
                                               const std::vector<double> &translation,
                                               const std::vector<double> &rotation)
@@ -1883,7 +1883,7 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
 
 ErrorCode ReadABAQUS::add_entity_set(EntityHandle parent_set,
                                      int ABQ_Set_Type,
-                                     std::string set_name,
+                                     const std::string &set_name,
                                      EntityHandle &entity_set)
 {
   ErrorCode status;
@@ -2039,7 +2039,7 @@ std::string ReadABAQUS::match(const std::string &token,
 }
 
 // Convert a string to upper case
-void ReadABAQUS::stringToUpper(std::string toBeConverted, std::string& converted)
+void ReadABAQUS::stringToUpper(const std::string& toBeConverted, std::string& converted)
 {
   converted = toBeConverted;
 
@@ -2048,13 +2048,13 @@ void ReadABAQUS::stringToUpper(std::string toBeConverted, std::string& converted
 }
 
 // Extract key/value pairs from parameter list
-void ReadABAQUS::extract_keyword_parameters(std::vector<std::string> tokens,
+void ReadABAQUS::extract_keyword_parameters(const std::vector<std::string>& tokens,
                                             std::map<std::string, std::string>& params)
 {
   std::string key, value;
 
   // NOTE: skip first token - it is the keyword
-  for (std::vector<std::string>::iterator token = tokens.begin() + 1;
+  for (std::vector<std::string>::const_iterator token = tokens.begin() + 1;
        token != tokens.end(); ++token) {
     std::string::size_type pos = token->find('=');
     stringToUpper(token->substr(0, pos), key);

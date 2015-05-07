@@ -13,7 +13,7 @@ const char PFX[] = ">>> ";
 namespace moab {
 
 IODebugTrack::IODebugTrack( bool enabled,
-                            const std::string name,
+                            const std::string& name,
                             std::ostream& output_stream,
                             unsigned long table_size )
           : enableOutput(enabled),
@@ -30,7 +30,7 @@ IODebugTrack::IODebugTrack( bool enabled,
 
 
 IODebugTrack::IODebugTrack( bool enabled,
-                            const std::string name,
+                            const std::string& name,
                             unsigned long table_size )
           : enableOutput(enabled),
             tableName(name),
