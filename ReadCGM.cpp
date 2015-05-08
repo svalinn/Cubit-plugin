@@ -148,7 +148,7 @@ ErrorCode ReadCGM::set_options(const FileOptions& opts,
   if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_WARNINGS"))
     verbose_warnings = true;
 
-  if (MB_SUCCESS != opts.get_null_option("FATAL_ON_CURVES"))
+  if (MB_SUCCESS == opts.get_null_option("FATAL_ON_CURVES"))
     fatal_on_curves = true;
 
 
@@ -562,8 +562,6 @@ ErrorCode ReadCGM::create_curve_facets(std::map<RefEntity*, EntityHandle>& curve
     s = edge->get_graphics(data, faceting_tol);
 #endif
 
-    // check for failure
-    /*
     if( s != CUBIT_SUCCESS )
       {
 	// if we fatal on curves
@@ -580,7 +578,6 @@ ErrorCode ReadCGM::create_curve_facets(std::map<RefEntity*, EntityHandle>& curve
 	  }
 	continue;
       }
-    */
 
     std::vector<CubitVector> points;
     for (int i = 0; i < data.pointListCount; ++i)
@@ -807,7 +804,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   double faceting_tol;
   double len_tol;
   bool act_att = true;
-  bool verbose_warnings = true;
+  bool verbose_warnings = false;
   bool fatal_on_curves = false;
 
   rval = set_options(opts, norm_tol, faceting_tol, len_tol, act_att, verbose_warnings,fatal_on_curves);
