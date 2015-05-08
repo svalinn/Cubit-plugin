@@ -311,7 +311,7 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
         stream << ' ' << conn_data[k];
     stream << std::endl;
   }
-  for (Range::const_iterator v=free_nodes.begin(); v!= free_nodes.end(); ++v, t++)
+  for (Range::const_iterator v=free_nodes.begin(); v!= free_nodes.end(); ++v, ++t)
   {
     EntityHandle node=*v;
     stream << "1 " << nodes.index(node) << std::endl;
