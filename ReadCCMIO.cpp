@@ -234,7 +234,6 @@ ErrorCode ReadCCMIO::load_matset_data(CCMIOID problemID)
   // ... walk through each cell type
   CCMIOSize_t i = CCMIOSIZEC(0);
   CCMIOID next;
-  std::string opt_string;
   CCMIOError error = kCCMIONoErr;
 
   while (CCMIONextEntity(NULL, problemID, kCCMIOCellType, &i, &next)
@@ -483,7 +482,6 @@ ErrorCode ReadCCMIO::read_topology_types(CCMIOID &topologyID,
   std::vector<int> topo_types(num_cells);
   CCMIOReadOpt1i(&error, cellID, "CellTopologyType", &topo_types[0],
                  CCMIOINDEXC(kCCMIOStart), CCMIOINDEXC(kCCMIOEnd));CHK_SET_CCMERR(error, "Failed to get cell topo types");
-  std::map<int, int>::iterator mit;
   for (i = 0; i < num_cells; i++)
     cell_topo_types[dum_ints[i]] = topo_types[i];
 

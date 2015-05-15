@@ -53,7 +53,6 @@ ErrorCode ReadDamsel::parse_options(const FileOptions &opts,
                                     bool &parallel)
 {
   // Handle parallel options
-  std::string junk;
   bool use_mpio = (MB_SUCCESS == opts.get_null_option("USE_MPIO"));
   ErrorCode rval = opts.match_option("PARALLEL", "READ_PART");
   parallel = (rval != MB_ENTITY_NOT_FOUND);

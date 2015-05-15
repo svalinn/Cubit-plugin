@@ -187,7 +187,7 @@ namespace moab {
 
     mDimension = 3;
 
-    std::vector<EntityHandle> matsets, dirsets, neusets, partsets, entities;
+    std::vector<EntityHandle> matsets, dirsets, neusets, partsets;
 
     // Separate into material, dirichlet, neumann, partition sets
     result = get_sets(ent_handles, num_sets, matsets, 
@@ -655,7 +655,6 @@ namespace moab {
   {
     ErrorCode result;
 
-    std::vector<unsigned char> marks;
     neuset_info.resize(neusets.size());
     for (unsigned int i = 0; i < neusets.size(); i++) {
       EntityHandle this_set = neuset_info[i].setHandle = neusets[i];

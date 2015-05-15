@@ -471,7 +471,6 @@ ErrorCode ReadNASTRAN::assign_ids(const Tag* file_id_tag)
     return result;
 
   RangeMap<int, EntityHandle>::iterator i;
-  std::vector<int> ids;
   for (int t = 0; t < 2; ++t) {
     RangeMap<int, EntityHandle>& fileIdMap = t ? elemIdMap : nodeIdMap;
     for (i = fileIdMap.begin(); i != fileIdMap.end(); ++i) {

@@ -458,7 +458,6 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
 
   if (debug) {
     std::cout << "Read the following mesh:" << std::endl;
-    std::string dum;
     mdbImpl->list_entities(0, 0);
   }
 
@@ -699,7 +698,6 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
   std::vector<char> bc_data;
   unsigned int num_read = 0; //, uid;
   std::vector<EntityHandle> ss_entities, excl_entities;
-  std::vector<double> ss_dfs;
   if (data_version <= 1.0) {
     for (unsigned int i = 0; i < sideseth->memTypeCt; i++) {
       // Get how many and what type
@@ -989,7 +987,6 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   // Read ids for each entity type
   unsigned int num_read = 0;
   int this_type, num_ents; //, uid;
-  std::vector<char> bc_data;
   std::vector<EntityHandle> block_entities, excl_entities;
   for (unsigned int i = 0; i < blockh->memTypeCt; i++) {
     // Get how many and what type

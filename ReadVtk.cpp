@@ -551,7 +551,6 @@ ErrorCode ReadVtk::vtk_read_polydata(FileTokenizer& tokens,
 {
   ErrorCode result;
   long num_verts;
-  std::vector<int> connectivity;
   const char* const poly_data_names[] = {"VERTICES",
                                          "LINES",
                                          "POLYGONS",

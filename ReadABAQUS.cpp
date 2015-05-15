@@ -248,8 +248,6 @@ ErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 
 ErrorCode ReadABAQUS::read_heading(EntityHandle /*file_set*/)
 {
-  std::vector<std::string> tokens;
-
   // Current line is only heading token. get next line
   next_line_type = get_next_line_type();
 

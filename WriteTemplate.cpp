@@ -108,7 +108,7 @@ ErrorCode WriteTemplate::write_file(const char *file_name,
   if (NULL == strstr(file_name, ".template"))
     return MB_FAILURE;
 
-  std::vector<EntityHandle> matsets, dirsets, neusets, entities;
+  std::vector<EntityHandle> matsets, dirsets, neusets;
 
   fileName = file_name;
 
