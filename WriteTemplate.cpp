@@ -222,7 +222,6 @@ ErrorCode WriteTemplate::gather_mesh_information(MeshInfo &mesh_info,
 
     // Find the dimension of the last entity in this range
     Range::iterator entity_iter = dummy_range.end();
-    entity_iter = dummy_range.end();
     --entity_iter;
     int this_dim = CN::Dimension(TYPE_FROM_HANDLE(*entity_iter));
     entity_iter = dummy_range.begin();

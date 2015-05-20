@@ -746,8 +746,8 @@ ErrorCode ReadCCMIO::create_cell_from_faces(std::vector<EntityHandle> &facehs,
 
     // Get verts in q1 opposite from v[1] and v[0] in q0
     EntityHandle v0 = 0, v1 = 0;
-    rval = mtu.opposite_entity(q1, verts[1], v0);
-    rval = mtu.opposite_entity(q1, verts[0], v1);
+    rval = mtu.opposite_entity(q1, verts[1], v0);MB_CHK_SET_ERR(rval, "Couldn't get the opposite side entity");
+    rval = mtu.opposite_entity(q1, verts[0], v1);MB_CHK_SET_ERR(rval, "Couldn't get the opposite side entity");
     if (v0 && v1) {
       // Offset of v0 in q2, then rotate and flip
       unsigned int ioff = std::find(storage.begin(), storage.end(), v0) - storage.begin();
@@ -801,8 +801,8 @@ ErrorCode ReadCCMIO::create_cell_from_faces(std::vector<EntityHandle> &facehs,
 
       // Get verts in q1 opposite from v[1] and v[0] in q0
       EntityHandle v0 = 0, v1 = 0;
-      rval = mtu.opposite_entity(q1, verts[1], v0);
-      rval = mtu.opposite_entity(q1, verts[0], v1);
+      rval = mtu.opposite_entity(q1, verts[1], v0);MB_CHK_SET_ERR(rval, "Couldn't get the opposite side entity");
+      rval = mtu.opposite_entity(q1, verts[0], v1);MB_CHK_SET_ERR(rval, "Couldn't get the opposite side entity");
       if (v0 && v1) {
         // Offset of v0 in t2, then rotate and flip
         storage.clear();

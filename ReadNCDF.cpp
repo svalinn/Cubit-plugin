@@ -54,7 +54,7 @@ namespace moab {
       size_t tmp_val; \
       gdfail = nc_inq_dimlen(ncFile, ncdim, &tmp_val); \
       if (NC_NOERR != gdfail) { \
-        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: couldn't get dimension length"); \
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Couldn't get dimension length"); \
       } \
       else \
         val = tmp_val; \
@@ -87,6 +87,9 @@ namespace moab {
     if (-1 != id) { \
       size_t ntmp; \
       int ivfail = nc_inq_dimlen(ncFile, vals[0], &ntmp); \
+      if (NC_NOERR != ivfail) { \
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Couldn't get dimension length"); \
+      } \
       vals.resize(ntmp); \
       size_t ntmp1 = 0; \
       ivfail = nc_get_vara_int(ncFile, id, &ntmp1, &ntmp, &vals[0]); \
@@ -104,6 +107,9 @@ namespace moab {
     if (-1 != id) { \
       size_t ntmp; \
       int dvfail = nc_inq_dimlen(ncFile, dum_dims[0], &ntmp); \
+      if (NC_NOERR != dvfail) { \
+        MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Couldn't get dimension length"); \
+      } \
       vals.resize(ntmp); \
       size_t ntmp1 = 0; \
       dvfail = nc_get_vara_double(ncFile, id, &ntmp1, &ntmp, &vals[0]); \
@@ -156,6 +162,7 @@ ReadNCDF::ReadNCDF(Interface* impl)
   assert(MB_SUCCESS == result);
   result = impl->tag_get_handle("qaRecord", 0, MB_TYPE_OPAQUE, mQaRecordTag,
                                 MB_TAG_SPARSE | MB_TAG_VARLEN | MB_TAG_CREAT);
+  assert(MB_SUCCESS == result);
   result = impl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
                                 mGlobalIdTag, MB_TAG_SPARSE | MB_TAG_CREAT, &zero);
   assert(MB_SUCCESS == result);

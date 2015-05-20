@@ -472,6 +472,8 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
 
   // Convert blocks to nodesets/sidesets if tag is set
   result = convert_nodesets_sidesets();
+  if (MB_SUCCESS != result)
+    return result;
 
   Range after_ents;
   result = mdbImpl->get_entities_by_handle(0, after_ents);
@@ -1168,6 +1170,8 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
     strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
     result = mdbImpl->tag_set_data(entityNameTag, &grouph->setHandle, 1,
                                    name_tag_data);
+    if (MB_SUCCESS != result)
+      return result;
 
     // Look for extra names
     md_index = model->groupMD.get_md_entry(group_index, "NumExtraNames");
@@ -1187,6 +1191,8 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
                                            NAME_TAG_SIZE, MB_TYPE_OPAQUE,
                                            extra_name_tag, MB_TAG_SPARSE | MB_TAG_CREAT,
                                            name_tag_data);
+          if (MB_SUCCESS != result)
+            return result;
           //assert(md_entry->mdStringValue.length() + 1 <= NAME_TAG_SIZE);
           memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
           strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);

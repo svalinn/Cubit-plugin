@@ -703,6 +703,7 @@ ErrorCode ReadABAQUS::read_solid_section(EntityHandle parent_set)
 
   EntityHandle set_handle;
   status = get_set_by_name(parent_set, ABQ_ELEMENT_SET, elset_name, set_handle);
+  MB_RETURN_IF_FAIL;
 
   status = mdbImpl->tag_set_data(mMatNameTag, &set_handle, 1, mat_name.c_str());
   MB_RETURN_IF_FAIL;
@@ -1557,6 +1558,7 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
 
   instance_id = ++num_assembly_instances[assembly_set];
   status = mdbImpl->tag_set_data(mInstanceGIDTag, &instance_set, 1, &instance_id);
+  MB_RETURN_IF_FAIL;
 
   // Create maps to cross-reference the part and instance versions of each entity
   std::map<EntityHandle, EntityHandle> p2i_nodes, p2i_elements;

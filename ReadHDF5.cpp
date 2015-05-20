@@ -3135,6 +3135,8 @@ ErrorCode ReadHDF5::read_sparse_tag(Tag tag_handle,
                                            id_table, base_offset,
                                            offset_range, handle_range,
                                            handle_vect);
+  if (MB_SUCCESS != rval)
+    return error(rval);
 
   DataType mbtype;
   rval = iFace->tag_get_data_type(tag_handle, mbtype);

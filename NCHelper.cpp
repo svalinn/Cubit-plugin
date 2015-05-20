@@ -976,13 +976,11 @@ ErrorCode ScdNCHelper::read_scd_variables_to_nonset_allocate(std::vector<ReadNC:
   std::vector<int>& dimLens = _readNC->dimLens;
   DebugOutput& dbgOut = _readNC->dbgOut;
 
-  ErrorCode rval = MB_SUCCESS;
-
   Range* range = NULL;
 
   // Get vertices
   Range verts;
-  rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);MB_CHK_SET_ERR(rval, "Trouble getting vertices in current file set");
+  ErrorCode rval = mbImpl->get_entities_by_dimension(_fileSet, 0, verts);MB_CHK_SET_ERR(rval, "Trouble getting vertices in current file set");
   assert("Should only have a single vertex subrange, since they were read in one shot" &&
       verts.psize() == 1);
 
