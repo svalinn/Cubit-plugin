@@ -20,7 +20,9 @@ WriterIface *WriteCGNS::factory( Interface* iface )
   { return new WriteCGNS( iface ); }
 
 WriteCGNS::WriteCGNS(Interface *impl)
-    : mbImpl(impl), VrtSize(0), EdgeSize(0), FaceSize(0), CellSize(0)
+    : mbImpl(impl), fileName(NULL), IndexFile(0), BaseName(NULL), IndexBase(0),
+      ZoneName(NULL), IndexZone(0), IndexSection(0), celldim(0), physdim(0),
+      VrtSize(0), EdgeSize(0), FaceSize(0), CellSize(0)
 {
   impl->query_interface(mWriteIface);
 }

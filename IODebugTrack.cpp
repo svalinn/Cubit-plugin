@@ -19,7 +19,8 @@ IODebugTrack::IODebugTrack( bool enabled,
           : enableOutput(enabled),
             tableName(name),
             ostr(output_stream),
-            maxSize(table_size) 
+            maxSize(table_size),
+            haveMPI(false)
 {
 #ifdef MOAB_HAVE_MPI
   MPI_Comm_rank( MPI_COMM_WORLD, &mpiRank );
