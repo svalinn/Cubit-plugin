@@ -223,7 +223,9 @@ int check_valid_file_ids( struct mhdf_FileDesc* desc )
 
 int check_file_contains_holes( const char* filename )
 {
+#ifndef _MSC_VER
   const int blocksize = 512;
+#endif
   int errorcode;
   struct stat buf;
   

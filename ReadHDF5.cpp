@@ -3420,16 +3420,16 @@ ErrorCode ReadHDF5::read_qa(EntityHandle)
   CHECK_OPEN_HANDLES;
 
   mhdf_Status status;
-  std::vector<std::string> qa_list;
+  //std::vector<std::string> qa_list;
 
   int qa_len;
   char** qa = mhdf_readHistory(filePtr, &qa_len, &status);
   if (mhdf_isError(&status)) {
     MB_SET_ERR(MB_FAILURE, mhdf_message(&status));
   }
-  qa_list.resize(qa_len);
+  //qa_list.resize(qa_len);
   for (int i = 0; i < qa_len; i++) {
-    qa_list[i] = qa[i];
+    //qa_list[i] = qa[i];
     free(qa[i]);
   }
   free(qa);

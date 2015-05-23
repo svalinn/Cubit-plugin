@@ -624,17 +624,17 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
   }
   // Check for more data
   if (num_read < nodeseth->nsLength) {
-    FREADC(2); num_read += 2;
+    FREADC(2); //num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
-      FREADI(1); num_read += sizeof(int);
+      FREADI(1); //num_read += sizeof(int);
       //uid = int_buf[0];
     }
     else {
       if (char_buf[0] == 'b' && char_buf[1] == 'c') {
-        FREADI(1); num_read += sizeof(int);
+        FREADI(1); //num_read += sizeof(int);
         int num_bcs = uint_buf[0];
         bc_data.resize(num_bcs);
-        FREADCA(num_bcs, &bc_data[0]); num_read += num_bcs;
+        FREADCA(num_bcs, &bc_data[0]); //num_read += num_bcs;
       }
     }
   }
@@ -785,18 +785,18 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
 
   // Check for more data
   if (data_version > 1.0 && num_read < sideseth->ssLength) {
-    FREADC(2); num_read += 2;
+    FREADC(2); //num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
-      FREADI(1); num_read += sizeof(int);
+      FREADI(1); //num_read += sizeof(int);
       //uid = int_buf[0];
     }
     else {
       // Check for bc_data
       if (char_buf[0] == 'b' && char_buf[1] == 'c') {
-        FREADI(1); num_read += sizeof(int);
+        FREADI(1); //num_read += sizeof(int);
         int num_bcs = uint_buf[0];
         bc_data.resize(num_bcs);
-        FREADCA(num_bcs, &bc_data[0]); num_read += num_bcs;
+        FREADCA(num_bcs, &bc_data[0]); //num_read += num_bcs;
       }
     }
   }
@@ -1032,9 +1032,9 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
 
   // Check for more data
   if (num_read < blockh->blockLength) {
-    FREADC(2); num_read += 2;
+    FREADC(2); //num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
-      FREADI(1); num_read += sizeof(int);
+      FREADI(1); //num_read += sizeof(int);
       //uid = int_buf[0];
     }
   }

@@ -875,20 +875,22 @@ ErrorCode ReadCCMIO::read_all_faces(CCMIOID topologyID, TupleList &vert_map,
   CCMIOSize_t index = CCMIOSIZEC(0);
   CCMIOID faceID;
   ErrorCode rval;
+  CCMIOError error;
 
   // Get total # internal/bdy faces, size the face map accordingly
-  int nint_faces = 0, nbdy_faces = 0;
+#ifdef TUPLE_LIST
+  int nbdy_faces = 0;
   CCMIOSize_t nf;
-  CCMIOError error = kCCMIONoErr;
+  error = kCCMIONoErr;
   while (kCCMIONoErr == CCMIONextEntity(NULL, topologyID, kCCMIOBoundaryFaces, &index,
                                         &faceID)) {
     CCMIOEntitySize(&error, faceID, &nf, NULL);
-    nbdy_faces = nbdy_faces + nf;
+    nbdy_faces += nf;
   }
   CCMIOGetEntity(&error, topologyID, kCCMIOInternalFaces, 0, &faceID);
   CCMIOEntitySize(&error, faceID, &nf, NULL);
-  nint_faces = nint_faces + nf;
-#ifdef TUPLE_LIST
+
+  int nint_faces = nf;
   face_map.resize(2*nint_faces + nbdy_faces);
 #endif
 

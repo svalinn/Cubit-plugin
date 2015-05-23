@@ -1575,9 +1575,9 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
     status = mdbImpl->tag_get_data(mLocalIDTag, part_node_list, &node_ids[0]);
     MB_RETURN_IF_FAIL;
 
-    std::map<int, EntityHandle> nodeIdMap;
-    for (unsigned int idx = 0; idx < part_node_list.size(); idx++)
-      nodeIdMap[node_ids[idx]] = part_node_list[idx];
+    //std::map<int, EntityHandle> nodeIdMap;
+    //for (unsigned int idx = 0; idx < part_node_list.size(); idx++)
+      //nodeIdMap[node_ids[idx]] = part_node_list[idx];
 
     // Create new nodes
     std::vector<double*> coord_arrays(3);
@@ -1653,9 +1653,9 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
     status = mdbImpl->tag_get_data(mLocalIDTag, part_element_list, &part_element_ids[0]);
     MB_RETURN_IF_FAIL;
 
-    std::map<int, EntityHandle> elementIdMap;
-    for (unsigned int idx = 0; idx < part_element_list.size(); idx++)
-      elementIdMap[part_element_ids[idx]] = part_element_list[idx];
+    //std::map<int, EntityHandle> elementIdMap;
+    //for (unsigned int idx = 0; idx < part_element_list.size(); idx++)
+      //elementIdMap[part_element_ids[idx]] = part_element_list[idx];
 
     // Create new elements
     Range instance_element_list;
