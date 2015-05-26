@@ -541,7 +541,7 @@ ErrorCode ReadCGM::create_curve_facets(std::map<RefEntity*, EntityHandle>& curve
   // Maximum allowable curve-endpoint proximity warnings
   // If this integer becomes negative, then abs(curve_warnings) is the
   // number of warnings that were suppressed.
-  int curve_warnings = 10;
+  int curve_warnings = 0;
 
   // Map iterator
   std::map<RefEntity*, EntityHandle>::iterator ci;
@@ -737,6 +737,13 @@ ErrorCode ReadCGM::create_surface_facets(std::map<RefEntity*, EntityHandle>& sur
         return rval;
     }
 
+    // record the failures for information
+    if (data.fListCount == 0)
+      {
+	failed_surface_count++;
+	failed_surfaces.push_back(face->id());
+      }
+
     // Now create facets
     Range facets;
     std::vector<EntityHandle> corners;
@@ -895,8 +902,9 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
 
 void ReadCGM::dump_fail_counts()
 {
-  std::cout << "----- Facet Fail Information -----" << std::endl;
-  std::cout << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl;
+  std::cout << "***** Faceting Summary Information *****" << std::endl;
+  std::cout << "----- Curve Fail Information -----" << std::endl;
+  dag  std::cout << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl;
 
   if(failed_curve_count > 0 )
     {
@@ -904,12 +912,25 @@ void ReadCGM::dump_fail_counts()
       for ( int i = 0 ; i < failed_curve_count ; i++ )
 	{
 	  std::cout << failed_curves[i] << " ";
-	  if ( i%10 == 0 )
+	  if ( (i%10 == 0) & (i > 0) )
 	    std::cout << std::endl;
 	}
     }
+  std::cout << std::endl;
   std::cout << "----- Facet Fail Information -----" << std::endl;
-
+  std::cout << "There were " << failed_surface_count << " surfaces that could not be faceted." << std::endl;
+  if(failed_surface_count > 0 )
+    {
+      std::cout << "The surfaces were ";
+      for ( int i = 0 ; i < failed_surface_count ; i++ )
+	{
+	  std::cout << failed_surfaces[i] << " ";
+	  if ( (i%10 == 0) & (i > 0) )
+	    std::cout << std::endl;
+	}      
+    }
+  std::cout << std::endl;
+  std::cout << "***** End of Faceting Summary Information *****" << std::endl;
   return;
 }
 
