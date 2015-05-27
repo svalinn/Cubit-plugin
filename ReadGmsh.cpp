@@ -466,6 +466,7 @@ ErrorCode ReadGmsh::create_sets(EntityType type,
         entities.insert(*k);
 
     // Get set by ID
+    // Cppcheck warning (false positive): variable tag_val is assigned a value that is never used
     tag_val = *i;
     result = mdbImpl->get_entities_by_type_and_tag(0, MBENTITYSET,
                                                    tag_handles, tag_values, num_tags,

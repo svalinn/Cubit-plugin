@@ -1304,6 +1304,7 @@ ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set, EntityHandle assem
   if (0 == start_node)
     return MB_FAILURE;
 
+  // Cppcheck warning (false positive): variable coord_arrays is assigned a value that is never used
   for (unsigned int idx = 0; idx < num_nodes; idx++) {
     coord_arrays[0][idx] = coord_list[idx*3];
     coord_arrays[1][idx] = coord_list[idx*3 + 1];

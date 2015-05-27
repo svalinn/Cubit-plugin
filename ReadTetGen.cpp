@@ -322,6 +322,7 @@ ErrorCode ReadTetGen::read_node_file(std::istream& file,
     nodes[ids[i]] = start_handle + i;
 
     // Get coordinates
+    // Cppcheck warning (false positive): variable coords is assigned a value that is never used
     for (int j = 0; j < dim; ++j)
       coords[j][i] = data[j + 1];
 

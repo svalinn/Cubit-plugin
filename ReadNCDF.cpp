@@ -77,6 +77,9 @@ namespace moab {
       if (NC_NOERR == gvfail) { \
         dims.resize(ndims); \
         gvfail = nc_inq_vardimid(ncFile, id, &dims[0]); \
+        if (NC_NOERR != gvfail) { \
+          MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Couldn't get variable dimension IDs"); \
+        } \
       } \
     } \
   }
@@ -95,7 +98,6 @@ namespace moab {
       ivfail = nc_get_vara_int(ncFile, id, &ntmp1, &ntmp, &vals[0]); \
       if (NC_NOERR != ivfail) { \
         MB_SET_ERR(MB_FAILURE, "ReadNCDF:: Problem getting variable " << name); \
-        return MB_FAILURE; \
       } \
     } \
   }

@@ -732,6 +732,7 @@ namespace moab {
     // Get the vertex locations
     double *coords = new double[3*num_verts];
     std::vector<double*> coord_arrays(3);
+    // Cppcheck warning (false positive): variable coord_arrays is assigned a value that is never used
     coord_arrays[0] = coords;
     coord_arrays[1] = coords + num_verts;
     coord_arrays[2] = (dimension == 3 ? coords + 2*num_verts : NULL);
