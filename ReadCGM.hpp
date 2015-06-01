@@ -78,6 +78,10 @@ public:
    //! Destructor
   virtual ~ReadCGM();
 
+  // access private vars
+  int get_failed_curve_count();
+  int get_failed_surface_count();
+
 private:
 
   ErrorCode set_options( const FileOptions& opts,

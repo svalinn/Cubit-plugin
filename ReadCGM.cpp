@@ -900,11 +900,23 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   return MB_SUCCESS;
 }
 
+// return the number of curves that failed to facet
+int ReadCGM::get_failed_curve_count()
+{
+  return failed_curve_count;
+}
+
+// return the number of surfaces that failed to facet
+int ReadCGM::get_failed_surface_count()
+{
+  return failed_surface_count;
+}
+
 void ReadCGM::dump_fail_counts()
 {
   std::cout << "***** Faceting Summary Information *****" << std::endl;
   std::cout << "----- Curve Fail Information -----" << std::endl;
-  dag  std::cout << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl;
+  std::cout << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl;
 
   if(failed_curve_count > 0 )
     {
