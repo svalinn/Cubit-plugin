@@ -592,7 +592,7 @@ ErrorCode WriteCGNS::get_cgns_type ( int i, std::vector<WriteCGNS::SetStruct> &S
   else if ( Sum==1 ){ 
     int j=0;
     std::cout << "Homogeneous Type\n";
-    while ( Sets[i].NbEntities[j] != 1 && j<(int)Sets[i].NbEntities.size() ){ ++j; }
+    while (j < (int)Sets[i].NbEntities.size() && Sets[i].NbEntities[j] != 1){ ++j; }
     switch ( j ){
       case 0 :
         Sets[i].CGNSType = BAR_2;
