@@ -25,6 +25,8 @@ WriteCGNS::WriteCGNS(Interface *impl)
       VrtSize(0), EdgeSize(0), FaceSize(0), CellSize(0)
 {
   impl->query_interface(mWriteIface);
+  IndexCoord[0] = IndexCoord[1] = IndexCoord[2] = 0;
+  isize[0] = isize[1] = isize[2] = 0;
 }
 
 WriteCGNS::~WriteCGNS()
