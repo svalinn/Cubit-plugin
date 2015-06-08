@@ -176,7 +176,6 @@ ReadNCDF::ReadNCDF(Interface* impl)
 
 void ReadNCDF::reset()
 {
-  numberDimensions_loading = -1;
   mCurrentMeshHandle = 0;
   vertexOffset = 0; 
 

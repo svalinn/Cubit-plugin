@@ -872,13 +872,14 @@ ErrorCode ReadCCMIO::read_all_faces(CCMIOID topologyID, TupleList &vert_map,
 #endif
                                     Range *new_faces)
 {
-  CCMIOSize_t index = CCMIOSIZEC(0);
+  CCMIOSize_t index;
   CCMIOID faceID;
   ErrorCode rval;
   CCMIOError error;
 
   // Get total # internal/bdy faces, size the face map accordingly
 #ifdef TUPLE_LIST
+  index = CCMIOSIZEC(0);
   int nbdy_faces = 0;
   CCMIOSize_t nf;
   error = kCCMIONoErr;

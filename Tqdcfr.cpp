@@ -1655,7 +1655,6 @@ void Tqdcfr::check_contiguous(const unsigned int num_ents, int &contig,
                               unsigned int &min_id, unsigned int &max_id)
 {
   unsigned int *id_it, curr_id, i;
-  max_id = min_id = 0;
 
   // Check in forward-contiguous direction
   id_it = &uint_buf[0];
