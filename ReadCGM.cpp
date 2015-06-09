@@ -75,6 +75,10 @@ ReadCGM::ReadCGM(Interface *impl)
   impl->query_interface(readUtilIface);
   assert(NULL != readUtilIface);
 
+  // initialise counters
+  failed_curve_count = 0;
+  failed_surface_count = 0;
+
   ErrorCode rval;
 
   // get some tag handles

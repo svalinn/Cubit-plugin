@@ -156,10 +156,10 @@ private:
   Tag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag, 
         geometry_resabs_tag;
 
-  int failed_curve_count = 0; // the number of curves that failed to facet
+  int failed_curve_count; // the number of curves that failed to facet
   std::vector<int> failed_curves; // the curve ids of the curves that failed to facet
 
-  int failed_surface_count = 0; // the number of surfaces that have 0 facets
+  int failed_surface_count; // the number of surfaces that have 0 facets
   std::vector<int> failed_surfaces; // the surface ids of the surfaces that have 0 facets
 };
 
