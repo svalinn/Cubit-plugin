@@ -1016,7 +1016,7 @@ namespace moab {
           // Switch cells so that *rit is always 1st (face connectivity is always written such
           // that that one is with forward sense)
           //.................
-          int side_num, sense, offset;
+          int side_num = 0, sense = 0, offset = 0;
           if (!is_polyh && tmp_face_cells[0] != *rit) {
             EntityHandle tmph = tmp_face_cells[0];
             tmp_face_cells[0] = tmp_face_cells[1];
