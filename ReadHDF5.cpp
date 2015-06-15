@@ -507,7 +507,7 @@ ErrorCode ReadHDF5::clean_up_read(const FileOptions&)
   herr_t err = H5Eget_auto(&handler.func, &handler.data);
 #endif
   if (err >= 0 && handler.func == &handle_hdf5_error) {
-    assert(handler.data = &errorHandler);
+    assert(handler.data == &errorHandler);
 #if defined(H5Eget_auto_vers) && H5Eget_auto_vers > 1
     H5Eset_auto(H5E_DEFAULT, errorHandler.func, errorHandler.data);
 #else
