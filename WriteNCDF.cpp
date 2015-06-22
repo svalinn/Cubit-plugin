@@ -937,6 +937,7 @@ ErrorCode WriteNCDF::write_elementblocks(std::vector<MaterialSetData> &block_dat
     }
 
     block_index++;
+    delete [] connectivity;
   }
 
   return MB_SUCCESS;
