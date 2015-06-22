@@ -75,6 +75,10 @@ ReadCGM::ReadCGM(Interface *impl)
   impl->query_interface(readUtilIface);
   assert(NULL != readUtilIface);
 
+  // initialise counters
+  failed_curve_count = 0;
+  failed_surface_count = 0;
+
   ErrorCode rval;
 
   // get some tag handles
@@ -124,7 +128,8 @@ ErrorCode ReadCGM::set_options(const FileOptions& opts,
                                double& faceting_tol,
                                double& len_tol,
                                bool& act_att,
-                               bool& verbose_warnings)
+                               bool& verbose_warnings,
+			       bool& fatal_on_curves)
 {
   ErrorCode rval;
 
@@ -146,6 +151,11 @@ ErrorCode ReadCGM::set_options(const FileOptions& opts,
 
   if (MB_SUCCESS == opts.get_null_option("VERBOSE_CGM_WARNINGS"))
     verbose_warnings = true;
+
+  if (MB_SUCCESS == opts.get_null_option("FATAL_ON_CURVES"))
+    fatal_on_curves = true;
+
+
 
   const char* name = "CGM_ATTRIBS";
   const char* value = "no";
@@ -527,14 +537,15 @@ ErrorCode ReadCGM::create_curve_facets(std::map<RefEntity*, EntityHandle>& curve
                                        int /* norm_tol */,
 #endif
                                        double faceting_tol,
-                                       bool verbose_warn)
+                                       bool verbose_warn,
+				       bool fatal_on_curves)
 {
   ErrorCode rval;
   CubitStatus s;
   // Maximum allowable curve-endpoint proximity warnings
   // If this integer becomes negative, then abs(curve_warnings) is the
   // number of warnings that were suppressed.
-  int curve_warnings = 10;
+  int curve_warnings = 0;
 
   // Map iterator
   std::map<RefEntity*, EntityHandle>::iterator ci;
@@ -554,8 +565,23 @@ ErrorCode ReadCGM::create_curve_facets(std::map<RefEntity*, EntityHandle>& curve
 #else
     s = edge->get_graphics(data, faceting_tol);
 #endif
-     if (CUBIT_SUCCESS != s)
-        return MB_FAILURE;
+
+    if( s != CUBIT_SUCCESS )
+      {
+	// if we fatal on curves
+	if(fatal_on_curves)
+	  {  
+	    std::cout << "Failed to facet the curve " << edge->id() << std::endl;
+	    return MB_FAILURE;
+	  }
+	// otherwise record them
+	else
+	  {
+	    failed_curve_count++;
+	    failed_curves.push_back(edge->id());
+	  }
+	continue;
+      }
 
     std::vector<CubitVector> points;
     for (int i = 0; i < data.pointListCount; ++i)
@@ -715,6 +741,13 @@ ErrorCode ReadCGM::create_surface_facets(std::map<RefEntity*, EntityHandle>& sur
         return rval;
     }
 
+    // record the failures for information
+    if (data.fListCount == 0)
+      {
+	failed_surface_count++;
+	failed_surfaces.push_back(face->id());
+      }
+
     // Now create facets
     Range facets;
     std::vector<EntityHandle> corners;
@@ -782,9 +815,10 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   double faceting_tol;
   double len_tol;
   bool act_att = true;
-  bool verbose_warnings = true;
+  bool verbose_warnings = false;
+  bool fatal_on_curves = false;
 
-  rval = set_options(opts, norm_tol, faceting_tol, len_tol, act_att, verbose_warnings);
+  rval = set_options(opts, norm_tol, faceting_tol, len_tol, act_att, verbose_warnings,fatal_on_curves);
   if (MB_SUCCESS != rval)
     return rval;
 
@@ -855,7 +889,7 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
     return rval;
 
   // Create facets for all curves
-  rval = create_curve_facets(entmap[1], entmap[0], norm_tol, faceting_tol, verbose_warnings);
+  rval = create_curve_facets(entmap[1], entmap[0], norm_tol, faceting_tol, verbose_warnings, fatal_on_curves);
   if (rval != MB_SUCCESS)
     return rval;
 
@@ -864,7 +898,56 @@ ErrorCode ReadCGM::load_file(const char *cgm_file_name,
   if (rval != MB_SUCCESS)
     return rval;
 
+  // print the fail information
+  dump_fail_counts();
+  
   return MB_SUCCESS;
+}
+
+// return the number of curves that failed to facet
+int ReadCGM::get_failed_curve_count()
+{
+  return failed_curve_count;
+}
+
+// return the number of surfaces that failed to facet
+int ReadCGM::get_failed_surface_count()
+{
+  return failed_surface_count;
+}
+
+void ReadCGM::dump_fail_counts()
+{
+  std::cout << "***** Faceting Summary Information *****" << std::endl;
+  std::cout << "----- Curve Fail Information -----" << std::endl;
+  std::cout << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl;
+
+  if(failed_curve_count > 0 )
+    {
+      std::cout << "The curves were ";
+      for ( int i = 0 ; i < failed_curve_count ; i++ )
+	{
+	  std::cout << failed_curves[i] << " ";
+	  if ( (i%10 == 0) & (i > 0) )
+	    std::cout << std::endl;
+	}
+    }
+  std::cout << std::endl;
+  std::cout << "----- Facet Fail Information -----" << std::endl;
+  std::cout << "There were " << failed_surface_count << " surfaces that could not be faceted." << std::endl;
+  if(failed_surface_count > 0 )
+    {
+      std::cout << "The surfaces were ";
+      for ( int i = 0 ; i < failed_surface_count ; i++ )
+	{
+	  std::cout << failed_surfaces[i] << " ";
+	  if ( (i%10 == 0) & (i > 0) )
+	    std::cout << std::endl;
+	}      
+    }
+  std::cout << std::endl;
+  std::cout << "***** End of Faceting Summary Information *****" << std::endl;
+  return;
 }
 
 const char* ReadCGM::get_geom_file_type(const char* name)

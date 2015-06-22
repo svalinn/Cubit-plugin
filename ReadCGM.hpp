@@ -79,6 +79,10 @@ public:
    //! Destructor
   virtual ~ReadCGM();
 
+  // access private vars
+  int get_failed_curve_count();
+  int get_failed_surface_count();
+
 private:
 
   ErrorCode set_options( const FileOptions& opts,
@@ -86,7 +90,8 @@ private:
                                 double& faceting_tol,
                                 double& len_tol,
 			        bool& act_att,
-                                bool& verbose_warnings);
+   			        bool& verbose_warnings,
+			        bool& fatal_on_curves);
 
   ErrorCode create_entity_sets( std::map<RefEntity*,EntityHandle> (&entmap)[5] );
 
@@ -115,13 +120,18 @@ private:
 				 std::map<RefEntity*,EntityHandle>& vertex_map,
                                  int norm_tol,
                                  double faceting_tol,
-                                 bool verbose_warn = false );
+                                 bool verbose_warn = false,
+				 bool fatal_on_curves = false);
 
   ErrorCode create_surface_facets( std::map<RefEntity*,EntityHandle>& surface_map,
 				   std::map<RefEntity*,EntityHandle>& vertex_map,
                                    int norm_tol, 
                                    double facet_tol, 
                                    double length_tol );
+  /**
+   * Dumps the failed faceting information to screen
+   */
+  void dump_fail_counts();
 
 
   ReadUtilIface* readUtilIface;
@@ -146,6 +156,12 @@ private:
 
   Tag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag, 
         geometry_resabs_tag;
+
+  int failed_curve_count; // the number of curves that failed to facet
+  std::vector<int> failed_curves; // the curve ids of the curves that failed to facet
+
+  int failed_surface_count; // the number of surfaces that have 0 facets
+  std::vector<int> failed_surfaces; // the surface ids of the surfaces that have 0 facets
 };
 
 } // namespace moab
