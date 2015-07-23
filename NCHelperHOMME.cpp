@@ -138,7 +138,7 @@ ErrorCode NCHelperHOMME::init_mesh_vals()
       rval = read_coordinate("lev", 0, nLevels - 1, levVals);MB_CHK_SET_ERR(rval, "Trouble reading 'lev' variable");
 
       // Decide whether down is positive
-      char posval[10];
+      char posval[10] = {0};
       int success = NCFUNC(get_att_text)(_fileId, (*vmit).second.varId, "positive", posval);
       if (0 == success && !strcmp(posval, "down")) {
         for (std::vector<double>::iterator dvit = levVals.begin(); dvit != levVals.end(); ++dvit)
