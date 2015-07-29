@@ -128,6 +128,8 @@ libmoabio_la_SOURCES = \
   ReadNASTRAN.hpp \
   ReadRTT.cpp \
   ReadRTT.hpp \
+  ReadOBJ.cpp \
+  ReadOBJ.hpp \
   ReadSmf.hpp \
   ReadSmf.cpp \
   ReadSms.hpp \
