@@ -25,8 +25,8 @@
 #include <fstream>
 #include <vector>
 #include <cstdlib>
-#include "assert.h"
-#include "math.h"
+#include <cmath>
+#include <cassert>
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #  include <float.h>
@@ -807,11 +807,11 @@ ErrorCode ReadMCNP5::read_element_values_and_errors(std::fstream &file,
         ss >> errors[index];
 
         // Make sure that input data is good
-        if (!finite(errors[index])) {
+        if (!std::isfinite(errors[index])) {
           std::cerr << "found nan error while reading file" << std::endl;
           errors[index] = 1.0;
         }
-        if (!finite(values[index])) {
+        if (!std::isfinite(values[index])) {
           std::cerr << "found nan value while reading file" << std::endl;
           values[index] = 0.0;
         }
@@ -1129,7 +1129,7 @@ ErrorCode ReadMCNP5::average_tally_values(const unsigned long int nps0,
                  (values0[i]*nps0 + values1[i]*nps1);
 
     // It is possible to introduce nans if the values are zero.
-    if (!finite(errors0[i]))
+    if (!std::isfinite(errors0[i]))
       errors0[i] = 1.0;
 
     values0[i] = (values0[i]*nps0 + values1[i]*nps1) / (nps0 + nps1);
