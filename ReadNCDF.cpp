@@ -242,6 +242,13 @@ ErrorCode ReadNCDF::read_tag_values(const char* file_name,
     }
   }
 
+  // Close the file
+  fail = nc_close(ncFile);
+  if (NC_NOERR != fail) {
+    MB_SET_ERR(MB_FAILURE, "Trouble closing file");
+  }
+
+  ncFile = 0;
   return MB_SUCCESS;
 }
 
@@ -335,6 +342,12 @@ ErrorCode ReadNCDF::load_file(const char *exodus_file_name,
   }
 
   // What about properties???
+
+  // Close the file
+  fail = nc_close(ncFile);
+  if (NC_NOERR != fail) {
+    MB_SET_ERR(MB_FAILURE, "Trouble closing file");
+  }
 
   ncFile = 0;
   return MB_SUCCESS;
@@ -1063,7 +1076,7 @@ ErrorCode ReadNCDF::create_ss_elements(int *element_ids,
   int side_node_idx[32];
 
   int df_index = 0;
-  int sense;
+  int sense = 0;
   for (i = 0; i < num_sides; i++) {
     ExoIIElementType exoii_type;
     ReadBlockData block_data;
@@ -2046,6 +2059,13 @@ ErrorCode ReadNCDF::update(const char *exodus_file_name,
   std::cout << " Total: " << total_dead_elems << "/" << total_elems
             << " dead elements." << std::endl;
 
+  // Close the file
+  fail = nc_close(ncFile);
+  if (NC_NOERR != fail) {
+    MB_SET_ERR(MB_FAILURE, "Trouble closing file");
+  }
+
+  ncFile = 0;
   return MB_SUCCESS;
 }
 

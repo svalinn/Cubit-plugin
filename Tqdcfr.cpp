@@ -304,6 +304,7 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
   FREADC(4);
   if (!(char_buf[0] == 'C' && char_buf[1] == 'U' && 
         char_buf[2] == 'B' && char_buf[3] == 'E')) {
+    fclose(cubFile);
     MB_SET_ERR(MB_FAILURE, "This doesn't appear to be a .cub file");
   }
 
