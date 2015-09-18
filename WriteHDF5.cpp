@@ -103,13 +103,13 @@ void VALGRIND_MAKE_VEC_UNDEFINED(std::vector<T>& v) {
 
 static hid_t get_id_type()
 {
-  if (8 == sizeof(WriteHDF5::id_t)) {
+  if (8 == sizeof(WriteHDF5::wid_t)) {
     if (8 == sizeof(long))
       return H5T_NATIVE_ULONG;
     else
       return H5T_NATIVE_UINT64;
   }
-  else if (4 == sizeof(WriteHDF5::id_t)) {
+  else if (4 == sizeof(WriteHDF5::wid_t)) {
     if (4 == sizeof(int))
       return H5T_NATIVE_UINT;
     else
@@ -336,11 +336,11 @@ bool WriteHDF5::convert_handle_tag(const EntityHandle* source,
 
 bool WriteHDF5::convert_handle_tag(EntityHandle* data, size_t count) const
 {
-  assert(sizeof(EntityHandle) == sizeof(id_t));
+  assert(sizeof(EntityHandle) == sizeof(wid_t));
   return convert_handle_tag(data, data, count);
 }
 
-ErrorCode WriteHDF5::assign_ids(const Range& entities, id_t id)
+ErrorCode WriteHDF5::assign_ids(const Range& entities, wid_t id)
 {
   Range::const_pair_iterator pi;
   for (pi = entities.const_pair_begin(); pi != entities.const_pair_end(); ++pi) {
@@ -622,7 +622,7 @@ ErrorCode WriteHDF5::write_file_impl(const char* filename,
   elem_count = nodeSet.range.size() + setSet.range.size();
   for (ex_itor = exportList.begin(); ex_itor != exportList.end(); ++ex_itor)
     elem_count += ex_itor->range.size();
-  max_id = (EntityHandle)1 << (8*sizeof(id_t) - 1);
+  max_id = (EntityHandle)1 << (8*sizeof(wid_t) - 1);
   if (elem_count > max_id) {
     MB_SET_ERR_CONT("ID space insufficient for mesh size");
     return error(result);
@@ -1022,7 +1022,7 @@ ErrorCode WriteHDF5::write_elems(ExportSet& elems)
   assert((unsigned long)table_size >= elems.offset + elems.range.size());
 
   EntityHandle* buffer = (EntityHandle*)dataBuffer;
-  int chunk_size = bufferSize / (elems.num_nodes * sizeof(id_t));
+  int chunk_size = bufferSize / (elems.num_nodes * sizeof(wid_t));
   long offset = elems.offset;
   long remaining = elems.range.size();
   long num_writes = (remaining + chunk_size - 1) / chunk_size;
@@ -1151,7 +1151,7 @@ ErrorCode WriteHDF5::write_set_data(const WriteUtilIface::EntityListType which_d
   //assert(max_vals > 0); // Should have skipped this function otherwise
 
   // buffer to use for IO
-  id_t* buffer = reinterpret_cast<id_t*>(dataBuffer);
+  wid_t* buffer = reinterpret_cast<wid_t*>(dataBuffer);
   // number of handles that will fit in the buffer
   const size_t buffer_size = bufferSize / sizeof(EntityHandle);
   // the total number of write calls that must be made, including no-ops for collective io
@@ -1159,11 +1159,11 @@ ErrorCode WriteHDF5::write_set_data(const WriteUtilIface::EntityListType which_d
 
   std::vector<SpecialSetData>::iterator si = specialSets.begin();
 
-  std::vector<id_t> remaining; // data left over from prev iteration because it didn't fit in buffer
+  std::vector<wid_t> remaining; // data left over from prev iteration because it didn't fit in buffer
   size_t remaining_offset = 0; // avoid erasing from front of 'remaining'
   const EntityHandle* remaining_ptr = 0; // remaining for non-ranged data
   size_t remaining_count = 0;
-  const id_t* special_rem_ptr = 0;
+  const wid_t* special_rem_ptr = 0;
   Range::const_iterator i = setSet.range.begin(), j, rhint, nshint;
   if (ranged) rhint = ranged->begin();
   if (null_stripped) nshint = null_stripped->begin();
@@ -1182,12 +1182,12 @@ ErrorCode WriteHDF5::write_set_data(const WriteUtilIface::EntityListType which_d
     if (!remaining.empty()) {
       count = remaining.size() - remaining_offset;
       if (count > buffer_size) {
-        memcpy(buffer, &remaining[remaining_offset], buffer_size*sizeof(id_t));
+        memcpy(buffer, &remaining[remaining_offset], buffer_size*sizeof(wid_t));
         count = buffer_size;
         remaining_offset += buffer_size;
       }
       else {
-        memcpy(buffer, &remaining[remaining_offset], count*sizeof(id_t));
+        memcpy(buffer, &remaining[remaining_offset], count*sizeof(wid_t));
         remaining_offset = 0;
         remaining.clear();
       }
@@ -1212,13 +1212,13 @@ ErrorCode WriteHDF5::write_set_data(const WriteUtilIface::EntityListType which_d
     // set.
     else if (special_rem_ptr) {
       if (remaining_count > buffer_size) {
-        memcpy(buffer, special_rem_ptr, buffer_size*sizeof(id_t));
+        memcpy(buffer, special_rem_ptr, buffer_size*sizeof(wid_t));
         count = buffer_size;
         special_rem_ptr += count;
         remaining_count -= count;
       }
       else {
-        memcpy(buffer, special_rem_ptr, remaining_count*sizeof(id_t));
+        memcpy(buffer, special_rem_ptr, remaining_count*sizeof(wid_t));
         count = remaining_count;
         special_rem_ptr = 0;
         remaining_count = 0;
@@ -1232,7 +1232,7 @@ ErrorCode WriteHDF5::write_set_data(const WriteUtilIface::EntityListType which_d
       // Special case for "special" (i.e. parallel shared) sets:
       // we already have the data in a vector, just copy it.
       if (si != specialSets.end() && si->setHandle == *i) {
-        std::vector<id_t>& list =
+        std::vector<wid_t>& list =
           (which_data == WriteUtilIface::CONTENTS) ? si->contentIds :
           (which_data == WriteUtilIface::PARENTS) ? si->parentIds  :
                                                     si->childIds   ;
@@ -1242,7 +1242,7 @@ ErrorCode WriteHDF5::write_set_data(const WriteUtilIface::EntityListType which_d
           special_rem_ptr = &list[append];
           remaining_count = list.size() - append;
         }
-        memcpy(buffer+count, &list[0], append*sizeof(id_t));
+        memcpy(buffer+count, &list[0], append*sizeof(wid_t));
         ++i;
         ++si;
         count += append;
@@ -1278,14 +1278,14 @@ ErrorCode WriteHDF5::write_set_data(const WriteUtilIface::EntityListType which_d
 
         if (count + remaining.size() <= buffer_size) {
           if (!remaining.empty())
-            memcpy(buffer + count, &remaining[0], sizeof(id_t)*remaining.size());
+            memcpy(buffer + count, &remaining[0], sizeof(wid_t)*remaining.size());
           count += remaining.size();
           remaining.clear();
           remaining_offset = 0;
         }
         else {
           remaining_offset = buffer_size - count;
-          memcpy(buffer + count, &remaining[0], sizeof(id_t)*remaining_offset);
+          memcpy(buffer + count, &remaining[0], sizeof(wid_t)*remaining_offset);
           count += remaining_offset;
         }
       }
@@ -1512,12 +1512,12 @@ size_t count_num_handles(HandleRangeIter iter, HandleRangeIter end)
 template <class HandleRangeIter> inline
 ErrorCode range_to_id_list_templ(HandleRangeIter begin,
                                  HandleRangeIter end,
-                                 const RangeMap<EntityHandle, WriteHDF5::id_t>& idMap,
-                                 WriteHDF5::id_t* array)
+                                 const RangeMap<EntityHandle, WriteHDF5::wid_t>& idMap,
+                                 WriteHDF5::wid_t* array)
 {
   ErrorCode rval = MB_SUCCESS;
-  RangeMap<EntityHandle, WriteHDF5::id_t>::iterator ri = idMap.begin();
-  WriteHDF5::id_t* i = array;
+  RangeMap<EntityHandle, WriteHDF5::wid_t>::iterator ri = idMap.begin();
+  WriteHDF5::wid_t* i = array;
   for (HandleRangeIter pi = begin; pi != end; ++pi) {
     EntityHandle h = pi->first;
     while (h <= pi->second) {
@@ -1530,12 +1530,12 @@ ErrorCode range_to_id_list_templ(HandleRangeIter begin,
         continue;
       }
 
-      id_t n = pi->second - h + 1;
+      WriteHDF5::wid_t n = pi->second - h + 1;
       if (n > ri->count)
         n = ri->count;
 
-      id_t id = ri->value + (h - ri->begin);
-      for (id_t j = 0; j < n; ++i, ++j)
+      WriteHDF5::wid_t id = ri->value + (h - ri->begin);
+      for (WriteHDF5::wid_t j = 0; j < n; ++i, ++j)
         *i = id + j;
       h += n;
     }
@@ -1548,8 +1548,8 @@ ErrorCode range_to_id_list_templ(HandleRangeIter begin,
 template <class HandleRangeIter> inline
 ErrorCode range_to_blocked_list_templ(HandleRangeIter begin,
                                       HandleRangeIter end,
-                                      const RangeMap<EntityHandle, WriteHDF5::id_t>& idMap,
-                                      std::vector<WriteHDF5::id_t>& output_id_list,
+                                      const RangeMap<EntityHandle, WriteHDF5::wid_t>& idMap,
+                                      std::vector<WriteHDF5::wid_t>& output_id_list,
                                       bool& ranged_list)
 {
   output_id_list.clear();
@@ -1560,7 +1560,7 @@ ErrorCode range_to_blocked_list_templ(HandleRangeIter begin,
 
   // First try ranged format, but give up if we reach the
   // non-range format size.
-  RangeMap<EntityHandle, WriteHDF5::id_t>::iterator ri = idMap.begin();
+  RangeMap<EntityHandle, WriteHDF5::wid_t>::iterator ri = idMap.begin();
 
   const size_t num_handles = count_num_handles(begin, end);
   // If we end up with more than this many range blocks, then
@@ -1575,12 +1575,12 @@ ErrorCode range_to_blocked_list_templ(HandleRangeIter begin,
         continue;
       }
 
-      id_t n = pi->second - pi->first + 1;
+      WriteHDF5::wid_t n = pi->second - pi->first + 1;
       if (n > ri->count)
         n = ri->count;
 
       // See if we can append it to the previous range
-      id_t id = ri->value + (h - ri->begin);
+      WriteHDF5::wid_t id = ri->value + (h - ri->begin);
       if (!output_id_list.empty() &&
           output_id_list[output_id_list.size()-2] + output_id_list.back() == id) {
         output_id_list.back() += n;
@@ -1613,7 +1613,7 @@ ErrorCode range_to_blocked_list_templ(HandleRangeIter begin,
 }
 
 ErrorCode WriteHDF5::range_to_blocked_list(const Range& input_range,
-                                           std::vector<id_t>& output_id_list,
+                                           std::vector<wid_t>& output_id_list,
                                            bool& ranged_list)
 {
   return range_to_blocked_list_templ(input_range.const_pair_begin(),
@@ -1623,7 +1623,7 @@ ErrorCode WriteHDF5::range_to_blocked_list(const Range& input_range,
 
 ErrorCode WriteHDF5::range_to_blocked_list(const EntityHandle* array,
                                            size_t num_input_ranges,
-                                           std::vector<id_t>& output_id_list,
+                                           std::vector<wid_t>& output_id_list,
                                            bool& ranged_list)
 {
   // We assume this in the cast on the following line
@@ -1635,7 +1635,7 @@ ErrorCode WriteHDF5::range_to_blocked_list(const EntityHandle* array,
 }
 
 ErrorCode WriteHDF5::range_to_id_list(const Range& range,
-                                      id_t* array)
+                                      wid_t* array)
 {
   return range_to_id_list_templ(range.const_pair_begin(),
                                 range.const_pair_end(),
@@ -1644,15 +1644,15 @@ ErrorCode WriteHDF5::range_to_id_list(const Range& range,
 
 ErrorCode WriteHDF5::vector_to_id_list(const EntityHandle* input,
                                        size_t input_len,
-                                       id_t* output,
+                                       wid_t* output,
                                        size_t& output_len,
                                        bool remove_zeros)
 {
   const EntityHandle* i_iter = input;
   const EntityHandle* i_end = input + input_len;
-  id_t* o_iter = output;
+  wid_t* o_iter = output;
   for ( ; i_iter != i_end; ++i_iter) {
-    id_t id = idMap.find(*i_iter);
+    wid_t id = idMap.find(*i_iter);
     if (!remove_zeros || id != 0) {
       *o_iter = id;
       ++o_iter;
@@ -1664,7 +1664,7 @@ ErrorCode WriteHDF5::vector_to_id_list(const EntityHandle* input,
 }
 
 ErrorCode WriteHDF5::vector_to_id_list(const std::vector<EntityHandle>& input,
-                                       std::vector<id_t>& output,
+                                       std::vector<wid_t>& output,
                                        bool remove_zeros)
 {
   output.resize(input.size());
@@ -1677,7 +1677,7 @@ ErrorCode WriteHDF5::vector_to_id_list(const std::vector<EntityHandle>& input,
 }
 
 ErrorCode WriteHDF5::vector_to_id_list(const EntityHandle* input,
-                                       id_t* output,
+                                       wid_t* output,
                                        size_t count)
 {
   size_t output_len;
@@ -1685,7 +1685,7 @@ ErrorCode WriteHDF5::vector_to_id_list(const EntityHandle* input,
 }
 
 inline ErrorCode WriteHDF5::get_adjacencies(EntityHandle entity,
-                                            std::vector<id_t>& adj)
+                                            std::vector<wid_t>& adj)
 {
   const EntityHandle* adj_array;
   int num_adj;
@@ -1696,7 +1696,7 @@ inline ErrorCode WriteHDF5::get_adjacencies(EntityHandle entity,
   size_t j = 0;
   adj.resize(num_adj);
   for (int i = 0; i < num_adj; ++i) 
-    if (id_t id = idMap.find(adj_array[i]))
+    if (wid_t id = idMap.find(adj_array[i]))
       adj[j++] = id;
   adj.resize(j);
 
@@ -1709,7 +1709,7 @@ ErrorCode WriteHDF5::write_adjacencies(const ExportSet& elements)
   mhdf_Status status;
   Range::const_iterator iter;
   const Range::const_iterator end = elements.range.end();
-  std::vector<id_t> adj_list;
+  std::vector<wid_t> adj_list;
 
   CHECK_OPEN_HANDLES;
 
@@ -1737,8 +1737,8 @@ ErrorCode WriteHDF5::write_adjacencies(const ExportSet& elements)
   IODebugTrack track(debugTrack, "Adjacencies", count);
 
   /* Write data */
-  id_t* buffer = (id_t*)dataBuffer;
-  long chunk_size = bufferSize / sizeof(id_t); 
+  wid_t* buffer = (wid_t*)dataBuffer;
+  long chunk_size = bufferSize / sizeof(wid_t);
   long num_writes = (elements.max_num_adjs + chunk_size - 1) / chunk_size;
   (void)VALGRIND_MAKE_MEM_UNDEFINED(dataBuffer, bufferSize);
   count = 0;
@@ -1763,7 +1763,7 @@ ErrorCode WriteHDF5::write_adjacencies(const ExportSet& elements)
     buffer[count++] = adj_list.size();
 
     assert (adj_list.size() + 2 < (unsigned long)chunk_size);
-    memcpy(buffer + count, &adj_list[0], adj_list.size() * sizeof(id_t));
+    memcpy(buffer + count, &adj_list[0], adj_list.size() * sizeof(wid_t));
     count += adj_list.size();
   }
 
@@ -1860,8 +1860,8 @@ ErrorCode WriteHDF5::write_sparse_ids(const TagDesc& tag_data,
   IODebugTrack track(debugTrack, tname, table_size);
 
   // Set up data buffer for writing IDs
-  size_t chunk_size = bufferSize / sizeof(id_t);
-  id_t* id_buffer = (id_t*)dataBuffer;
+  size_t chunk_size = bufferSize / sizeof(wid_t);
+  wid_t* id_buffer = (wid_t*)dataBuffer;
 
   // Write IDs of tagged entities.
   long remaining = range.size();
@@ -2459,11 +2459,11 @@ ErrorCode WriteHDF5::serial_create_file(const char* filename,
     handle = mhdf_createNodeCoords(filePtr, dimension, nodeSet.total_num_ents,
                                    &first_id, &status);CHK_MHDF_ERR_0(status);
     mhdf_closeData(filePtr, handle, &status);CHK_MHDF_ERR_0(status);
-    nodeSet.first_id = (id_t)first_id;
+    nodeSet.first_id = (wid_t)first_id;
     rval = assign_ids(nodeSet.range, nodeSet.first_id);CHK_MB_ERR_0(rval);
   }
   else {
-    nodeSet.first_id = std::numeric_limits<id_t>::max();
+    nodeSet.first_id = std::numeric_limits<wid_t>::max();
   }
   nodeSet.offset = 0;
 
@@ -2472,7 +2472,7 @@ ErrorCode WriteHDF5::serial_create_file(const char* filename,
     ex_itor->total_num_ents = ex_itor->range.size();
     rval = create_elem_table(*ex_itor, ex_itor->total_num_ents, first_id);CHK_MB_ERR_0(rval);
 
-    ex_itor->first_id = (id_t)first_id;
+    ex_itor->first_id = (wid_t)first_id;
     ex_itor->offset = 0;
     rval = assign_ids(ex_itor->range, ex_itor->first_id);CHK_MB_ERR_0(rval);
   }
@@ -2485,7 +2485,7 @@ ErrorCode WriteHDF5::serial_create_file(const char* filename,
     setSet.max_num_ents = setSet.total_num_ents;
     rval = create_set_meta(setSet.total_num_ents, first_id);CHK_MB_ERR_0(rval);
 
-    setSet.first_id = (id_t) first_id;
+    setSet.first_id = (wid_t) first_id;
     rval = assign_ids(setSet.range, setSet.first_id);CHK_MB_ERR_0(rval);
 
     rval = count_set_size(setSet.range, contents_len, children_len,
@@ -2509,7 +2509,7 @@ ErrorCode WriteHDF5::serial_create_file(const char* filename,
   // Create adjacency table after set table, because sets do not have yet an id
   // some entities are adjacent to sets (exodus?)
   // Create node adjacency table
-  id_t num_adjacencies;
+  wid_t num_adjacencies;
 #ifdef MB_H5M_WRITE_NODE_ADJACENCIES
   rval = count_adjacencies(nodeSet.range, num_adjacencies);CHK_MB_ERR_0(rval);
   nodeSet.adj_offset = 0;
@@ -2631,10 +2631,10 @@ bool WriteHDF5::check_dense_format_tag(const ExportSet& ents,
   return false;
 }
 
-ErrorCode WriteHDF5::count_adjacencies(const Range& set, id_t& result)
+ErrorCode WriteHDF5::count_adjacencies(const Range& set, wid_t& result)
 {
   ErrorCode rval;
-  std::vector<id_t> adj_list;
+  std::vector<wid_t> adj_list;
   Range::const_iterator iter = set.begin();
   const Range::const_iterator end = set.end();
   result = 0;
@@ -2680,7 +2680,7 @@ ErrorCode WriteHDF5::count_set_size(const Range& sets,
   Range set_contents;
   long contents_length_set, children_length_set, parents_length_set;
   unsigned long flags;
-  std::vector<id_t> set_contents_ids;
+  std::vector<wid_t> set_contents_ids;
   std::vector<SpecialSetData>::const_iterator si = specialSets.begin();
 
   contents_length_out = 0;
@@ -3149,7 +3149,7 @@ void WriteHDF5::print_id_map() const
 
 void WriteHDF5::print_id_map(std::ostream& s, const char* pfx) const
 {
-  RangeMap<EntityHandle, id_t>::const_iterator i;
+  RangeMap<EntityHandle, wid_t>::const_iterator i;
   for (i = idMap.begin(); i != idMap.end(); ++i) {
     const char* n1 = CN::EntityTypeName(TYPE_FROM_HANDLE(i->begin));
     EntityID id = ID_FROM_HANDLE(i->begin);
