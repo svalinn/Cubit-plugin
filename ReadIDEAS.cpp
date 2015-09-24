@@ -68,10 +68,8 @@ ErrorCode ReadIDEAS::load_file(const char* fname,
       return MB_FAILURE;
 
   EntityHandle first_vertex = 0;
-  std::string s;
   while (!file.eof()) {
     file.getline(line, 10000);
-    s = line;
     unsigned int header_id = (unsigned int) strtol(line, NULL, 10);
 
     // Create vertices

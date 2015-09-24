@@ -254,7 +254,7 @@ Tqdcfr::~Tqdcfr()
     // get all sets, and release the string vectors
     Range allSets; // although only geom sets should have these attributes
     mdbImpl->get_entities_by_type(0, MBENTITYSET, allSets);
-    for (Range::iterator sit=allSets.begin(); sit!=allSets.end(); sit++)
+    for (Range::iterator sit=allSets.begin(); sit!=allSets.end(); ++sit)
     {
       EntityHandle gset=*sit;
       std::vector<std::string> *dum_vec;
@@ -458,7 +458,6 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
 
   if (debug) {
     std::cout << "Read the following mesh:" << std::endl;
-    std::string dum;
     mdbImpl->list_entities(0, 0);
   }
 
@@ -473,6 +472,8 @@ ErrorCode Tqdcfr::load_file(const char *file_name,
 
   // Convert blocks to nodesets/sidesets if tag is set
   result = convert_nodesets_sidesets();
+  if (MB_SUCCESS != result)
+    return result;
 
   Range after_ents;
   result = mdbImpl->get_entities_by_handle(0, after_ents);
@@ -623,17 +624,17 @@ ErrorCode Tqdcfr::read_nodeset(const unsigned int nsindex,
   }
   // Check for more data
   if (num_read < nodeseth->nsLength) {
-    FREADC(2); num_read += 2;
+    FREADC(2); //num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
-      FREADI(1); num_read += sizeof(int);
+      FREADI(1); //num_read += sizeof(int);
       //uid = int_buf[0];
     }
     else {
       if (char_buf[0] == 'b' && char_buf[1] == 'c') {
-        FREADI(1); num_read += sizeof(int);
+        FREADI(1); //num_read += sizeof(int);
         int num_bcs = uint_buf[0];
         bc_data.resize(num_bcs);
-        FREADCA(num_bcs, &bc_data[0]); num_read += num_bcs;
+        FREADCA(num_bcs, &bc_data[0]); //num_read += num_bcs;
       }
     }
   }
@@ -699,7 +700,6 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
   std::vector<char> bc_data;
   unsigned int num_read = 0; //, uid;
   std::vector<EntityHandle> ss_entities, excl_entities;
-  std::vector<double> ss_dfs;
   if (data_version <= 1.0) {
     for (unsigned int i = 0; i < sideseth->memTypeCt; i++) {
       // Get how many and what type
@@ -785,18 +785,18 @@ ErrorCode Tqdcfr::read_sideset(const unsigned int ssindex,
 
   // Check for more data
   if (data_version > 1.0 && num_read < sideseth->ssLength) {
-    FREADC(2); num_read += 2;
+    FREADC(2); //num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
-      FREADI(1); num_read += sizeof(int);
+      FREADI(1); //num_read += sizeof(int);
       //uid = int_buf[0];
     }
     else {
       // Check for bc_data
       if (char_buf[0] == 'b' && char_buf[1] == 'c') {
-        FREADI(1); num_read += sizeof(int);
+        FREADI(1); //num_read += sizeof(int);
         int num_bcs = uint_buf[0];
         bc_data.resize(num_bcs);
-        FREADCA(num_bcs, &bc_data[0]); num_read += num_bcs;
+        FREADCA(num_bcs, &bc_data[0]); //num_read += num_bcs;
       }
     }
   }
@@ -989,7 +989,6 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   // Read ids for each entity type
   unsigned int num_read = 0;
   int this_type, num_ents; //, uid;
-  std::vector<char> bc_data;
   std::vector<EntityHandle> block_entities, excl_entities;
   for (unsigned int i = 0; i < blockh->memTypeCt; i++) {
     // Get how many and what type
@@ -1033,9 +1032,9 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
 
   // Check for more data
   if (num_read < blockh->blockLength) {
-    FREADC(2); num_read += 2;
+    FREADC(2); //num_read += 2;
     if (char_buf[0] == 'i' && char_buf[1] == 'd') {
-      FREADI(1); num_read += sizeof(int);
+      FREADI(1); //num_read += sizeof(int);
       //uid = int_buf[0];
     }
   }
@@ -1171,6 +1170,8 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
     strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
     result = mdbImpl->tag_set_data(entityNameTag, &grouph->setHandle, 1,
                                    name_tag_data);
+    if (MB_SUCCESS != result)
+      return result;
 
     // Look for extra names
     md_index = model->groupMD.get_md_entry(group_index, "NumExtraNames");
@@ -1190,6 +1191,8 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
                                            NAME_TAG_SIZE, MB_TYPE_OPAQUE,
                                            extra_name_tag, MB_TAG_SPARSE | MB_TAG_CREAT,
                                            name_tag_data);
+          if (MB_SUCCESS != result)
+            return result;
           //assert(md_entry->mdStringValue.length() + 1 <= NAME_TAG_SIZE);
           memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
           strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
@@ -1419,7 +1422,7 @@ ErrorCode Tqdcfr::read_nodes(const unsigned int gindex,
     // Initialize to zero then put previous vertices into the map
     std::fill(cubMOABVertexMap->begin(), cubMOABVertexMap->end(), 0);
     Range::iterator rit;
-    for (rit = vrange.begin(); rit != vrange.end(); rit++) {
+    for (rit = vrange.begin(); rit != vrange.end(); ++rit) {
       assert(((long)*rit) - currVHandleOffset >= 0 &&
              ((long)*rit) - currVHandleOffset <= max_cid);
       (*cubMOABVertexMap)[*rit - currVHandleOffset] = *rit;
@@ -1652,7 +1655,6 @@ void Tqdcfr::check_contiguous(const unsigned int num_ents, int &contig,
                               unsigned int &min_id, unsigned int &max_id)
 {
   unsigned int *id_it, curr_id, i;
-  max_id = min_id = 0;
 
   // Check in forward-contiguous direction
   id_it = &uint_buf[0];

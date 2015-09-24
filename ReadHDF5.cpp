@@ -305,7 +305,6 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
   bool bglockless = (MB_SUCCESS == opts.get_null_option("BGLOCKLESS"));
 
   // Handle parallel options
-  std::string junk;
   bool use_mpio = (MB_SUCCESS == opts.get_null_option("USE_MPIO"));
   rval = opts.match_option("PARALLEL", "READ_PART");
   bool parallel = (rval != MB_ENTITY_NOT_FOUND);
@@ -508,7 +507,7 @@ ErrorCode ReadHDF5::clean_up_read(const FileOptions&)
   herr_t err = H5Eget_auto(&handler.func, &handler.data);
 #endif
   if (err >= 0 && handler.func == &handle_hdf5_error) {
-    assert(handler.data = &errorHandler);
+    assert(handler.data == &errorHandler);
 #if defined(H5Eget_auto_vers) && H5Eget_auto_vers > 1
     H5Eset_auto(H5E_DEFAULT, errorHandler.func, errorHandler.data);
 #else
@@ -601,7 +600,6 @@ ErrorCode ReadHDF5::load_file_impl(const FileOptions&)
 {
   ErrorCode rval;
   mhdf_Status status;
-  std::string tagname;
   int i;
 
   CHECK_OPEN_HANDLES;
@@ -3137,6 +3135,8 @@ ErrorCode ReadHDF5::read_sparse_tag(Tag tag_handle,
                                            id_table, base_offset,
                                            offset_range, handle_range,
                                            handle_vect);
+  if (MB_SUCCESS != rval)
+    MB_SET_ERR(MB_FAILURE, "ReadHDF5 Failure");
 
   DataType mbtype;
   rval = iFace->tag_get_data_type(tag_handle, mbtype);
@@ -3420,16 +3420,16 @@ ErrorCode ReadHDF5::read_qa(EntityHandle)
   CHECK_OPEN_HANDLES;
 
   mhdf_Status status;
-  std::vector<std::string> qa_list;
+  //std::vector<std::string> qa_list;
 
   int qa_len;
   char** qa = mhdf_readHistory(filePtr, &qa_len, &status);
   if (mhdf_isError(&status)) {
     MB_SET_ERR(MB_FAILURE, mhdf_message(&status));
   }
-  qa_list.resize(qa_len);
+  //qa_list.resize(qa_len);
   for (int i = 0; i < qa_len; i++) {
-    qa_list[i] = qa[i];
+    //qa_list[i] = qa[i];
     free(qa[i]);
   }
   free(qa);

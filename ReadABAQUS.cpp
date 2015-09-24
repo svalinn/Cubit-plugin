@@ -248,8 +248,6 @@ ErrorCode ReadABAQUS::load_file(const char *abaqus_file_name,
 
 ErrorCode ReadABAQUS::read_heading(EntityHandle /*file_set*/)
 {
-  std::vector<std::string> tokens;
-
   // Current line is only heading token. get next line
   next_line_type = get_next_line_type();
 
@@ -705,6 +703,7 @@ ErrorCode ReadABAQUS::read_solid_section(EntityHandle parent_set)
 
   EntityHandle set_handle;
   status = get_set_by_name(parent_set, ABQ_ELEMENT_SET, elset_name, set_handle);
+  MB_RETURN_IF_FAIL;
 
   status = mdbImpl->tag_set_data(mMatNameTag, &set_handle, 1, mat_name.c_str());
   MB_RETURN_IF_FAIL;
@@ -1305,6 +1304,7 @@ ErrorCode ReadABAQUS::read_node_list(EntityHandle parent_set, EntityHandle assem
   if (0 == start_node)
     return MB_FAILURE;
 
+  // Cppcheck warning (false positive): variable coord_arrays is assigned a value that is never used
   for (unsigned int idx = 0; idx < num_nodes; idx++) {
     coord_arrays[0][idx] = coord_list[idx*3];
     coord_arrays[1][idx] = coord_list[idx*3 + 1];
@@ -1410,7 +1410,7 @@ ErrorCode ReadABAQUS::get_nodes_by_id(EntityHandle parent_set,
 
 ErrorCode ReadABAQUS::get_set_by_name(EntityHandle parent_set,
                                       int ABQ_set_type,
-                                      std::string set_name,
+                                      const std::string &set_name,
                                       EntityHandle &set_handle)
 {
   ErrorCode status;
@@ -1466,7 +1466,7 @@ ErrorCode ReadABAQUS::get_set_elements(EntityHandle set_handle,
 
 ErrorCode ReadABAQUS::get_set_elements_by_name(EntityHandle parent_set,
                                                int ABQ_set_type,
-                                               std::string set_name,
+                                               const std::string &set_name,
                                                Range &element_range)
 {
   ErrorCode status;
@@ -1487,7 +1487,7 @@ ErrorCode ReadABAQUS::get_set_elements_by_name(EntityHandle parent_set,
 
 ErrorCode ReadABAQUS::get_set_nodes(EntityHandle parent_set,
                                     int ABQ_set_type,
-                                    std::string set_name,
+                                    const std::string &set_name,
                                     Range &node_range)
 {
   ErrorCode status;
@@ -1534,8 +1534,8 @@ Tag ReadABAQUS::get_tag(const char* tag_name,
 
 ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
                                               const EntityHandle assembly_set,
-                                              const std::string part_name,
-                                              const std::string /*instance_name*/,
+                                              const std::string &part_name,
+                                              const std::string &/*instance_name*/,
                                               EntityHandle &instance_set,
                                               const std::vector<double> &translation,
                                               const std::vector<double> &rotation)
@@ -1559,6 +1559,7 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
 
   instance_id = ++num_assembly_instances[assembly_set];
   status = mdbImpl->tag_set_data(mInstanceGIDTag, &instance_set, 1, &instance_id);
+  MB_RETURN_IF_FAIL;
 
   // Create maps to cross-reference the part and instance versions of each entity
   std::map<EntityHandle, EntityHandle> p2i_nodes, p2i_elements;
@@ -1575,9 +1576,9 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
     status = mdbImpl->tag_get_data(mLocalIDTag, part_node_list, &node_ids[0]);
     MB_RETURN_IF_FAIL;
 
-    std::map<int, EntityHandle> nodeIdMap;
-    for (unsigned int idx = 0; idx < part_node_list.size(); idx++)
-      nodeIdMap[node_ids[idx]] = part_node_list[idx];
+    //std::map<int, EntityHandle> nodeIdMap;
+    //for (unsigned int idx = 0; idx < part_node_list.size(); idx++)
+      //nodeIdMap[node_ids[idx]] = part_node_list[idx];
 
     // Create new nodes
     std::vector<double*> coord_arrays(3);
@@ -1653,9 +1654,9 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
     status = mdbImpl->tag_get_data(mLocalIDTag, part_element_list, &part_element_ids[0]);
     MB_RETURN_IF_FAIL;
 
-    std::map<int, EntityHandle> elementIdMap;
-    for (unsigned int idx = 0; idx < part_element_list.size(); idx++)
-      elementIdMap[part_element_ids[idx]] = part_element_list[idx];
+    //std::map<int, EntityHandle> elementIdMap;
+    //for (unsigned int idx = 0; idx < part_element_list.size(); idx++)
+      //elementIdMap[part_element_ids[idx]] = part_element_list[idx];
 
     // Create new elements
     Range instance_element_list;
@@ -1883,7 +1884,7 @@ ErrorCode ReadABAQUS::create_instance_of_part(const EntityHandle file_set,
 
 ErrorCode ReadABAQUS::add_entity_set(EntityHandle parent_set,
                                      int ABQ_Set_Type,
-                                     std::string set_name,
+                                     const std::string &set_name,
                                      EntityHandle &entity_set)
 {
   ErrorCode status;
@@ -2039,7 +2040,7 @@ std::string ReadABAQUS::match(const std::string &token,
 }
 
 // Convert a string to upper case
-void ReadABAQUS::stringToUpper(std::string toBeConverted, std::string& converted)
+void ReadABAQUS::stringToUpper(const std::string& toBeConverted, std::string& converted)
 {
   converted = toBeConverted;
 
@@ -2048,13 +2049,13 @@ void ReadABAQUS::stringToUpper(std::string toBeConverted, std::string& converted
 }
 
 // Extract key/value pairs from parameter list
-void ReadABAQUS::extract_keyword_parameters(std::vector<std::string> tokens,
+void ReadABAQUS::extract_keyword_parameters(const std::vector<std::string>& tokens,
                                             std::map<std::string, std::string>& params)
 {
   std::string key, value;
 
   // NOTE: skip first token - it is the keyword
-  for (std::vector<std::string>::iterator token = tokens.begin() + 1;
+  for (std::vector<std::string>::const_iterator token = tokens.begin() + 1;
        token != tokens.end(); ++token) {
     std::string::size_type pos = token->find('=');
     stringToUpper(token->substr(0, pos), key);

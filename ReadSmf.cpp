@@ -167,6 +167,7 @@ ErrorCode ReadSmf::load_file(const char *filename,
     return result;
 
   // Fill the arrays with data from _coords
+  // Cppcheck warning (false positive): variable arrays is assigned a value that is never used
   for (int i = 0; i < _numNodesInFile; i++) {
     int i3 = 3*i;
     arrays[0][i] = _coords[i3];

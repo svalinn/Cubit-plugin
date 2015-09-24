@@ -191,7 +191,7 @@ ErrorCode ReadSTL::ascii_read_triangles(const char* name,
     MB_SET_ERR(MB_FILE_DOES_NOT_EXIST, name << ": " << strerror(errno));
   }
 
-  char header[82];
+  char header[81];
   if (!fgets(header, sizeof(header), file) || // Read header line
       strlen(header) < 6                   || // Must be at least 6 chars
       header[strlen(header) - 1] != '\n'   || // Cannot exceed 80 chars

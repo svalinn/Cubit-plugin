@@ -2388,7 +2388,6 @@ ErrorCode WriteHDF5::register_known_tag_types(Interface* iface)
 ErrorCode WriteHDF5::gather_tags(const Tag* user_tag_list, int num_tags)
 {
   ErrorCode result;
-  std::string tagname;
   std::vector<Tag> tag_list;
   std::vector<Tag>::iterator t_itor;
   Range range;
@@ -2881,7 +2880,7 @@ ErrorCode WriteHDF5::get_tag_size(Tag tag,
     array_length = MB_VARIABLE_LENGTH;
     if (!close_hdf_type) {
       hdf_type = H5Tcopy(hdf_type);
-      close_hdf_type = true;
+      //close_hdf_type = true;
     }
   }
   else if (array_length > 1 && moab_type != MB_TYPE_BIT) {
@@ -2897,7 +2896,7 @@ ErrorCode WriteHDF5::get_tag_size(Tag tag,
   }
   else if (!close_hdf_type) {
     hdf_type = H5Tcopy(hdf_type);
-    close_hdf_type = true;
+    //close_hdf_type = true;
   }
 
   return MB_SUCCESS;

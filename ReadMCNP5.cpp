@@ -882,6 +882,7 @@ ErrorCode ReadMCNP5::create_vertices(std::vector<double> planes[3],
         if (MB_SUCCESS != result)
           return result;
 
+        // Cppcheck warning (false positive): variable coord_arrays is assigned a value that is never used
         coord_arrays[0][idx] = out[0];
         coord_arrays[1][idx] = out[1];
         coord_arrays[2][idx] = out[2];

@@ -13,13 +13,14 @@ const char PFX[] = ">>> ";
 namespace moab {
 
 IODebugTrack::IODebugTrack( bool enabled,
-                            const std::string name,
+                            const std::string& name,
                             std::ostream& output_stream,
                             unsigned long table_size )
           : enableOutput(enabled),
             tableName(name),
             ostr(output_stream),
-            maxSize(table_size) 
+            maxSize(table_size),
+            haveMPI(false)
 {
 #ifdef MOAB_HAVE_MPI
   MPI_Comm_rank( MPI_COMM_WORLD, &mpiRank );
@@ -30,7 +31,7 @@ IODebugTrack::IODebugTrack( bool enabled,
 
 
 IODebugTrack::IODebugTrack( bool enabled,
-                            const std::string name,
+                            const std::string& name,
                             unsigned long table_size )
           : enableOutput(enabled),
             tableName(name),

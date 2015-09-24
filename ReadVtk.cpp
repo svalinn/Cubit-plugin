@@ -551,7 +551,6 @@ ErrorCode ReadVtk::vtk_read_polydata(FileTokenizer& tokens,
 {
   ErrorCode result;
   long num_verts;
-  std::vector<int> connectivity;
   const char* const poly_data_names[] = {"VERTICES",
                                          "LINES",
                                          "POLYGONS",
@@ -984,11 +983,7 @@ ErrorCode ReadVtk::vtk_read_tag_data(FileTokenizer& tokens,
   result = mdbImpl->tag_get_handle(name, per_elem, mb_type, handle,
                                    MB_TAG_DENSE | MB_TAG_CREAT);MB_CHK_SET_ERR(result, "Tag name conflict for attribute \"" << name << "\" at line " << tokens.line_number());
 
-  // Count number of entities
-  long count = 0;
   std::vector<Range>::iterator iter;
-  for (iter = entities.begin(); iter != entities.end(); ++iter)
-    count += iter->size();
 
   if (type == 1) {
     for (iter = entities.begin(); iter != entities.end(); ++iter) {
