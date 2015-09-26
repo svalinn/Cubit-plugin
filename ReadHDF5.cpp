@@ -1030,8 +1030,8 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
 
   dbgOut.tprint(1, "READING ADJACENCIES\n");
   for (int i = 0; i < fileInfo->num_elem_desc; ++i) {
-    if (fileInfo->elems[i].have_adj &&
-        idMap.intersects(fileInfo->elems[i].desc.start_id, fileInfo->elems[i].desc.count)) {
+    if (fileInfo->elems[i].have_adj  /*&&
+        idMap.intersects(fileInfo->elems[i].desc.start_id, fileInfo->elems[i].desc.count) */) {
       mpe_event.start("reading adjacencies for ", fileInfo->elems[i].handle);
       long len;
       hid_t th = mhdf_openAdjacency(filePtr, fileInfo->elems[i].handle, &len, &status);
