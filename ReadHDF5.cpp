@@ -807,6 +807,10 @@ ErrorCode ReadHDF5::load_file_partial(const ReaderIface::IDTag* subset_list,
     MB_SET_ERR(rval, "ReadHDF5 Failure");
 
   if (num_parts) {
+    if (num_parts>(int)file_ids.size())
+    {
+      MB_SET_ERR(MB_FAILURE, "Only " << file_ids.size() << " parts to distribute to " << num_parts << " processes.");
+    }
     rval = get_partition(file_ids, num_parts, part_number);
     if (MB_SUCCESS != rval)
       MB_SET_ERR(rval, "ReadHDF5 Failure");
