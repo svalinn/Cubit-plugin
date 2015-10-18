@@ -35,6 +35,7 @@ namespace moab {
 
 class ParallelComm;
 class ReadHDF5Dataset;
+class CpuTimer;
 
 /**
  * \brief  Read mesh from MOAB HDF5 (.h5m) file.
@@ -95,6 +96,33 @@ protected:
   ErrorCode read_tag_values_all(int tag_index, std::vector<int>& results);
   ErrorCode read_tag_values_partial(int tag_index, const Range& file_ids,
                                     std::vector<int>& results);
+
+  enum ReadTimingValues {
+    TOTAL_TIME = 0,
+    SET_META_TIME,
+    SUBSET_IDS_TIME,
+    GET_PARTITION_TIME,
+    GET_SET_IDS_TIME,
+    GET_SET_CONTENTS_TIME,
+    GET_POLYHEDRA_TIME,
+    GET_ELEMENTS_TIME,
+    GET_NODES_TIME,
+    GET_NODEADJ_TIME,
+    GET_SIDEELEM_TIME,
+    UPDATECONN_TIME,
+    ADJACENCY_TIME,
+    DELETE_NON_SIDEELEM_TIME,
+    READ_SET_IDS_RECURS_TIME,
+    FIND_SETS_CONTAINING_TIME,
+    READ_SETS_TIME,
+    READ_TAGS_TIME,
+    STORE_FILE_IDS_TIME,
+    READ_QA_TIME,
+    NUM_TIMES
+  };
+
+
+  void print_times( );
 
 private:
   ErrorCode init();
@@ -171,6 +199,10 @@ private:
   HDF5ErrorHandler errorHandler;
 
   long (*setMeta)[4];
+
+  double _times[NUM_TIMES];
+  CpuTimer * timer;
+  bool cputime;
   ErrorCode read_all_set_meta();
 
   ErrorCode set_up_read(const char* file_name, const FileOptions& opts);
