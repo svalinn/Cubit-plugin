@@ -136,7 +136,7 @@ ErrorCode ReadIDEAS::create_vertices(EntityHandle& first_vertex,
 
   ErrorCode rval;
 
-  int top_of_block = file.tellg();
+  std::streampos top_of_block = file.tellg();
   unsigned int num_verts = 0;
 
   for (;;) {
