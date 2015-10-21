@@ -190,7 +190,7 @@ ErrorCode ReadIDEAS::create_vertices(EntityHandle& first_vertex,
     // Get the id out of the 1st line. Check the assumption that node ids are
     // sequential and begin with 1.
     if (node_id != std::strtol(line1, &ctmp1, 10))
-      MB_SET_ERR(MB_NOT_IMPLEMENTED, "node ids are not sequential and do not begin with 1");
+      MB_SET_ERR(MB_FAILURE, "node_id " << node_id <<" line2:" << line2 << " ctmp1:"<<ctmp1);
     else
       ++node_id;
 
