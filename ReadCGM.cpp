@@ -47,6 +47,7 @@
 #include <stdio.h>
 #include <algorithm>
 #include <assert.h>
+#include <iostream>
 
 #include "ReadCGM.hpp"
 #include "moab/ReadUtilIface.hpp"
