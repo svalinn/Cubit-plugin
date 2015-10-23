@@ -1051,9 +1051,15 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   int node_per_elem = cub_elem_num_verts[blockh->blockElemType];
   if (blockh->blockEntityType==MBMAXTYPE)
     return MB_SUCCESS;
+#if  (CGM_MAJOR_VERSION == 14 && CGM_MINOR_VERSION > 2)
+  if (55 == blockh->blockElemType ||
+      CN::VerticesPerEntity(blockh->blockEntityType) == node_per_elem)
+    return MB_SUCCESS;
+#else
   if (52 == blockh->blockElemType ||
       CN::VerticesPerEntity(blockh->blockEntityType) == node_per_elem)
     return MB_SUCCESS;
+#endif
 
   // Can't use Interface::convert_entities because block could contain
   // both entity sets and entities. convert_entities will fail if block
@@ -2064,7 +2070,11 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     if (block_headers[i].blockElemType >= (unsigned)cub_elem_num_verts_len) {
       // Block element type unassigned, will have to infer from verts/element; make sure it's
       // the expected value of 52
+#if  (CGM_MAJOR_VERSION == 14 && CGM_MINOR_VERSION > 2)
+      assert(55 == block_headers[i].blockElemType);
+#else
       assert(52 == block_headers[i].blockElemType);
+#endif
 
       //MB_SET_ERR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
     }
@@ -2090,7 +2100,8 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
 
     // Check the number of vertices in the element type, and set the has mid nodes tag
     // accordingly; if element type wasn't set, they're unlikely to have mid nodes
-    if (52 != block_headers[i].blockElemType) {
+    // 52 is for CUBIT versions below 14.1, 55 for CUBIT version 14.9 and above 
+    if (52 != block_headers[i].blockElemType && 55 != block_headers[i].blockElemType) {
       int num_verts = cub_elem_num_verts[block_headers[i].blockElemType];
       block_headers[i].blockEntityType = block_type_to_mb_type[block_headers[i].blockElemType];
       if ((block_headers[i].blockEntityType < MBMAXTYPE) &&
