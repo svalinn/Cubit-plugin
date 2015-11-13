@@ -1051,7 +1051,6 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   int node_per_elem = cub_elem_num_verts[blockh->blockElemType];
   if (blockh->blockEntityType==MBMAXTYPE)
     return MB_SUCCESS;
-//#if  (CGM_MAJOR_VERSION == 14 && CGM_MINOR_VERSION > 2)
   if ((14 == major && 2 < minor) || 15 <= major )
   {
     if (55 == blockh->blockElemType ||
@@ -1060,12 +1059,10 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   }
   else
   {
-//#else
     if (52 == blockh->blockElemType ||
       CN::VerticesPerEntity(blockh->blockEntityType) == node_per_elem)
       return MB_SUCCESS;
   }
-// #endif
 
   // Can't use Interface::convert_entities because block could contain
   // both entity sets and entities. convert_entities will fail if block
@@ -2076,19 +2073,16 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     if (block_headers[i].blockElemType >= (unsigned)cub_elem_num_verts_len) {
       // Block element type unassigned, will have to infer from verts/element; make sure it's
       // the expected value of 52
-// #if  (CGM_MAJOR_VERSION == 14 && CGM_MINOR_VERSION > 2)
     if ((14 == major && 2 < minor) || 15 <= major )
     {
       assert(55 == block_headers[i].blockElemType);
       ;
     }
-//#else
     else
     {
       assert(52 == block_headers[i].blockElemType);
       ;
     }
-// #endif
 
       //MB_SET_ERR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
     }
