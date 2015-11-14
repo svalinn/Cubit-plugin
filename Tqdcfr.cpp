@@ -2073,18 +2073,16 @@ ErrorCode Tqdcfr::BlockHeader::read_info_header(const double data_version,
     if (block_headers[i].blockElemType >= (unsigned)cub_elem_num_verts_len) {
       // Block element type unassigned, will have to infer from verts/element; make sure it's
       // the expected value of 52
-    if ((14 == major && 2 < minor) || 15 <= major )
-    {
-      assert(55 == block_headers[i].blockElemType);
-      ;
-    }
-    else
-    {
-      assert(52 == block_headers[i].blockElemType);
-      ;
-    }
-
-      //MB_SET_ERR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
+      if ((14 == major && 2 < minor) || 15 <= major )
+      {
+        if(55 != block_headers[i].blockElemType)
+           MB_SET_ERR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
+      }
+      else
+      {
+        if(52 != block_headers[i].blockElemType)
+           MB_SET_ERR(MB_FAILURE, "Invalid block element type: " << block_headers[i].blockElemType);
+      }
     }
 
     // Set the material set tag and id tag both to id
