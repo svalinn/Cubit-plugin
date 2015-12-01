@@ -253,11 +253,13 @@ Tqdcfr::~Tqdcfr()
   {
     // get all sets, and release the string vectors
     Range allSets; // although only geom sets should have these attributes
+    // can't error in a destructor
     mdbImpl->get_entities_by_type(0, MBENTITYSET, allSets);
     for (Range::iterator sit=allSets.begin(); sit!=allSets.end(); ++sit)
     {
       EntityHandle gset=*sit;
       std::vector<std::string> *dum_vec;
+      // can't error in a destructor
       mdbImpl->tag_get_data(attribVectorTag, &gset, 1, &dum_vec);
       if(NULL!=dum_vec)
         delete dum_vec; //
@@ -1119,8 +1121,14 @@ ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, Entit
     if (-1 != md_index) {
       md_entry = &(md.metadataEntries[md_index]);
       Tag extra_name_tag;
-      mdbImpl->tag_get_handle(moab_extra_name.str().c_str(), NAME_TAG_SIZE,
-                              MB_TYPE_OPAQUE, extra_name_tag, MB_TAG_SPARSE | MB_TAG_CREAT);
+      ErrorCode rval;
+      rval = mdbImpl->tag_get_handle(
+          moab_extra_name.str().c_str(),
+          NAME_TAG_SIZE,
+          MB_TYPE_OPAQUE,
+          extra_name_tag,
+          MB_TAG_SPARSE | MB_TAG_CREAT
+          ); MB_CHK_ERR(rval);
       memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
       strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
       result = mdbImpl->tag_set_data(extra_name_tag, &seth, 1, name_tag_data);

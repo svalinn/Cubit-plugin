@@ -392,7 +392,7 @@ ErrorCode ReadSmf::face(std::vector<std::string> & argv)
   if (MB_SUCCESS != err)
     return err;
 
-  int vert[3];
+  int vert[3] = {};
   char* endptr;
   for (unsigned int i = 0; i < argv.size(); i++) {
     vert[i] = strtol(argv[i].c_str(), &endptr, 0);
