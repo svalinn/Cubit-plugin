@@ -3842,26 +3842,26 @@ void ReadHDF5::print_times()
   {
 #endif
 
-    std::cout << "ReadHDF5:            " << _times[TOTAL_TIME] << std::endl
-              << "  get set meta       " << _times[SET_META_TIME] << std::endl
-              << "  partial subsets    " << _times[SUBSET_IDS_TIME] << std::endl
-              << "  partition time     " << _times[GET_PARTITION_TIME] << std::endl
-              << "  get set ids        " << _times[GET_SET_IDS_TIME] << std::endl
-              << "  set contents       " << _times[GET_SET_CONTENTS_TIME] << std::endl
-              << "  polyhedra          " << _times[GET_POLYHEDRA_TIME] << std::endl
-              << "  elements           " << _times[GET_ELEMENTS_TIME] << std::endl
-              << "  nodes              " << _times[GET_NODES_TIME] << std::endl
-              << "  node adjacency     " << _times[GET_NODEADJ_TIME] << std::endl
-              << "  side elements      " << _times[GET_SIDEELEM_TIME] << std::endl
-              << "  update connectivity" << _times[UPDATECONN_TIME] << std::endl
-              << "  adjacency          " << _times[ADJACENCY_TIME] << std::endl
-              << "  delete non_adj     " << _times[DELETE_NON_SIDEELEM_TIME] << std::endl
-              << "  recursive sets     " << _times[READ_SET_IDS_RECURS_TIME] << std::endl
-              << "  find contain_sets  " << _times[FIND_SETS_CONTAINING_TIME] << std::endl
-              << "  read sets          " << _times[READ_SETS_TIME] << std::endl
-              << "  read tags          " << _times[READ_TAGS_TIME] << std::endl
-              << "  store file ids     " << _times[STORE_FILE_IDS_TIME] << std::endl
-              << "  read qa records    " << _times[READ_QA_TIME] << std::endl;
+    std::cout << "ReadHDF5:             " << _times[TOTAL_TIME] << std::endl
+              << "  get set meta        " << _times[SET_META_TIME] << std::endl
+              << "  partial subsets     " << _times[SUBSET_IDS_TIME] << std::endl
+              << "  partition time      " << _times[GET_PARTITION_TIME] << std::endl
+              << "  get set ids         " << _times[GET_SET_IDS_TIME] << std::endl
+              << "  set contents        " << _times[GET_SET_CONTENTS_TIME] << std::endl
+              << "  polyhedra           " << _times[GET_POLYHEDRA_TIME] << std::endl
+              << "  elements            " << _times[GET_ELEMENTS_TIME] << std::endl
+              << "  nodes               " << _times[GET_NODES_TIME] << std::endl
+              << "  node adjacency      " << _times[GET_NODEADJ_TIME] << std::endl
+              << "  side elements       " << _times[GET_SIDEELEM_TIME] << std::endl
+              << "  update connectivity " << _times[UPDATECONN_TIME] << std::endl
+              << "  adjacency           " << _times[ADJACENCY_TIME] << std::endl
+              << "  delete non_adj      "  << _times[DELETE_NON_SIDEELEM_TIME] << std::endl
+              << "  recursive sets      " << _times[READ_SET_IDS_RECURS_TIME] << std::endl
+              << "  find contain_sets   " << _times[FIND_SETS_CONTAINING_TIME] << std::endl
+              << "  read sets           " << _times[READ_SETS_TIME] << std::endl
+              << "  read tags           " << _times[READ_TAGS_TIME] << std::endl
+              << "  store file ids      " << _times[STORE_FILE_IDS_TIME] << std::endl
+              << "  read qa records     " << _times[READ_QA_TIME] << std::endl;
 
 #ifdef MOAB_HAVE_MPI
   }
