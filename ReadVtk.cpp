@@ -105,7 +105,7 @@ public:
     Hash h(bytes, len);
     EntityHandle mset = this->congruence_class(h, bytes);
     ErrorCode rval;
-    rval = this->mesh->add_entities(mset, &ent, 1); MB_CHK_ERR(rval);
+    rval = this->mesh->add_entities(mset, &ent, 1);MB_CHK_SET_ERR_RET(rval, "Failed to add entities to mesh");
   }
 
   void add_entities(Range& range, const unsigned char* bytes, size_t bytes_per_ent)
@@ -114,7 +114,7 @@ public:
       Hash h(bytes, bytes_per_ent);
       EntityHandle mset = this->congruence_class(h, bytes);
       ErrorCode rval;
-      rval = this->mesh->add_entities(mset, &*it, 1); MB_CHK_ERR(rval);
+      rval = this->mesh->add_entities(mset, &*it, 1);MB_CHK_SET_ERR_RET(rval, "Failed to add entities to mesh");
     }
   }
 
@@ -125,14 +125,13 @@ public:
       EntityHandle mset;
       Range preexist;
       ErrorCode rval;
-      rval = this->mesh->get_entities_by_type_and_tag(0, MBENTITYSET, &this->tag, &tag_data, 1, preexist); MB_CHK_ERR(rval);
+      rval = this->mesh->get_entities_by_type_and_tag(0, MBENTITYSET, &this->tag, &tag_data, 1, preexist);MB_CHK_SET_ERR_RET_VAL(rval, "Failed to get entities by type and tag", 0);
       if (preexist.size()) {
         mset = *preexist.begin();
       }
       else {
-        ErrorCode rval;
-        rval = this->mesh->create_meshset(MESHSET_SET, mset); MB_CHK_ERR(rval);
-        rval = this->mesh->tag_set_data(this->tag, &mset, 1, tag_data); MB_CHK_ERR(rval);
+        rval = this->mesh->create_meshset(MESHSET_SET, mset);MB_CHK_SET_ERR_RET_VAL(rval, "Failed to create mesh set", (EntityHandle) 0);
+        rval = this->mesh->tag_set_data(this->tag, &mset, 1, tag_data);MB_CHK_SET_ERR_RET_VAL(rval, "Failed to set tag data", (EntityHandle) 0);
       }
       (*this)[h] = mset;
       return mset;
