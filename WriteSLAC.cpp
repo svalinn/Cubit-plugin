@@ -71,7 +71,7 @@ WriterIface* WriteSLAC::factory(Interface* iface)
 }
 
 WriteSLAC::WriteSLAC(Interface* impl)
-  : mbImpl(impl), ncFile(0), mCurrentMeshHandle(0)
+  : mbImpl(impl), ncFile(0)
 {
   assert(impl != NULL);
 

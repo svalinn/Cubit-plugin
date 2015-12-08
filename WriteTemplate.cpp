@@ -52,7 +52,7 @@ WriterIface* WriteTemplate::factory(Interface* iface)
 }
 
 WriteTemplate::WriteTemplate(Interface* impl)
-  : mbImpl(impl), mCurrentMeshHandle(0)
+  : mbImpl(impl)
 {
   assert(impl != NULL);
 

@@ -147,7 +147,7 @@ ReaderIface* ReadVtk::factory(Interface* iface)
 }
 
 ReadVtk::ReadVtk(Interface* impl)
-  : mdbImpl(impl), mCurrentMeshHandle(0), mPartitionTagName(MATERIAL_SET_TAG_NAME)
+  : mdbImpl(impl), mPartitionTagName(MATERIAL_SET_TAG_NAME)
 {
   mdbImpl->query_interface(readMeshIface);
 }

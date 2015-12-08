@@ -54,7 +54,7 @@ WriterIface* WriteGMV::factory( Interface* iface )
   { return new WriteGMV( iface ); }
 
 WriteGMV::WriteGMV(Interface *impl) 
-    : mbImpl(impl), mCurrentMeshHandle(0)
+    : mbImpl(impl)
 {
   assert(impl != NULL);
 
