@@ -125,7 +125,7 @@ public:
       EntityHandle mset;
       Range preexist;
       ErrorCode rval;
-      rval = this->mesh->get_entities_by_type_and_tag(0, MBENTITYSET, &this->tag, &tag_data, 1, preexist);MB_CHK_SET_ERR_RET_VAL(rval, "Failed to get entities by type and tag", 0);
+      rval = this->mesh->get_entities_by_type_and_tag(0, MBENTITYSET, &this->tag, &tag_data, 1, preexist);MB_CHK_SET_ERR_RET_VAL(rval, "Failed to get entities by type and tag", (EntityHandle) 0);
       if (preexist.size()) {
         mset = *preexist.begin();
       }
