@@ -620,7 +620,7 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
 
       // Get the adjacent parent element of "side"
       if (mdbImpl->get_adjacencies(&(*iter), 1, dimension + 1, false, parents) != MB_SUCCESS) {
-#       ifndef NDEBUG
+#       if 0
         // This is not treated as an error, print warning messages for
         // debugging only
         fprintf(stderr, "[Warning]: Couldn't get adjacencies for sideset.\n");
@@ -644,7 +644,7 @@ ErrorCode WriteNCDF::get_valid_sides(Range &elems, ExodusMeshInfo& /*mesh_info*/
         }
       }
       else {
-#       ifndef NDEBUG
+#       if 0
         // This is not treated as an error, print warning messages for
         // debugging only
         fprintf(stderr, "[Warning]: No parent element exists for element in sideset %i\n", sideset_data.id);
