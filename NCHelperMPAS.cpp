@@ -385,7 +385,7 @@ ErrorCode NCHelperMPAS::create_mesh(Range& faces)
   if (procs >= 2) {
     int global_max_edges_per_cell;
     ParallelComm*& myPcomm = _readNC->myPcomm;
-    MPI_Allreduce(&local_max_edges_per_cell, &global_max_edges_per_cell, 1, MPI_INTEGER, MPI_MAX, myPcomm->proc_config().proc_comm());
+    MPI_Allreduce(&local_max_edges_per_cell, &global_max_edges_per_cell, 1, MPI_INT, MPI_MAX, myPcomm->proc_config().proc_comm());
     assert(local_max_edges_per_cell <= global_max_edges_per_cell);
     maxEdgesPerCell = global_max_edges_per_cell;
     if (0 == rank)
