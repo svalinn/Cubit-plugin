@@ -9,7 +9,7 @@ endif
 noinst_LTLIBRARIES = libmoabio.la 
 libmoabio_la_LIBADD = $(NETCDF_LIBS) $(PNETCDF_LIBS) $(CGNS_LIBS) $(HDF5_LIBS) 
 
-AM_CPPFLAGS += -DIS_BUILDING_MB \
+AM_CPPFLAGS  = -DIS_BUILDING_MB \
                -DLOCDIR=src/io/ \
                -I..  -I$(srcdir)/.. -I$(srcdir)/../moab -I$(srcdir)/../parallel
 
