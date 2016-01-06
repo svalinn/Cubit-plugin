@@ -3177,7 +3177,7 @@ void WriteHDF5::print_times(const double* t) const
             << "  create file:       " << t[CREATE_TIME] << std::endl
             << "    create nodes:    " << t[CREATE_NODE_TIME] << std::endl
             << "    negotiate types: " << t[NEGOTIATE_TYPES_TIME] << std::endl
-            << "    craete elem:     " << t[CREATE_ELEM_TIME] << std::endl
+            << "    create elem:     " << t[CREATE_ELEM_TIME] << std::endl
             << "    file id exch:    " << t[FILEID_EXCHANGE_TIME] << std::endl
             << "    create adj:      " << t[CREATE_ADJ_TIME] << std::endl
             << "    create set:      " << t[CREATE_SET_TIME] << std::endl
