@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Navigation version="1.1">
+  <!--My root navigation node (button)-->
+  <NavigationNode name="MyRootNodeName" marker="MyRootNode">
+    <Label>MyRootNodeName</Label>
+    <ToolTip></ToolTip>
+    <Icon url=""/>
+  </NavigationNode>
+
+  <!--Add nodes below my root node-->
+  <NavigationReference path="MyRootNodeName">
+    <NavigationNode name="MySecondLevelNode1Name" marker="MySecondLevelNode1">
+      <Label>MySecondLevelNode1Name</Label>
+      <ToolTip></ToolTip>
+      <Icon url=""/>
+    </NavigationNode>
+    <NavigationNode name="MySecondLevelNode2Name" marker="MySecondLevelNode2">
+      <Label>MySecondLevelNode2Name</Label>
+      <ToolTip></ToolTip>
+      <Icon url=""/>
+    </NavigationNode>
+  </NavigationReference>
+</Navigation>
