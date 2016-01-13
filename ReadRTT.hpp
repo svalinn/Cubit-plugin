@@ -1,35 +1,35 @@
-/**                                                       
- * MOAB, a Mesh-Oriented datABase, is a software component for creating,  
- * storing and accessing finite element mesh data.   
- *                                         
- * Copyright 2004 Sandia Corporation.  Under the terms of Contract        
- * DE-AC04-94AL85000 with Sandia Coroporation, the U.S. Government    
- * retains certain rights in this software.      
- *                    
- * This library is free software; you can redistribute it and/or     
- * modify it under the terms of the GNU Lesser General Public    
- * License as published by the Free Software Foundation; either       
- * version 2.1 of the License, or (at your option) any later version.     
- *                     
- */                 
-                         
-//-------------------------------------------------------------------------    
-// Filename      : ReadRTT.hpp                        
-//                                
+/**
+ * MOAB, a Mesh-Oriented datABase, is a software component for creating,
+ * storing and accessing finite element mesh data.
+ *
+ * Copyright 2004 Sandia Corporation.  Under the terms of Contract
+ * DE-AC04-94AL85000 with Sandia Coroporation, the U.S. Government
+ * retains certain rights in this software.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ */
+
+//-------------------------------------------------------------------------
+// Filename      : ReadRTT.hpp
+//
 // Purpose       : RTT file reader
-//                                             
+//
 // Creator       : Andrew Davis
-//                                   
-// Date          : 02/2014                
-//                                                  
-//-------------------------------------------------------------------------     
-                                    
-#ifndef READRTT_HPP                     
-#define READRTT_HPP              
-                                     
-#ifndef IS_BUILDING_MB                   
+//
+// Date          : 02/2014
+//
+//-------------------------------------------------------------------------
+
+#ifndef READRTT_HPP
+#define READRTT_HPP
+
+#ifndef IS_BUILDING_MB
   #error "ReadRTT.hpp isn't supposed to be included into an application"
-#endif   
+#endif
 
 #include <iostream>
 #include <fstream>
@@ -93,7 +93,7 @@ class ReadRTT : public ReaderIface
 public:
   // factory method
   static ReaderIface* factory( Interface* );
-  
+
   ErrorCode load_file( const char* file_name,
                        const EntityHandle* file_set,
                        const FileOptions& opts,
@@ -112,13 +112,13 @@ public:
                              const SubsetList* subset_list = 0 );
 
 protected:
-  
-private:  
+
+private:
   // read mesh interface
   ReadUtilIface* readMeshIface;
   // Moab Interface
   Interface* MBI;
-  // geom tool instance 
+  // geom tool instance
   GeomTopoTool* myGeomTool;
 
   ErrorCode setup_basic_tags();
