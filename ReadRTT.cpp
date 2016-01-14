@@ -119,7 +119,7 @@ ErrorCode ReadRTT::load_file(const char                      *filename,
   file = fopen (filename,"r");
   if(file == NULL) return MB_FILE_DOES_NOT_EXIST;
   // otherwise close the file
-  file.close();
+  fclose(file);
 
   // read the side_flag data
   std::vector<side> side_data;
