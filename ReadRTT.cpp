@@ -114,18 +114,13 @@ ErrorCode ReadRTT::load_file(const char                      *filename,
     return MB_UNSUPPORTED_OPERATION;
   }
 
-  // file ok?
+  // test to see if file exists
   FILE *file = NULL;
   file = fopen (filename,"r");
   if(file == NULL) return MB_FILE_DOES_NOT_EXIST;
-  /*
-  if (FILE *file = fopen(filename, "r")) {
-    fclose(file);
-  } else {
-    return MB_FILE_DOES_NOT_EXIST;
-  }
-  FILE *file = fopen(filename, "r");
-  */
+  // otherwise close the file
+  file.close();
+
   // read the side_flag data
   std::vector<side> side_data;
   rval = ReadRTT::read_sides(filename,side_data);
@@ -202,12 +197,12 @@ ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
       // if we are a surface
       if(dim == 2 ) {
         // tag the id onto the surface meshset
-     	  rval = MBI->tag_set_data( id_tag, &handle, 1, &side_data[i].id );
+	rval = MBI->tag_set_data( id_tag, &handle, 1, &side_data[i].id );
         // inesert entity into the map
-	      surface_map[side_data[i].id]=handle;
+	surface_map[side_data[i].id]=handle;
       } else {
         // otherwise we set the volume tag data, loop is only 2 & 3 dim
-	      rval = MBI->tag_set_data( id_tag, &handle, 1, &cell_data[i].id );
+	rval = MBI->tag_set_data( id_tag, &handle, 1, &cell_data[i].id );
       }
       // if fail
       if (MB_SUCCESS != rval)	return rval;
@@ -216,7 +211,7 @@ ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
       if (MB_SUCCESS != rval)	return rval;
     }
   }
-
+  
   // generate parent child links
   // best to loop over the surfaces and assign them to volumes, we can then assign facets to
   // to each surface
@@ -278,8 +273,8 @@ ErrorCode ReadRTT::build_moab(std::vector<node> node_data,
     facet tmp = *it_f;
     // get the nodes for the triangle
     EntityHandle tri_nodes[3]={mb_coords[tmp.connectivity[0]-1],
-		        	                 mb_coords[tmp.connectivity[1]-1],
-			                         mb_coords[tmp.connectivity[2]-1]};
+			       mb_coords[tmp.connectivity[1]-1],
+			       mb_coords[tmp.connectivity[2]-1]};
     // create a triangle element
     rval = MBI->create_element(MBTRI,tri_nodes,3,triangle);
     // tag in side id on the triangle
@@ -340,30 +335,24 @@ ErrorCode ReadRTT::read_sides(const char* filename, std::vector<side> &side_data
   std::string line; // the current line being read
   std::ifstream input_file (filename); // filestream for rttfile
   // file ok?
-  if ( !input_file.good() )
-    {
-      std::cout << "Problems reading file = " << filename << std::endl;
-      return MB_FAILURE;
-    }
+  if ( !input_file.good() ) {
+    std::cout << "Problems reading file = " << filename << std::endl;
+    return MB_FAILURE;
+  }
   // if it works
-  if (input_file.is_open())
-    {
-      while ( std::getline (input_file,line) )
-	{
-	  if(line.compare("  2 FACES\0") == 0)
-	    {
-	      // read lines until find end nodes
-	      while( std::getline( input_file,line))
-		{
-		  if(line.compare("end_side_flags\0") == 0)
-		    break;
-		  side data = ReadRTT::get_side_data(line);
-		  side_data.push_back(data);
-		}
-	    }
+  if (input_file.is_open()) {
+    while ( std::getline (input_file,line) ) {
+      if(line.compare("  2 FACES\0") == 0) {
+	// read lines until find end nodes
+	while( std::getline( input_file,line)) {
+	  if(line.compare("end_side_flags\0") == 0) break;
+	  side data = ReadRTT::get_side_data(line);
+	  side_data.push_back(data);
 	}
-      input_file.close();
+      }
     }
+    input_file.close();
+  }
   if(side_data.size() == 0) return MB_FAILURE;
   return MB_SUCCESS;
 }
@@ -376,22 +365,22 @@ ErrorCode ReadRTT::read_sides(const char* filename, std::vector<side> &side_data
   std::ifstream input_file (filename); // filestream for rttfile
   // file ok?
   if ( !input_file.good() ) {
-      std::cout << "Problems reading file = " << filename << std::endl;
-      return MB_FAILURE;
+    std::cout << "Problems reading file = " << filename << std::endl;
+    return MB_FAILURE;
   }
   // if it works
   if (input_file.is_open()) {
-      while ( std::getline (input_file,line)) {
-  	    if(line.compare("  1 REGIONS\0") == 0) {
-	      // read lines until find end nodes
-	        while( std::getline( input_file,line)) {
-		        if(line.compare("end_cell_flags\0") == 0) break;
-		        cell data = ReadRTT::get_cell_data(line);
-		        cell_data.push_back(data);
-          }
-        }
+    while ( std::getline (input_file,line)) {
+      if(line.compare("  1 REGIONS\0") == 0) {
+	// read lines until find end nodes
+	while( std::getline( input_file,line)) {
+	  if(line.compare("end_cell_flags\0") == 0) break;
+	  cell data = ReadRTT::get_cell_data(line);
+	  cell_data.push_back(data);
+	}
+      }
     }
-  input_file.close();
+    input_file.close();
   }
   if(cell_data.size() == 0) return MB_FAILURE;
   return MB_SUCCESS;
@@ -405,24 +394,24 @@ ErrorCode ReadRTT::read_nodes(const char* filename, std::vector<node> &node_data
   std::ifstream input_file (filename); // filestream for rttfile
   // file ok?
   if ( !input_file.good() ) {
-      std::cout << "Problems reading file = " << filename << std::endl;
-      return MB_FAILURE;
+    std::cout << "Problems reading file = " << filename << std::endl;
+    return MB_FAILURE;
   }
-
+  
   // if it works
   if (input_file.is_open()) {
-      while ( std::getline (input_file,line) ) {
-	      if(line.compare("nodes\0") == 0) {
-	        // read lines until find end nodes
-	        while( std::getline( input_file,line)) {
-		        if(line.compare("end_nodes\0") == 0) break;
-      		  node data = ReadRTT::get_node_data(line);
-	      	  node_data.push_back(data);
-          }
-        }
+    while ( std::getline (input_file,line) ) {
+      if(line.compare("nodes\0") == 0) {
+	// read lines until find end nodes
+	while( std::getline( input_file,line)) {
+	  if(line.compare("end_nodes\0") == 0) break;
+	  node data = ReadRTT::get_node_data(line);
+	  node_data.push_back(data);
+	}
       }
-      input_file.close();
     }
+    input_file.close();
+  }
   if(node_data.size() == 0) return MB_FAILURE;
   return MB_SUCCESS;
 }
@@ -435,19 +424,19 @@ ErrorCode ReadRTT::read_facets(const char* filename, std::vector<facet> &facet_d
   std::ifstream input_file (filename); // filestream for rttfile
   // file ok?
   if ( !input_file.good() ) {
-      std::cout << "Problems reading file = " << filename << std::endl;
+    std::cout << "Problems reading file = " << filename << std::endl;
       return MB_FAILURE;
   }
-
+  
   // if it works
   if (input_file.is_open()) {
     while ( std::getline (input_file,line) ) {
-	    if(line.compare("sides\0") == 0) {
-	      // read lines until find end nodes
-	      while( std::getline( input_file,line)) {
-		      if(line.compare("end_sides\0") == 0) break;
-		      facet data = ReadRTT::get_facet_data(line);
-		      facet_data.push_back(data);
+      if(line.compare("sides\0") == 0) {
+	// read lines until find end nodes
+	while( std::getline( input_file,line)) {
+	  if(line.compare("end_sides\0") == 0) break;
+	  facet data = ReadRTT::get_facet_data(line);
+	  facet_data.push_back(data);
         }
       }
     }
@@ -470,18 +459,18 @@ ErrorCode ReadRTT::read_tets(const char* filename, std::vector<tet> &tet_data ){
   }
   // if it works
   if (input_file.is_open()) {
-      while ( std::getline (input_file,line) ) {
-	      if(line.compare("cells\0") == 0)  {
-	        // read lines until find end nodes
-	        while( std::getline( input_file,line))  {
-		        if(line.compare("end_cells\0") == 0) break;
-		        tet data = ReadRTT::get_tet_data(line);
-		        tet_data.push_back(data);
-          }
-        }
+    while ( std::getline (input_file,line) ) {
+      if(line.compare("cells\0") == 0)  {
+	// read lines until find end nodes
+	while( std::getline( input_file,line))  {
+	  if(line.compare("end_cells\0") == 0) break;
+	  tet data = ReadRTT::get_tet_data(line);
+	  tet_data.push_back(data);
+	}
       }
-    input_file.close();
     }
+    input_file.close();
+  }
   if(tet_data.size() == 0) return MB_FAILURE;
   return MB_SUCCESS;
 }
@@ -651,19 +640,19 @@ void ReadRTT::generate_parent_child_links(int num_ents[4],std::vector<EntityHand
 
       // loop over tets looking for matching name
       for ( int j = 0 ; j < num_ents[3] ; j++ ) {
-	     // if match found
-	     if(cell_data[j].name.compare(parent_name) == 0) {
-	       EntityHandle cell_handle = entity_map[3][j];
-	      // parent
-	      rval = MBI->add_parent_child(cell_handle,surf_handle);
-        if (rval != MB_SUCCESS) {
+	// if match found
+	if(cell_data[j].name.compare(parent_name) == 0) {
+	  EntityHandle cell_handle = entity_map[3][j];
+	  // parent
+	  rval = MBI->add_parent_child(cell_handle,surf_handle);
+	  if (rval != MB_SUCCESS) {
             std::cerr << "Failed to add parent child relationship" << std::endl;
-        }
+	  }
+	}
       }
     }
   }
-}
-return;
+  return;
 }
 
 /*
@@ -683,21 +672,21 @@ void ReadRTT::set_surface_senses(int num_ents[4], std::vector<EntityHandle> enti
       parent_name = parent_name.substr(0,pos);
       // loop over tets looking for matching name
       for ( int j = 0 ; j < num_ents[3] ; j++ ) {
-	     // if match found
-	    if(cell_data[j].name.compare(parent_name) == 0) {
-	      EntityHandle cell_handle = entity_map[3][j];
-	      // in rtt mesh +represents the inside and -represents outside
-	      // in moab reverse is outside and forward is inside
-	      if( side_data[i].senses[shared] == 1 )
-          rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_FORWARD);
-	      else if ( side_data[i].senses[shared] == -1 )
-	        rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_REVERSE);
-	      else
-	        rval = myGeomTool->set_sense(surf_handle,NULL,SENSE_REVERSE);
-        if(rval != MB_SUCCESS ) {
+	// if match found
+	if(cell_data[j].name.compare(parent_name) == 0) {
+	  EntityHandle cell_handle = entity_map[3][j];
+	  // in rtt mesh +represents the inside and -represents outside
+	  // in moab reverse is outside and forward is inside
+	  if( side_data[i].senses[shared] == 1 )
+	    rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_FORWARD);
+	  else if ( side_data[i].senses[shared] == -1 )
+	    rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_REVERSE);
+	  else
+	    rval = myGeomTool->set_sense(surf_handle,NULL,SENSE_REVERSE);
+	  if(rval != MB_SUCCESS ) {
             std::cerr << "Failed to set sense appropriately" << std::endl;
-        }
-      }
+	  }
+	}
       }
     }
   }

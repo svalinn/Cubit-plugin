@@ -94,6 +94,7 @@ public:
   // factory method
   static ReaderIface* factory( Interface* );
 
+  // generic overloaded core -> load_file
   ErrorCode load_file( const char* file_name,
                        const EntityHandle* file_set,
                        const FileOptions& opts,
@@ -105,6 +106,7 @@ public:
   // destructor
   virtual ~ReadRTT();
 
+  // implementation empty
   ErrorCode read_tag_values( const char* file_name,
                              const char* tag_name,
                              const FileOptions& opts,
@@ -113,22 +115,48 @@ public:
 
 protected:
 
+// private functions
 private:
-  // read mesh interface
-  ReadUtilIface* readMeshIface;
-  // Moab Interface
-  Interface* MBI;
-  // geom tool instance
-  GeomTopoTool* myGeomTool;
-
-  ErrorCode setup_basic_tags();
-
+  /**
+   * generates the topology of the problem from the already read input data, loops over the 2 and 3 dimension macrodata that
+   * exist from the rtt file, sides = dagmc surfaces, cells = dagmc cells, creates a meshset for each surface and tags with
+   * the id number, and similarly makes a meshset for dagmc cells and tags with the id number. The surfaces are added to the s
+   * surface map, where the key is the surface ID number (1->N) and (cells and surfaces are added to an dimesional entity map
+   * stored in the class
+   *
+   * @param side_data, vector of side data
+   * @param cell_data, vector of vector of cell data
+   * @param surface_map, reference to the surface map of data
+   *
+   */
   ErrorCode generate_topology(std::vector<side> side_data,
 			      std::vector<cell> cell_data,
 			      std::map <int,EntityHandle> &surface_map);
-
+  /**
+   * Generate parent child links to create DAGMC like structure of surface meshsets being children
+   * of parent cell meshsets. By looping over the surfaces (1->N), look in the description of the 
+   * cells that are shared by that surface, and then make the surface the child of the parent volume.
+   * The appropriate sense data will be set later
+   *
+   * @param num_ents[4], array containing the number of surfaces, cells, groups etc
+   * @param entity_map[4], vector of maps containing data by dimension
+   * @param side_data, vector of all the side data in the problem
+   * @param cell_data, vector of the cell data in the problem
+   *
+   */
   void generate_parent_child_links(int num_ents[4],std::vector<EntityHandle> entity_map[4],
 				   std::vector<side> side_data, std::vector<cell> cell_data);
+  /**
+   * Sets the appropriate surface senses for each surface in the problem. By looping through all the 
+   * surfaces, we determine from the side_data vector, the volume id's that are shared, then using 1 to mean
+   * +ve sense and -1 to mean -ve sense wrt the volume.
+   *
+   * @param num_ents[4], array containing the number of surfaces, cells, groups etc
+   * @param entity_map[4], vector of maps containing data by dimension
+   * @param side_data, vector of all the side data in the problem
+   * @param cell_data, vector of the cell data in the problem
+   *
+   */  
   void set_surface_senses(int num_ents[4], std::vector<EntityHandle> entity_map[4],
 			  std::vector<side> side_data, std::vector<cell> cell_data);
 
@@ -151,25 +179,123 @@ private:
    */
   EntityHandle create_group(std::string group_name, int id);
 
-
+  /**
+   * Builds the full MOAB representation of the data, making vertices from coordinates, triangles from vertices
+   * and tets from the same vertices. Tags appropriate to each dataset collection are applied, triangles are 
+   * tagged with the surface id and side id they belong to, as well as tagging the surface with the same data. Tets
+   * are similarly tagged only with the Material number
+   *
+   * @param node_data the node data
+   * @param facet_data, the triangles in the problem
+   * @param tet_data, the tets in the problem
+   * @param surface_map, the map of surface meshset and id numbers 
+   * @return error code
+   */
   ErrorCode build_moab(std::vector<node> node_data,
 		       std::vector<facet> facet_data,
 		       std::vector<tet> tet_data,
 		       std::map <int,EntityHandle> surface_map);
 
+  /**
+   * Reads the full set of side data from the file
+   *
+   * @param filename, the file to read all the side data from
+   * @param side data, a vector containing all the read side data
+   * @return error code
+   */
   ErrorCode read_sides(const char* filename, std::vector<side> &side_data);
+
+  /**
+   * Reads the full set of cell data from the file
+   *
+   * @param filename, the file to read all the side data from
+   * @param cell data, a vector containing all the read cell data
+   * @return error code
+   */
   ErrorCode read_cells(const char* filename, std::vector<cell> &cell_data);
+
+  /**
+   * Reads the full set of node data from the file
+   *
+   * @param filename, the file to read all the side data from
+   * @param node data, a vector containing all the read node data
+   * @return error code
+   */
   ErrorCode read_nodes(const char* filename, std::vector<node> &node_data);
+  
+  /**
+   * Reads the full set of facet data from the file
+   *
+   * @param filename, the file to read all the side data from
+   * @param facet data, a vector containing all the read facet data
+   * @return error code
+   */
   ErrorCode read_facets(const char* filename, std::vector<facet> &facet_data);
+  
+  /**
+   * Reads the full set of tet data from the file
+   *
+   * @param filename, the file to read all the side data from
+   * @param tet data, a vector containing all the read tet data
+   * @return error code
+   */
   ErrorCode read_tets(const char* filename, std::vector<tet> &tet_data);
 
+  /**
+   * Reads a single atomic cell data string and populates a cell struct 
+   *
+   * @param celldata, a string of read data and 
+   * @return cell, the propulated cell struct
+   */
   cell get_cell_data(std::string celldata);
+
+  /**
+   * Reads a single atomic side data string and populates a side struct 
+   *
+   * @param sidedata, a string of read data and 
+   * @return side, the propulated side struct
+   */  
   side get_side_data(std::string sidedata);
+  
+  /**
+   * Reads a single atomic node data string and populates a node struct 
+   *
+   * @param sidedata, a string of read data and 
+   * @return node, the propulated node struct
+   */  
   node get_node_data(std::string nodedata);
+
+  /**
+   * Reads a single atomic facet data string and populates a facet struct 
+   *
+   * @param facetdata, a string of facet data and 
+   * @return facet, the propulated facet struct
+   */  
   facet get_facet_data(std::string facetdata);
+
+  /**
+   * Reads a single atomic tet data string and populates a tet struct 
+   *
+   * @param tetdata, a string of tet data and 
+   * @return tet, the propulated tet struct
+   */  
   tet get_tet_data(std::string tetdata);
 
+  /**
+   * Splits a string into a vecotr of substrings delimited by split_char
+   *
+   * @param string_to_split, the string that needs splitting into chunks 
+   * @param split_char, the character to split the string with
+   * @return a vector of strings that are delimited by split_char
+   */  
   std::vector<std::string> split_string(std::string string_to_split, char split_char);
+
+  /**
+   * Splits an Attila cellname and populates a boundary structure
+   *
+   * @param attila_cellname, string containing the boundary information
+   * @return a boundary object
+   */ 
   boundary split_name(std::string atilla_cellname);
 
   /**
@@ -181,7 +307,15 @@ private:
   int count_sides(std::vector<side> side_data,
 		  std::vector<int> &surface_numbers);
 
-
+  // Class Member variables
+  private:
+  // read mesh interface
+  ReadUtilIface* readMeshIface;
+  // Moab Interface
+  Interface* MBI;
+  // geom tool instance
+  GeomTopoTool* myGeomTool;
+  // tags used in the problem
   Tag geom_tag,id_tag,name_tag,category_tag,faceting_tol_tag;
 };
 
