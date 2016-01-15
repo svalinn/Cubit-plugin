@@ -53,7 +53,6 @@ const char* const geom_name[] = { "Vertex\0", "Curve\0", "Surface\0", "Volume\0"
 // Geometric Categories
 const char geom_category[][CATEGORY_TAG_SIZE] = 
                   { "Vertex\0","Curve\0","Surface\0","Volume\0","Group\0"};
-<<<<<<< HEAD
 
 // Constructor
 ReadOBJ::ReadOBJ(Interface* impl)
@@ -108,56 +107,6 @@ ReadOBJ::~ReadOBJ()
     }
 
   delete myGeomTool;
-=======
-// object_id is the integer ID number for each volume/surface
-int object_id = 0;
-
-// constructor
-ReadOBJ::ReadOBJ(Interface* impl)
-  : MBI(impl),geom_tag(0), id_tag(0), name_tag(0), category_tag(0),
-    faceting_tol_tag(0), geometry_resabs_tag(0), obj_name_tag(0), sense_tag(0) {
-    assert(NULL != impl);
-    MBI->query_interface(readMeshIface);
-    myGeomTool = new GeomTopoTool(impl);
-    assert(NULL != readMeshIface);
-    
-    // this section copied from ReadCGM initalization
-    int negone = -1, zero = 0;
-    ErrorCode rval;
-    rval = MBI->tag_get_handle( GEOM_DIMENSION_TAG_NAME, 1, MB_TYPE_INTEGER,
-				geom_tag, MB_TAG_SPARSE|MB_TAG_CREAT, &negone);
-    assert(!rval);
-    rval = MBI->tag_get_handle( GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
-				id_tag, MB_TAG_DENSE|MB_TAG_CREAT, &zero);
-    assert(!rval);
-    rval = MBI->tag_get_handle( NAME_TAG_NAME, NAME_TAG_SIZE, MB_TYPE_OPAQUE,
-				name_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
-    assert(!rval);
-    rval = MBI->tag_get_handle( CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, MB_TYPE_OPAQUE,
-				category_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
-    assert(!rval);
-    
-    rval = MBI->tag_get_handle( "OBJECT_NAME", 32, MB_TYPE_OPAQUE,
-				obj_name_tag, MB_TAG_SPARSE|MB_TAG_CREAT );
-    assert(!rval);
-    rval = MBI->tag_get_handle("FACETING_TOL", 1, MB_TYPE_DOUBLE, faceting_tol_tag,
-                                 MB_TAG_SPARSE|MB_TAG_CREAT );
-    assert(!rval);
-    rval = MBI->tag_get_handle("GEOMETRY_RESABS", 1, MB_TYPE_DOUBLE, 
-                                 geometry_resabs_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
-    assert(!rval);
-    rval = MBI->tag_get_handle("GEOM_SENSE_2", 2, MB_TYPE_HANDLE, sense_tag, 
-			       MB_TAG_SPARSE|MB_TAG_CREAT );
-    
-}
-
-// destructor
-ReadOBJ::~ReadOBJ() {
-  if (readMeshIface) {
-    MBI->release_interface(readMeshIface);
-    readMeshIface = 0;
-  }
->>>>>>> Adding ReadOBJ capability copied from cadangelo generate_hierarchy
 }
 
 ErrorCode ReadOBJ::read_tag_values( const char*        /*file_name*/,
@@ -205,6 +154,8 @@ ErrorCode ReadOBJ::load_file(const char *filename,
       std::string object_name;     
       std::vector<EntityHandle> vertex_list;
       
+      bool stored_first_vertex = false;
+
       while ( std::getline (input_file,line) ) 
         {
           // Can not tolerate blank lines in file
