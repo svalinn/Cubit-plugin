@@ -25,8 +25,6 @@
 
 #include "moab/GeomTopoTool.hpp"
 
-// #define DAG DagMC::create_instance(MBI)
-
 namespace moab {
   ReaderIface* ReadOBJ::factory( Interface* iface ){
   return new ReadOBJ( iface );
@@ -322,11 +320,6 @@ ErrorCode ReadOBJ::create_new_object ( std::string object_name,
                               object_name.c_str());
     rval = MBI->tag_set_data( id_tag, &vol_meshset, 1, &(curr_object));
     
-    // add tags
-    // GEOM_TAG =
-    // NAME_TAG =
-    // CATEGROY_TAG = 
-
     return MB_SUCCESS;
 }
 
@@ -354,14 +347,6 @@ ErrorCode ReadOBJ::create_new_vertex (std::vector<std::string> v_tokens,
   return rval;
 }
 
-/* find_point
-/
-ErrorCode ReadOBJ::find_point (int object_id, 
-                               std::vector<EntityHandle> point_on_surf_list, 
-                               std::vector<double> vertex_coords )
-{
-  ErrorCode rval;
-*/  
 
 /* the create_new_face function converts a vector
    of tokens ( f conn1 conn2 conn3 (conn4) ) 
@@ -403,10 +388,6 @@ ErrorCode ReadOBJ::create_new_face (std::vector<std::string> f_tokens,
   else 
     {
       std::cout << "Face is not a Tri" << std::endl;
-     /*  for (int j = 0;  j < f_tokens.size(); j++)
-       std::cout << f_tokens[j] << " ";
-       std::cout << std::endl;
-      */
       rval = MB_FAILURE;
     }
 
@@ -536,29 +517,6 @@ ErrorCode ReadOBJ::create_tri_faces( Range quad_vert_eh,
   return rval;
 }
 
-/*
-ErrorCode ReadOBJ::get_triangle_adjacencies( EntityHandle triangle, int &count_2, int &count_4)
-{
-   ErrorCode rval;
-   int num_adjacencies;
-   Range adjacencies;
-  
-   rval = MBI->get_adjacencies( &(triangle), 1, 2, true, adjacencies);
-   
-   num_adjacencies = adjacencies.size(); 
-  
-   std::cout << "type : " << MBI->type_from_handle(*adjacencies.begin());  
-   if ( num_adjacencies == 1)
-   {
-     count_2++;//std::cout<< "num adj!=3   " << num_adjacencies << std::endl;
-   }
-   if (num_adjacencies == 3)
-   {
-     count_4++;
-   }
-   return rval;    
-}
-*/
 
 } // namespace moab
   
