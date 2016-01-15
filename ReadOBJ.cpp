@@ -91,15 +91,6 @@ ReadOBJ::~ReadOBJ() {
   }
 }
 
-ErrorCode ReadOBJ::read_tag_values( const char*        /*file_name*/,
-                                    const char*        /*tag_name*/,
-                                    const FileOptions& /*opts*/,
-                                    std::vector<int>&  /*tag_values_out*/,
-                                    const SubsetList*  /*subset_list*/ )
-{
-  return MB_NOT_IMPLEMENTED;
-}
-
 // load the file as called by the Interface function
 ErrorCode ReadOBJ::load_file(const char                      *filename, 
                              const EntityHandle            *, 
@@ -269,7 +260,6 @@ ErrorCode ReadOBJ::create_new_object ( std::string object_name,
   rval = MBI->create_meshset( MESHSET_SET, object_meshset );
   if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to generate object mesh set.");
 
-
   // Sets entity set name
   rval = MBI->tag_set_data( name_tag, &object_meshset, 1,
                             object_name.c_str());
@@ -335,15 +325,13 @@ ErrorCode ReadOBJ::create_new_vertex (std::vector<std::string> v_tokens,
 {
   ErrorCode rval;
   vertex next_vertex;
-  int  i = 0;
 
-  for (i = 1; i < 4; i++)
-    {
-      next_vertex.coord[i-1] = atof(v_tokens[i].c_str());
-    }
+  for (int i = 1; i < 4; i++)
+    next_vertex.coord[i-1] = atof(v_tokens[i].c_str());
 
   rval = MBI->create_vertex( next_vertex.coord, vertex_eh ); 
-  
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Unbale to create vertex.");
+
   return rval;
 }
 
@@ -359,13 +347,12 @@ ErrorCode ReadOBJ::create_new_face (std::vector<std::string> f_tokens,
                                        EntityHandle &face_eh) 
 {
   face next_face;
-  int  i = 0;
   ErrorCode rval;
 
   // If there are 4 tokens, it is a tri element (f v1 v2 v3)
   if ( f_tokens.size() == 4 )
     {
-      for (i = 1; i < 4; i++)
+      for (int i = 1; i < 4; i++)
         {
           int vertex_id = atoi(f_tokens[i].c_str());
 
@@ -382,19 +369,13 @@ ErrorCode ReadOBJ::create_new_face (std::vector<std::string> f_tokens,
         }
 
       rval = MBI->create_element(MBTRI, next_face.conn, 3, face_eh);
+      if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Unable to create new face.");
 
     }
 
   else 
     {
-      std::cout << "Face is not a Tri" << std::endl;
-      rval = MB_FAILURE;
-    }
-
-
-  if ( MB_SUCCESS != rval )
-    {
-      std::cerr << "Failed to create element" << std::endl;
+      MB_SET_ERR(MB_FAILURE,"Face is not a Tri.");
     }
 
   return rval;
@@ -409,12 +390,11 @@ ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
 {
   ErrorCode rval;
   Range quad_vert_eh;
-  int i; 
 
   if ( f_tokens.size() == 5 ) // indicates quad face
     {
       // loop over quad connectivity getting vertex EHs 
-      for (i = 1; i < 5; i++)
+      for (int i = 1; i < 5; i++)
         {
           int vertex_id = atoi(f_tokens[i].c_str());
           std::size_t slash = f_tokens[i].find('/');
@@ -429,17 +409,15 @@ ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
 
       // create center vertex
       rval = create_center_vertex( quad_vert_eh, new_vertex_eh);
-      if ( rval == MB_SUCCESS ) 
-        {
-           // create 4 new tri faces
-           rval = create_tri_faces( quad_vert_eh, new_vertex_eh, face_eh);
-        }
+      if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create center vertex for splitting quad.");
+      
+      // create 4 new tri faces
+      rval = create_tri_faces( quad_vert_eh, new_vertex_eh, face_eh);
+      if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create triangles when splitting quad.");
     }
   else 
     {
-      // must be a line, print this message.
-      std::cout << "Entity type Line Ignored" << std::endl;
-      return MB_FAILURE;
+      MB_SET_ERR(MB_FAILURE,"Entity type line ignored.");
     }
  
   return rval;
@@ -450,13 +428,13 @@ ErrorCode ReadOBJ::create_center_vertex( Range quad_vert_eh,
                                          EntityHandle &new_vertex_eh)
 {
   ErrorCode rval;
-  int i;
   double center_coords[3]={0.0, 0.0, 0.0}; //vertex coords at center of quad  
   double coords[12]; //result from get_coords-- x,y,z for all 4 vertices
 
   // find quad vertex coordinates
   rval = MBI->get_coords(quad_vert_eh,coords);
-  for (i = 0; i < 4; i++)
+
+  for (int i = 0; i < 4; i++)
     {
      // get the vertex coords and keep running total of x, y, and z
       center_coords[0] += coords[3*i];
@@ -471,6 +449,7 @@ ErrorCode ReadOBJ::create_center_vertex( Range quad_vert_eh,
 
   // create new vertex
   rval = MBI->create_vertex( center_coords, new_vertex_eh );
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create center vertex for splitting quad.");
 
   return rval;
 }
@@ -480,38 +459,22 @@ ErrorCode ReadOBJ::create_tri_faces( Range quad_vert_eh,
                                      Range &face_eh )
 {
   ErrorCode rval;
-  EntityHandle connectivity[3]={0, 0, 0};
-  int i;
+  EntityHandle connectivity[3];
 
-  for (i = 0; i < 4 ; i++)
+  for (int i = 0; i < 4 ; i++)
     {
-      if (i == 3)
-        {
-          connectivity[0] = quad_vert_eh[3];
-          connectivity[1] = quad_vert_eh[0];
-        }
-      else
-        {
-          connectivity[0] = quad_vert_eh[i];
-          connectivity[1] = quad_vert_eh[i+1];
-        }
-      
+      connectivity[0] = quad_vert_eh[i];
+      connectivity[1] = quad_vert_eh[(i+1)%4]; // last tri has quad's first vertex here
       // the center quad vertex is always the last vertex of connectivity for 
       // the newly created tri faces        
       connectivity[2] = center_vertex_eh;
  
       EntityHandle new_face; // this is the EH for the newly created tri face
       rval = MBI->create_element(MBTRI, connectivity, 3, new_face);
+      if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create tri face from quad.");
              
-      if (rval == MB_SUCCESS)
-        { 
-         // append new face EH to face_eh vector
-          face_eh.insert(new_face);
-        }
-      else
-        {
-          std::cout << "Failed to create tri face from quad" << std::endl;
-        }
+      // append new face EH to face_eh vector
+      face_eh.insert(new_face);
     }
  
   return rval;
