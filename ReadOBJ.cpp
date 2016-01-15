@@ -91,6 +91,15 @@ ReadOBJ::~ReadOBJ() {
   }
 }
 
+ErrorCode ReadOBJ::read_tag_values( const char*        /*file_name*/,
+                                    const char*        /*tag_name*/,
+                                    const FileOptions& /*opts*/,
+                                    std::vector<int>&  /*tag_values_out*/,
+                                    const SubsetList*  /*subset_list*/ )
+{
+  return MB_NOT_IMPLEMENTED;
+}
+
 // load the file as called by the Interface function
 ErrorCode ReadOBJ::load_file(const char                      *filename, 
                              const EntityHandle            *, 
