@@ -83,25 +83,19 @@ private:
   GeomTopoTool* myGeomTool;
 
   const char *fileName;
-  Tag geom_tag,id_tag,name_tag,category_tag,faceting_tol_tag, obj_name_tag, geometry_resabs_tag,
+  Tag geom_tag,id_tag,name_tag,category_tag,faceting_tol_tag, geometry_resabs_tag, obj_name_tag, 
     sense_tag;
   
 
   /* The tokenize function takes a string as input and splits it into
    * a vector of strings based on the delimiter
    */
-  static char* delimiters;
+  static const char* delimiters;
 
  
   void tokenize( const std::string& str, std::vector<std::string>& tokens,
                  const char* delimiters );
   
-  /* 
-   * This function will read and entire obj file given its argument
-   * filename returns error codes on failure or success.
-   */
-  ErrorCode read_obj(const char* filename);
-
   /*
    * get_name splits an object string and extracts the name
    */

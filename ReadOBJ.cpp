@@ -32,10 +32,10 @@ namespace moab {
   return new ReadOBJ( iface );
 }
 
-char* ReadOBJ::delimiters = " ";
-char* object_start_token = "o";
-char* vertex_start_token = "v";
-char* face_start_token = "f";
+const char* ReadOBJ::delimiters = " ";
+const char* object_start_token = "o";
+const char* vertex_start_token = "v";
+const char* face_start_token = "f";
 
 // Name of geometric entities
 const char* const geom_name[] = { "Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
@@ -107,37 +107,26 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
                              const EntityHandle            *, 
                              const FileOptions             &,
                              const ReaderIface::SubsetList *subset_list,
-                             const Tag*                     file_id_tag) {
+                             const Tag*                     /*file_id_tag*/) {
   ErrorCode rval;
 
   // at this time there is no support for reading a subset of the file
   if (subset_list) {
-   // readMeshIface->report_error( "Reading subset of files not supported for OBJ." );
-   std::cerr<<  "Reading subset of files not supported for OBJ." << std::endl; 
-    return MB_UNSUPPORTED_OPERATION;
+    MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for OBJ.");
   }
-  std::cout << "Reading an OBJ file" << std::endl;
   
-  rval = read_obj(filename);
-
-  return MB_SUCCESS;
-}
-
-ErrorCode ReadOBJ::read_obj(const char* filename) 
-{
   std::string line; // the current line being read
   std::ifstream input_file(filename); // filestream for OBJ file
-  std::cout << "reading the shtuff out" << std::endl;
-  ErrorCode rval;  // Moab ErrorCode returned from functions
+
   EntityHandle curr_obj_meshset;
    
   if ( !input_file.good() ) 
     {
       std::cout << "Problems reading file = " << filename 
                 <<  std::endl;
-      return MB_FAILURE;
+      return MB_FILE_DOES_NOT_EXIST;
     }
- 
+  
   // if the file can be read
   if (input_file.is_open()) 
     {
@@ -146,104 +135,94 @@ ErrorCode ReadOBJ::read_obj(const char* filename)
       std::vector<EntityHandle> point_on_surf_list; //stores list of 1st point on 
                                                     //each surface
       
+      bool stored_first_vertex = false;
+
       while ( std::getline (input_file,line) ) 
-	{
-	  // tokenize the line
+        {
+          // tokenize the line
           std::vector<std::string> tokens;
           tokenize(line,tokens,delimiters); 
-	  
-	  if( tokens[0].compare( object_start_token ) == 0)
-	    {
-	      // get name of object
-	      object_name = tokens[1];
-	      object_id++;
-	      // create new meshset for object
-	      rval = create_new_object(object_name, object_id, curr_obj_meshset);
-	      
-	      // stored_first_vertex used to keep track of first vertices in each
-	      // object
-	      bool stored_first_vertex = false;
-	    } 
-	  else if( tokens[0].compare( vertex_start_token ) == 0 )
-	    {
-	      // read vertex and return EH
-	      EntityHandle new_vertex_eh;
-	      create_new_vertex(tokens, new_vertex_eh);
-	      
-	      // add new vertex EH to list 
-	      vertex_list.push_back(new_vertex_eh);
-	      
-	      //
-	      bool stored_first_vertex;
-	      if ( stored_first_vertex == false)
-		{
-		  point_on_surf_list.push_back(new_vertex_eh);
-		  stored_first_vertex = true;
-		}
-	      
-	      
-	      // add new vertex EH to the meshset
-	      MBI->add_entities( curr_obj_meshset, 
+          
+          if( tokens[0].compare( object_start_token ) == 0)
+            {
+              // get name of object
+              object_name = tokens[1];
+              object_id++;
+              // create new meshset for object
+              rval = create_new_object(object_name, object_id, curr_obj_meshset);
+              
+              // stored_first_vertex used to keep track of first vertices in each
+              // object
+              stored_first_vertex = false;
+            } 
+          else if( tokens[0].compare( vertex_start_token ) == 0 )
+            {
+              // read vertex and return EH
+              EntityHandle new_vertex_eh;
+              create_new_vertex(tokens, new_vertex_eh);
+              
+              // add new vertex EH to list 
+              vertex_list.push_back(new_vertex_eh);
+              
+              if ( stored_first_vertex == false)
+                {
+                  point_on_surf_list.push_back(new_vertex_eh);
+                  stored_first_vertex = true;
+                }
+              
+              
+              // add new vertex EH to the meshset
+              MBI->add_entities( curr_obj_meshset, 
                                  &new_vertex_eh, 1);
-	    }
-	  else if( tokens[0].compare( face_start_token ) == 0)
-	    {
-	      // read face and return EH 
-	      EntityHandle new_face_eh ;
-	      
-	      /* faces in .obj file can have 2, 3, or 4 vertices if the face has
-	       * 3 vertices, the EH will be immediately added to the meshset.
-	       * if 2, the face is ignored. if 4, the face is split.
-	       */
-	      rval = create_new_face(tokens, vertex_list, new_face_eh);
-	      
-	      if (rval == MB_SUCCESS)
-		{
-		  // add new face EH to the meshset
-		  MBI->add_entities(curr_obj_meshset, 
-				    &new_face_eh, 1);
-		}   
-	      else // must be a quad or a line
-		{
-		  // split_quad function will create 4 new triangles from 1
-		  // quad. lines are ignored.
-		  EntityHandle new_vertex_eh; // EH for new center vertex
+            }
+          else if( tokens[0].compare( face_start_token ) == 0)
+            {
+              // read face and return EH 
+              EntityHandle new_face_eh ;
+              
+              /* faces in .obj file can have 2, 3, or 4 vertices if the face has
+               * 3 vertices, the EH will be immediately added to the meshset.
+               * if 2, the face is ignored. if 4, the face is split.
+               */
+              rval = create_new_face(tokens, vertex_list, new_face_eh);
+              
+              if (rval == MB_SUCCESS)
+                {
+                  // add new face EH to the meshset
+                  MBI->add_entities(curr_obj_meshset, 
+                                    &new_face_eh, 1);
+                }   
+              else // must be a quad or a line
+                {
+                  // split_quad function will create 4 new triangles from 1
+                  // quad. lines are ignored.
+                  EntityHandle new_vertex_eh; // EH for new center vertex
                                               //created by split_quad function
-		  Range new_faces_eh;
-		  rval = split_quad(tokens, vertex_list, new_vertex_eh,
-				    new_faces_eh);
-		  
-		  if (rval == MB_SUCCESS)
-		    {
-		      MBI->add_entities(curr_obj_meshset, new_faces_eh);
-		      MBI->add_entities(curr_obj_meshset, &new_vertex_eh,1);
-		    } 
-		  else
+                  Range new_faces_eh;
+                  rval = split_quad(tokens, vertex_list, new_vertex_eh,
+                                    new_faces_eh);
+                  
+                  if (rval == MB_SUCCESS)
+                    {
+                      MBI->add_entities(curr_obj_meshset, new_faces_eh);
+                      MBI->add_entities(curr_obj_meshset, &new_vertex_eh,1);
+                    } 
+                  else
                     std::cout << "1D entity type line removed" << std::endl;
-		}
-	      
-	    } 
-	}
+                }
+              
+            } 
+          else 
+            {
+              MB_SET_ERR(MB_FAILURE, "Invalid/unrecognized line");
+            }
+        }
       
     }
   
   input_file.close(); 
-/*  
-  Range triangles;
-  rval = MBI->get_entities_by_type( 0, MBTRI, triangles); 
-  Range::const_iterator it;
-  std::cout<< "num tris " << triangles.size() << std::endl;
-  int count_2 = 0, count_4 = 0;
-
-  for ( it = triangles.begin() ; it != triangles.end() ; ++it)
-    {
-      rval = get_triangle_adjacencies(*it, count_2, count_4);
-    } 
-  // now generate hierarchy
-  //  rval = generate_hierarchy();
-  std::cout<< "2: "  << count_2 << "   4: " << count_4 << std::endl;  
-  return MB_SUCCESS;   
-*/
+  
+  return MB_SUCCESS;
 }
 
 
@@ -283,25 +262,30 @@ void ReadOBJ::tokenize( const std::string& str,
  * that make up the object
  */
 ErrorCode ReadOBJ::create_new_object ( std::string object_name,
-                                       int object_id, 
+                                       int curr_object, 
                                        EntityHandle &object_meshset )
 {
   ErrorCode rval;
   
   // create meshset to store object
   rval = MBI->create_meshset( MESHSET_SET, object_meshset );
-  
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to generate object mesh set.");
+
+
   // Sets entity set name
- // rval = MBI->tag_set_data( name_tag, &object_meshset, 1, geom_name[2]);
- // rval = MBI->tag_set_data( obj_name_tag, &object_meshset, 1,
-//                            object_name.c_str());
   rval = MBI->tag_set_data( name_tag, &object_meshset, 1,
                             object_name.c_str());
-  rval = MBI->tag_set_data( id_tag, &object_meshset, 1, &(object_id));
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set name tag.");
+
+  rval = MBI->tag_set_data( id_tag, &object_meshset, 1, &(curr_object));
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set ID tag.");
+
   int dim = 2;
   rval = MBI->tag_set_data( geom_tag, &object_meshset, 1, &(dim));
-  rval = MBI->tag_set_data( category_tag, &object_meshset, 1, geom_category[2]);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set dim tag.");
 
+  rval = MBI->tag_set_data( category_tag, &object_meshset, 1, geom_category[2]);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set category tag.");
 
   /* Create volume entity set for surface
    * Currently, the volume meshset contains only one child--
@@ -312,41 +296,38 @@ ErrorCode ReadOBJ::create_new_object ( std::string object_name,
    */
   EntityHandle vol_meshset;
   rval = MBI->create_meshset( MESHSET_SET, vol_meshset );
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create volume mesh set.");
+
   rval = MBI->add_parent_child( vol_meshset, object_meshset );
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to add object mesh set as child of volume mesh set.");
   
   // set surface sense
-//  rval = myGeomTool->set_sense(object_meshset,vol_meshset,SENSE_FORWARD);
-//  rval = myGeomTool->set_sense(object_meshset,NULL,SENSE_REVERSE);
    EntityHandle surf_volumes[2];
 
-  //surf_volumes[0]=vol_meshset;
     surf_volumes[0]=vol_meshset;
     surf_volumes[1]=0;
-  //  surf_volumes[1]=vol_meshset;
-//  surf_volumes[1]=NULL;
 
+    rval = MBI->tag_set_data(sense_tag, &object_meshset, 1, surf_volumes);
+    
+    // Tag volume meshset with name "Volume" and give category tag
+    dim = 3;
+    rval = MBI->tag_set_data( geom_tag, &vol_meshset, 1, &(dim));
+    rval = MBI->tag_set_data( name_tag, &vol_meshset, 1, geom_name[3]);
+    rval = MBI->tag_set_data( category_tag, &vol_meshset, 1, geom_category[3]);
+    
+    /* The volume meshset is tagged with the same name as the surface meshset
+     * for each object because of the direct relation between these entities
+     */
+    rval = MBI->tag_set_data( obj_name_tag, &vol_meshset, 1,
+                              object_name.c_str());
+    rval = MBI->tag_set_data( id_tag, &vol_meshset, 1, &(curr_object));
+    
+    // add tags
+    // GEOM_TAG =
+    // NAME_TAG =
+    // CATEGROY_TAG = 
 
-  rval = MBI->tag_set_data(sense_tag, &object_meshset, 1, surf_volumes);
-
-  // Tag volume meshset with name "Volume" and give category tag
-  dim = 3;
-  rval = MBI->tag_set_data( geom_tag, &vol_meshset, 1, &(dim));
-  rval = MBI->tag_set_data( name_tag, &vol_meshset, 1, geom_name[3]);
-  rval = MBI->tag_set_data( category_tag, &vol_meshset, 1, geom_category[3]);
- 
-  /* The volume meshset is tagged with the same name as the surface meshset
-   * for each object because of the direct relation between these entities
-   */
-  rval = MBI->tag_set_data( obj_name_tag, &vol_meshset, 1,
-                            object_name.c_str());
-  rval = MBI->tag_set_data( id_tag, &vol_meshset, 1, &(object_id));
-
-  // add tags
-  // GEOM_TAG =
-  // NAME_TAG =
-  // CATEGROY_TAG = 
-
-  return MB_SUCCESS;
+    return MB_SUCCESS;
 }
 
 
@@ -466,12 +447,11 @@ ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
         }
 
       // create center vertex
-      EntityHandle center_vertex_eh; // EH of center vertex
-      rval = create_center_vertex( quad_vert_eh, center_vertex_eh);
+      rval = create_center_vertex( quad_vert_eh, new_vertex_eh);
       if ( rval == MB_SUCCESS ) 
         {
            // create 4 new tri faces
-           rval = create_tri_faces( quad_vert_eh, center_vertex_eh, face_eh);
+           rval = create_tri_faces( quad_vert_eh, new_vertex_eh, face_eh);
         }
     }
   else 
