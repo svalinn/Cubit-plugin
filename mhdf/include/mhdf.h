@@ -16,9 +16,7 @@
 #ifndef MHDF_H
 #define MHDF_H
 
-#include <H5Ipublic.h>
-
-#include "../../../moab/mhdf_public.h"
+#include "moab/mhdf_public.h"
 
 #ifdef __cplusplus
 extern "C" {
