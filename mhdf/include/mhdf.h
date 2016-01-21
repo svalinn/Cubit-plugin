@@ -373,16 +373,6 @@ mhdf_getElemName( mhdf_FileHandle file_handle,
                   char* buffer, size_t buffer_size, 
                   mhdf_Status* status );
 
-/** \brief Close the file
- * \param handle     The file to close.
- * \param status     Passed back status of API call.
- */
-void
-mhdf_closeFile( mhdf_FileHandle handle,
-                mhdf_Status* status );
-
-/**\brief Check for open handles in file
- **/
 int
 mhdf_checkOpenHandles( mhdf_FileHandle handle, mhdf_Status* status );
 
