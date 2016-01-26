@@ -1,16 +1,16 @@
 /**
  * MOAB, a Mesh-Oriented datABase, is a software component for creating,
  * storing and accessing finite element mesh data.
- * 
+ *
  * Copyright 2004 Sandia Corporation.  Under the terms of Contract
  * DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government
  * retains certain rights in this software.
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  */
 
 /**
@@ -105,7 +105,7 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
   ErrorCode result = mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, MB_TYPE_INTEGER,
                                              globalId, MB_TAG_DENSE | MB_TAG_CREAT, &zero);
   CHECK("Failed to create gid tag.");
-    
+
   result = mdbImpl->tag_get_handle("PARAMETER_COORDS", 3, MB_TYPE_DOUBLE,
                                    paramCoords, MB_TAG_DENSE | MB_TAG_CREAT);
   CHECK("Failed to create param coords tag.");
@@ -116,10 +116,11 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
   CHECK("Failed to create geom dim tag.");
 
   int n;
-  char line[1024];
+  char line[256], all_line[1024];
   int file_type;
-  n = fscanf(file_ptr, "%s %d", line, &file_type);
-  CHECKN(2);
+
+  fgets(all_line, sizeof(all_line), file_ptr);
+  if (sscanf(all_line, "%s %d", line, &file_type) != 2){ return MB_FAILURE;};
 
   if (3 == file_type) {
     result = read_parallel_info(file_ptr);
@@ -234,20 +235,20 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
 
     for (int j = 0; j < num_pts; j++) {
       switch (gent_type) {
-        case 1: 
+        case 1:
             n = fscanf(file_ptr, "%le", dum_params);
             CHECKN(1);
             result = mdbImpl->tag_set_data(paramCoords, &new_handle, 1, dum_params);
             CHECK("Failed to set param coords tag for edge.");
             break;
-        case 2: 
+        case 2:
             n = fscanf(file_ptr, "%le %le %d", dum_params, dum_params + 1, &dum_int);
             CHECKN(3);
             dum_params[2] = dum_int;
             result = mdbImpl->tag_set_data(paramCoords, &new_handle, 1, dum_params);
             CHECK("Failed to set param coords tag for edge.");
             break;
-        default: 
+        default:
             break;
       }
     }
@@ -261,7 +262,7 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
   Range shverts;
   new_faces.resize(nfaces);
   int num_bounding;
-    
+
   for (int i = 0; i < nfaces; i++) {
     n = fscanf(file_ptr, "%d", &gent_id);
     CHECKN(1);
@@ -309,19 +310,19 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
 
     for (int j = 0; j < num_pts; j++) {
       switch (gent_type) {
-        case 1: 
+        case 1:
           n = fscanf(file_ptr, "%le", dum_params); CHECKN(1);
           result = mdbImpl->tag_set_data(paramCoords, &new_faces[i], 1, dum_params);
           CHECK("Failed to set param coords tag for face.");
           break;
-        case 2: 
+        case 2:
           n = fscanf(file_ptr, "%le %le %d", dum_params, dum_params + 1, &dum_int);
           CHECKN(3);
           dum_params[2] = dum_int;
           result = mdbImpl->tag_set_data(paramCoords, &new_faces[i], 1, dum_params);
           CHECK("Failed to set param coords tag for face.");
           break;
-        default: 
+        default:
           break;
       }
     }
@@ -374,7 +375,7 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
 
     if (file_id_tag)
       regions[i] = new_handle;
-  
+
     n = fscanf(file_ptr, "%d ", &dum_int); CHECKN(1);
   } // End of reading regions
 
@@ -404,11 +405,11 @@ ErrorCode ReadSms::get_set(std::vector<EntityHandle> *sets,
       sets[set_dim].resize(set_id + 1, 0);
 
     if (!sets[set_dim][set_id]) {
-      result = mdbImpl->create_meshset(MESHSET_SET, 
+      result = mdbImpl->create_meshset(MESHSET_SET,
                                        sets[set_dim][set_id]);
       if (MB_SUCCESS != result)
         return result;
-      result = mdbImpl->tag_set_data(globalId, 
+      result = mdbImpl->tag_set_data(globalId,
                                      &sets[set_dim][set_id], 1,
                                      &set_id);
       if (MB_SUCCESS != result)
