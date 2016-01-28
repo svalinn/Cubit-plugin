@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <vector>
 #include <set>
+#include <map>
 #include <iterator>
 
 #include "moab/Interface.hpp"
@@ -239,27 +240,51 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
 {
   ErrorCode rval;
 
+
+  Range connectivity; // because we now support polyhedra, it could contain faces
+  rval = mbImpl->get_connectivity(elems, connectivity); MB_CHK_ERR(rval);
+
+  Range nodes_from_connectivity = connectivity.subset_by_type(MBVERTEX);
+  Range faces_from_connectivity = subtract(connectivity, nodes_from_connectivity); // these could be faces of polyhedra
+
   Range connected_nodes;
-  rval = mbImpl->get_connectivity(elems, connected_nodes);
-  if (MB_SUCCESS != rval)
-    return rval;
+  rval = mbImpl->get_connectivity(faces_from_connectivity, connected_nodes); MB_CHK_ERR(rval);
+  connected_nodes.merge(nodes_from_connectivity);
+
   Range free_nodes = subtract(nodes, connected_nodes);
 
   // Get and write counts
   unsigned long num_elems, num_uses;
   num_elems = num_uses = elems.size();
+
+  std::map<EntityHandle, int> sizeFieldsPolyhedra;
+
   for (Range::const_iterator i = elems.begin(); i != elems.end(); ++i) {
     EntityType type = mbImpl->type_from_handle(*i);
     if (!VtkUtil::get_vtk_type(type, CN::VerticesPerEntity(type)))
       continue;
 
-    std::vector<EntityHandle> connect;
-    rval = mbImpl->get_connectivity(&(*i), 1, connect);
 
-    if (MB_SUCCESS != rval)
-      return rval;
+    EntityHandle elem=*i;
+    const EntityHandle * connect=NULL;
+    int conn_len=0;
+    rval = mbImpl->get_connectivity(elem, connect, conn_len);MB_CHK_ERR(rval);
 
-    num_uses += connect.size();
+    num_uses += conn_len;
+    // if polyhedra, we will count the number of nodes in each face too
+    if ( TYPE_FROM_HANDLE(elem) == MBPOLYHEDRON)
+    {
+      int numFields = 1; // there will be one for number of faces; forgot about this one
+      for (int j=0; j<conn_len; j++)
+      {
+        const EntityHandle * conn = NULL;
+        int num_nd=0;
+        rval = mbImpl->get_connectivity(connect[j], conn, num_nd);MB_CHK_ERR(rval);
+        numFields += num_nd +1;
+      }
+      sizeFieldsPolyhedra[elem] = numFields; // will be used later, at writing
+      num_uses +=  (numFields-conn_len);
+    }
   }
   stream << "CELLS " << num_elems + free_nodes.size()<< ' ' << num_uses + 2*free_nodes.size() << std::endl;
 
@@ -269,15 +294,13 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
   std::vector<unsigned>::iterator t = vtk_types.begin();
   for (Range::const_iterator i = elems.begin(); i != elems.end(); ++i) {
     // Get type information for element
-    EntityType type = TYPE_FROM_HANDLE(*i);
+    EntityHandle elem = *i;
+    EntityType type = TYPE_FROM_HANDLE(elem);
 
     // Get element connectivity
-    std::vector<EntityHandle> connect;
-    rval = mbImpl->get_connectivity(&(*i), 1, connect);
-    int conn_len = connect.size();
-
-    if (MB_SUCCESS != rval)
-      return rval;
+    const EntityHandle *  connect = NULL;
+    int conn_len = 0;
+    rval = mbImpl->get_connectivity(elem, connect, conn_len); MB_CHK_ERR(rval);
 
     // Get VTK type
     const VtkElemType* vtk_type = VtkUtil::get_vtk_type(type, conn_len);
@@ -291,25 +314,51 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
       }
     }
 
-    // Get IDs from vertex handles
-    assert(conn_len > 0);
-    conn_data.resize(conn_len);
-    for (int j = 0; j < conn_len; ++j)
-      conn_data[j] = nodes.index(connect[j]);
-
     // Save VTK type index for later
     *t = vtk_type->vtk_type;
     ++t;
 
-    // Write connectivity list
-    stream << conn_len;
-    if (vtk_type->node_order)
-      for (int k = 0; k < conn_len; ++k)
-        stream << ' ' << conn_data[vtk_type->node_order[k]];
+    if (type!=MBPOLYHEDRON)
+    {
+      // Get IDs from vertex handles
+      assert(conn_len > 0);
+      conn_data.resize(conn_len);
+      for (int j = 0; j < conn_len; ++j)
+        conn_data[j] = nodes.index(connect[j]);
+
+      // Write connectivity list
+      stream << conn_len;
+      if (vtk_type->node_order)
+        for (int k = 0; k < conn_len; ++k)
+          stream << ' ' << conn_data[vtk_type->node_order[k]];
+      else
+        for (int k = 0; k < conn_len; ++k)
+          stream << ' ' << conn_data[k];
+      stream << std::endl;
+    }
     else
-      for (int k = 0; k < conn_len; ++k)
-        stream << ' ' << conn_data[k];
-    stream << std::endl;
+    {
+      // POLYHEDRON needs a special case, loop over faces to get nodes
+      stream << sizeFieldsPolyhedra[elem] << " " << conn_len;
+      for (int k=0; k<conn_len; k++)
+      {
+        EntityHandle face=connect[k];
+        const EntityHandle * conn = NULL;
+        int num_nodes=0;
+        rval = mbImpl->get_connectivity(face, conn, num_nodes);MB_CHK_ERR(rval);
+        //        num_uses += num_nd + 1; // 1 for number of vertices in face
+        conn_data.resize(num_nodes);
+        for (int j = 0; j < num_nodes; ++j)
+          conn_data[j] = nodes.index(conn[j]);
+
+        stream << ' ' << num_nodes;
+
+        for (int j = 0; j < num_nodes; ++j)
+          stream << ' ' << conn_data[j];
+      }
+      stream << std::endl;
+
+    }
   }
   for (Range::const_iterator v=free_nodes.begin(); v!= free_nodes.end(); ++v, ++t)
   {
