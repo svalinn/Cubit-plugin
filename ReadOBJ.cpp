@@ -78,8 +78,8 @@ ReadOBJ::ReadOBJ(Interface* impl)
     rval = MBI->tag_get_handle("GEOMETRY_RESABS", 1, MB_TYPE_DOUBLE, 
                                  geometry_resabs_tag, MB_TAG_SPARSE|MB_TAG_CREAT);
     assert(!rval);
-    rval = MBI->tag_get_handle("GEOM_SENSE_2", 2, MB_TYPE_HANDLE, sense_tag, 
-			       MB_TAG_SPARSE|MB_TAG_CREAT );
+//    rval = MBI->tag_get_handle("GEOM_SENSE_2", 2, MB_TYPE_HANDLE, sense_tag, 
+//			       MB_TAG_SPARSE|MB_TAG_CREAT );
     
 }
 
@@ -182,18 +182,21 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
                * 3 vertices, the EH will be immediately added to the meshset.
                * if 2, the face is ignored. if 4, the face is split.
                */
-              rval = create_new_face(tokens, vertex_list, new_face_eh);
               
-              if (rval == MB_SUCCESS)
+              if ( tokens.size() == 4 )
+                {  
+                  rval = create_new_face(tokens, vertex_list, new_face_eh);
+                  if (rval == MB_SUCCESS)
+                    {
+                      // add new face EH to the meshset
+                      MBI->add_entities(curr_obj_meshset, 
+                                        &new_face_eh, 1);
+                    }   
+                }
+              
+              else if( tokens.size() == 5 ) // must be a quad 
                 {
-                  // add new face EH to the meshset
-                  MBI->add_entities(curr_obj_meshset, 
-                                    &new_face_eh, 1);
-                }   
-              else // must be a quad or a line
-                {
-                  // split_quad function will create 4 new triangles from 1
-                  // quad. lines are ignored.
+                  // split_quad fxn will create 4 new triangles from 1 quad
                   EntityHandle new_vertex_eh; // EH for new center vertex
                                               //created by split_quad function
                   Range new_faces_eh;
@@ -204,15 +207,20 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
                     {
                       MBI->add_entities(curr_obj_meshset, new_faces_eh);
                       MBI->add_entities(curr_obj_meshset, &new_vertex_eh,1);
-                    } 
-                  else
+                    }
+                } 
+
+              else
+                {
                     std::cout << "1D entity type line removed" << std::endl;
                 }
               
-            } 
+            }
+ 
           else 
             {
-              MB_SET_ERR(MB_FAILURE, "Invalid/unrecognized line");
+              //MB_SET_ERR(MB_FAILURE, "Invalid/unrecognized line");
+              std::cout << "Unrecognized line: " <<  line << std::endl;
             }
         }
       
@@ -298,28 +306,41 @@ ErrorCode ReadOBJ::create_new_object ( std::string object_name,
   rval = MBI->add_parent_child( vol_meshset, object_meshset );
   if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to add object mesh set as child of volume mesh set.");
   
-  // set surface sense
+  /* set surface sense
    EntityHandle surf_volumes[2];
 
     surf_volumes[0]=vol_meshset;
     surf_volumes[1]=0;
 
     rval = MBI->tag_set_data(sense_tag, &object_meshset, 1, surf_volumes);
-    
-    // Tag volume meshset with name "Volume" and give category tag
-    dim = 3;
-    rval = MBI->tag_set_data( geom_tag, &vol_meshset, 1, &(dim));
-    rval = MBI->tag_set_data( name_tag, &vol_meshset, 1, geom_name[3]);
-    rval = MBI->tag_set_data( category_tag, &vol_meshset, 1, geom_category[3]);
-    
-    /* The volume meshset is tagged with the same name as the surface meshset
-     * for each object because of the direct relation between these entities
-     */
-    rval = MBI->tag_set_data( obj_name_tag, &vol_meshset, 1,
-                              object_name.c_str());
-    rval = MBI->tag_set_data( id_tag, &vol_meshset, 1, &(curr_object));
-    
-    return MB_SUCCESS;
+   */
+
+  rval = myGeomTool->set_sense(object_meshset, vol_meshset, SENSE_FORWARD);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval, "Failed to set surface sense."); 
+ 
+  // Set volume meshset tags
+  /* The volume meshset is tagged with the same name as the surface meshset
+   * for each object because of the direct relation between these entities
+   */
+  rval = MBI->tag_set_data( obj_name_tag, &vol_meshset, 1,
+                            object_name.c_str());
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set name tag.");
+
+  rval = MBI->tag_set_data( id_tag, &vol_meshset, 1, &(curr_object));
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set ID tag.");
+
+  dim = 3;
+  rval = MBI->tag_set_data( geom_tag, &vol_meshset, 1, &(dim));
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set dim tag.");
+
+  rval = MBI->tag_set_data( name_tag, &vol_meshset, 1, geom_name[3]);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set name tag.");
+
+  rval = MBI->tag_set_data( category_tag, &vol_meshset, 1, geom_category[3]);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set category tag.");
+  
+  
+  return MB_SUCCESS;
 }
 
 
@@ -358,34 +379,25 @@ ErrorCode ReadOBJ::create_new_face (std::vector<std::string> f_tokens,
   face next_face;
   ErrorCode rval;
 
-  // If there are 4 tokens, it is a tri element (f v1 v2 v3)
-  if ( f_tokens.size() == 4 )
+  for (int i = 1; i < 4; i++)
     {
-      for (int i = 1; i < 4; i++)
+      int vertex_id = atoi(f_tokens[i].c_str());
+
+      // some faces contain format 'vertex/texture'
+      // remove the '/texture' and add the vertex to the list
+      std::size_t slash = f_tokens[i].find('/');
+      if ( slash != std::string::npos )
         {
-          int vertex_id = atoi(f_tokens[i].c_str());
-
-          // some faces contain format 'vertex/texture'
-          // remove the '/texture' and add the vertex to the list
-          std::size_t slash = f_tokens[i].find('/');
-          if ( slash != std::string::npos )
-            {
-              std::string face = f_tokens[i].substr(0, slash);
-              vertex_id = atoi(face.c_str());
-            }
-
-          next_face.conn[i-1] = vertex_list[vertex_id-1];
+          std::string face = f_tokens[i].substr(0, slash);
+          vertex_id = atoi(face.c_str());
         }
 
-      rval = MBI->create_element(MBTRI, next_face.conn, 3, face_eh);
-      if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Unable to create new face.");
-
+      next_face.conn[i-1] = vertex_list[vertex_id-1];
     }
 
-  else 
-    {
-      MB_SET_ERR(MB_FAILURE,"Face is not a Tri.");
-    }
+  rval = MBI->create_element(MBTRI, next_face.conn, 3, face_eh);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Unable to create new face.");
+
 
   return rval;
 }
@@ -400,34 +412,28 @@ ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
   ErrorCode rval;
   Range quad_vert_eh;
 
-  if ( f_tokens.size() == 5 ) // indicates quad face
+  // loop over quad connectivity getting vertex EHs 
+  for (int i = 1; i < 5; i++)
     {
-      // loop over quad connectivity getting vertex EHs 
-      for (int i = 1; i < 5; i++)
+      int vertex_id = atoi(f_tokens[i].c_str());
+      std::size_t slash = f_tokens[i].find('/');
+      if ( slash != std::string::npos )
         {
-          int vertex_id = atoi(f_tokens[i].c_str());
-          std::size_t slash = f_tokens[i].find('/');
-          if ( slash != std::string::npos )
-            {
-              std::string face = f_tokens[i].substr(0, slash);
-              vertex_id = atoi(face.c_str());
-            }
- 
-          quad_vert_eh.insert(vertex_list[vertex_id-1]);
+          std::string face = f_tokens[i].substr(0, slash);
+          vertex_id = atoi(face.c_str());
         }
+ 
+      quad_vert_eh.insert(vertex_list[vertex_id-1]);
+    }
 
-      // create center vertex
-      rval = create_center_vertex( quad_vert_eh, new_vertex_eh);
-      if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create center vertex for splitting quad.");
-      
-      // create 4 new tri faces
-      rval = create_tri_faces( quad_vert_eh, new_vertex_eh, face_eh);
-      if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create triangles when splitting quad.");
-    }
-  else 
-    {
-      MB_SET_ERR(MB_FAILURE,"Entity type line ignored.");
-    }
+  // create center vertex
+  rval = create_center_vertex( quad_vert_eh, new_vertex_eh);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create center vertex for splitting quad.");
+  
+  // create 4 new tri faces
+  rval = create_tri_faces( quad_vert_eh, new_vertex_eh, face_eh);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to create triangles when splitting quad.");
+  
  
   return rval;
 }
