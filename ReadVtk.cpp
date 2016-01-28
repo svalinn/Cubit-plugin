@@ -739,64 +739,36 @@ ErrorCode ReadVtk::vtk_read_unstructured_grid(FileTokenizer& tokens,
       MB_SET_ERR(MB_FAILURE, "Cell " << id << " is of type '" << VtkUtil::vtkElemTypes[vtk_type].name << "' but has " << num_vtx << " vertices");
     }
 
-    // if polyhedron, treat separately
-    // it may be that the polygons that form it were already created, but we can't be sure
-    // also, form one polyhedron at a time; maybe will need to be revised for efficiency
-    if (type == MBPOLYHEDRON)
-    {
-      // num vtx is in this case number of fields ,
-      int num_faces = conn_iter[1]; // the next field is number of faces
-      EntityHandle polyhConn[100]; // we bet we will have only 100 faces at most
-      EntityHandle connec[20]; // we bet we will have only 20 vertices at most, in a face
-      if (num_faces>100)
-        MB_SET_ERR(MB_FAILURE, "Cell has too many faces " << num_faces );
-      // fill up the connectivity array (of faces)
-      // will have to form them if not there yet
-      std::vector<long>::iterator conn_iter_face = conn_iter + 2; // this will be iterator for face
-      ErrorCode rv=MB_SUCCESS;
-      for (int j=0; j<num_faces; j++)
-      {
-        int numverticesInFace = (int) *conn_iter_face;
-        if (numverticesInFace>20)
-          MB_SET_ERR(MB_FAILURE, "Cell has too many vertices " << numverticesInFace );
-        for (int k=0; k<numverticesInFace; k++)
-        {
-          connec[k] = first_vertex + conn_iter_face[k+1]; // at 0 is the number of vertices
-        }
-        Range adjFaces;
-        // find a face with these vertices; if not, we need to create one, on the fly :(
-        rv = mdbImpl->get_adjacencies(connec, numverticesInFace, 2, false, adjFaces); MB_CHK_ERR(rv);
-        if (adjFaces.size() >=1)
-        {
-          polyhConn[j] = adjFaces[0]; // get the first face found
-        }
-        else
-        {
-          // create the face; tri, quad or polygon
-          EntityType etype = MBTRI;
-          if (4 == numverticesInFace) etype = MBQUAD;
-          if (4 < numverticesInFace) etype = MBPOLYGON;
 
-          rv = mdbImpl->create_element(etype, connec, numverticesInFace,  polyhConn[j]); MB_CHK_ERR(rv);
-        }
-
-        conn_iter_face += numverticesInFace +1;// advance to next face
-      }
-      EntityHandle newPoly;
-      rv = mdbImpl->create_element(MBPOLYHEDRON,polyhConn, num_faces, newPoly ); MB_CHK_ERR(rv);
-      id++; // advance index
-      conn_iter += num_vtx + 1;
-      continue;
-    }
 
     // Find any subsequent elements of the same type
+    // if polyhedra, need to look at the number of faces to put in the same range
     std::vector<long>::iterator conn_iter2 = conn_iter + num_vtx + 1;
     long end_id = id + 1; 
-    while (end_id < num_elems[0] &&
-           (unsigned)types[end_id] == vtk_type &&
-           *conn_iter2 == num_vtx) {
-      ++end_id;
-      conn_iter2 += num_vtx + 1;
+    if (MBPOLYHEDRON != type)
+    {
+      while (end_id < num_elems[0] &&
+             (unsigned)types[end_id] == vtk_type &&
+             *conn_iter2 == num_vtx) {
+        ++end_id;
+        conn_iter2 += num_vtx + 1;
+      }
+    }
+    else
+    {
+      // advance only if next is polyhedron too, and if number of faces is the same
+      int num_faces = conn_iter[1];
+      while (end_id < num_elems[0] &&
+             (unsigned)types[end_id] == vtk_type &&
+             conn_iter2[1] == num_faces) {
+        ++end_id;
+        conn_iter2 += num_vtx + 1;
+      }
+      // num_vtx becomes in this case num_faces
+      num_vtx = num_faces; // for polyhedra, this is what we want
+      // trigger vertex adjacency call
+      Range firstFaces;
+      mdbImpl->get_adjacencies(&first_vertex, 1, 2, false, firstFaces);
     }
 
     // Allocate element block
@@ -820,34 +792,87 @@ ErrorCode ReadVtk::vtk_read_unstructured_grid(FileTokenizer& tokens,
     EntityHandle *conn_sav = conn_array;
 
     // Store element connectivity
-    for ( ; id < end_id; ++id) {
-      if (conn_iter == connectivity.end()) {
-        MB_SET_ERR(MB_FAILURE, "Connectivity data truncated at cell " << id);
-      }
-
-      // Make sure connectivity length is correct.
-      if (*conn_iter != num_vtx) {
-        MB_SET_ERR(MB_FAILURE, "Cell " << id << " is of type '" << VtkUtil::vtkElemTypes[vtk_type].name << "' but has " << num_vtx << " vertices");
-      }
-      ++conn_iter;
-
-      for (i = 0; i < num_vtx; ++i, ++conn_iter) {
+    if (type != MBPOLYHEDRON)
+    {
+      for ( ; id < end_id; ++id) {
         if (conn_iter == connectivity.end()) {
           MB_SET_ERR(MB_FAILURE, "Connectivity data truncated at cell " << id);
         }
+        // Make sure connectivity length is correct.
+        if (*conn_iter != num_vtx) {
+          MB_SET_ERR(MB_FAILURE, "Cell " << id << " is of type '" << VtkUtil::vtkElemTypes[vtk_type].name << "' but has " << num_vtx << " vertices");
+        }
+        ++conn_iter;
 
-        conn_array[i] = *conn_iter + first_vertex;
+        for (i = 0; i < num_vtx; ++i, ++conn_iter) {
+          if (conn_iter == connectivity.end()) {
+            MB_SET_ERR(MB_FAILURE, "Connectivity data truncated at cell " << id);
+          }
+
+          conn_array[i] = *conn_iter + first_vertex;
+        }
+
+        const unsigned* order = VtkUtil::vtkElemTypes[vtk_type].node_order;
+        if (order) {
+          assert(num_vtx * sizeof(EntityHandle) <= sizeof(tmp_conn_list));
+          memcpy(tmp_conn_list, conn_array, num_vtx * sizeof(EntityHandle));
+          for (int j = 0; j < num_vtx; ++j)
+            conn_array[order[j]] = tmp_conn_list[j];
+        }
+
+        conn_array += num_vtx;
+      }
+    }
+    else // type == MBPOLYHEDRON
+    {
+      // in some cases, we may need to create new elements; will it screw the tags?
+      // not if the file was not from moab
+      ErrorCode rv = MB_SUCCESS;
+      for ( ; id < end_id; ++id) {
+        if (conn_iter == connectivity.end()) {
+          MB_SET_ERR(MB_FAILURE, "Connectivity data truncated at polyhedra cell " << id);
+        }
+        ++conn_iter;
+        // iterator is now at number of faces
+        // we should check it is indeed num_vtx
+        int num_faces = *conn_iter;
+        if (num_faces != num_vtx)
+          MB_SET_ERR(MB_FAILURE, "Connectivity data wrong at polyhedra cell " << id);
+
+        EntityHandle connec[20]; // we bet we will have only 20 vertices at most, in a face in a polyhedra
+        for (int j=0; j<num_faces; j++)
+        {
+          conn_iter++;
+          int numverticesInFace = (int) *conn_iter;
+          if (numverticesInFace>20)
+            MB_SET_ERR(MB_FAILURE, "too many vertices in face index " << j << " for polyhedra cell " << id);
+          // need to find the face, but first fill with vertices
+          for (int k=0; k<numverticesInFace; k++)
+          {
+            connec[k] = first_vertex + *(++conn_iter); //
+          }
+          Range adjFaces;
+          // find a face with these vertices; if not, we need to create one, on the fly :(
+          rv = mdbImpl->get_adjacencies(connec, numverticesInFace, 2, false, adjFaces); MB_CHK_ERR(rv);
+          if (adjFaces.size() >=1)
+          {
+            conn_array[j] = adjFaces[0]; // get the first face found
+          }
+          else
+          {
+            // create the face; tri, quad or polygon
+            EntityType etype = MBTRI;
+            if (4 == numverticesInFace) etype = MBQUAD;
+            if (4 < numverticesInFace) etype = MBPOLYGON;
+
+            rv = mdbImpl->create_element(etype, connec, numverticesInFace,  conn_array[j]); MB_CHK_ERR(rv);
+          }
+        }
+
+        conn_array += num_vtx; // advance for next polyhedra
+        conn_iter++; // advance to the next field
       }
 
-      const unsigned* order = VtkUtil::vtkElemTypes[vtk_type].node_order;
-      if (order) {
-        assert(num_vtx * sizeof(EntityHandle) <= sizeof(tmp_conn_list));
-        memcpy(tmp_conn_list, conn_array, num_vtx * sizeof(EntityHandle));
-        for (int j = 0; j < num_vtx; ++j)
-          conn_array[order[j]] = tmp_conn_list[j];
-      }
-
-      conn_array += num_vtx;
     }
 
     // Notify MOAB of the new elements
