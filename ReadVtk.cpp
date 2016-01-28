@@ -735,8 +735,58 @@ ErrorCode ReadVtk::vtk_read_unstructured_grid(FileTokenizer& tokens,
     }
 
     int num_vtx = *conn_iter;
-    if (type != MBPOLYGON && num_vtx != (int)VtkUtil::vtkElemTypes[vtk_type].num_nodes) {
+    if ( type != MBPOLYGON && type != MBPOLYHEDRON && num_vtx != (int)VtkUtil::vtkElemTypes[vtk_type].num_nodes) {
       MB_SET_ERR(MB_FAILURE, "Cell " << id << " is of type '" << VtkUtil::vtkElemTypes[vtk_type].name << "' but has " << num_vtx << " vertices");
+    }
+
+    // if polyhedron, treat separately
+    // it may be that the polygons that form it were already created, but we can't be sure
+    // also, form one polyhedron at a time; maybe will need to be revised for efficiency
+    if (type == MBPOLYHEDRON)
+    {
+      // num vtx is in this case number of fields ,
+      int num_faces = conn_iter[1]; // the next field is number of faces
+      EntityHandle polyhConn[100]; // we bet we will have only 100 faces at most
+      EntityHandle connec[20]; // we bet we will have only 20 vertices at most, in a face
+      if (num_faces>100)
+        MB_SET_ERR(MB_FAILURE, "Cell has too many faces " << num_faces );
+      // fill up the connectivity array (of faces)
+      // will have to form them if not there yet
+      std::vector<long>::iterator conn_iter_face = conn_iter + 2; // this will be iterator for face
+      ErrorCode rv=MB_SUCCESS;
+      for (int j=0; j<num_faces; j++)
+      {
+        int numverticesInFace = (int) *conn_iter_face;
+        if (numverticesInFace>20)
+          MB_SET_ERR(MB_FAILURE, "Cell has too many vertices " << numverticesInFace );
+        for (int k=0; k<numverticesInFace; k++)
+        {
+          connec[k] = first_vertex + conn_iter_face[k+1]; // at 0 is the number of vertices
+        }
+        Range adjFaces;
+        // find a face with these vertices; if not, we need to create one, on the fly :(
+        rv = mdbImpl->get_adjacencies(connec, numverticesInFace, 2, false, adjFaces); MB_CHK_ERR(rv);
+        if (adjFaces.size() >=1)
+        {
+          polyhConn[j] = adjFaces[0]; // get the first face found
+        }
+        else
+        {
+          // create the face; tri, quad or polygon
+          EntityType etype = MBTRI;
+          if (4 == numverticesInFace) etype = MBQUAD;
+          if (4 < numverticesInFace) etype = MBPOLYGON;
+
+          rv = mdbImpl->create_element(etype, connec, numverticesInFace,  polyhConn[j]); MB_CHK_ERR(rv);
+        }
+
+        conn_iter_face += numverticesInFace +1;// advance to next face
+      }
+      EntityHandle newPoly;
+      rv = mdbImpl->create_element(MBPOLYHEDRON,polyhConn, num_faces, newPoly ); MB_CHK_ERR(rv);
+      id++; // advance index
+      conn_iter += num_vtx + 1;
+      continue;
     }
 
     // Find any subsequent elements of the same type
