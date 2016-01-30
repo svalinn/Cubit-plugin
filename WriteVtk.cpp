@@ -57,7 +57,7 @@ WriterIface *WriteVtk::factory(Interface* iface)
 }
 
 WriteVtk::WriteVtk(Interface* impl)
-  : mbImpl(impl), writeTool(0), mStrict(DEFAULT_STRICT)
+  : mbImpl(impl), writeTool(0), mStrict(DEFAULT_STRICT), freeNodes(0), createOneNodeCells(false)
 {
   assert(impl != NULL);
   impl->query_interface(writeTool);
@@ -91,6 +91,9 @@ ErrorCode WriteVtk::write_file(const char *file_name,
     mStrict = false;
   else
     mStrict = DEFAULT_STRICT;
+
+  if (MB_SUCCESS == opts.get_null_option("CREATE_ONE_NODE_CELLS"))
+    createOneNodeCells = true;
 
   // Get entities to write
   Range nodes, elems;
@@ -286,11 +289,14 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
       num_uses +=  (numFields-conn_len);
     }
   }
-  stream << "CELLS " << num_elems + free_nodes.size()<< ' ' << num_uses + 2*free_nodes.size() << std::endl;
+  freeNodes = (int)free_nodes.size();
+  if (!createOneNodeCells)
+    freeNodes=0; // do not create one node cells
+  stream << "CELLS " << num_elems + freeNodes<< ' ' << num_uses + 2*freeNodes << std::endl;
 
   // Write element connectivity
   std::vector<int> conn_data;
-  std::vector<unsigned> vtk_types(elems.size() + free_nodes.size() );
+  std::vector<unsigned> vtk_types(elems.size() + freeNodes );
   std::vector<unsigned>::iterator t = vtk_types.begin();
   for (Range::const_iterator i = elems.begin(); i != elems.end(); ++i) {
     // Get type information for element
@@ -360,12 +366,14 @@ ErrorCode WriteVtk::write_elems(std::ostream& stream,
 
     }
   }
-  for (Range::const_iterator v=free_nodes.begin(); v!= free_nodes.end(); ++v, ++t)
-  {
-    EntityHandle node=*v;
-    stream << "1 " << nodes.index(node) << std::endl;
-    *t = 1;
-  }
+
+  if (createOneNodeCells)
+    for (Range::const_iterator v=free_nodes.begin(); v!= free_nodes.end(); ++v, ++t)
+    {
+      EntityHandle node=*v;
+      stream << "1 " << nodes.index(node) << std::endl;
+      *t = 1;
+    }
 
   // Write element types
   stream << "CELL_TYPES " << vtk_types.size() << std::endl;
@@ -447,7 +455,10 @@ ErrorCode WriteVtk::write_tags(std::ostream& stream,
       // of the tag data.
       if (!entities_have_tags) {
         entities_have_tags = true;
-        stream << (nodes ? "POINT_DATA " : "CELL_DATA ") << entities.size() << std::endl;
+        if (nodes)
+          stream << "POINT_DATA "  << entities.size() << std::endl;
+        else
+          stream << "CELL_DATA " << entities.size() + freeNodes << std::endl;
       }
 
       // Write the tag
@@ -502,7 +513,13 @@ ErrorCode WriteVtk::write_tag(std::ostream& stream,
                               const int)
 {
   ErrorCode rval;
-  const unsigned long n = entities.size();
+  int addFreeNodes = 0;
+  if (TYPE_FROM_HANDLE(entities[0])>MBVERTEX)
+    addFreeNodes = freeNodes;
+  // we created freeNodes 1-node cells, so we have to augment cell data too
+  // we know that the 1 node cells are added at the end, after all other cells;
+  // so the default values will be set to those extra , artificial cells
+  const unsigned long n = entities.size() + addFreeNodes;
 
   // Get tag properties
 
