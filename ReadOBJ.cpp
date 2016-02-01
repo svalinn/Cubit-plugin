@@ -219,13 +219,17 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
  
           else 
             {
-              //MB_SET_ERR(MB_FAILURE, "Invalid/unrecognized line");
-              std::cout << "Unrecognized line: " <<  line << std::endl;
+              MB_SET_ERR(MB_FAILURE, "Invalid/unrecognized line");
             }
         }
       
     }
-  
+
+  if (object_id == 0)
+    {
+      MB_SET_ERR(MB_FAILURE, "This is not an obj file. ");  
+    }
+
   input_file.close(); 
   
   return MB_SUCCESS;
@@ -306,18 +310,6 @@ ErrorCode ReadOBJ::create_new_object ( std::string object_name,
   rval = MBI->add_parent_child( vol_meshset, object_meshset );
   if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to add object mesh set as child of volume mesh set.");
   
-  /* set surface sense
-   EntityHandle surf_volumes[2];
-
-    surf_volumes[0]=vol_meshset;
-    surf_volumes[1]=0;
-
-    rval = MBI->tag_set_data(sense_tag, &object_meshset, 1, surf_volumes);
-   */
-
-  rval = myGeomTool->set_sense(object_meshset, vol_meshset, SENSE_FORWARD);
-  if (MB_SUCCESS != rval) MB_SET_ERR(rval, "Failed to set surface sense."); 
- 
   // Set volume meshset tags
   /* The volume meshset is tagged with the same name as the surface meshset
    * for each object because of the direct relation between these entities
@@ -339,6 +331,8 @@ ErrorCode ReadOBJ::create_new_object ( std::string object_name,
   rval = MBI->tag_set_data( category_tag, &vol_meshset, 1, geom_category[3]);
   if (MB_SUCCESS != rval) MB_SET_ERR(rval,"Failed to set mesh set category tag.");
   
+  rval = myGeomTool->set_sense(object_meshset, vol_meshset, SENSE_FORWARD);
+  if (MB_SUCCESS != rval) MB_SET_ERR(rval, "Failed to set surface sense."); 
   
   return MB_SUCCESS;
 }
