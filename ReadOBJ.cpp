@@ -114,17 +114,25 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
   }
   
   std::string line; // the current line being read
-  std::ifstream input_file(filename); // filestream for OBJ file
 
   EntityHandle curr_obj_meshset;
-   
-  if ( !input_file.good() ) 
-    {
-      std::cout << "Problems reading file = " << filename 
-                <<  std::endl;
-      return MB_FILE_DOES_NOT_EXIST;
-    }
+
+  /*
+  // test to see if file exists
+  FILE *file = NULL;
+  file = fopen (filename,"r");
+  if(file == NULL) return MB_FILE_DOES_NOT_EXIST;
+  // otherwise close the file
+  fclose(file);
+  */
   
+  std::ifstream input_file(filename); // filestream for OBJ file
+
+  if ( !input_file.good() )  {
+    std::cout << "Problems reading file = " << filename <<  std::endl;
+    return MB_FILE_DOES_NOT_EXIST;
+  }
+   
   // if the file can be read
   if (input_file.is_open()) 
     {
@@ -137,6 +145,8 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
 
       while ( std::getline (input_file,line) ) 
         {
+	  std::cout << line << std::endl;
+	  if(line.length() == 0 ) return MB_FAILURE;
           // tokenize the line
           std::vector<std::string> tokens;
           tokenize(line,tokens,delimiters); 
@@ -219,7 +229,7 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
  
           else 
             {
-              MB_SET_ERR(MB_FAILURE, "Invalid/unrecognized line");
+//              MB_SET_ERR(MB_UNHANDLED_OPTION, "Invalid/unrecognized line");
             }
         }
       
@@ -253,7 +263,7 @@ void ReadOBJ::tokenize( const std::string& str,
       next_token_end = str.find_first_of( delimiters, next_token_start );
       if ( std::string::npos == next_token_end )
         {
-          tokens.push_back(str.substr(next_token_start));
+	  tokens.push_back(str.substr(next_token_start));
           next_token_start = std::string::npos;
         }
       else
