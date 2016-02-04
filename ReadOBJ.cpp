@@ -112,20 +112,13 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
   if (subset_list) {
     MB_SET_ERR(MB_UNSUPPORTED_OPERATION, "Reading subset of files not supported for OBJ.");
   }
-  
+ 
+  int unrecognized = 0; // number of lines not beginning with o, v, or f
+ 
   std::string line; // the current line being read
 
   EntityHandle curr_obj_meshset;
 
-  /*
-  // test to see if file exists
-  FILE *file = NULL;
-  file = fopen (filename,"r");
-  if(file == NULL) return MB_FILE_DOES_NOT_EXIST;
-  // otherwise close the file
-  fclose(file);
-  */
-  
   std::ifstream input_file(filename); // filestream for OBJ file
 
   if ( !input_file.good() )  {
@@ -145,7 +138,6 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
 
       while ( std::getline (input_file,line) ) 
         {
-	  std::cout << line << std::endl;
 	  if(line.length() == 0 ) return MB_FAILURE;
           // tokenize the line
           std::vector<std::string> tokens;
@@ -230,6 +222,7 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
           else 
             {
 //              MB_SET_ERR(MB_UNHANDLED_OPTION, "Invalid/unrecognized line");
+                ++unrecognized;
             }
         }
       
@@ -239,6 +232,8 @@ ErrorCode ReadOBJ::load_file(const char                      *filename,
     {
       MB_SET_ERR(MB_FAILURE, "This is not an obj file. ");  
     }
+
+  std::cout << "There were " << unrecognized << " unrecognized lines in this file." << std::endl;
 
   input_file.close(); 
   
