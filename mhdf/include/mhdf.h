@@ -341,21 +341,6 @@ mhdf_set_type_handle(void);
 
 #define MHDF_INDEX_TYPE H5T_NATIVE_LONG
 
-/**\brief Fix nested pointers for copied/moved FileDesc struct
- *
- * This is a utility method to facility copying/moving/communicating
- * struct FileDesc instances.  The structure and all data it references
- * are allocated in a single contiguous block of memory of size 
- * FileDesc::total_size.  As such, the struct can be copied with a single
- * memcpy, packed into a single network packet, communicated with a single
- * MPI call, etc.  However, the pointers contained within the struct will
- * not be valid in the copied instance (they will still point into the
- * original instance.)  Given a pointer to the copied struct and the address
- * of the original struct, this function will updated all contained pointers.
- */
-void
-mhdf_fixFileDesc( struct mhdf_FileDesc* copy_ptr, const struct mhdf_FileDesc* orig_addr );
-
 /** \brief Given an element type Id, get the name. 
  * Fails if buffer is not of sufficient size.
  * \param file_handle The file.

@@ -382,6 +382,10 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   void* ptr;
   char **elem_handles = 0, **tag_names = 0;
   unsigned char *array, *matrix;
+  const char * pname = "PARALLEL_PARTITION";
+  struct mhdf_TagDesc * tag_desc;
+  long int nval, junk;
+  hid_t table[3];
   
   API_BEGIN;
   
@@ -591,6 +595,49 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
     result->tags[j].dense_elem_indices = indices;
   }
   
+    /* open the table for parallel partitions, to determine number of parts
+     *   this is needed for iMOAB and VisIt plugin */
+
+  for (i=0; i<result->num_tag_desc; i++)
+  {
+    tag_desc = &(result->tags[i]);
+    if (strcmp(pname,tag_desc->name)==0)
+    {
+      if (tag_desc->have_sparse) {
+        mhdf_openSparseTagData(file_handle, pname, &nval, &junk, table, status);
+        if (mhdf_isError( status )) {
+          free( array );
+          return NULL;
+        }
+        mhdf_closeData( file_handle, table[0], status );
+        if (mhdf_isError( status )) {
+          free( array );
+          return NULL;
+        }
+        mhdf_closeData( file_handle, table[1], status );
+        if (mhdf_isError( status )) {
+          free( array );
+          return NULL;
+        }
+      }
+      else
+      {
+        /* could be dense tags on sets */
+        table[0] = mhdf_openDenseTagData(file_handle, pname, mhdf_set_type_handle(), &nval, status);
+        if (mhdf_isError( status )) {
+          free( array );
+          return NULL;
+        }
+        mhdf_closeData( file_handle, table[0], status );
+        if (mhdf_isError( status )) {
+          free( array );
+          return NULL;
+        }
+      }
+
+      result->num_parts = (int)nval;
+    }
+  }
     /* Compact memory and return */
   free( array );
   result->total_size = result->offset - (unsigned char*)result;
