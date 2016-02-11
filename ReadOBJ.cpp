@@ -154,7 +154,7 @@ ErrorCode ReadOBJ::load_file(const char *filename,
       std::string object_name;     
       std::vector<EntityHandle> vertex_list;
       
-      bool stored_first_vertex = false;
+//      bool stored_first_vertex = false;
 
       while ( std::getline (input_file,line) ) 
         {
