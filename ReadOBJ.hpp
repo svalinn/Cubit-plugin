@@ -37,22 +37,12 @@ namespace moab {
 class ReadUtilIface;
 class GeomTopoTool;
 
-/**
- * \brief Template for implementing new file readers in MOAB
- * This class is a template for writing new file readers in MOAB.  This shows how to efficiently create
- * vertices and elements using the ReadUtilIface class, and to translate indices in connectivity lists
- * into vertex handles created during the read.
- *
- * After writing the new reader class, you should also modify src/ReaderWriterSet.cpp, to register the
- * new reader along with the file extensions that it reads.  This will turn on automatic creating of this
- * reader based on file extension, which is done in Core::serial_load_file.
- */
 class ReadOBJ : public ReaderIface
 {
    
 public:
 
-    //! factory method 
+  //! factory method 
   static ReaderIface* factory( Interface* );
 
   ErrorCode load_file( const char* file_name,
@@ -69,7 +59,7 @@ public:
  
 
  
-    //! Constructor
+  //! Constructor
   ReadOBJ(Interface* impl = NULL);
 
    //! Destructor
@@ -77,7 +67,8 @@ public:
 
 private:
   ReadUtilIface* readMeshIface;
-    //! interface instance
+
+  //! interface instance
   Interface* MBI;
 
   GeomTopoTool* myGeomTool;
@@ -92,14 +83,16 @@ private:
    */
   static const char* delimiters;
 
- 
   void tokenize( const std::string& str, std::vector<std::string>& tokens,
                  const char* delimiters );
   
   /*
-   * get_name splits an object string and extracts the name
+   * The create_object funtion will create a new meshset for
+   * each object that contains all vertices and faces 
    */
-  std::string get_object_name (std::string input);
+  ErrorCode create_new_object(std::string object_name, 
+                              int object_id,
+                              EntityHandle &curr_obj_meshset);
   
   /* create_new_vertex converts tokenized string input to 
      vertex structure
@@ -114,13 +107,6 @@ private:
                                        const std::vector<EntityHandle>&vertex_list,
                                        EntityHandle &face_eh); 
  
-  /*
-   * The create_object funtion will create a new meshset for
-   * each object that contains all vertices and faces 
-   */
-  ErrorCode create_new_object(std::string object_name, 
-                              int object_id,
-                              EntityHandle &curr_obj_meshset);
 
   /*
    * The split_quad function creates 1 new vertex and 4 new tri faces
@@ -139,7 +125,6 @@ private:
                                      EntityHandle center_vertex_eh,
                                      Range &face_eh );
 
-//  ErrorCode get_triangle_adjacencies( EntityHandle triangle, int &count_2, int &count_4);
 };
 
 } // namespace moab
