@@ -1,3 +1,61 @@
+/**
+ * MOAB, a Mesh-Oriented datABase, is a software component for creating,
+ * storing and accessing finite element mesh data.
+ * 
+ * Copyright 2004 Sandia Corporation.  Under the terms of Contract
+ * DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government
+ * retains certain rights in this software.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * 
+ */
+
+//-----------------------------------------------------------------------------
+// Filename : ReadOBJ.hpp
+//
+// Purpose  : Wavefront obj file reader
+//
+// Creators : Chelsea D'Angelo, Paul Wilson, Andrew Davis
+//
+// Date     : 02/16
+//
+// Owner    : Chelsea D'Angelo
+//-----------------------------------------------------------------------------
+
+
+/**
+ * This class will read in an obj file and populate a MOAB instance with the
+ * vertex and connectivity information in the file.  A specification for obj files
+ * can be found here: https://en.wikipedia.org/wiki/Wavefront_.obj_file
+ * This reader only supports a subset of the full file structure, namely, 
+ * object names, vertices, and faces.
+ *
+ * Overview of the supported structure:
+ *
+ * Heading
+ * Object line: o object_name
+ * Vertex lines: v x y z
+ * Face lines (tri): f v1 v2 v3
+ * Face lines (quad): f v1 v2 v3 v4
+ *
+ * No blank lines will be tolerated.
+ * Lines that begin w/ anything other than 'o ', 'v ', and 'f ' will be ignored.
+ * Face lines that contain 'vertex\texture' are handled by ignoring the
+ * texture
+ * 
+ * 
+ * A new meshset will be created for each object in the file.  This meshset
+ * will be thought of, and referred to as, the surface meshset.  A volume
+ * meshset that directly corresponds to the surface meshset will also be
+ * created.  A parent-child relationship exists between the volume and surface
+ * meshsets.  Vertices and faces will be created and added as members of the
+ * surface meshset.  
+ */
+
+
 #ifndef READ_OBJ_HPP
 #define READ_OBJ_HPP     
                                      
