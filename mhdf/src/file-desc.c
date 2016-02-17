@@ -382,7 +382,9 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   void* ptr;
   char **elem_handles = 0, **tag_names = 0;
   unsigned char *array, *matrix;
-  const char * pname = "PARALLEL_PARTITION";
+  const char * pname [4] = { "PARALLEL_PARTITION", "MATERIAL_SET",
+                              "NEUMANN_SET", "DIRICHLET_SET" };
+
   struct mhdf_TagDesc * tag_desc;
   long int nval, junk;
   hid_t table[3];
@@ -601,41 +603,47 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   for (i=0; i<result->num_tag_desc; i++)
   {
     tag_desc = &(result->tags[i]);
-    if (strcmp(pname,tag_desc->name)==0)
+    for (k=0; k<3; k++)
     {
-      if (tag_desc->have_sparse) {
-        mhdf_openSparseTagData(file_handle, pname, &nval, &junk, table, status);
-        if (mhdf_isError( status )) {
-          free( array );
-          return NULL;
-        }
-        mhdf_closeData( file_handle, table[0], status );
-        if (mhdf_isError( status )) {
-          free( array );
-          return NULL;
-        }
-        mhdf_closeData( file_handle, table[1], status );
-        if (mhdf_isError( status )) {
-          free( array );
-          return NULL;
-        }
-      }
-      else
+      if (strcmp(pname[k],tag_desc->name)==0)
       {
-        /* could be dense tags on sets */
-        table[0] = mhdf_openDenseTagData(file_handle, pname, mhdf_set_type_handle(), &nval, status);
-        if (mhdf_isError( status )) {
-          free( array );
-          return NULL;
+        if (tag_desc->have_sparse) {
+          mhdf_openSparseTagData(file_handle, pname[k], &nval, &junk, table, status);
+          if (mhdf_isError( status )) {
+            free( array );
+            return NULL;
+          }
+          mhdf_closeData( file_handle, table[0], status );
+          if (mhdf_isError( status )) {
+            free( array );
+            return NULL;
+          }
+          mhdf_closeData( file_handle, table[1], status );
+          if (mhdf_isError( status )) {
+            free( array );
+            return NULL;
+          }
         }
-        mhdf_closeData( file_handle, table[0], status );
-        if (mhdf_isError( status )) {
-          free( array );
-          return NULL;
+        else
+        {
+          /* could be dense tags on sets */
+          table[0] = mhdf_openDenseTagData(file_handle, pname[k], mhdf_set_type_handle(), &nval, status);
+          if (mhdf_isError( status )) {
+            free( array );
+            return NULL;
+          }
+          mhdf_closeData( file_handle, table[0], status );
+          if (mhdf_isError( status )) {
+            free( array );
+            return NULL;
+          }
         }
+        if (0==k) result->num_parts = (int)nval;
+        else if (1==k) result->num_mats = (int)nval;
+        else if (2==k) result->num_neumann = (int)nval;
+        else result->num_diri = (int)nval;
       }
 
-      result->num_parts = (int)nval;
     }
   }
     /* Compact memory and return */
