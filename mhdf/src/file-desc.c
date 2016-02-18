@@ -82,8 +82,8 @@ mhdf_fixFileDesc( struct mhdf_FileDesc* copy_ptr, const struct mhdf_FileDesc* or
 
   for (i=0; i<4; i++)
   {
-    FIX_OFFSET( int*, defTagsEntSets[i]);
-    FIX_OFFSET( int*, defTagsVals[i]);
+    if (copy_ptr->defTagsEntSets) FIX_OFFSET( int*, defTagsEntSets[i]);
+    if (copy_ptr->defTagsVals)    FIX_OFFSET( int*, defTagsVals[i]);
   }
   
   if (copy_ptr->elems != NULL) {
@@ -704,20 +704,20 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
           }
           free (id_list);
         }
-        else
-        {
-          /* could be dense tags on sets */
-          table[0] = mhdf_openDenseTagData(file_handle, pname[k], mhdf_set_type_handle(), &nval, status);
-          if (mhdf_isError( status )) {
-            free( array );
+     /*   else {
+           could be dense tags on sets
+          table[0] = mhdf_openDenseTagData(file_handle, pname[k],
+              mhdf_set_type_handle(), &nval, status);
+          if (mhdf_isError(status)) {
+            free(array);
             return NULL;
           }
-          mhdf_closeData( file_handle, table[0], status );
-          if (mhdf_isError( status )) {
-            free( array );
+          mhdf_closeData(file_handle, table[0], status);
+          if (mhdf_isError(status)) {
+            free(array);
             return NULL;
           }
-        }
+        }*/
 
       }
 
