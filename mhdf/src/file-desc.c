@@ -14,12 +14,12 @@ static struct mhdf_FileDesc* alloc_file_desc( mhdf_Status* status )
 {
   struct mhdf_FileDesc* result;
   /* allocate a little short of a page */
-  result = (struct mhdf_FileDesc*)mhdf_malloc(4000, status);
+  result = (struct mhdf_FileDesc*)mhdf_malloc(8000, status);
   if (mhdf_isError( status ))
     return 0;
   
   memset( result, 0, sizeof(struct mhdf_FileDesc) );
-  result->total_size = 4000;
+  result->total_size = 8000;
   result->offset = ((unsigned char*)result) + sizeof(struct mhdf_FileDesc);
   return result;
 }
@@ -75,6 +75,11 @@ mhdf_fixFileDesc( struct mhdf_FileDesc* copy_ptr, const struct mhdf_FileDesc* or
   FIX_OFFSET( int*, sets.dense_tag_indices );
   FIX_OFFSET( struct mhdf_ElemDesc*, elems );
   FIX_OFFSET( struct mhdf_TagDesc*, tags );
+  for (i=0; i<4; i++)
+  {
+    FIX_OFFSET( int*, defTagsEntSets[i]);
+    FIX_OFFSET( int*, defTagsVals[i]);
+  }
   
   if (copy_ptr->elems != NULL) {
     for (i = 0; i < copy_ptr->num_elem_desc; ++i) {
@@ -377,7 +382,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
 {
   struct mhdf_FileDesc* result;
   hid_t table_id;
-  int i, j, k, size, *indices, have, num_tag_names = 0;
+  int i, i1, j, k, size, *indices, have, num_tag_names = 0;
   unsigned int ui;
   void* ptr;
   char **elem_handles = 0, **tag_names = 0;
@@ -385,6 +390,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   const char * pname [4] = { "PARALLEL_PARTITION", "MATERIAL_SET",
                               "NEUMANN_SET", "DIRICHLET_SET" };
 
+  long * id_list;
   struct mhdf_TagDesc * tag_desc;
   long int nval, junk;
   hid_t table[3];
@@ -603,7 +609,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   for (i=0; i<result->num_tag_desc; i++)
   {
     tag_desc = &(result->tags[i]);
-    for (k=0; k<3; k++)
+    for (k=0; k<4; k++)  /* number of default tags to consider */
     {
       if (strcmp(pname[k],tag_desc->name)==0)
       {
@@ -613,6 +619,49 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
             free( array );
             return NULL;
           }
+          /* for sparse tags, read */
+          result ->numEntSets[k] = nval;
+          if (nval <= 0 )
+            continue; /* do not do anything */
+
+          ptr = realloc_data( &result, nval*sizeof(int), status );
+          if (NULL==ptr || mhdf_isError( status )) {
+            free( array );
+            return NULL;
+          }
+          memset( ptr, 0, nval*sizeof(int) );
+          result -> defTagsEntSets[k] = ptr;
+
+          ptr = realloc_data( &result, nval*sizeof(int), status );
+          if (NULL==ptr || mhdf_isError( status ) ) {
+            free( array );
+            return NULL;
+          }
+          memset( ptr, 0, nval*sizeof(int) );
+          result -> defTagsVals[k] =ptr;
+
+          /* make room for the long array type
+            is it long or something else? */
+          id_list = mhdf_malloc( nval* sizeof(long), status );
+          /* fill the id with values, then convert to int type (-set start)
+
+           mhdf_read_data( table_id, offset, count, int_type, id_list, H5P_DEFAULT, status );*/
+
+          mhdf_read_data(table[0], 0, nval, H5T_STD_U64LE, id_list, H5P_DEFAULT, status );
+          if (mhdf_isError( status )) {
+            free( array );
+            return NULL;
+          }
+
+          for (i1=0; i1<nval; i1++)
+            result -> defTagsEntSets[k][i1] = (int) (id_list[i1] - result->sets.start_id +1);
+          /* now read values, integer type */
+          mhdf_read_data(table[1], 0, nval, H5T_STD_I32LE, result -> defTagsVals[k], H5P_DEFAULT, status );
+          if (mhdf_isError(status)) {
+            free(array);
+            return NULL;
+          }
+
           mhdf_closeData( file_handle, table[0], status );
           if (mhdf_isError( status )) {
             free( array );
@@ -623,6 +672,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
             free( array );
             return NULL;
           }
+          free (id_list);
         }
         else
         {
@@ -638,10 +688,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
             return NULL;
           }
         }
-        if (0==k) result->num_parts = (int)nval;
-        else if (1==k) result->num_mats = (int)nval;
-        else if (2==k) result->num_neumann = (int)nval;
-        else result->num_diri = (int)nval;
+
       }
 
     }
