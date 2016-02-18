@@ -14,12 +14,12 @@ static struct mhdf_FileDesc* alloc_file_desc( mhdf_Status* status )
 {
   struct mhdf_FileDesc* result;
   /* allocate a little short of a page */
-  result = (struct mhdf_FileDesc*)mhdf_malloc(8000, status);
+  result = (struct mhdf_FileDesc*)mhdf_malloc(4000, status);
   if (mhdf_isError( status ))
     return 0;
   
   memset( result, 0, sizeof(struct mhdf_FileDesc) );
-  result->total_size = 8000;
+  result->total_size = 4000;
   result->offset = ((unsigned char*)result) + sizeof(struct mhdf_FileDesc);
   return result;
 }
@@ -75,6 +75,11 @@ mhdf_fixFileDesc( struct mhdf_FileDesc* copy_ptr, const struct mhdf_FileDesc* or
   FIX_OFFSET( int*, sets.dense_tag_indices );
   FIX_OFFSET( struct mhdf_ElemDesc*, elems );
   FIX_OFFSET( struct mhdf_TagDesc*, tags );
+
+  FIX_OFFSET( int*, numEntSets );
+  FIX_OFFSET( int**, defTagsEntSets);
+  FIX_OFFSET( int**, defTagsVals);
+
   for (i=0; i<4; i++)
   {
     FIX_OFFSET( int*, defTagsEntSets[i]);
@@ -382,7 +387,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
 {
   struct mhdf_FileDesc* result;
   hid_t table_id;
-  int i, i1, j, k, size, *indices, have, num_tag_names = 0;
+  int i, i1, numtags, j, k, size, *indices, have, num_tag_names = 0;
   unsigned int ui;
   void* ptr;
   char **elem_handles = 0, **tag_names = 0;
@@ -603,10 +608,33 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
     result->tags[j].dense_elem_indices = indices;
   }
   
-    /* open the table for parallel partitions, to determine number of parts
+    /* open the table for parallel partitions, material sets, neumann sets,
+     * dirichlet sets
+     *  to determine number of parts, etc
      *   this is needed for iMOAB and VisIt plugin */
+  ptr = realloc_data( &result, 4*sizeof(int), status );
+  if (NULL==ptr || mhdf_isError( status )) {
+    free( array );
+    return NULL;
+  }
+  result ->numEntSets = ptr;
 
-  for (i=0; i<result->num_tag_desc; i++)
+  ptr = realloc_data( &result, 4*sizeof(int*), status );
+  if (NULL==ptr || mhdf_isError( status )) {
+    free( array );
+    return NULL;
+  }
+  result -> defTagsEntSets = ptr;
+
+  ptr = realloc_data( &result, 4*sizeof(int*), status );
+  if (NULL==ptr || mhdf_isError( status )) {
+    free( array );
+    return NULL;
+  }
+  result -> defTagsVals = ptr;
+  numtags = result->num_tag_desc;
+
+  for (i=0; i<numtags; i++)
   {
     tag_desc = &(result->tags[i]);
     for (k=0; k<4; k++)  /* number of default tags to consider */
@@ -631,6 +659,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
           }
           memset( ptr, 0, nval*sizeof(int) );
           result -> defTagsEntSets[k] = ptr;
+          tag_desc = &(result->tags[i]);
 
           ptr = realloc_data( &result, nval*sizeof(int), status );
           if (NULL==ptr || mhdf_isError( status ) ) {
@@ -639,6 +668,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
           }
           memset( ptr, 0, nval*sizeof(int) );
           result -> defTagsVals[k] =ptr;
+          tag_desc = &(result->tags[i]); /* this is because the tag might point to something else*/
 
           /* make room for the long array type
             is it long or something else? */
