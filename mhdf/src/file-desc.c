@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <H5Tpublic.h>
+#include <H5Dpublic.h>
 
 static struct mhdf_FileDesc* alloc_file_desc( mhdf_Status* status );
 static void* realloc_data( struct mhdf_FileDesc** data, size_t append_bytes, mhdf_Status* status );
@@ -399,6 +400,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   struct mhdf_TagDesc * tag_desc;
   long int nval, junk;
   hid_t table[3];
+  hid_t data_type;
   
   API_BEGIN;
   
@@ -677,21 +679,25 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
 
            mhdf_read_data( table_id, offset, count, int_type, id_list, H5P_DEFAULT, status );*/
 
-          mhdf_read_data(table[0], 0, nval, H5T_STD_U64LE, id_list, H5P_DEFAULT, status );
+          data_type = H5Dget_type(table[0]);
+
+          mhdf_read_data(table[0], 0, nval, data_type, id_list, H5P_DEFAULT, status );
           if (mhdf_isError( status )) {
             free( array );
             return NULL;
           }
+          H5Tclose( data_type );
 
           for (i1=0; i1<nval; i1++)
             result -> defTagsEntSets[k][i1] = (int) (id_list[i1] - result->sets.start_id +1);
           /* now read values, integer type */
-          mhdf_read_data(table[1], 0, nval, H5T_STD_I32LE, result -> defTagsVals[k], H5P_DEFAULT, status );
+          data_type = H5Dget_type(table[1]);
+          mhdf_read_data(table[1], 0, nval, data_type, result -> defTagsVals[k], H5P_DEFAULT, status );
           if (mhdf_isError(status)) {
             free(array);
             return NULL;
           }
-
+          H5Tclose( data_type );
           mhdf_closeData( file_handle, table[0], status );
           if (mhdf_isError( status )) {
             free( array );
