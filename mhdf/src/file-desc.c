@@ -704,8 +704,8 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
           }
           free (id_list);
         }
-     /*   else {
-           could be dense tags on sets
+        else if (0==k){ /* parallel partition on sets should still work if dense
+           could be dense tags on sets */
           table[0] = mhdf_openDenseTagData(file_handle, pname[k],
               mhdf_set_type_handle(), &nval, status);
           if (mhdf_isError(status)) {
@@ -717,7 +717,36 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
             free(array);
             return NULL;
           }
-        }*/
+          /*
+           * if dense parallel partition, we know what to expect
+           */
+          result ->numEntSets[0] = nval;
+          if (nval <= 0 )
+            continue; /* do not do anything */
+
+          ptr = realloc_data( &result, nval*sizeof(int), status );
+          if (NULL==ptr || mhdf_isError( status )) {
+            free( array );
+            return NULL;
+          }
+          memset( ptr, 0, nval*sizeof(int) );
+          result -> defTagsEntSets[0] = ptr;
+          tag_desc = &(result->tags[i]);
+
+          ptr = realloc_data( &result, nval*sizeof(int), status );
+          if (NULL==ptr || mhdf_isError( status ) ) {
+            free( array );
+            return NULL;
+          }
+          memset( ptr, 0, nval*sizeof(int) );
+          result -> defTagsVals[k] =ptr;
+          tag_desc = &(result->tags[i]); /* this is because the tag might point to something else*/
+          for (i1=0; i1<nval; i1++)
+          {
+            result -> defTagsEntSets[0][i1] = i1+1;
+            result -> defTagsVals[0][i1] = i1; /* we know how the partition looks like  */
+          }
+        }
 
       }
 
