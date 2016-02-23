@@ -235,7 +235,12 @@ ErrorCode ReadMCNP5::load_one_file(const char *fname,
 
     // Blank line
     file.getline(line, 10000);
-
+    std::string l = line;
+    // if this string is present then skip the following blank line
+    if(std::string::npos != l.find("This mesh tally is modified by a dose response function.")) {
+      file.getline(line, 10000);
+    }
+    
     // Read mesh planes
     result = read_mesh_planes(file,
                               debug,
