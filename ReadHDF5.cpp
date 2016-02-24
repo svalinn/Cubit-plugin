@@ -399,7 +399,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
         H5Pclose(file_prop);
 
         if (filePtr) {
-          fileInfo = mhdf_getFileSummary(filePtr, handleType, &status);
+          fileInfo = mhdf_getFileSummary(filePtr, handleType, &status, 0); // no extra set info
           if (!is_error(status)) {
             size = fileInfo->total_size;
             fileInfo->offset = (unsigned char*)fileInfo;
@@ -453,7 +453,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
     }
 
     if (!bcastSummary) {
-      fileInfo = mhdf_getFileSummary(filePtr, handleType, &status);
+      fileInfo = mhdf_getFileSummary(filePtr, handleType, &status, 0);
       if (is_error(status)) {
         free(dataBuffer);
         dataBuffer = NULL;
@@ -473,7 +473,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
     }
 
     // Get file info
-    fileInfo = mhdf_getFileSummary(filePtr, handleType, &status);
+    fileInfo = mhdf_getFileSummary(filePtr, handleType, &status, 0);
     if (is_error(status)) {
       free(dataBuffer);
       dataBuffer = NULL;
