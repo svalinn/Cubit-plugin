@@ -485,6 +485,14 @@ private:
    */
   ErrorCode store_file_ids(Tag tag);
 
+  /**\brief Store sets file IDS in a custom tag
+   *
+   * Copy sets file ID from IDMap for each set read from file
+   *  into a custom tag on the sets
+   *  needed now for the VisIt plugin, to identify sets read
+   */
+  ErrorCode store_sets_file_ids();
+
   /**\brief Find index in mhdf_FileDesc* fileInfo for specified tag name
    *
    * Given a tag name, find its index in fileInfo and verify that

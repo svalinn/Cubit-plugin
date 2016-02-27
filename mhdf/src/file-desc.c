@@ -81,7 +81,7 @@ mhdf_fixFileDesc( struct mhdf_FileDesc* copy_ptr, const struct mhdf_FileDesc* or
   FIX_OFFSET( int**, defTagsEntSets);
   FIX_OFFSET( int**, defTagsVals);
 
-  for (i=0; i<4; i++)
+  for (i=0; i<5; i++)
   {
     if (copy_ptr->defTagsEntSets) FIX_OFFSET( int*, defTagsEntSets[i]);
     if (copy_ptr->defTagsVals)    FIX_OFFSET( int*, defTagsVals[i]);
@@ -393,8 +393,8 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
   void* ptr;
   char **elem_handles = 0, **tag_names = 0;
   unsigned char *array, *matrix;
-  const char * pname [4] = { "PARALLEL_PARTITION", "MATERIAL_SET",
-                              "NEUMANN_SET", "DIRICHLET_SET" };
+  const char * pname [5] = { "PARALLEL_PARTITION", "MATERIAL_SET",
+                              "NEUMANN_SET", "DIRICHLET_SET", "GEOM_DIMENSION"};
 
   long * id_list;
   struct mhdf_TagDesc * tag_desc;
@@ -616,21 +616,21 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
      * dirichlet sets
      *  to determine number of parts, etc
      *   this is needed for iMOAB and VisIt plugin */
-    ptr = realloc_data( &result, 4*sizeof(int), status );
+    ptr = realloc_data( &result, 5*sizeof(int), status );
     if (NULL==ptr || mhdf_isError( status )) {
       free( array );
       return NULL;
     }
     result ->numEntSets = ptr;
 
-    ptr = realloc_data( &result, 4*sizeof(int*), status );
+    ptr = realloc_data( &result, 5*sizeof(int*), status );
     if (NULL==ptr || mhdf_isError( status )) {
       free( array );
       return NULL;
     }
     result -> defTagsEntSets = ptr;
 
-    ptr = realloc_data( &result, 4*sizeof(int*), status );
+    ptr = realloc_data( &result, 5*sizeof(int*), status );
     if (NULL==ptr || mhdf_isError( status )) {
       free( array );
       return NULL;
@@ -641,7 +641,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
     for (i=0; i<numtags; i++)
     {
       tag_desc = &(result->tags[i]);
-      for (k=0; k<4; k++)  /* number of default tags to consider */
+      for (k=0; k<5; k++)  /* number of default tags to consider */
       {
         if (strcmp(pname[k],tag_desc->name)==0)
         {
