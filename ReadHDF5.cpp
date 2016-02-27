@@ -583,12 +583,13 @@ ErrorCode ReadHDF5::load_file(const char* filename,
     dbgOut.tprint(1, "Storing file IDs in tag\n");
     rval = store_file_ids(*file_id_tag);
   }
-  rval = opts.get_null_option("STORE_SETS_FILEIDS");
-  if (MB_SUCCESS == rval)
+  ErrorCode rval3 = opts.get_null_option("STORE_SETS_FILEIDS");
+  if (MB_SUCCESS == rval3)
   {
     rval = store_sets_file_ids();
     if (MB_SUCCESS != rval) return rval;
   }
+
   if (cputime)
     _times[STORE_FILE_IDS_TIME]=timer->time_elapsed();
 
@@ -3566,8 +3567,8 @@ ErrorCode ReadHDF5::store_sets_file_ids()
   // it is the same type as the tag defined in ReadParallelcpp, for file id
   Tag setFileIdTag;
   long default_val=0;
-  ErrorCode rval = iFace->tag_get_handle("__FILE_ID_FOR_SETS", sizeof(long), MB_TYPE_OPAQUE, setFileIdTag, MB_TAG_DENSE | MB_TAG_CREAT
-      &default_val);
+  ErrorCode rval = iFace->tag_get_handle("__FILE_ID_FOR_SETS", sizeof(long), MB_TYPE_OPAQUE, setFileIdTag,
+      (MB_TAG_DENSE | MB_TAG_CREAT),  &default_val);
 
   if (MB_SUCCESS != rval || 0==setFileIdTag)
     return rval;
