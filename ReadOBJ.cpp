@@ -28,6 +28,7 @@
 #include "moab/ReadUtilIface.hpp"
 #include "Internals.hpp"
 #include "moab/Range.hpp"
+#include "moab/CartVect.hpp"
 #include "moab/FileOptions.hpp"
 #include "FileTokenizer.hpp"
 #include "MBTagConventions.hpp"
@@ -157,7 +158,7 @@ ErrorCode ReadOBJ::load_file(const char *filename,
       while ( std::getline (input_file,line) ) 
         {
           // Can not tolerate blank lines in file
-	  if (line.length() == 0 ) return MB_FAILURE;
+	  if (line.length() == 0 ) continue;// return MB_FAILURE;
 
           // Tokenize the line
           std::vector<std::string> tokens;
@@ -451,16 +452,21 @@ ErrorCode ReadOBJ::create_center_vertex( Range quad_vert_eh,
                                          EntityHandle &new_vertex_eh)
 {
   ErrorCode rval;
-  double center_coords[3]={0.0, 0.0, 0.0}; // vertex coords at center of quad  
-  double coords[12]; //result from get_coords-- x,y,z for all 4 vertices
+//  double center_coords[3]={0.0, 0.0, 0.0}; // vertex coords at center of quad  
+  CartVect center_coords(0.0, 0.0, 0.0);
+  //double coords[12]; //result from get_coords-- x,y,z for all 4 vertices
+  CartVect coords[12];
 
   // Find quad vertex coordinates
-  rval = MBI->get_coords(quad_vert_eh,coords);
+  rval = MBI->get_coords(quad_vert_eh, coords[0].array());
   MB_CHK_SET_ERR(rval,"Failed to get vertex coordinates.");
 
   for (int i = 0; i < 4; i++)
     {
      // Get the vertex coords and keep running total of x, y, and z
+//      center_coords1 += coords[3*i]; //coords[3*i];
+//      center_coords2 += coords[3*i+1];
+ //     center_coords3 += coords[3*i+2];
       center_coords[0] += coords[3*i];
       center_coords[1] += coords[3*i+1];
       center_coords[2] += coords[3*i+2];
