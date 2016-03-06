@@ -48,6 +48,7 @@ std::vector<std::string> DAGMCExportCommand::get_syntax()
       "<string:label='filename',help='<filename>'> "
       "[faceting_tolerance <value:label='faceting_tolerance',help='<faceting tolerance>'>] "
       "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
+      "[normal_tolerance <value:label='normal_tolerance',help='<normal tolerance>'>] "
       //"[overwrite] "
       "[verbose] [fatal_on_curves]";
 
@@ -91,6 +92,10 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   data.get_value("length_tolerance",len_tol);
   message << "Setting length tolerance to " << len_tol << std::endl;
 
+  // read parsed command for normal tolerance
+  data.get_value("normal_tolerance",norm_tol);
+  message << "Setting normal tolerance to " << norm_tol << std::endl;
+  
   // read parsed command for verbosity
   verbose_warnings = data.find_keyword("verbose");
   fatal_on_curves = data.find_keyword("fatal_on_curves");
