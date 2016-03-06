@@ -12,6 +12,8 @@
 #include "RefFace.hpp"
 #include "Curve.hpp"
 #include "RefEdge.hpp"
+#include "RefVertex.hpp"
+
 #include "SenseEntity.hpp"
 
 // MOAB includes
@@ -104,6 +106,9 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
 
   entmap[3].clear();
   entmap[4].clear();
+
+  rval = create_vertices(entmap[0]);
+
 
   return result;
 }
@@ -421,7 +426,7 @@ moab::ErrorCode DAGMCExportCommand::store_group_content(refentity_handle_map (&e
     entlist.clean_out();
     grp->get_child_ref_entities(entlist);
 
-    std::ostringstream message;
+    //    std::ostringstream message;
 
     moab::Range entities;
     while (entlist.size()) {
@@ -474,6 +479,39 @@ moab::ErrorCode DAGMCExportCommand::store_group_content(refentity_handle_map (&e
         return moab::MB_FAILURE;
     }
   }
+
+  return moab::MB_SUCCESS;
+}
+
+moab::ErrorCode DAGMCExportCommand::create_vertices(refentity_handle_map &vertex_map)
+{
+  moab::ErrorCode rval;
+  refentity_handle_map_itor ci;
+
+  for (ci = vertex_map.begin(); ci != vertex_map.end(); ++ci) {
+    CubitVector pos = dynamic_cast<RefVertex*>(ci->first)->coordinates();
+    double coords[3] = {pos.x(), pos.y(), pos.z()};
+    moab::EntityHandle vh;
+    rval = mdbImpl->create_vertex(coords, vh);
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+
+    // Add the vertex to its tagged meshset
+    rval = mdbImpl->add_entities(ci->second, &vh, 1);
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+
+    // std::ostringstream message;
+    // message << "Created vertex " << vh << " and added it to meshset " << ci->second << std::endl;
+    // console->print_message(message.str().c_str());
+
+    // Replace the meshset handle with the vertex handle
+    // This makes adding the vertex to higher dim sets easier
+    ci->second = vh;
+
+
+  }
+
 
   return moab::MB_SUCCESS;
 }

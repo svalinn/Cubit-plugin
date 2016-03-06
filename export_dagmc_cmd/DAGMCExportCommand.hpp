@@ -40,6 +40,7 @@ protected:
   moab::ErrorCode store_groups(refentity_handle_map (&entitymap)[5]);
   moab::ErrorCode create_group_entsets(refentity_handle_map& group_map);
   moab::ErrorCode store_group_content(refentity_handle_map (&entitymap)[5]);
+  moab::ErrorCode create_vertices(refentity_handle_map &vertex_map);
 
 
 private:
