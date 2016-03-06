@@ -25,45 +25,18 @@
 #include "moab/Interface.hpp"
 #include "moab/GeomTopoTool.hpp"
 
-#define CHK_MB_ERR_RET(A,B)  message << (A) << (B) << std::endl; \
-      CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
-      return false;
+#define CHK_MB_ERR_RET(A,B)  if (moab::MB_SUCCESS != (B)) { \
+  message << (A) << (B) << std::endl;                                   \
+  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
+  return false;                                                         \
+  }
 
 DAGMCExportCommand::DAGMCExportCommand() :
   geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), geometry_resabs_tag(0)
 {
-  moab::ErrorCode rval;
-
-  mdbImpl = new moab::Core();
-  myGeomTool = new moab::GeomTopoTool(mdbImpl);
-
-  // get some tag handles
-  int negone = -1, zero = 0 /*, negonearr[] = {-1, -1, -1, -1}*/;
-  if (mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
-                              geom_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT, &negone))
-    message << "Error creating geom_tag" << std::endl;
-  
-  if (mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
-                              id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT, &zero))
-    message << "Error creating id_tag" << std::endl;
-
-  if (mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE,
-                              name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
-    message << "Error creating name_tag" << std::endl;
-
-  if (mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE,
-                              category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
-    message << "Error creating category_tag" << std::endl;
-
-  if (mdbImpl->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,
-                              moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
-    message << "Error creating faceting_tol_tag" << std::endl;
-
-  if (mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, 
-                              geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
-    message << "Error creating geometry_resabs_tag" << std::endl;
-
+  message.str("");
 }
+
 
 DAGMCExportCommand::~DAGMCExportCommand()
 {}
@@ -78,7 +51,7 @@ std::vector<std::string> DAGMCExportCommand::get_syntax()
       "<string:label='filename',help='<filename>'> "
       "[faceting_tolerance <value:label='faceting_tolerance',help='<faceting tolerance>'>] "
       "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
-      "[overwrite]";
+      "[overwrite] [verbose] [fatal_on_curves]";
 
   std::vector<std::string> syntax_list;
   syntax_list.push_back(syntax);
@@ -110,16 +83,22 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   bool verbose_warnings = false;
   bool fatal_on_curves = false;
 
+  initialize_export();
+
   // read parsed command for faceting tolerance
   data.get_value("faceting_tolerance",faceting_tol);
-
   message << "Setting faceting tolerance to " << faceting_tol << std::endl;
 
-  // read parsed command for faceting tolerance
+  // read parsed command for length tolerance
   data.get_value("length_tolerance",len_tol);
-
   message << "Setting length tolerance to " << len_tol << std::endl;
-  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
+
+  // read parsed command for verbosity
+  verbose_warnings = data.find_keyword("verbose");
+  fatal_on_curves = data.find_keyword("fatal_on_curves");
+
+  if (verbose_warnings && fatal_on_curves)
+    message << "This export will fail if curves fail to facet" << std::endl;
 
   // Create entity sets for all geometric entities
   refentity_handle_map entmap[5];
@@ -155,8 +134,55 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   data.get_string("filename",filename);
   rval = mdbImpl->write_file(filename.c_str());
   CHK_MB_ERR_RET("Error writing file: ",rval)
+
+  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); 
+  
+  teardown();
   
   return result;
+}
+
+void DAGMCExportCommand::initialize_export()
+{
+  moab::ErrorCode rval;
+
+  mdbImpl = new moab::Core();
+  myGeomTool = new moab::GeomTopoTool(mdbImpl);
+
+  // get some tag handles
+  int negone = -1, zero = 0 /*, negonearr[] = {-1, -1, -1, -1}*/;
+  if (mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
+                              geom_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT, &negone))
+    message << "Error creating geom_tag" << std::endl;
+  
+  if (mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
+                              id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT, &zero))
+    message << "Error creating id_tag" << std::endl;
+
+  if (mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE,
+                              name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
+    message << "Error creating name_tag" << std::endl;
+
+  if (mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE,
+                              category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
+    message << "Error creating category_tag" << std::endl;
+
+  if (mdbImpl->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,
+                              moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
+    message << "Error creating faceting_tol_tag" << std::endl;
+
+  if (mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, 
+                              geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
+    message << "Error creating geometry_resabs_tag" << std::endl;
+
+}
+
+void DAGMCExportCommand::teardown()
+{
+  message.str("");
+  delete myGeomTool;
+  delete mdbImpl;
+
 }
 
 
@@ -176,7 +202,6 @@ moab::ErrorCode DAGMCExportCommand::create_entity_sets(refentity_handle_map (&en
     entlist.reset();
 
     message << "Found " << entlist.size() << " entities of dimension " << dim << std::endl;
-    CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
 
     for (int i = entlist.size(); i--; ) {
       RefEntity* ent = entlist.get_and_step();
@@ -251,7 +276,6 @@ moab::ErrorCode DAGMCExportCommand::store_surface_senses(refentity_handle_map& s
           message << "Surface " << face->id() << " has reverse sense " <<
             "with multiple volume " << reverse->id() << " and " <<
             "volume " << vol->id() << std::endl;
-          CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
           return moab::MB_FAILURE;
         }
         reverse = vol;
@@ -263,7 +287,6 @@ moab::ErrorCode DAGMCExportCommand::store_surface_senses(refentity_handle_map& s
           message << "Surface " << face->id() << " has forward sense " <<
             "with multiple volume " << forward->id() << " and " <<
             "volume " << vol->id() << std::endl;
-          CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
           return moab::MB_FAILURE;
         }
         forward = vol;
@@ -374,7 +397,6 @@ moab::ErrorCode DAGMCExportCommand::create_group_entsets(refentity_handle_map& g
       {
         message << "WARNING: group name '" << name1.c_str()
                 << "' truncated to '" << namebuf << "'" << std::endl;
-        CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
       }
     rval = mdbImpl->tag_set_data(name_tag, &h, 1, namebuf);
     if (moab::MB_SUCCESS != rval) return rval;
@@ -406,7 +428,6 @@ moab::ErrorCode DAGMCExportCommand::create_group_entsets(refentity_handle_map& g
           {
             message << "WARNING: group name '" << name1.c_str()
                     << "' truncated to '" << namebuf << "'" << std::endl;
-            CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
           }
         rval = mdbImpl->tag_set_data(extra_name_tags[j], &h, 1, namebuf);
         if (moab::MB_SUCCESS != rval) return rval;
@@ -453,13 +474,11 @@ moab::ErrorCode DAGMCExportCommand::store_group_content(refentity_handle_map (&e
               entities.insert(entitymap[3][vol]);
             } else {
               message << "Warning: CGM Body has orphan RefVolume" << std::endl;
-              CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
             }
           }
         } else {
           // Otherwise, warn user.
           message << "Warning: A dim<0 entity is being ignored by ReadCGM." << std::endl;
-          CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
         }
       }
       else if (dim < 4) {
@@ -541,7 +560,6 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
         if(fatal_on_curves)
           {  
              message << "Failed to facet the curve " << edge->id() << std::endl;
-             CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
              return moab::MB_FAILURE;
            }
         // otherwise record them
@@ -568,7 +586,6 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
     if (points.size() < 2) {
       if (start_vtx != end_vtx || curve->measure() > GEOMETRY_RESABS) {
         message << "Warning: No facetting for curve " << edge->id() << std::endl;
-        CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
         continue;
       }
       moab::EntityHandle h = vertex_map[start_vtx];
@@ -583,7 +600,6 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
     if (closed != (start_vtx == end_vtx)) {
       message << "Warning: topology and geometry inconsistant for possibly closed curve "
               << edge->id() << std::endl;
-      CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
     }
     
     // Check proximity of vertices to end coordinates
@@ -596,7 +612,6 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
         if (curve_warnings == 0 && !verbose_warn) {
           message << "         further instances of this warning will be suppressed..." << std::endl;
         }
-        CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
       }
     }
 
@@ -639,7 +654,6 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
     message << "Suppressed " << -curve_warnings
             << " 'vertices not at ends of curve' warnings." << std::endl;
     //std::cerr << "To see all warnings, use reader param VERBOSE_CGM_WARNINGS." << std::endl;
-    CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
   }
 
   return moab::MB_SUCCESS;
@@ -696,7 +710,6 @@ moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& 
           // If this facet vertex has already been found coincident, print warning
           if (verts[j]) {
             message << "Warning: Coincident vertices in surface " << face->id() << std::endl;
-            CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
           }
           // If a coincidence is found, keep track of it in the verts vector
           verts[j] = vertex_map[vtx];
@@ -736,7 +749,6 @@ moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& 
       for (int j = 1; j <= num_verts; ++j) {
         if (facet_list[i+j] >= (int)verts.size()) {
           message << "ERROR: Invalid facet data for surface " << face->id() << std::endl;
-          CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
           return moab::MB_FAILURE;
         }
         corners[j - 1] = verts[facet_list[i+j]];
@@ -747,7 +759,6 @@ moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& 
       else {
         message << "Warning: non-triangle facet in surface " << face->id() << std::endl;
         message << "  entity has " << num_verts << " edges" << std::endl;
-        CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str());
         if (num_verts == 4)
           type = moab::MBQUAD;
         else
