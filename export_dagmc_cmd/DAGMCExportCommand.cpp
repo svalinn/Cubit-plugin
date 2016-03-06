@@ -19,7 +19,7 @@
 
 #include "SenseEntity.hpp"
 
-// MOAB includes
+// MOAB includes[
 #include "MBTagConventions.hpp"
 #include "moab/Core.hpp"
 #include "moab/Interface.hpp"
@@ -29,6 +29,12 @@
   message << (A) << (B) << std::endl;                                   \
   CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
   return false;                                                         \
+  }
+
+#define CHK_MB_ERR_RET_MB(A,B)  if (moab::MB_SUCCESS != (B)) { \
+  message << (A) << (B) << std::endl;                                   \
+  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
+  return rval;                                                         \
   }
 
 DAGMCExportCommand::DAGMCExportCommand() :
@@ -82,7 +88,8 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   bool verbose_warnings = false;
   bool fatal_on_curves = false;
 
-  initialize_export();
+  rval = initialize_export();
+  CHK_MB_ERR_RET("Error initializing DAGMC export: ",rval)
 
   // read parsed command for faceting tolerance
   data.get_value("faceting_tolerance",faceting_tol);
@@ -143,7 +150,7 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   return result;
 }
 
-void DAGMCExportCommand::initialize_export()
+moab::ErrorCode DAGMCExportCommand::initialize_export()
 {
   moab::ErrorCode rval;
 
@@ -153,29 +160,29 @@ void DAGMCExportCommand::initialize_export()
 
   // get some tag handles
   int negone = -1, zero = 0 /*, negonearr[] = {-1, -1, -1, -1}*/;
-  if (mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
-                              geom_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT, &negone))
-    message << "Error creating geom_tag" << std::endl;
+  rval = mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
+                                 geom_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT, &negone);
+  CHK_MB_ERR_RET_MB("Error creating geom_tag",rval);
+    
+  rval = mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
+                                 id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT, &zero);
+  CHK_MB_ERR_RET_MB("Error creating id_tag",rval);
   
-  if (mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
-                              id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT, &zero))
-    message << "Error creating id_tag" << std::endl;
+  rval = mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE,
+                                 name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  CHK_MB_ERR_RET_MB("Error creating name_tag",rval);
+  
+  rval = mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE,
+                                 category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  CHK_MB_ERR_RET_MB("Error creating category_tag",rval);
 
-  if (mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE,
-                              name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
-    message << "Error creating name_tag" << std::endl;
+  rval = mdbImpl->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,
+                                 moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  CHK_MB_ERR_RET_MB("Error creating faceting_tol_tag",rval);
 
-  if (mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE,
-                              category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
-    message << "Error creating category_tag" << std::endl;
-
-  if (mdbImpl->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,
-                              moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
-    message << "Error creating faceting_tol_tag" << std::endl;
-
-  if (mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, 
-                              geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT))
-    message << "Error creating geometry_resabs_tag" << std::endl;
+  rval = mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, 
+                                 geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  CHK_MB_ERR_RET_MB("Error creating geometry_resabs_tag",rval);
 
 }
 
