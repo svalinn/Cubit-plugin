@@ -3,6 +3,7 @@
 
 // CGM includes
 #include "GeometryQueryTool.hpp"
+#include "ModelQueryEngine.hpp"
 
 #include "RefEntityName.hpp"
 
@@ -94,9 +95,9 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   bool result = true;
   moab::ErrorCode rval;
 
-  int norm_tol =1;
-  double faceting_tol = 1e-5;
-  double len_tol;
+  int norm_tol = 5;
+  double faceting_tol = 1e-3;
+  double len_tol = 0.0;
   bool verbose_warnings = false;
   bool fatal_on_curves = false;
 
@@ -127,6 +128,8 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = create_vertices(entmap[0]);
 
   rval = create_curve_facets(entmap[1], entmap[0], norm_tol, faceting_tol, verbose_warnings, fatal_on_curves);
+
+  rval = create_surface_facets(entmap[2], entmap[0], norm_tol, faceting_tol, len_tol);
 
   std::string filename;
   data.get_string("filename",filename);
@@ -671,6 +674,134 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
   //             << " 'vertices not at ends of curve' warnings." << std::endl;
   //   std::cerr << "To see all warnings, use reader param VERBOSE_CGM_WARNINGS." << std::endl;
   // }
+
+  return moab::MB_SUCCESS;
+}
+
+
+moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& surface_map,
+                                                          refentity_handle_map& vertex_map,
+                                                          int norm_tol,
+                                                          double facet_tol,
+                                                          double length_tol)
+{
+  moab::ErrorCode rval;
+  refentity_handle_map_itor ci;
+  CubitStatus s;
+  int failed_surface_count = 0;
+  std::vector<int> failed_surfaces;
+
+  DLIList<TopologyEntity*> me_list;
+
+  GMem data;
+  // Create geometry for all surfaces
+  for (ci = surface_map.begin(); ci != surface_map.end(); ++ci) {
+    RefFace* face = dynamic_cast<RefFace*>(ci->first);
+
+    data.clear();
+    s = face->get_graphics(data, norm_tol, facet_tol, length_tol);
+
+    if (CUBIT_SUCCESS != s)
+      return moab::MB_FAILURE;
+
+    std::vector<CubitVector> points = data.point_list();
+
+    // Declare array of all vertex handles
+    std::vector<moab::EntityHandle> verts(points.size(), 0);
+
+    // Get list of geometric vertices in surface
+    me_list.clean_out();
+    ModelQueryEngine::instance()->query_model(*face, DagType::ref_vertex_type(), me_list);
+
+    // For each geometric vertex, find a single coincident point in facets
+    // Otherwise, print a warning
+    for (int i = me_list.size(); i--; ) {
+      // Assign geometric vertex
+      RefVertex* vtx = dynamic_cast<RefVertex*>(me_list.get_and_step());
+      CubitVector pos = vtx->coordinates();
+
+      for (int j = 0; j < points.size(); ++j) {
+        // Assign facet vertex
+        CubitVector vpos = points[j];
+
+        // Check to see if they are considered coincident
+        if ((pos - vpos).length_squared() < GEOMETRY_RESABS*GEOMETRY_RESABS) {
+          // If this facet vertex has already been found coincident, print warning
+          // if (verts[j])
+          //   std::cerr << "Warning: Coincident vertices in surface " << face->id() << std::endl;
+          // If a coincidence is found, keep track of it in the verts vector
+          verts[j] = vertex_map[vtx];
+          break;
+        }
+      }
+    }
+
+    // Now create vertices for the remaining points in the facetting
+    for (int i = 0; i < points.size(); ++i) {
+      if (verts[i]) // If a geometric vertex
+        continue;
+      double coords[] = {points[i].x(), points[i].y(), points[i].z()};
+      // Return vertex handle to verts to fill in all remaining facet
+      // vertices
+      rval = mdbImpl->create_vertex(coords, verts[i]);
+      if (moab::MB_SUCCESS != rval)
+        return rval;
+    }
+
+    std::vector<int> facet_list = data.facet_list();
+    
+    // record the failures for information
+    if (facet_list.size() == 0)
+      {
+        failed_surface_count++;
+        failed_surfaces.push_back(face->id());
+      }
+
+    // Now create facets
+    moab::Range facets;
+    std::vector<moab::EntityHandle> corners;
+    for (int i = 0; i < facet_list.size(); i += facet_list[i] + 1) {
+      // Get number of facet verts
+      int num_verts = facet_list[i];
+      corners.resize(num_verts);
+      for (int j = 1; j <= num_verts; ++j) {
+        if (facet_list[i+j] >= (int)verts.size()) {
+          //std::cerr << "ERROR: Invalid facet data for surface " << face->id() << std::endl;
+          return moab::MB_FAILURE;
+        }
+        corners[j - 1] = verts[facet_list[i+j]];
+      }
+      moab::EntityType type;
+      if (num_verts == 3)
+        type = moab::MBTRI;
+      else {
+        //std::cerr << "Warning: non-triangle facet in surface " << face->id() << std::endl;
+        //std::cerr << "  entity has " << *facet << " edges" << std::endl;
+        if (num_verts == 4)
+          type = moab::MBQUAD;
+        else
+          type = moab::MBPOLYGON;
+      }
+
+      //if (surf->bridge_sense() == CUBIT_REVERSED)
+        //std::reverse(corners.begin(), corners.end());
+
+      moab::EntityHandle h;
+      rval = mdbImpl->create_element(type, &corners[0], corners.size(), h);
+      if (moab::MB_SUCCESS != rval)
+        return moab::MB_FAILURE;
+
+      facets.insert(h);
+    }
+
+    // Add vertices and facets to surface set
+    rval = mdbImpl->add_entities(ci->second, &verts[0], verts.size());
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+    rval = mdbImpl->add_entities(ci->second, facets);
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+  }
 
   return moab::MB_SUCCESS;
 }

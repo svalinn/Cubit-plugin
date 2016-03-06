@@ -47,6 +47,11 @@ protected:
                                       double faceting_tol,
                                       bool verbose_warn,
                                       bool fatal_on_curves);
+  moab::ErrorCode create_surface_facets(refentity_handle_map& surface_map,
+                                        refentity_handle_map& vertex_map,
+                                        int norm_tol,
+                                        double facet_tol,
+                                        double length_tol);
 
 private:
 
