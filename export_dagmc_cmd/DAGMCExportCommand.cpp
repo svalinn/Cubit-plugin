@@ -4,20 +4,20 @@
 // CGM includes
 #include "GeometryQueryTool.hpp"
 #include "ModelQueryEngine.hpp"
+#include "GMem.hpp"
 
 #include "RefEntityName.hpp"
 
-#include "RefGroup.hpp"
 #include "Body.hpp"
 #include "Surface.hpp"
-#include "RefFace.hpp"
 #include "Curve.hpp"
+
+#include "RefGroup.hpp"
+#include "RefFace.hpp"
 #include "RefEdge.hpp"
 #include "RefVertex.hpp"
 
 #include "SenseEntity.hpp"
-
-#include "GMem.hpp"
 
 // MOAB includes
 #include "MBTagConventions.hpp"
@@ -33,10 +33,7 @@
 
 DAGMCExportCommand::DAGMCExportCommand() :
   geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), geometry_resabs_tag(0)
-{
-  message.str("");
-}
-
+{}
 
 DAGMCExportCommand::~DAGMCExportCommand()
 {}
@@ -135,8 +132,6 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = mdbImpl->write_file(filename.c_str());
   CHK_MB_ERR_RET("Error writing file: ",rval)
 
-  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); 
-  
   teardown();
   
   return result;
@@ -148,6 +143,7 @@ void DAGMCExportCommand::initialize_export()
 
   mdbImpl = new moab::Core();
   myGeomTool = new moab::GeomTopoTool(mdbImpl);
+  message.str("");
 
   // get some tag handles
   int negone = -1, zero = 0 /*, negonearr[] = {-1, -1, -1, -1}*/;
@@ -179,6 +175,7 @@ void DAGMCExportCommand::initialize_export()
 
 void DAGMCExportCommand::teardown()
 {
+  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); 
   message.str("");
   delete myGeomTool;
   delete mdbImpl;
