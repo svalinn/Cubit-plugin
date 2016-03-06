@@ -4,9 +4,47 @@
 
 // CGM includes
 #include "GeometryQueryTool.hpp"
+#include "RefFace.hpp"
+#include "SenseEntity.hpp"
+#include "Surface.hpp"
 
-DAGMCExportCommand::DAGMCExportCommand()
-{}
+// MOAB includes
+#include "MBTagConventions.hpp"
+#include "moab/Core.hpp"
+#include "moab/Interface.hpp"
+#include "moab/GeomTopoTool.hpp"
+
+DAGMCExportCommand::DAGMCExportCommand() :
+  geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), geometry_resabs_tag(0)
+{
+  moab::ErrorCode rval;
+
+  mdbImpl = new moab::Core();
+  myGeomTool = new moab::GeomTopoTool(mdbImpl);
+  
+  // get some tag handles
+  int negone = -1, zero = 0 /*, negonearr[] = {-1, -1, -1, -1}*/;
+  rval = mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
+                                 geom_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT, &negone);
+  assert(!rval);
+  rval = mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
+                                 id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT, &zero);
+  assert(!rval);
+  rval = mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE,
+                                 name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  assert(!rval);
+
+  rval = mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE,
+                                 category_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  assert(!rval);
+  rval = mdbImpl->tag_get_handle("FACETING_TOL", 1, moab::MB_TYPE_DOUBLE, faceting_tol_tag,
+                                 moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  assert(!rval);
+  rval = mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, 
+                                 geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+  assert(!rval);
+
+}
 
 DAGMCExportCommand::~DAGMCExportCommand()
 {}
@@ -41,22 +79,27 @@ std::vector<std::string> DAGMCExportCommand::get_help()
 bool DAGMCExportCommand::execute(CubitCommandData &data)
 {
 
-  ErrorCode rval;
+  bool result = true;
+  moab::ErrorCode rval;
 
   // Create entity sets for all geometric entities
-  std::map<RefEntity*, EntityHandle> entmap[5];
+  std::map<RefEntity*, moab::EntityHandle> entmap[5];
 
   rval = create_entity_sets(entmap);
   // if (MB_SUCCESS != rval ) // what should error handling look like?
 
+  rval = create_topology(entmap);
+
+  rval = store_surface_senses(entmap[2], entmap[3]);
 
   return result;
 }
 
 
-ErrorCode DAGMCExportCommand::create_entity_sets(std::map<RefEntity*, EntityHandle> (&entmap)[5])
+moab::ErrorCode DAGMCExportCommand::create_entity_sets(std::map<RefEntity*, moab::EntityHandle> (&entmap)[5])
 {
-  ErrorCode rval;
+
+  moab::ErrorCode rval;
   const char geom_categories[][CATEGORY_TAG_SIZE] =
               {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
   const char* const names[] = {"Vertex", "Curve", "Surface", "Volume"};
@@ -67,12 +110,19 @@ ErrorCode DAGMCExportCommand::create_entity_sets(std::map<RefEntity*, EntityHand
     GeometryQueryTool::instance()->ref_entity_list(names[dim], entlist, true);
     entlist.reset();
 
+    std::ostringstream message;
+    message << "Found " << entlist.size() << " entities of dimension " << dim << std::endl;
+
+    CubitMessageHandler* console = CubitInterface::get_cubit_message_handler();
+    console->print_message(message.str().c_str());
+
+
     for (int i = entlist.size(); i--; ) {
       RefEntity* ent = entlist.get_and_step();
-      EntityHandle handle;
+      moab::EntityHandle handle;
       // Create the new meshset
-      rval = mdbImpl->create_meshset(dim == 1 ? MESHSET_ORDERED : MESHSET_SET, handle);
-      if (MB_SUCCESS != rval)
+      rval = mdbImpl->create_meshset(dim == 1 ? moab::MESHSET_ORDERED : moab::MESHSET_SET, handle);
+      if (moab::MB_SUCCESS != rval)
         return rval;
 
       // Map the geom reference entity to the corresponding moab meshset
@@ -80,19 +130,114 @@ ErrorCode DAGMCExportCommand::create_entity_sets(std::map<RefEntity*, EntityHand
 
       // Create tags for the new meshset
       rval = mdbImpl->tag_set_data(geom_tag, &handle, 1, &dim);
-      if (MB_SUCCESS != rval)
+      if (moab::MB_SUCCESS != rval)
         return rval;
 
       int id = ent->id();
       rval = mdbImpl->tag_set_data(id_tag, &handle, 1, &id);
-      if (MB_SUCCESS != rval)
+      if (moab::MB_SUCCESS != rval)
         return rval;
 
       rval = mdbImpl->tag_set_data(category_tag, &handle, 1, &geom_categories[dim]);
-      if (MB_SUCCESS != rval)
+      if (moab::MB_SUCCESS != rval)
         return rval;
     }
   }
 
-  return MB_SUCCESS;
+  return moab::MB_SUCCESS;
+}
+
+moab::ErrorCode DAGMCExportCommand::create_topology(std::map<RefEntity*, moab::EntityHandle> (&entitymap)[5])
+{
+  moab::ErrorCode rval;
+  DLIList<RefEntity*> entitylist;
+  std::map<RefEntity*, moab::EntityHandle>::iterator ci;
+
+  for (int dim = 1; dim < 4; ++dim) {
+    for (ci = entitymap[dim].begin(); ci != entitymap[dim].end(); ++ci) {
+      entitylist.clean_out();
+      ci->first->get_child_ref_entities(entitylist);
+
+      entitylist.reset();
+      for (int i = entitylist.size(); i--; ) {
+        RefEntity* ent = entitylist.get_and_step();
+        moab::EntityHandle h = entitymap[dim - 1][ent];
+        rval = mdbImpl->add_parent_child(ci->second, h);
+
+        // std::ostringstream message;
+        // message << "Created parent-child relationship between " << ci->second << " and " << h << std::endl;
+        
+        // CubitMessageHandler* console = CubitInterface::get_cubit_message_handler();
+        // console->print_message(message.str().c_str());
+
+        if (moab::MB_SUCCESS != rval)
+          return rval;
+      }
+    }
+  }
+
+  return moab::MB_SUCCESS;
+}
+
+moab::ErrorCode DAGMCExportCommand::store_surface_senses(std::map<RefEntity*, moab::EntityHandle>& surface_map,
+                                                         std::map<RefEntity*, moab::EntityHandle>& volume_map)
+{
+  moab::ErrorCode rval;
+  std::map<RefEntity*, moab::EntityHandle>::iterator ci;
+
+  for (ci = surface_map.begin(); ci != surface_map.end(); ++ci) {
+    RefFace* face = (RefFace*)(ci->first);
+    BasicTopologyEntity *forward = 0, *reverse = 0;
+    for (SenseEntity* cf = face->get_first_sense_entity_ptr();
+         cf; cf = cf->next_on_bte()) {
+      BasicTopologyEntity* vol = cf->get_parent_basic_topology_entity_ptr();
+      // Allocate vol to the proper topology entity (forward or reverse)
+      if (cf->get_sense() == CUBIT_UNKNOWN ||
+          cf->get_sense() != face->get_surface_ptr()->bridge_sense()) {
+        // Check that each surface has a sense for only one volume
+        if (reverse) {
+          // std::cout << "Surface " << face->id() << " has reverse sense " <<
+          //              "with multiple volume " << reverse->id() << " and " <<
+          //              "volume " << vol->id() << std::endl;
+          return moab::MB_FAILURE;
+        }
+        reverse = vol;
+      }
+      if (cf->get_sense() == CUBIT_UNKNOWN ||
+          cf->get_sense() == face->get_surface_ptr()->bridge_sense()) {
+        // Check that each surface has a sense for only one volume
+        if (forward) {
+          // std::cout << "Surface " << face->id() << " has forward sense " <<
+          //              "with multiple volume " << forward->id() << " and " <<
+          //              "volume " << vol->id() << std::endl;
+          return moab::MB_FAILURE;
+        }
+        forward = vol;
+      }
+    }
+
+    CubitMessageHandler* console = CubitInterface::get_cubit_message_handler();
+
+    if (forward) {
+      rval = myGeomTool->set_sense(ci->second, volume_map[forward], moab::SENSE_FORWARD);
+      std::ostringstream message;
+      message << "Surface " << ci->second << " has forward sense with respect to volume "  << volume_map[forward] << std::endl;
+      
+      console->print_message(message.str().c_str());
+
+      if (moab::MB_SUCCESS != rval)
+        return rval;
+    }
+    if (reverse) {
+      rval = myGeomTool->set_sense(ci->second, volume_map[reverse], moab::SENSE_REVERSE);
+      std::ostringstream message;
+      message << "Surface " << ci->second << " has reverse sense with respect to volume "  << volume_map[reverse] << std::endl;
+      
+      console->print_message(message.str().c_str());
+      if (moab::MB_SUCCESS != rval)
+        return rval;
+    }
+  }
+
+  return moab::MB_SUCCESS;
 }
