@@ -41,7 +41,12 @@ protected:
   moab::ErrorCode create_group_entsets(refentity_handle_map& group_map);
   moab::ErrorCode store_group_content(refentity_handle_map (&entitymap)[5]);
   moab::ErrorCode create_vertices(refentity_handle_map &vertex_map);
-
+  moab::ErrorCode create_curve_facets(refentity_handle_map& curve_map,
+                                      refentity_handle_map& vertex_map,
+                                      int norm_tol,
+                                      double faceting_tol,
+                                      bool verbose_warn,
+                                      bool fatal_on_curves);
 
 private:
 

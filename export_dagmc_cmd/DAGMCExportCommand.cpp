@@ -16,6 +16,8 @@
 
 #include "SenseEntity.hpp"
 
+#include "GMem.hpp"
+
 // MOAB includes
 #include "MBTagConventions.hpp"
 #include "moab/Core.hpp"
@@ -90,6 +92,11 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   bool result = true;
   moab::ErrorCode rval;
 
+  int norm_tol;
+  double faceting_tol, len_tol;
+  bool verbose_warnings = false;
+  bool fatal_on_curves = false;
+
   // Create entity sets for all geometric entities
   refentity_handle_map entmap[5];
 
@@ -109,6 +116,9 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
 
   rval = create_vertices(entmap[0]);
 
+  rval = create_curve_facets(entmap[1], entmap[0], norm_tol, faceting_tol, verbose_warnings, fatal_on_curves);
+
+  rval = mdbImpl->write_file();
 
   return result;
 }
@@ -512,6 +522,143 @@ moab::ErrorCode DAGMCExportCommand::create_vertices(refentity_handle_map &vertex
 
   }
 
+
+  return moab::MB_SUCCESS;
+}
+
+
+moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& curve_map,
+                                       refentity_handle_map& vertex_map,
+                                       int norm_tol,
+                                       double faceting_tol,
+                                       bool verbose_warn,
+                                       bool fatal_on_curves)
+{
+  moab::ErrorCode rval;
+  CubitStatus s;
+  // Maximum allowable curve-endpoint proximity warnings
+  // If this integer becomes negative, then abs(curve_warnings) is the
+  // number of warnings that were suppressed.
+  int curve_warnings = 0;
+  int failed_curve_count = 0;
+  std::vector<int> failed_curves;
+  
+  // Map iterator
+  refentity_handle_map_itor ci;
+  
+  // Create geometry for all curves
+  GMem data;
+  for (ci = curve_map.begin(); ci != curve_map.end(); ++ci) {
+    // Get the start and end points of the curve in the form of a reference edge
+    RefEdge* edge = dynamic_cast<RefEdge*>(ci->first);
+    // Get the edge's curve information
+    Curve* curve = edge->get_curve_ptr();
+    // Clean out previous curve information
+    data.clear();
+    // Facet curve according to parameters and CGM version
+    s = edge->get_graphics(data, norm_tol, faceting_tol);
+    
+    if( s != CUBIT_SUCCESS )
+      {
+        // if we fatal on curves
+        // if(fatal_on_curves)
+        //   {  
+        //     std::cout << "Failed to facet the curve " << edge->id() << std::endl;
+        //     return moab::MB_FAILURE;
+        //   }
+        // // otherwise record them
+        // else
+        //   {
+	    failed_curve_count++;
+	    failed_curves.push_back(edge->id());
+        // }
+        continue;
+      }
+    
+    std::vector<CubitVector> points = data.point_list();
+    
+    // Need to reverse data?
+    if (curve->bridge_sense() == CUBIT_REVERSED) 
+      std::reverse(points.begin(), points.end());
+    
+    // Check for closed curve
+    RefVertex *start_vtx, *end_vtx;
+    start_vtx = edge->start_vertex();
+    end_vtx = edge->end_vertex();
+    
+    // Special case for point curve
+    if (points.size() < 2) {
+      if (start_vtx != end_vtx || curve->measure() > GEOMETRY_RESABS) {
+        //std::cerr << "Warning: No facetting for curve " << edge->id() << std::endl;
+        continue;
+      }
+      moab::EntityHandle h = vertex_map[start_vtx];
+      rval = mdbImpl->add_entities(ci->second, &h, 1);
+      if (moab::MB_SUCCESS != rval)
+        return moab::MB_FAILURE;
+      continue;
+    }
+    // Check to see if the first and last interior vertices are considered to be
+    // coincident by CUBIT
+    const bool closed = (points.front() - points.back()).length() < GEOMETRY_RESABS;
+    // if (closed != (start_vtx == end_vtx)) {
+    //   std::cerr << "Warning: topology and geometry inconsistant for possibly closed curve "
+    //             << edge->id() << std::endl;
+    // }
+    
+    // Check proximity of vertices to end coordinates
+    if ((start_vtx->coordinates() - points.front()).length() > GEOMETRY_RESABS ||
+        (end_vtx->coordinates() - points.back()).length() > GEOMETRY_RESABS) {
+      
+      curve_warnings--;
+      // if (curve_warnings >= 0 || verbose_warn) {
+      //   std::cerr << "Warning: vertices not at ends of curve " << edge->id() << std::endl;
+      //   if (curve_warnings == 0 && !verbose_warn) {
+      //     std::cerr << "         further instances of this warning will be suppressed..." << std::endl;
+      //   }
+      // }
+    }
+
+    // Create interior points
+    std::vector<moab::EntityHandle> verts, edges;
+    verts.push_back(vertex_map[start_vtx]);
+    for (size_t i = 1; i < points.size() - 1; ++i) {
+      double coords[] = {points[i].x(), points[i].y(), points[i].z()};
+      moab::EntityHandle h;
+      // Create vertex entity
+      rval = mdbImpl->create_vertex(coords, h);
+      if (moab::MB_SUCCESS != rval)
+        return moab::MB_FAILURE;
+      verts.push_back(h);
+    }
+    verts.push_back(vertex_map[end_vtx]);
+
+    // Create edges
+    for (size_t i = 0; i < verts.size() - 1; ++i) {
+      moab::EntityHandle h;
+      rval = mdbImpl->create_element(moab::MBEDGE, &verts[i], 2, h);
+      if (moab::MB_SUCCESS != rval)
+        return moab::MB_FAILURE;
+      edges.push_back(h);
+    }
+
+    // If closed, remove duplicate
+    if (verts.front() == verts.back())
+      verts.pop_back();
+    // Add entities to the curve meshset from entitymap
+    rval = mdbImpl->add_entities(ci->second, &verts[0], verts.size());
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+    rval = mdbImpl->add_entities(ci->second, &edges[0], edges.size());
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+  }
+
+  // if (!verbose_warn && curve_warnings < 0) {
+  //   std::cerr << "Suppressed " << -curve_warnings
+  //             << " 'vertices not at ends of curve' warnings." << std::endl;
+  //   std::cerr << "To see all warnings, use reader param VERBOSE_CGM_WARNINGS." << std::endl;
+  // }
 
   return moab::MB_SUCCESS;
 }
