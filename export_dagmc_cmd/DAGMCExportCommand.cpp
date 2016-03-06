@@ -65,7 +65,9 @@ std::vector<std::string> DAGMCExportCommand::get_syntax()
   // format. Full documentation on the command specification syntax can be
   // found in the documentation.
   std::string syntax =
-      "export dagmc <string:label='filename',help='<filename>'> "
+      "export dagmc "
+      "<string:label='filename',help='<filename>'> "
+      "[<value:label='faceting_tolerance',help='<faceting tolerance>'>] "
       "[overwrite]";
 
   std::vector<std::string> syntax_list;
@@ -97,6 +99,13 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   double len_tol;
   bool verbose_warnings = false;
   bool fatal_on_curves = false;
+
+  data.get_value("faceting_tolerance",faceting_tol);
+  std::ostringstream message;
+  message << "Setting faceting tolerance to " << faceting_tol << std::endl;
+
+  console = CubitInterface::get_cubit_message_handler();
+  console->print_message(message.str().c_str());
 
   // Create entity sets for all geometric entities
   refentity_handle_map entmap[5];
