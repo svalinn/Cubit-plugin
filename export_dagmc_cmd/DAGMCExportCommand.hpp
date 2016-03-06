@@ -59,6 +59,8 @@ private:
   moab::GeomTopoTool* myGeomTool;
   CubitMessageHandler* console;
 
+  std::ostringstream message;
+
   moab::Tag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag, geometry_resabs_tag;
 };
 
