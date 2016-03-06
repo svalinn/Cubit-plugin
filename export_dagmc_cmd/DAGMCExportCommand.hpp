@@ -31,7 +31,8 @@ public:
 
 protected:
 
-  moab::ErrorCode initialize_export();
+  moab::ErrorCode create_tags();
+  moab::ErrorCode parse_options(CubitCommandData &data);
   moab::ErrorCode create_entity_sets(refentity_handle_map (&entmap)[5]);
   moab::ErrorCode create_topology(refentity_handle_map (&entitymap)[5]);
   moab::ErrorCode store_surface_senses(refentity_handle_map& surface_map,
@@ -43,16 +44,9 @@ protected:
   moab::ErrorCode store_group_content(refentity_handle_map (&entitymap)[5]);
   moab::ErrorCode create_vertices(refentity_handle_map &vertex_map);
   moab::ErrorCode create_curve_facets(refentity_handle_map& curve_map,
-                                      refentity_handle_map& vertex_map,
-                                      int norm_tol,
-                                      double faceting_tol,
-                                      bool verbose_warn,
-                                      bool fatal_on_curves);
+                                      refentity_handle_map& vertex_map);
   moab::ErrorCode create_surface_facets(refentity_handle_map& surface_map,
-                                        refentity_handle_map& vertex_map,
-                                        int norm_tol,
-                                        double facet_tol,
-                                        double length_tol);
+                                        refentity_handle_map& vertex_map);
   void teardown();
 
 private:
@@ -64,6 +58,13 @@ private:
   std::ostringstream message;
 
   moab::Tag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag, geometry_resabs_tag;
+
+  int norm_tol;
+  double faceting_tol;
+  double len_tol;
+  bool verbose_warnings;
+  bool fatal_on_curves;
+
 };
 
 #endif // MYEXPORTCOMMAND_HPP

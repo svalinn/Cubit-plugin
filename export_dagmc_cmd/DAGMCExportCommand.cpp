@@ -33,13 +33,19 @@
 
 #define CHK_MB_ERR_RET_MB(A,B)  if (moab::MB_SUCCESS != (B)) { \
   message << (A) << (B) << std::endl;                                   \
-  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
   return rval;                                                         \
   }
 
 DAGMCExportCommand::DAGMCExportCommand() :
   geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), geometry_resabs_tag(0)
-{}
+{
+  // set default values
+  norm_tol = 5;
+  faceting_tol = 1e-3;
+  len_tol = 0.0;
+  verbose_warnings = false;
+  fatal_on_curves = false;
+}
 
 DAGMCExportCommand::~DAGMCExportCommand()
 {}
@@ -79,17 +85,62 @@ std::vector<std::string> DAGMCExportCommand::get_help()
 bool DAGMCExportCommand::execute(CubitCommandData &data)
 {
 
+  mdbImpl = new moab::Core();
+  myGeomTool = new moab::GeomTopoTool(mdbImpl);
+  message.str("");
+
   bool result = true;
   moab::ErrorCode rval;
 
-  int norm_tol = 5;
-  double faceting_tol = 1e-3;
-  double len_tol = 0.0;
-  bool verbose_warnings = false;
-  bool fatal_on_curves = false;
+  // Create entity sets for all geometric entities
+  refentity_handle_map entmap[5];
 
-  rval = initialize_export();
-  CHK_MB_ERR_RET("Error initializing DAGMC export: ",rval)
+  rval = create_tags();
+  CHK_MB_ERR_RET("Error initializing DAGMC export: ",rval);
+
+  rval = parse_options(data);
+  CHK_MB_ERR_RET("Error parsing options: ",rval);
+  
+  rval = create_entity_sets(entmap);
+  CHK_MB_ERR_RET("Error creating entity sets: ",rval);
+
+  rval = create_topology(entmap);
+  CHK_MB_ERR_RET("Error creating topology: ",rval);
+  
+  rval = store_surface_senses(entmap[2], entmap[3]);
+  CHK_MB_ERR_RET("Error storing surface senses: ",rval);
+  
+  rval = store_curve_senses(entmap[1], entmap[2]);
+  CHK_MB_ERR_RET("Error storing curve senses: ",rval);
+    
+  rval = store_groups(entmap);
+  CHK_MB_ERR_RET("Error storing groups: ",rval);
+  
+  entmap[3].clear();
+  entmap[4].clear();
+  
+  rval = create_vertices(entmap[0]);
+  CHK_MB_ERR_RET("Error creating vertices: ",rval);
+  
+  rval = create_curve_facets(entmap[1], entmap[0]);
+  CHK_MB_ERR_RET("Error faceting curves: ",rval);
+
+  rval = create_surface_facets(entmap[2], entmap[0]);
+  CHK_MB_ERR_RET("Error faceting surfaces: ",rval);
+
+  std::string filename;
+  data.get_string("filename",filename);
+  rval = mdbImpl->write_file(filename.c_str());
+  CHK_MB_ERR_RET("Error writing file: ",rval);
+
+  teardown();
+  
+  return result;
+}
+
+moab::ErrorCode DAGMCExportCommand::parse_options(CubitCommandData &data)
+{
+  moab::ErrorCode rval;
 
   // read parsed command for faceting tolerance
   data.get_value("faceting_tolerance",faceting_tol);
@@ -98,6 +149,10 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   // read parsed command for length tolerance
   data.get_value("length_tolerance",len_tol);
   message << "Setting length tolerance to " << len_tol << std::endl;
+
+  moab::EntityHandle set = 0;
+  rval = mdbImpl->tag_set_data(faceting_tol_tag, &set, 1, &faceting_tol);
+  CHK_MB_ERR_RET_MB("Error setting faceting tolerance tag",rval);
 
   // read parsed command for normal tolerance
   data.get_value("normal_tolerance",norm_tol);
@@ -110,53 +165,13 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   if (verbose_warnings && fatal_on_curves)
     message << "This export will fail if curves fail to facet" << std::endl;
 
-  // Create entity sets for all geometric entities
-  refentity_handle_map entmap[5];
 
-  rval = create_entity_sets(entmap);
-  CHK_MB_ERR_RET("Error creating entity sets: ",rval)
-
-  rval = create_topology(entmap);
-  CHK_MB_ERR_RET("Error creating topology: ",rval)
-
-  rval = store_surface_senses(entmap[2], entmap[3]);
-  CHK_MB_ERR_RET("Error storing surface senses: ",rval)
-
-  rval = store_curve_senses(entmap[1], entmap[2]);
-  CHK_MB_ERR_RET("Error storing curve senses: ",rval)
-
-  rval = store_groups(entmap);
-  CHK_MB_ERR_RET("Error storing groups: ",rval)
-
-  entmap[3].clear();
-  entmap[4].clear();
-
-  rval = create_vertices(entmap[0]);
-  CHK_MB_ERR_RET("Error creating vertices: ",rval)
-
-  rval = create_curve_facets(entmap[1], entmap[0], norm_tol, faceting_tol, verbose_warnings, fatal_on_curves);
-  CHK_MB_ERR_RET("Error faceting curves: ",rval)
-
-  rval = create_surface_facets(entmap[2], entmap[0], norm_tol, faceting_tol, len_tol);
-  CHK_MB_ERR_RET("Error faceting surfaces: ",rval)
-
-  std::string filename;
-  data.get_string("filename",filename);
-  rval = mdbImpl->write_file(filename.c_str());
-  CHK_MB_ERR_RET("Error writing file: ",rval)
-
-  teardown();
-  
-  return result;
 }
 
-moab::ErrorCode DAGMCExportCommand::initialize_export()
+moab::ErrorCode DAGMCExportCommand::create_tags()
 {
   moab::ErrorCode rval;
 
-  mdbImpl = new moab::Core();
-  myGeomTool = new moab::GeomTopoTool(mdbImpl);
-  message.str("");
 
   // get some tag handles
   int negone = -1, zero = 0 /*, negonearr[] = {-1, -1, -1, -1}*/;
@@ -183,6 +198,10 @@ moab::ErrorCode DAGMCExportCommand::initialize_export()
   rval = mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, 
                                  geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
   CHK_MB_ERR_RET_MB("Error creating geometry_resabs_tag",rval);
+
+  moab::EntityHandle set = 0;
+  rval = mdbImpl->tag_set_data(geometry_resabs_tag, &set, 1, &GEOMETRY_RESABS);
+  CHK_MB_ERR_RET_MB("Error setting geometry_resabs_tag",rval);
 
 }
 
@@ -533,11 +552,7 @@ moab::ErrorCode DAGMCExportCommand::create_vertices(refentity_handle_map &vertex
 
 
 moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& curve_map,
-                                       refentity_handle_map& vertex_map,
-                                       int norm_tol,
-                                       double faceting_tol,
-                                       bool verbose_warn,
-                                       bool fatal_on_curves)
+                                       refentity_handle_map& vertex_map)
 {
   moab::ErrorCode rval;
   CubitStatus s;
@@ -617,9 +632,9 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
         (end_vtx->coordinates() - points.back()).length() > GEOMETRY_RESABS) {
       
       curve_warnings--;
-      if (curve_warnings >= 0 || verbose_warn) {
+      if (curve_warnings >= 0 || verbose_warnings) {
         message << "Warning: vertices not at ends of curve " << edge->id() << std::endl;
-        if (curve_warnings == 0 && !verbose_warn) {
+        if (curve_warnings == 0 && !verbose_warnings) {
           message << "         further instances of this warning will be suppressed..." << std::endl;
         }
       }
@@ -660,7 +675,7 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
       return moab::MB_FAILURE;
   }
 
-  if (!verbose_warn && curve_warnings < 0) {
+  if (!verbose_warnings && curve_warnings < 0) {
     message << "Suppressed " << -curve_warnings
             << " 'vertices not at ends of curve' warnings." << std::endl;
     //std::cerr << "To see all warnings, use reader param VERBOSE_CGM_WARNINGS." << std::endl;
@@ -671,10 +686,7 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
 
 
 moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& surface_map,
-                                                          refentity_handle_map& vertex_map,
-                                                          int norm_tol,
-                                                          double facet_tol,
-                                                          double length_tol)
+                                                          refentity_handle_map& vertex_map)
 {
   moab::ErrorCode rval;
   refentity_handle_map_itor ci;
@@ -690,7 +702,7 @@ moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& 
     RefFace* face = dynamic_cast<RefFace*>(ci->first);
 
     data.clear();
-    s = face->get_graphics(data, norm_tol, facet_tol, length_tol);
+    s = face->get_graphics(data, norm_tol, faceting_tol, len_tol);
 
     if (CUBIT_SUCCESS != s)
       return moab::MB_FAILURE;
