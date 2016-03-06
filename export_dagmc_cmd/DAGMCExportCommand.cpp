@@ -48,7 +48,8 @@ std::vector<std::string> DAGMCExportCommand::get_syntax()
       "<string:label='filename',help='<filename>'> "
       "[faceting_tolerance <value:label='faceting_tolerance',help='<faceting tolerance>'>] "
       "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
-      "[overwrite] [verbose] [fatal_on_curves]";
+      //"[overwrite] "
+      "[verbose] [fatal_on_curves]";
 
   std::vector<std::string> syntax_list;
   syntax_list.push_back(syntax);
