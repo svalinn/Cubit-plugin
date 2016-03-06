@@ -1,12 +1,13 @@
 #include "DAGMCExportCommand.hpp"
 #include "CubitInterface.hpp"
-#include "CubitMessageHandler.hpp"
 
 // CGM includes
 #include "GeometryQueryTool.hpp"
-#include "RefFace.hpp"
-#include "SenseEntity.hpp"
 #include "Surface.hpp"
+#include "RefFace.hpp"
+#include "Curve.hpp"
+#include "RefEdge.hpp"
+#include "SenseEntity.hpp"
 
 // MOAB includes
 #include "MBTagConventions.hpp"
@@ -92,6 +93,8 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
 
   rval = store_surface_senses(entmap[2], entmap[3]);
 
+  rval = store_curve_senses(entmap[1], entmap[2]);
+
   return result;
 }
 
@@ -113,7 +116,7 @@ moab::ErrorCode DAGMCExportCommand::create_entity_sets(std::map<RefEntity*, moab
     std::ostringstream message;
     message << "Found " << entlist.size() << " entities of dimension " << dim << std::endl;
 
-    CubitMessageHandler* console = CubitInterface::get_cubit_message_handler();
+    console = CubitInterface::get_cubit_message_handler();
     console->print_message(message.str().c_str());
 
 
@@ -167,7 +170,7 @@ moab::ErrorCode DAGMCExportCommand::create_topology(std::map<RefEntity*, moab::E
         // std::ostringstream message;
         // message << "Created parent-child relationship between " << ci->second << " and " << h << std::endl;
         
-        // CubitMessageHandler* console = CubitInterface::get_cubit_message_handler();
+        // console = CubitInterface::get_cubit_message_handler();
         // console->print_message(message.str().c_str());
 
         if (moab::MB_SUCCESS != rval)
@@ -216,7 +219,7 @@ moab::ErrorCode DAGMCExportCommand::store_surface_senses(std::map<RefEntity*, mo
       }
     }
 
-    CubitMessageHandler* console = CubitInterface::get_cubit_message_handler();
+    console = CubitInterface::get_cubit_message_handler();
 
     if (forward) {
       rval = myGeomTool->set_sense(ci->second, volume_map[forward], moab::SENSE_FORWARD);
@@ -239,5 +242,52 @@ moab::ErrorCode DAGMCExportCommand::store_surface_senses(std::map<RefEntity*, mo
     }
   }
 
+  return moab::MB_SUCCESS;
+}
+
+moab::ErrorCode DAGMCExportCommand::store_curve_senses(std::map<RefEntity*, moab::EntityHandle>& curve_map,
+                                      std::map<RefEntity*, moab::EntityHandle>& surface_map)
+{
+  moab::ErrorCode rval;
+  std::vector<moab::EntityHandle> ents;
+  std::vector<int> senses;
+  std::map<RefEntity*, moab::EntityHandle>::iterator ci;
+  for (ci = curve_map.begin(); ci != curve_map.end(); ++ci) {
+    RefEdge* edge = (RefEdge*)(ci->first);
+    ents.clear();
+    senses.clear();
+    for (SenseEntity* ce = edge->get_first_sense_entity_ptr();
+         ce; ce = ce->next_on_bte()) {
+      BasicTopologyEntity* fac = ce->get_parent_basic_topology_entity_ptr();
+      moab::EntityHandle face = surface_map[fac];
+      if (ce->get_sense() == CUBIT_UNKNOWN ||
+          ce->get_sense() != edge->get_curve_ptr()->bridge_sense()) {
+        ents.push_back(face);
+        senses.push_back(moab::SENSE_REVERSE);
+      }
+      if (ce->get_sense() == CUBIT_UNKNOWN ||
+          ce->get_sense() == edge->get_curve_ptr()->bridge_sense()) {
+        ents.push_back(face);
+        senses.push_back(moab::SENSE_FORWARD);
+      }
+    }
+
+    rval = myGeomTool->set_senses(ci->second, ents, senses);
+    std::ostringstream message;
+    message << "Curve " << ci->second << " has "  ;
+    for (int ent_num=0;ent_num < ents.size();ent_num++)
+      {
+        message << std::endl << "\t" << (ent_num>0?"and ":"")
+                << (senses[ent_num]==moab::SENSE_FORWARD?"forward":"reverse")
+                << " sense with respect to surface " << ents[ent_num];
+      }
+    message << std::endl;
+
+    console->print_message(message.str().c_str());
+
+
+    if (moab::MB_SUCCESS != rval)
+      return rval;
+  }
   return moab::MB_SUCCESS;
 }

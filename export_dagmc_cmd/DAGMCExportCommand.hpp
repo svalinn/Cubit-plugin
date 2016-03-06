@@ -2,6 +2,7 @@
 #define MYEXPORTCOMMAND_HPP
 
 #include "CubitCommandInterface.hpp"
+#include "CubitMessageHandler.hpp"
 
 // CGM includes
 #include "RefEntity.hpp"
@@ -33,11 +34,14 @@ protected:
   moab::ErrorCode create_topology(std::map<RefEntity*, moab::EntityHandle> (&entitymap)[5]);
   moab::ErrorCode store_surface_senses(std::map<RefEntity*, moab::EntityHandle>& surface_map,
                                        std::map<RefEntity*, moab::EntityHandle>& volume_map);
+  moab::ErrorCode store_curve_senses(std::map<RefEntity*, moab::EntityHandle>& curve_map,
+                                     std::map<RefEntity*, moab::EntityHandle>& surface_map);
 
 private:
 
   moab::Interface* mdbImpl;
   moab::GeomTopoTool* myGeomTool;
+  CubitMessageHandler* console;
 
   moab::Tag geom_tag, id_tag, name_tag, category_tag, faceting_tol_tag, geometry_resabs_tag;
 };
