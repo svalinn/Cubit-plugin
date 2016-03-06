@@ -65,6 +65,13 @@ private:
   bool verbose_warnings;
   bool fatal_on_curves;
 
+  int failed_curve_count;
+  std::vector<int> failed_curves;
+
+  int failed_surface_count;
+  std::vector<int> failed_surfaces;
+
+
 };
 
 #endif // MYEXPORTCOMMAND_HPP

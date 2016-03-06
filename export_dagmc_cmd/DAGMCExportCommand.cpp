@@ -207,6 +207,13 @@ moab::ErrorCode DAGMCExportCommand::create_tags()
 
 void DAGMCExportCommand::teardown()
 {
+  message  << "***** Faceting Summary Information *****" << std::endl
+           << "----- Curve Fail Information -----" << std::endl
+           << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl
+           << "----- Facet Fail Information -----" << std::endl
+           << "There were " << failed_surface_count << " surfaces that could not be faceted." << std::endl
+           << "***** End of Faceting Summary Information *****" << std::endl;
+ 
   CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); 
   message.str("");
   delete myGeomTool;
@@ -561,9 +568,8 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
   // If this integer becomes negative, then abs(curve_warnings) is the
   // number of warnings that were suppressed.
   int curve_warnings = 0;
-  int failed_curve_count = 0;
-  std::vector<int> failed_curves;
-  
+  failed_curve_count = 0;
+
   // Map iterator
   refentity_handle_map_itor ci;
   
@@ -691,8 +697,7 @@ moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& 
   moab::ErrorCode rval;
   refentity_handle_map_itor ci;
   CubitStatus s;
-  int failed_surface_count = 0;
-  std::vector<int> failed_surfaces;
+  failed_surface_count =0;
 
   DLIList<TopologyEntity*> me_list;
 
