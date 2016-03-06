@@ -92,8 +92,9 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   bool result = true;
   moab::ErrorCode rval;
 
-  int norm_tol;
-  double faceting_tol, len_tol;
+  int norm_tol =1;
+  double faceting_tol = 1e-5;
+  double len_tol;
   bool verbose_warnings = false;
   bool fatal_on_curves = false;
 
@@ -118,7 +119,9 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
 
   rval = create_curve_facets(entmap[1], entmap[0], norm_tol, faceting_tol, verbose_warnings, fatal_on_curves);
 
-  rval = mdbImpl->write_file();
+  std::string filename;
+  data.get_string("filename",filename);
+  rval = mdbImpl->write_file(filename.c_str());
 
   return result;
 }
