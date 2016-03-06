@@ -3,6 +3,11 @@
 
 // CGM includes
 #include "GeometryQueryTool.hpp"
+
+#include "RefEntityName.hpp"
+
+#include "RefGroup.hpp"
+#include "Body.hpp"
 #include "Surface.hpp"
 #include "RefFace.hpp"
 #include "Curve.hpp"
@@ -84,7 +89,7 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   moab::ErrorCode rval;
 
   // Create entity sets for all geometric entities
-  std::map<RefEntity*, moab::EntityHandle> entmap[5];
+  refentity_handle_map entmap[5];
 
   rval = create_entity_sets(entmap);
   // if (MB_SUCCESS != rval ) // what should error handling look like?
@@ -95,11 +100,16 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
 
   rval = store_curve_senses(entmap[1], entmap[2]);
 
+  rval = store_groups(entmap);
+
+  entmap[3].clear();
+  entmap[4].clear();
+
   return result;
 }
 
 
-moab::ErrorCode DAGMCExportCommand::create_entity_sets(std::map<RefEntity*, moab::EntityHandle> (&entmap)[5])
+moab::ErrorCode DAGMCExportCommand::create_entity_sets(refentity_handle_map (&entmap)[5])
 {
 
   moab::ErrorCode rval;
@@ -150,11 +160,11 @@ moab::ErrorCode DAGMCExportCommand::create_entity_sets(std::map<RefEntity*, moab
   return moab::MB_SUCCESS;
 }
 
-moab::ErrorCode DAGMCExportCommand::create_topology(std::map<RefEntity*, moab::EntityHandle> (&entitymap)[5])
+moab::ErrorCode DAGMCExportCommand::create_topology(refentity_handle_map (&entitymap)[5])
 {
   moab::ErrorCode rval;
   DLIList<RefEntity*> entitylist;
-  std::map<RefEntity*, moab::EntityHandle>::iterator ci;
+  refentity_handle_map_itor ci;
 
   for (int dim = 1; dim < 4; ++dim) {
     for (ci = entitymap[dim].begin(); ci != entitymap[dim].end(); ++ci) {
@@ -182,11 +192,11 @@ moab::ErrorCode DAGMCExportCommand::create_topology(std::map<RefEntity*, moab::E
   return moab::MB_SUCCESS;
 }
 
-moab::ErrorCode DAGMCExportCommand::store_surface_senses(std::map<RefEntity*, moab::EntityHandle>& surface_map,
-                                                         std::map<RefEntity*, moab::EntityHandle>& volume_map)
+moab::ErrorCode DAGMCExportCommand::store_surface_senses(refentity_handle_map& surface_map,
+                                                         refentity_handle_map& volume_map)
 {
   moab::ErrorCode rval;
-  std::map<RefEntity*, moab::EntityHandle>::iterator ci;
+  refentity_handle_map_itor ci;
 
   for (ci = surface_map.begin(); ci != surface_map.end(); ++ci) {
     RefFace* face = (RefFace*)(ci->first);
@@ -219,24 +229,24 @@ moab::ErrorCode DAGMCExportCommand::store_surface_senses(std::map<RefEntity*, mo
       }
     }
 
-    console = CubitInterface::get_cubit_message_handler();
+    // console = CubitInterface::get_cubit_message_handler();
 
     if (forward) {
       rval = myGeomTool->set_sense(ci->second, volume_map[forward], moab::SENSE_FORWARD);
-      std::ostringstream message;
-      message << "Surface " << ci->second << " has forward sense with respect to volume "  << volume_map[forward] << std::endl;
+      // std::ostringstream message;
+      // message << "Surface " << ci->second << " has forward sense with respect to volume "  << volume_map[forward] << std::endl;
       
-      console->print_message(message.str().c_str());
+      // console->print_message(message.str().c_str());
 
       if (moab::MB_SUCCESS != rval)
         return rval;
     }
     if (reverse) {
       rval = myGeomTool->set_sense(ci->second, volume_map[reverse], moab::SENSE_REVERSE);
-      std::ostringstream message;
-      message << "Surface " << ci->second << " has reverse sense with respect to volume "  << volume_map[reverse] << std::endl;
+      // std::ostringstream message;
+      // message << "Surface " << ci->second << " has reverse sense with respect to volume "  << volume_map[reverse] << std::endl;
       
-      console->print_message(message.str().c_str());
+      // console->print_message(message.str().c_str());
       if (moab::MB_SUCCESS != rval)
         return rval;
     }
@@ -245,13 +255,13 @@ moab::ErrorCode DAGMCExportCommand::store_surface_senses(std::map<RefEntity*, mo
   return moab::MB_SUCCESS;
 }
 
-moab::ErrorCode DAGMCExportCommand::store_curve_senses(std::map<RefEntity*, moab::EntityHandle>& curve_map,
-                                      std::map<RefEntity*, moab::EntityHandle>& surface_map)
+moab::ErrorCode DAGMCExportCommand::store_curve_senses(refentity_handle_map& curve_map,
+                                      refentity_handle_map& surface_map)
 {
   moab::ErrorCode rval;
   std::vector<moab::EntityHandle> ents;
   std::vector<int> senses;
-  std::map<RefEntity*, moab::EntityHandle>::iterator ci;
+  refentity_handle_map_itor ci;
   for (ci = curve_map.begin(); ci != curve_map.end(); ++ci) {
     RefEdge* edge = (RefEdge*)(ci->first);
     ents.clear();
@@ -273,21 +283,197 @@ moab::ErrorCode DAGMCExportCommand::store_curve_senses(std::map<RefEntity*, moab
     }
 
     rval = myGeomTool->set_senses(ci->second, ents, senses);
-    std::ostringstream message;
-    message << "Curve " << ci->second << " has "  ;
-    for (int ent_num=0;ent_num < ents.size();ent_num++)
-      {
-        message << std::endl << "\t" << (ent_num>0?"and ":"")
-                << (senses[ent_num]==moab::SENSE_FORWARD?"forward":"reverse")
-                << " sense with respect to surface " << ents[ent_num];
-      }
-    message << std::endl;
+    // std::ostringstream message;
+    // message << "Curve " << ci->second << " has "  ;
+    // for (int ent_num=0;ent_num < ents.size();ent_num++)
+    //   {
+    //     message << std::endl << "\t" << (ent_num>0?"and ":"")
+    //             << (senses[ent_num]==moab::SENSE_FORWARD?"forward":"reverse")
+    //             << " sense with respect to surface " << ents[ent_num];
+    //   }
+    // message << std::endl;
 
-    console->print_message(message.str().c_str());
+    // console->print_message(message.str().c_str());
 
 
     if (moab::MB_SUCCESS != rval)
       return rval;
   }
+  return moab::MB_SUCCESS;
+}
+
+
+moab::ErrorCode DAGMCExportCommand::store_groups(refentity_handle_map (&entitymap)[5])
+{
+  moab::ErrorCode rval;
+
+  // Create entity sets for all ref groups
+  rval = create_group_entsets(entitymap[4]);
+  if (rval != moab::MB_SUCCESS)
+    return rval;
+
+  // Store group names and entities in the mesh
+  rval = store_group_content(entitymap);
+  if (rval != moab::MB_SUCCESS)
+    return rval;
+
+  return moab::MB_SUCCESS;
+}
+
+moab::ErrorCode DAGMCExportCommand::create_group_entsets(refentity_handle_map& group_map)
+{
+  moab::ErrorCode rval;
+  const char geom_categories[][CATEGORY_TAG_SIZE] =
+      {"Vertex\0", "Curve\0", "Surface\0", "Volume\0", "Group\0"};
+  DLIList<RefEntity*> entitylist;
+
+  // Create entity sets for all ref groups
+  std::vector<moab::Tag> extra_name_tags;
+  DLIList<CubitString> name_list;
+  entitylist.clean_out();
+
+  // Get all entity groups from the CGM model
+  GeometryQueryTool::instance()->ref_entity_list("group", entitylist);
+  entitylist.reset();
+
+  // Loop over all groups
+  for (int i = entitylist.size(); i--; ) {
+    // Take the next group
+    RefEntity* grp = entitylist.get_and_step();
+    name_list.clean_out();
+    // Get the names of all entities in this group from the solid model
+    RefEntityName::instance()->get_refentity_name(grp, name_list);
+    if (name_list.size() == 0)
+      continue;
+    // Set pointer to first name of the group and set the first name to name1
+    name_list.reset();
+    CubitString name1 = name_list.get();
+    // Create entity handle for the group
+    moab::EntityHandle h;
+    rval = mdbImpl->create_meshset(moab::MESHSET_SET, h);
+    if (moab::MB_SUCCESS != rval)
+      return rval;
+    // Set tag data for the group
+    char namebuf[NAME_TAG_SIZE];
+    memset(namebuf, '\0', NAME_TAG_SIZE);
+    strncpy(namebuf, name1.c_str(), NAME_TAG_SIZE - 1);
+    // if (name1.length() >= (unsigned)NAME_TAG_SIZE)
+    //   std::cout << "WARNING: group name '" << name1.c_str()
+    //             << "' truncated to '" << namebuf << "'" << std::endl;
+    rval = mdbImpl->tag_set_data(name_tag, &h, 1, namebuf);
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+
+    // std::ostringstream message;
+    // message << "Created meshset " << h << " for group named "
+    //         << namebuf <<  std::endl;
+    // console->print_message(message.str().c_str());
+
+    int id = grp->id();
+    rval = mdbImpl->tag_set_data(id_tag, &h, 1, &id);
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+
+    rval = mdbImpl->tag_set_data(category_tag, &h, 1, &geom_categories[4]);
+    if (moab::MB_SUCCESS != rval)
+      return moab::MB_FAILURE;
+    // Check for extra group names
+    if (name_list.size() > 1) {
+      for (int j = extra_name_tags.size(); j < name_list.size(); ++j) {
+        sprintf(namebuf, "EXTRA_%s%d", NAME_TAG_NAME, j);
+        moab::Tag t;
+        rval = mdbImpl->tag_get_handle(namebuf, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE, t, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+        assert(!rval);
+        extra_name_tags.push_back(t);
+      }
+      // Add extra group names to the group handle
+      for (int j = 0; j < name_list.size(); ++j) {
+        name1 = name_list.get_and_step();
+        memset(namebuf, '\0', NAME_TAG_SIZE);
+        strncpy(namebuf, name1.c_str(), NAME_TAG_SIZE - 1);
+        // if (name1.length() >= (unsigned)NAME_TAG_SIZE)
+        //   std::cout << "WARNING: group name '" << name1.c_str()
+        //             << "' truncated to '" << namebuf << "'" << std::endl;
+        rval = mdbImpl->tag_set_data(extra_name_tags[j], &h, 1, namebuf);
+        if (moab::MB_SUCCESS != rval)
+          return moab::MB_FAILURE;
+        // message << "Created meshset " << h << " for group named "
+        //         << namebuf <<  std::endl;
+        // console->print_message(message.str().c_str());
+      }
+    }
+    // Add the group handle
+    group_map[grp] = h;
+  }
+
+  return moab::MB_SUCCESS;
+}
+
+moab::ErrorCode DAGMCExportCommand::store_group_content(refentity_handle_map (&entitymap)[5])
+{
+  moab::ErrorCode rval;
+  DLIList<RefEntity*> entlist;
+  refentity_handle_map_itor ci;
+  // Store contents for each group
+  entlist.reset();
+  for (ci = entitymap[4].begin(); ci != entitymap[4].end(); ++ci) {
+    RefGroup* grp = (RefGroup*)(ci->first);
+    entlist.clean_out();
+    grp->get_child_ref_entities(entlist);
+
+    std::ostringstream message;
+
+    moab::Range entities;
+    while (entlist.size()) {
+      RefEntity* ent = entlist.pop();
+      int dim = ent->dimension();
+
+      if (dim < 0) {
+        Body* body;
+        if (entitymap[4].find(ent) != entitymap[4].end()) {
+          // Child is another group; examine its contents
+          entities.insert(entitymap[4][ent]);
+          // message << "Queued body " << entitymap[4][ent] << " for insertion into group " << ci->second <<  std::endl;
+          // console->print_message(message.str().c_str());
+        }
+        else if ((body = dynamic_cast<Body*>(ent)) != NULL) {
+          // Child is a CGM Body, which presumably comprises some volumes--
+          // extract volumes as if they belonged to group.
+          DLIList<RefVolume*> vols;
+          body->ref_volumes(vols);
+          for (int vi = vols.size(); vi--; ) {
+            RefVolume* vol = vols.get_and_step();
+            if (entitymap[3].find(vol) != entitymap[3].end()) {
+              entities.insert(entitymap[3][vol]);
+              // message << "Queued volume " << entitymap[3][ent] << " for insertion into group " << ci->second <<  std::endl;
+              // console->print_message(message.str().c_str());
+            }
+            // else{
+            //   std::cerr << "Warning: CGM Body has orphan RefVolume" << std::endl;
+            // }
+          }
+        }
+        // else {
+        //   // Otherwise, warn user.
+        //   std::cerr << "Warning: A dim<0 entity is being ignored by ReadCGM." << std::endl;
+        // }
+      }
+      else if (dim < 4) {
+        if (entitymap[dim].find(ent) != entitymap[dim].end())
+          {
+            entities.insert(entitymap[dim][ent]);
+            // message << "Queued " << (dim==3?"volume":(dim==2?"surface":(dim==1?"curve":"vertex"))) << " " << entitymap[3][ent] << " for insertion into group " << ci->second <<  std::endl;
+            // console->print_message(message.str().c_str());
+          }
+      }
+    }
+
+    if (!entities.empty()) {
+      rval = mdbImpl->add_entities(ci->second, entities);
+      if (moab::MB_SUCCESS != rval)
+        return moab::MB_FAILURE;
+    }
+  }
+
   return moab::MB_SUCCESS;
 }

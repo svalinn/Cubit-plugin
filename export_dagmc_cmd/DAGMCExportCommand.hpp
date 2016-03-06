@@ -11,7 +11,8 @@
 #include "moab/Interface.hpp"
 #include "moab/GeomTopoTool.hpp"
 
-class MeshExportInterface;
+typedef std::map<RefEntity*, moab::EntityHandle> refentity_handle_map;
+typedef std::map<RefEntity*, moab::EntityHandle>::iterator refentity_handle_map_itor;
 
 /*!
  * \brief The DAGMCExportCommand class implements all the steps necessary
@@ -30,12 +31,16 @@ public:
 
 protected:
 
-  moab::ErrorCode create_entity_sets(std::map<RefEntity*, moab::EntityHandle> (&entmap)[5]);
-  moab::ErrorCode create_topology(std::map<RefEntity*, moab::EntityHandle> (&entitymap)[5]);
-  moab::ErrorCode store_surface_senses(std::map<RefEntity*, moab::EntityHandle>& surface_map,
-                                       std::map<RefEntity*, moab::EntityHandle>& volume_map);
-  moab::ErrorCode store_curve_senses(std::map<RefEntity*, moab::EntityHandle>& curve_map,
-                                     std::map<RefEntity*, moab::EntityHandle>& surface_map);
+  moab::ErrorCode create_entity_sets(refentity_handle_map (&entmap)[5]);
+  moab::ErrorCode create_topology(refentity_handle_map (&entitymap)[5]);
+  moab::ErrorCode store_surface_senses(refentity_handle_map& surface_map,
+                                       refentity_handle_map& volume_map);
+  moab::ErrorCode store_curve_senses(refentity_handle_map& curve_map,
+                                     refentity_handle_map& surface_map);
+  moab::ErrorCode store_groups(refentity_handle_map (&entitymap)[5]);
+  moab::ErrorCode create_group_entsets(refentity_handle_map& group_map);
+  moab::ErrorCode store_group_content(refentity_handle_map (&entitymap)[5]);
+
 
 private:
 
