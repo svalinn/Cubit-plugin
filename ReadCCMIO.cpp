@@ -875,7 +875,7 @@ ErrorCode ReadCCMIO::read_all_faces(CCMIOID topologyID, TupleList &vert_map,
   CCMIOSize_t index;
   CCMIOID faceID;
   ErrorCode rval;
-  CCMIOError error;
+  CCMIOError error=kCCMIONoErr;
 
   // Get total # internal/bdy faces, size the face map accordingly
 #ifdef TUPLE_LIST
@@ -907,7 +907,7 @@ ErrorCode ReadCCMIO::read_all_faces(CCMIOID topologyID, TupleList &vert_map,
   }
 
   // Now get internal faces
-  CCMIOGetEntity(&error, topologyID, kCCMIOInternalFaces, 0, &faceID);
+  CCMIOGetEntity(&error, topologyID, kCCMIOInternalFaces, 0, &faceID);CHK_SET_CCMERR(error, "Couldn't get internal faces");
 
   rval = read_faces(faceID, kCCMIOInternalFaces, vert_map, face_map,
 #ifndef TUPLE_LIST
