@@ -1102,7 +1102,7 @@ ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, Entit
   //assert(md_entry->mdStringValue.length() + 1 <= NAME_TAG_SIZE);
   char name_tag_data[NAME_TAG_SIZE];
   memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
-  strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
+  strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE - 1);
   result = mdbImpl->tag_set_data(entityNameTag, &seth, 1, name_tag_data);
   if (MB_SUCCESS != result)
     return result;
@@ -1130,7 +1130,7 @@ ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, Entit
           MB_TAG_SPARSE | MB_TAG_CREAT
           ); MB_CHK_ERR(rval);
       memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
-      strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
+      strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE - 1);
       result = mdbImpl->tag_set_data(extra_name_tag, &seth, 1, name_tag_data);
     }
   }
@@ -1184,7 +1184,7 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
     }
     //assert(md_entry->mdStringValue.length() + 1 <= NAME_TAG_SIZE);
     memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
-    strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
+    strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE - 1);
     result = mdbImpl->tag_set_data(entityNameTag, &grouph->setHandle, 1,
                                    name_tag_data);
     if (MB_SUCCESS != result)
@@ -1212,7 +1212,7 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
             return result;
           //assert(md_entry->mdStringValue.length() + 1 <= NAME_TAG_SIZE);
           memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
-          strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
+          strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE - 1);
           result = mdbImpl->tag_set_data(extra_name_tag, &grouph->setHandle, 1,
                                          name_tag_data);
         }
@@ -1306,14 +1306,19 @@ ErrorCode Tqdcfr::get_mesh_entities(const unsigned int this_type,
 {
   ErrorCode result = MB_SUCCESS;
   std::vector<EntityHandle> *ent_list = NULL;
-  EntityType this_ent_type;
+  EntityType this_ent_type = MBVERTEX;
+  const unsigned int arr_len = sizeof(group_type_to_mb_type) / sizeof(group_type_to_mb_type[0]);
   if (this_type > 1000) {
-    this_ent_type = group_type_to_mb_type[this_type - 1000];
-    ent_list = &excl_entities;
+    if (this_type - 1000 < arr_len) {
+      this_ent_type = group_type_to_mb_type[this_type - 1000];
+      ent_list = &excl_entities;
+    }
   }
   else {
-    this_ent_type = group_type_to_mb_type[this_type];
-    ent_list = &entities;
+    if (this_type < arr_len) {
+      this_ent_type = group_type_to_mb_type[this_type];
+      ent_list = &entities;
+    }
   }
 
   // Get entities with this type, and get their cub id tags
