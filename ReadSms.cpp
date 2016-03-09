@@ -442,7 +442,7 @@ ErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
   // Read interfaces
   int iface_id, iface_dim, iface_own, num_iface_corners;
   //EntityHandle this_iface;
-  std::vector<int> *iface_corners;
+  std::vector<int> *iface_corners = NULL;
   for (int i = 0; i < num_ifaces; i++) {
     num_read = fscanf(file_ptr, "%d %d %d %d", &iface_id, &iface_dim, &iface_own,
                       &num_iface_corners);
@@ -463,6 +463,9 @@ ErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
     //result = tag_set_data(ifaceCornerTag, &this_iface, 1,
                           //&iface_corners);
     //CHECK("Failed to set iface corner tag.");
+
+    delete iface_corners;
+    iface_corners = NULL;
   }
 
   // Interface data has been read
