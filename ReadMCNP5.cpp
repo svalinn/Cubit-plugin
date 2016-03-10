@@ -1059,25 +1059,40 @@ ErrorCode ReadMCNP5::average_with_existing_tally(bool debug,
   double *values0 = new double [existing_elements.size()];
   double *errors0 = new double [existing_elements.size()];
   result = MBI->tag_get_data(tally_tag, existing_elements, values0);
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    delete[] values0;
+    delete[] errors0;
     return result;
+  }
   result = MBI->tag_get_data(error_tag, existing_elements, errors0);
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    delete[] values0;
+    delete[] errors0;
     return result;
+  }
 
   // Average the values and errors
   result = average_tally_values(nps0, nps1, values0, values1,
                                  errors0, errors1, n_elements);
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    delete[] values0;
+    delete[] errors0;
     return result;
+  }
 
   // Set the averaged information back onto the existing elements
   result = MBI->tag_set_data(tally_tag, existing_elements, values0);
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    delete[] values0;
+    delete[] errors0;
     return result;
+  }
   result = MBI->tag_set_data(error_tag, existing_elements, errors0);
-  if (MB_SUCCESS != result)
+  if (MB_SUCCESS != result) {
+    delete[] values0;
+    delete[] errors0;
     return result;
+  }
 
   // Cleanup
   delete[] values0;
