@@ -136,8 +136,6 @@ libmoabio_la_SOURCES = \
   ReadTemplate.hpp \
   ReadTetGen.cpp \
   ReadTetGen.hpp \
-  ReadTxt.cpp \
-  ReadTxt.hpp \
   ReadVtk.cpp \
   ReadVtk.hpp \
   SMF_State.cpp \
