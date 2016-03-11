@@ -24,7 +24,6 @@ set( MOABIO_LIB_SRCS
         ReadSTL.hpp       ReadSTL.cpp
         ReadTemplate.hpp  ReadTemplate.cpp
         ReadTetGen.hpp    ReadTetGen.cpp
-        ReadTxt.hpp       ReadTxt.cpp
         ReadVtk.hpp       ReadVtk.cpp
         SMF_State.hpp     SMF_State.cpp
         Tqdcfr.hpp        Tqdcfr.cpp
