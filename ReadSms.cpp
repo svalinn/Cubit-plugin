@@ -456,8 +456,10 @@ ErrorCode ReadSms::read_parallel_info(FILE *file_ptr)
     iface_corners = new std::vector<int>(num_iface_corners);
     for (int j = 0; j < num_iface_corners; j++) {
       num_read = fscanf(file_ptr, "%d", &(*iface_corners)[j]);
-      if (!num_read)
+      if (!num_read) {
+        delete iface_corners;
         return MB_FAILURE;
+      }
     }
 
     //result = tag_set_data(ifaceCornerTag, &this_iface, 1,
