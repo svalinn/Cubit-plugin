@@ -119,8 +119,8 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
   char line[256], all_line[1024];
   int file_type;
 
-  fgets(all_line, sizeof(all_line), file_ptr);
-  if (sscanf(all_line, "%s %d", line, &file_type) != 2){ return MB_FAILURE;};
+  if (fgets(all_line, sizeof(all_line), file_ptr) == NULL) { return MB_FAILURE;}
+  if (sscanf(all_line, "%s %d", line, &file_type) != 2) { return MB_FAILURE;}
 
   if (3 == file_type) {
     result = read_parallel_info(file_ptr);
@@ -129,8 +129,7 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
 
   int nregions, nfaces, nedges, nvertices, npoints;
   n = fscanf(file_ptr, "%d %d %d %d %d", &nregions, &nfaces, &nedges,
-         &nvertices, &npoints);
-  CHECKN(5);
+         &nvertices, &npoints);CHECKN(5);
   if (nregions < 0 || nfaces < 0 || nedges < 0 || nvertices < 0 || npoints < 0)
     return MB_FILE_WRITE_ERROR;
 
@@ -142,9 +141,7 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
   CHECK("Failed to get node arrays.");
 
   if (file_id_tag) {
-    result = add_entities(vstart, nvertices, file_id_tag);
-    if (MB_SUCCESS != result)
-      return result;
+    result = add_entities(vstart, nvertices, file_id_tag);MB_CHK_ERR(result);
   }
 
   EntityHandle this_gent, new_handle;
@@ -161,9 +158,7 @@ ErrorCode ReadSms::load_file_impl(FILE* file_ptr, const Tag* file_id_tag)
                coord_arrays[0] + i, coord_arrays[1] + i, coord_arrays[2] + i);
     CHECKN(5);
 
-    result = get_set(gentities, gent_type, gent_id, geomDimension, this_gent, file_id_tag);
-    if (MB_SUCCESS != result)
-      return result;
+    result = get_set(gentities, gent_type, gent_id, geomDimension, this_gent, file_id_tag);MB_CHK_ERR(result);
 
     new_handle = vstart + i;
     result = mdbImpl->add_entities(this_gent, &new_handle, 1);
