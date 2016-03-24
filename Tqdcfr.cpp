@@ -1320,6 +1320,9 @@ ErrorCode Tqdcfr::get_mesh_entities(const unsigned int this_type,
       ent_list = &entities;
     }
   }
+  if (NULL == ent_list) {
+    MB_SET_ERR(MB_FAILURE, "Entities list is NULL");
+  }
 
   // Get entities with this type, and get their cub id tags
   if (MBVERTEX == this_ent_type) {
