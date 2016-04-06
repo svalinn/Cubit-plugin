@@ -6,6 +6,7 @@
 #include <string.h>
 #include <H5Tpublic.h>
 #include <H5Dpublic.h>
+#include <H5Ppublic.h>
 
 static struct mhdf_FileDesc* alloc_file_desc( mhdf_Status* status );
 static void* realloc_data( struct mhdf_FileDesc** data, size_t append_bytes, mhdf_Status* status );
