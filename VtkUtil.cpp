@@ -13,7 +13,7 @@
  * 
  */
 
-#include "VtkUtil.hpp"
+#include "moab/VtkUtil.hpp"
 
 namespace moab {
 

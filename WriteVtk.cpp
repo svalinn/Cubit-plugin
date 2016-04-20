@@ -22,7 +22,7 @@
 #endif
 
 #include "WriteVtk.hpp"
-#include "VtkUtil.hpp"
+#include "moab/VtkUtil.hpp"
 #include "SysUtil.hpp"
 
 #include <fstream>
