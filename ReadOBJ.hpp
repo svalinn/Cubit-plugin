@@ -31,28 +31,33 @@
  * vertex and connectivity information in the file.  A specification for obj files
  * can be found here: https://en.wikipedia.org/wiki/Wavefront_.obj_file
  * This reader only supports a subset of the full file structure, namely, 
- * object names, vertices, and faces.
+ * object names, group names, vertices, and faces.
  *
  * Overview of the supported structure:
  *
  * Heading
  * Object line: o object_name
+ * Group line: g group_name1
  * Vertex lines: v x y z
  * Face lines (tri): f v1 v2 v3
  * Face lines (quad): f v1 v2 v3 v4
  *
- * No blank lines will be tolerated.
- * Lines that begin w/ anything other than 'o ', 'v ', and 'f ' will be ignored.
- * Face lines that contain 'vertex\texture' are handled by ignoring the
- * texture
+ * Lines that begin w/ anything other than 'o ', 'g ', 'v ', and 'f ' will be ignored.
+ * Face lines that contain 'vertex\texture\normal' are handled by ignoring the
+ * texture and normal
  * 
  * 
- * A new meshset will be created for each object in the file.  This meshset
- * will be thought of, and referred to as, the surface meshset.  A volume
- * meshset that directly corresponds to the surface meshset will also be
- * created.  A parent-child relationship exists between the volume and surface
- * meshsets.  Vertices and faces will be created and added as members of the
- * surface meshset.  
+ * A new meshset will be created for each object or group in the file.
+ * Each object and group must have a name, or the line will be ignored.  
+ * Groups are thought to be collections of elements with no dimension or category and
+ * will therefore only be assigned name and id tags.
+ * Objects are thought to be closed surfaces.  A surface meshset will be
+ * created for each object.  A volume meshset that directly corresponds
+ * to the surface meshset will also be created.  These will have name, id,
+ * categorty, and dimension tags.  A parent-child relationship exists
+ * between the volume and surface meshsets.
+ * Vertices will be created and added to a global vertex meshset.
+ * Triangular faces will be created and added as members of the surface meshets.
  */
 
 
@@ -152,6 +157,10 @@ private:
                               int object_id,
                               EntityHandle &curr_obj_meshset);
   
+  ErrorCode create_new_group ( std::string object_name,
+                                       int curr_object, 
+                                       EntityHandle &object_meshset );
+
   /* create_new_vertex converts tokenized string input to 
      vertex structure
    */
@@ -173,15 +182,10 @@ private:
 
   ErrorCode split_quad(std::vector<std::string> f_tokens,
                                        std::vector<EntityHandle>&vertex_list,
-                                       EntityHandle &new_vertex_eh,
                                        Range &face_eh);
 
-  ErrorCode create_center_vertex( Range quad_vert_eh, 
-                                EntityHandle &new_vertex_eh);
-
   ErrorCode create_tri_faces( Range quad_vert_eh, 
-                                     EntityHandle center_vertex_eh,
-                                     Range &face_eh );
+                              Range &face_eh );
 
 };
 

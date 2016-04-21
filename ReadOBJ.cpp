@@ -45,6 +45,7 @@ ReaderIface* ReadOBJ::factory( Interface* iface )
 // Subset of starting tokens currently supported
 const char* ReadOBJ::delimiters = " ";
 const char* object_start_token = "o";
+const char* group_start_token = "g";
 const char* vertex_start_token = "v";
 const char* face_start_token = "f";
 
@@ -129,9 +130,12 @@ ErrorCode ReadOBJ::load_file(const char *filename,
   ErrorCode rval;
   int ignored = 0; // Number of lines not beginning with o, v, or f
   std::string line; // The current line being read
-  EntityHandle curr_obj_meshset; // Current object meshset
-  int object_id = 0; // ID number for each volume/surface
-
+  EntityHandle vert_meshset;
+  EntityHandle curr_meshset; // Current object meshset
+  std::string object_name;     
+  std::vector<EntityHandle> vertex_list;
+  int object_id = 0, group_id = 0;// ID number for each volume/surface
+  int num_groups;
 
   // At this time, there is no support for reading a subset of the file
   if (subset_list) 
@@ -152,42 +156,58 @@ ErrorCode ReadOBJ::load_file(const char *filename,
   // If the file can be read
   if (input_file.is_open()) 
     {
-      std::string object_name;     
-      std::vector<EntityHandle> vertex_list;
+
+      //create meshset for global vertices
+      rval = MBI->create_meshset( MESHSET_SET, vert_meshset );
+      MB_CHK_SET_ERR(rval, "Failed to create global vert meshset.");
       
       while ( std::getline (input_file,line) ) 
         {
-          // Can not tolerate blank lines in file
-	  if (line.length() == 0 ) continue;// return MB_FAILURE;
+          // Skip blank lines in file
+	  if (line.length() == 0 ) continue;
 
           // Tokenize the line
           std::vector<std::string> tokens;
           tokenize(line, tokens, delimiters); 
           
           // Object line
-          if( tokens[0].compare( object_start_token ) == 0)
+          if( tokens[0].compare( object_start_token ) == 0 && tokens.size() > 1)
             {
               object_id++;
               object_name = tokens[1]; // Get name of object
 
               // Create new meshset for object
-              rval = create_new_object(object_name, object_id, curr_obj_meshset);
-              MB_CHK_ERR(rval);
+              rval = create_new_object(object_name, object_id, curr_meshset); MB_CHK_ERR(rval);
             }
-          
+
+          // Group line 
+          if( tokens[0].compare( group_start_token ) == 0 && tokens.size() > 1)
+            {
+              group_id++;
+              num_groups = tokens.size()-1;
+              std::string group_name = "Group";  
+              for ( int i = 0; i < num_groups; i++)
+                {
+                  group_name = group_name + '_' + tokens[i+1];
+                }
+
+              // Create new meshset for group 
+              rval = create_new_group(group_name, group_id, curr_meshset); MB_CHK_ERR(rval);
+               
+            }
           // Vertex line 
           else if( tokens[0].compare( vertex_start_token ) == 0 )
             {
               // Read vertex and return EH
               EntityHandle new_vertex_eh;
-              rval = create_new_vertex(tokens, new_vertex_eh);
-              MB_CHK_ERR(rval);
+              rval = create_new_vertex(tokens, new_vertex_eh); MB_CHK_ERR(rval);
               
               // Add new vertex EH to list 
               vertex_list.push_back(new_vertex_eh);
               
               // Add new vertex EH to the meshset
-              MBI->add_entities( curr_obj_meshset, &new_vertex_eh, 1);
+              MBI->add_entities( vert_meshset, &new_vertex_eh, 1);
+              MB_CHK_SET_ERR(rval, "Failed to add vertex to global meshset.");
             }
 
           // Face line
@@ -200,35 +220,31 @@ ErrorCode ReadOBJ::load_file(const char *filename,
               
               if ( tokens.size() == 4 )
                 {  
-                  rval = create_new_face(tokens, vertex_list, new_face_eh);
-                  MB_CHK_ERR(rval);
+                  rval = create_new_face(tokens, vertex_list, new_face_eh); MB_CHK_ERR(rval);
 
                   if (rval == MB_SUCCESS)
                     {
                       // Add new face EH to the meshset
-                      MBI->add_entities(curr_obj_meshset, &new_face_eh, 1);
+                      MBI->add_entities(curr_meshset, &new_face_eh, 1);
                     }   
                 }
               
               else if( tokens.size() == 5 )  
                 {
-                  // Split_quad fxn will create 4 new triangles from 1 quad
-                  EntityHandle new_vertex_eh; // EH for new center vertex
+                  // Split_quad fxn will create 2 new triangles from 1 quad
                   Range new_faces_eh;
-                  rval = split_quad(tokens, vertex_list, new_vertex_eh, new_faces_eh);
-                  MB_CHK_ERR(rval);
+                  rval = split_quad(tokens, vertex_list, new_faces_eh); MB_CHK_ERR(rval);
                  
-                  // Add new faces and vertex created by split quad to meshset 
+                  // Add new faces created by split quad to meshset 
                   if (rval == MB_SUCCESS)
                     {
-                      MBI->add_entities(curr_obj_meshset, new_faces_eh);
-                      MBI->add_entities(curr_obj_meshset, &new_vertex_eh, 1);
+                      MBI->add_entities(curr_meshset, new_faces_eh);
                     }
                 } 
 
               else
                 {
-                    std::cout << "Face is neither a tri nor a quad. Line ignored." << std::endl;
+                    std::cout << "Neither tri nor a quad: " << line <<  std::endl;
                 }
               
             }
@@ -243,7 +259,7 @@ ErrorCode ReadOBJ::load_file(const char *filename,
     }
 
   // If no object lines are read (those beginning w/ 'o'), file is not obj type
-  if (object_id == 0)
+  if (object_id == 0 && group_id == 0)
     {
       MB_SET_ERR(MB_FAILURE, "This is not an obj file. ");  
     }
@@ -288,7 +304,7 @@ void ReadOBJ::tokenize( const std::string& str,
 
 /*
  * The create_new_object function starts a new meshset for each object
- * that will contain all vertices and faces that make up the object.
+ * that will contain all faces that make up the object.
  */
 ErrorCode ReadOBJ::create_new_object ( std::string object_name,
                                        int curr_object, 
@@ -353,6 +369,31 @@ ErrorCode ReadOBJ::create_new_object ( std::string object_name,
   return rval;
 }
 
+/*
+ * The create_new_group function starts a new meshset for each group
+ * that will contain all faces that make up the group
+ */
+ErrorCode ReadOBJ::create_new_group ( std::string group_name,
+                                       int curr_group, 
+                                       EntityHandle &group_meshset )
+{
+  ErrorCode rval;
+  
+  // Create meshset to store group
+  rval = MBI->create_meshset( MESHSET_SET, group_meshset );
+  MB_CHK_SET_ERR(rval,"Failed to generate group mesh set.");
+
+  // Set meshset tags
+  rval = MBI->tag_set_data( name_tag, &group_meshset, 1,
+                            group_name.c_str());
+  MB_CHK_SET_ERR(rval,"Failed to set mesh set name tag.");
+
+  rval = MBI->tag_set_data( id_tag, &group_meshset, 1, &(curr_group));
+  MB_CHK_SET_ERR(rval,"Failed to set mesh set ID tag.");
+
+
+  return rval;
+}
 
 
 /* The create_new_vertex function converts a vector 
@@ -415,7 +456,6 @@ ErrorCode ReadOBJ::create_new_face (std::vector<std::string> f_tokens,
 // The split_quad function divides a quad face into 4 tri faces.
 ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
                                        std::vector<EntityHandle>&vertex_list,
-                                       EntityHandle &new_vertex_eh,
                                        Range &face_eh)
 {
   ErrorCode rval;
@@ -435,77 +475,33 @@ ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
       quad_vert_eh.insert(vertex_list[vertex_id-1]);
     }
 
-  // Create center vertex
-  rval = create_center_vertex( quad_vert_eh, new_vertex_eh);
-  MB_CHK_SET_ERR(rval,"Failed to create center vertex for splitting quad.");
-  
-  // Create 4 new tri faces
-  rval = create_tri_faces( quad_vert_eh, new_vertex_eh, face_eh);
+  // Create new tri faces
+  rval = create_tri_faces( quad_vert_eh, face_eh);
   MB_CHK_SET_ERR(rval,"Failed to create triangles when splitting quad.");
   
  
   return rval;
 }
 
-
-ErrorCode ReadOBJ::create_center_vertex( Range quad_vert_eh, 
-                                         EntityHandle &new_vertex_eh)
-{
-  ErrorCode rval;
-//  double center_coords[3]={0.0, 0.0, 0.0}; // vertex coords at center of quad  
-  CartVect center_coords(0.0, 0.0, 0.0);
-  //double coords[12]; //result from get_coords-- x,y,z for all 4 vertices
-  CartVect coords[12];
-
-  // Find quad vertex coordinates
-  rval = MBI->get_coords(quad_vert_eh, coords[0].array());
-  MB_CHK_SET_ERR(rval,"Failed to get vertex coordinates.");
-
-  for (int i = 0; i < 4; i++)
-    {
-     // Get the vertex coords and keep running total of x, y, and z
-//      center_coords1 += coords[3*i]; //coords[3*i];
-//      center_coords2 += coords[3*i+1];
- //     center_coords3 += coords[3*i+2];
-      center_coords[0] += coords[3*i];
-      center_coords[1] += coords[3*i+1];
-      center_coords[2] += coords[3*i+2];
-    } 
-
-  // Calc average x, y, and z position by dividing totals by 4
-  center_coords[0] /= 4.0; 
-  center_coords[1] /= 4.0;
-  center_coords[2] /= 4.0;
-
-  // Create new vertex
-  rval = MBI->create_vertex( center_coords, new_vertex_eh );
-  MB_CHK_SET_ERR(rval,"Failed to create center vertex for splitting quad.");
-
-  return rval;
-}
-
 ErrorCode ReadOBJ::create_tri_faces( Range quad_vert_eh, 
-                                     EntityHandle center_vertex_eh,
                                      Range &face_eh )
 {
   ErrorCode rval;
   EntityHandle connectivity[3];
+  EntityHandle new_face;
 
-  for (int i = 0; i < 4 ; i++)
-    {
-      // Conn for new tri face; center quad vert is always last conn point
-      connectivity[0] = quad_vert_eh[i];
-      connectivity[1] = quad_vert_eh[(i+1)%4];
-      connectivity[2] = center_vertex_eh;
- 
-      EntityHandle new_face; // EH for the newly created tri face
-      rval = MBI->create_element(MBTRI, connectivity, 3, new_face);
-      MB_CHK_SET_ERR(rval,"Failed to create tri face from quad.");
-             
-      // Append new face EH to face_eh vector
-      face_eh.insert(new_face);
-    }
- 
+  connectivity[0] = quad_vert_eh[0];
+  connectivity[1] = quad_vert_eh[1];
+  connectivity[2] = quad_vert_eh[2];
+  rval = MBI->create_element(MBTRI,connectivity,3,new_face);
+  face_eh.insert(new_face);
+
+  connectivity[0] = quad_vert_eh[2];
+  connectivity[1] = quad_vert_eh[3];
+  connectivity[2] = quad_vert_eh[0];
+  rval = MBI->create_element(MBTRI,connectivity,3,new_face);
+  face_eh.insert(new_face);
+
   return rval;
 }
 
