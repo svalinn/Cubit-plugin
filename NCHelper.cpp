@@ -137,6 +137,8 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
   // __<dim_name>_LOC_MINMAX (for time)
   for (unsigned int i = 0; i != dimNamesSz; i++) {
     if (dimNames[i] == "time" || dimNames[i] == "Time" || dimNames[i] == "t") {
+      // some files might have Time dimension as 0, it will not appear in any
+      // variables, so skip it
       if (nTimeSteps==0)
         continue;
       std::stringstream ss_tag_name;
@@ -160,6 +162,8 @@ ErrorCode NCHelper::create_conventional_tags(const std::vector<int>& tstep_nums)
       if (!tstep_nums.empty())
         val = tstep_nums;
       else {
+        // some files might have Time dimension as 0, it will not appear in any
+        // variables, so skip it
         if (tVals.empty())
           continue;
         val.resize(tVals.size());
