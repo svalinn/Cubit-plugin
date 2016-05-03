@@ -713,23 +713,23 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
             }
             free (id_list);
           }
-          else if (0==k){ /* parallel partition on sets should still work if dense
+          else if (0==k || 1==k){ /* parallel partition or material sets should still work if dense
              could be dense tags on sets */
+            if (!mhdf_haveDenseTag( file_handle,  pname[k], mhdf_set_type_handle(), status ))
+              continue;
             table[0] = mhdf_openDenseTagData(file_handle, pname[k],
                 mhdf_set_type_handle(), &nval, status);
             if (mhdf_isError(status)) {
-              free(array);
-              return NULL;
+              continue; /* do not error out if not a dense tag either */
             }
-            mhdf_closeData(file_handle, table[0], status);
-            if (mhdf_isError(status)) {
-              free(array);
-              return NULL;
-            }
+            result ->numEntSets[k] = nval;
+            if (nval <= 0 )
+              continue; /* do not do anything */
+
             /*
-             * if dense parallel partition, we know what to expect
+             * if dense parallel partition or material set, we know what to expect
              */
-            result ->numEntSets[0] = nval;
+            result ->numEntSets[k] = nval; /* k could be 0 or 1 */
             if (nval <= 0 )
               continue; /* do not do anything */
 
@@ -739,7 +739,7 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
               return NULL;
             }
             memset( ptr, 0, nval*sizeof(int) );
-            result -> defTagsEntSets[0] = ptr;
+            result -> defTagsEntSets[k] = ptr;
             tag_desc = &(result->tags[i]);
 
             ptr = realloc_data( &result, nval*sizeof(int), status );
@@ -750,10 +750,26 @@ mhdf_getFileSummary( mhdf_FileHandle file_handle,
             memset( ptr, 0, nval*sizeof(int) );
             result -> defTagsVals[k] =ptr;
             tag_desc = &(result->tags[i]); /* this is because the tag might point to something else*/
+
+
             for (i1=0; i1<nval; i1++)
             {
-              result -> defTagsEntSets[0][i1] = i1+1;
-              result -> defTagsVals[0][i1] = i1; /* we know how the partition looks like  */
+              result -> defTagsEntSets[k][i1] = i1+1;
+              /*result -> defTagsVals[k][i1] = i1; we know how the partition looks like  */
+            }
+            /* fill in the data with the dense tag values
+              because dense, sets will be in order
+
+              we know it has to be integer */
+            mhdf_readTagValues( table[0], 0, nval, H5T_NATIVE_INT, result -> defTagsVals[k], status );
+            if (mhdf_isError(status)) {
+              free(array);
+              return NULL;
+            }
+            mhdf_closeData(file_handle, table[0], status);
+            if (mhdf_isError(status)) {
+              free(array);
+              return NULL;
             }
           }
 
