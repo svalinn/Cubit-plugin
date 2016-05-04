@@ -184,8 +184,9 @@ private:
                                        std::vector<EntityHandle>&vertex_list,
                                        Range &face_eh);
 
-  ErrorCode create_tri_faces( Range quad_vert_eh, 
-                              Range &face_eh );
+ ErrorCode create_tri_faces( std::vector<EntityHandle> quad_vert_eh, 
+//				       EntityHandle center_vertex_eh,
+				       Range &face_eh );
 
 };
 

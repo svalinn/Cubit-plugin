@@ -20,6 +20,7 @@ set( MOABIO_LIB_SRCS
         ReadMCNP5.hpp     ReadMCNP5.cpp
         ReadNASTRAN.hpp   ReadNASTRAN.cpp
         ReadRTT.hpp       ReadRTT.cpp
+        ReadOBJ.hpp       ReadOBJ.cpp
         ReadSmf.hpp       ReadSmf.cpp
         ReadSms.hpp       ReadSms.cpp
         ReadSTL.hpp       ReadSTL.cpp

@@ -459,7 +459,7 @@ ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
                                        Range &face_eh)
 {
   ErrorCode rval;
-  Range quad_vert_eh;
+  std::vector<EntityHandle> quad_vert_eh;
 
   // Loop over quad connectivity getting vertex EHs 
   for (int i = 1; i < 5; i++)
@@ -472,7 +472,7 @@ ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
           vertex_id = atoi(face.c_str());
         }
  
-      quad_vert_eh.insert(vertex_list[vertex_id-1]);
+      quad_vert_eh.push_back(vertex_list[vertex_id-1]);
     }
 
   // Create new tri faces
@@ -483,8 +483,9 @@ ErrorCode ReadOBJ::split_quad(std::vector<std::string> f_tokens,
   return rval;
 }
 
-ErrorCode ReadOBJ::create_tri_faces( Range quad_vert_eh, 
-                                     Range &face_eh )
+ErrorCode ReadOBJ::create_tri_faces( std::vector<EntityHandle> quad_vert_eh, 
+//				       EntityHandle center_vertex_eh,
+				       Range &face_eh )
 {
   ErrorCode rval;
   EntityHandle connectivity[3];
