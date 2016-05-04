@@ -49,7 +49,7 @@ ReaderIface* ReadABAQUS::factory(Interface* iface)
 }
 
 ReadABAQUS::ReadABAQUS(Interface* impl)
-  : mdbImpl(impl)
+  : mdbImpl(impl), readMeshIface(NULL), lineNo(0), next_line_type(abq_undefined_line), mat_id(0)
 {
   assert(impl != NULL);
   reset();
@@ -71,8 +71,6 @@ ReadABAQUS::ReadABAQUS(Interface* impl)
   mAssemblyHandleTag = 0;
   mSetNameTag        = 0;
   mMatNameTag        = 0;
-
-  mat_id             = 0;
 
   //! Get and cache predefined tag handles
   int zero = 0, negone = -1, negonearr[] = {-1, -1, -1, -1};
