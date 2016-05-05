@@ -51,7 +51,7 @@ WriterIface* WriteAns::factory( Interface* iface )
   { return new WriteAns( iface ); }
 
 WriteAns::WriteAns(Interface *impl) 
-    : mbImpl(impl), mCurrentMeshHandle(0)
+    : mbImpl(impl), mCurrentMeshHandle(0), mGlobalIdTag(0), mMatSetIdTag(0)
 {
   assert(impl != NULL);
 
