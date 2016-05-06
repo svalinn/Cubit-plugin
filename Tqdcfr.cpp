@@ -1361,7 +1361,7 @@ ErrorCode Tqdcfr::get_mesh_entities(const unsigned int this_type,
       }
       else {
         std::cout << "Warning: didn't find " << CN::EntityTypeName(this_ent_type)
-                  << " " << *vit << std::endl;
+                  << " " << id_buf[i] << std::endl;
       }
     }
   }
