@@ -16,7 +16,7 @@
 #pragma warning(disable:4786)
 #endif
 
-#include "cgm_version.h"
+#include "CGMConfig.h"
 #include "GeometryQueryTool.hpp"
 #include "ModelQueryEngine.hpp"
 #include "RefEntityName.hpp"
