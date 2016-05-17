@@ -1085,7 +1085,9 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   }
   entities.merge(ho_entities);
 
-  HigherOrderFactory ho_fact(dynamic_cast<Core*>(mdbImpl), 0);
+  Core *mbcore = dynamic_cast<Core*>(mdbImpl);
+  assert(mbcore != NULL);
+  HigherOrderFactory ho_fact(mbcore, 0);
   return ho_fact.convert(entities, !!blockh->hasMidNodes[1], !!blockh->hasMidNodes[2],
                          !!blockh->hasMidNodes[3]);
 }
