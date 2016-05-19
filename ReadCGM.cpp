@@ -60,6 +60,7 @@ namespace moab {
 #define GF_ACIS_TXT_FILE_TYPE "ACIS_SAT"
 #define GF_ACIS_BIN_FILE_TYPE "ACIS_SAB"
 #define GF_OCC_BREP_FILE_TYPE "OCC"
+#define GF_FACET_FILE_TYPE    "FACET"
 
 ReaderIface* ReadCGM::factory(Interface* iface)
 {
@@ -978,6 +979,7 @@ const char* ReadCGM::get_geom_fptr_type(FILE* file)
   static const char*   SAT_NAME = GF_ACIS_TXT_FILE_TYPE;
   static const char*   SAB_NAME = GF_ACIS_BIN_FILE_TYPE;
   static const char*  BREP_NAME = GF_OCC_BREP_FILE_TYPE;
+  static const char* FACET_NAME = GF_FACET_FILE_TYPE;
 
   if (is_cubit_file(file))
     return CUBIT_NAME;
@@ -991,6 +993,8 @@ const char* ReadCGM::get_geom_fptr_type(FILE* file)
     return SAT_NAME;
   else if (is_occ_brep_file(file))
     return BREP_NAME;
+  else if (is_facet_file(file))
+    return FACET_NAME;
   else
     return NULL;
 }
@@ -1056,6 +1060,13 @@ int ReadCGM::is_occ_brep_file(FILE* file)
   return !fseek(file, 0, SEEK_SET) &&
          fread(buffer, 6, 1, file) &&
          !memcmp(buffer, "DBRep_", 6);
+}
+int ReadCGM::is_facet_file(FILE* file)
+{
+  unsigned char buffer[10];
+  return !fseek(file, 0, SEEK_SET) &&
+         fread(buffer, 10, 1, file) &&
+         !memcmp(buffer, "MESH_BASED", 10);
 }
 
 void ReadCGM::tokenize(const std::string& str,

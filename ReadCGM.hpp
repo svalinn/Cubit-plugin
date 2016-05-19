@@ -147,7 +147,7 @@ private:
   int is_acis_txt_file( FILE* file );
   int is_acis_bin_file( FILE* file );
   int is_occ_brep_file( FILE* file );
-
+  int is_facet_file( FILE* file );
 
   //------------member variables ------------//
 
