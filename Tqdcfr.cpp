@@ -40,7 +40,7 @@
 namespace moab {
 
 static bool debug = false;
-//const int ACIS_DIMS[] = {-1, 3, -1, 2, -1, -1, 1, 0, -1, -1};
+
 const char Tqdcfr::geom_categories[][CATEGORY_TAG_SIZE] =
 {"Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
 
@@ -216,7 +216,7 @@ ReaderIface* Tqdcfr::factory(Interface* iface)
 }
 
 Tqdcfr::Tqdcfr(Interface *impl)
-  : ACIS_DIMS(NULL), cubFile(NULL), globalIdTag(0), cubIdTag(0), geomTag(0), uniqueIdTag(0),
+  :  cubFile(NULL), globalIdTag(0), cubIdTag(0), geomTag(0), uniqueIdTag(0),
     blockTag(0), nsTag(0), ssTag(0), attribVectorTag(0), entityNameTag(0), categoryTag(0),
     hasMidNodesTag(0), swapForEndianness(false), int_buf(NULL), mFileSet(0),
     printedSeqWarning(false), printedElemWarning(false), acisDumpFile(NULL)

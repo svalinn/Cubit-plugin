@@ -57,8 +57,6 @@ namespace moab {
 #define GF_CUBIT_FILE_TYPE    "CUBIT"
 #define GF_STEP_FILE_TYPE     "STEP"
 #define GF_IGES_FILE_TYPE     "IGES"
-#define GF_ACIS_TXT_FILE_TYPE "ACIS_SAT"
-#define GF_ACIS_BIN_FILE_TYPE "ACIS_SAB"
 #define GF_OCC_BREP_FILE_TYPE "OCC"
 #define GF_FACET_FILE_TYPE    "FACET"
 
@@ -976,8 +974,6 @@ const char* ReadCGM::get_geom_fptr_type(FILE* file)
   static const char* CUBIT_NAME = GF_CUBIT_FILE_TYPE;
   static const char*  STEP_NAME = GF_STEP_FILE_TYPE;
   static const char*  IGES_NAME = GF_IGES_FILE_TYPE;
-  static const char*   SAT_NAME = GF_ACIS_TXT_FILE_TYPE;
-  static const char*   SAB_NAME = GF_ACIS_BIN_FILE_TYPE;
   static const char*  BREP_NAME = GF_OCC_BREP_FILE_TYPE;
   static const char* FACET_NAME = GF_FACET_FILE_TYPE;
 
@@ -987,10 +983,6 @@ const char* ReadCGM::get_geom_fptr_type(FILE* file)
     return STEP_NAME;
   else if (is_iges_file(file))
     return IGES_NAME;
-  else if (is_acis_bin_file(file))
-    return SAB_NAME;
-  else if (is_acis_txt_file(file))
-    return SAT_NAME;
   else if (is_occ_brep_file(file))
     return BREP_NAME;
   else if (is_facet_file(file))
@@ -1021,37 +1013,6 @@ int ReadCGM::is_iges_file(FILE* file)
   return !fseek(file, 72, SEEK_SET) &&
          fread(buffer, 10, 1, file) &&
          !memcmp(buffer, "S      1", 8);
-}
-
-int ReadCGM::is_acis_bin_file(FILE* file)
-{
-  char buffer[15];
-  return !fseek(file, 0, SEEK_SET) &&
-         fread(buffer, 15, 1, file) &&
-         !memcmp(buffer, "ACIS BinaryFile", 9);
-}
-
-int ReadCGM::is_acis_txt_file(FILE* file)
-{
-  char buffer[5];
-  int version, length;
-
-  if (fseek(file, 0, SEEK_SET) ||
-      2 != fscanf(file, "%d %*d %*d %*d %d ", &version, &length))
-    return 0;
-
-  if (version < 1 || version > 0xFFFF)
-    return 0;
-
-  // Skip application name
-  if (fseek(file, length, SEEK_CUR))
-    return 0;
-
-  // Read length of version string followed by first 5 characters
-  if (2 != fscanf(file, "%d %4s", &length, buffer))
-    return 0;
-
-  return !strcmp(buffer, "ACIS");
 }
 
 int ReadCGM::is_occ_brep_file(FILE* file)
