@@ -1120,8 +1120,6 @@ ErrorCode ReadVtk::vtk_read_tag_data(FileTokenizer& tokens,
         return result;
     }
   }
-  else
-    return MB_FAILURE;
 
   return MB_SUCCESS;
 }

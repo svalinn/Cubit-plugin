@@ -2832,8 +2832,6 @@ ErrorCode Tqdcfr::process_record(AcisRecord &this_record)
       if (NULL == type_substr)
         return MB_FAILURE;
       type_substr = strstr(type_substr, " ") + 1;
-      if (NULL == type_substr)
-        return MB_FAILURE;
       // Copy the rest of the string to a dummy string
       std::string dum_str(type_substr);
       this_record.att_string = dum_str;
