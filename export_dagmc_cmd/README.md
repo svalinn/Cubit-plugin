@@ -24,7 +24,7 @@ Build
 ```
 mkdir bld
 cd blb
-cmake .. -DCMAKE_PREFIX_PATH=/path/to/Trelis-16.0/bin -DMOAB_DIR=/path/to/MOAB/lib
+cmake .. -DCMAKE_PREFIX_PATH=/path/to/Trelis-16.0/bin -DCMAKE_INSTALL_BINARY_DIR=bin -DMOAB_DIR=/path/to/MOAB/lib
 make
 ```
 
