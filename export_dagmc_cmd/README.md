@@ -18,6 +18,14 @@ This plugin also depends on:
 * python2.7-dev
 * MOAB (and thus HDF5)
 
+Note
+====
+
+A change was made to the `SDK/bin/CubitExport-release.cmake` file, replacing
+`\${CMAKE_INSTALL_BINARY_DIR}` with `${CMAKE_INSTALL_BINARY_DIR}`.  This
+requires the setting of `CMAKE_INSTALL_BINARY_DIR` during configure.  This may
+be a band-aid solution to a different problem with the CMAKE configuration.
+
 Build
 ======
 
