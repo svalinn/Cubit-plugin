@@ -168,7 +168,8 @@ ErrorCode ReadOBJ::load_file(const char *filename,
 
           // Tokenize the line
           std::vector<std::string> tokens;
-          tokenize(line, tokens, delimiters); 
+          tokenize(line, tokens, delimiters);
+          if (tokens.empty()) MB_SET_ERR(MB_FAILURE, "This is not an obj file."); 
           
           // Object line
           if( tokens[0].compare( object_start_token ) == 0 && tokens.size() > 1)
