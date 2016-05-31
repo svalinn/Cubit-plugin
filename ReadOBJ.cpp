@@ -199,6 +199,7 @@ ErrorCode ReadOBJ::load_file(const char *filename,
           // Vertex line 
           else if( tokens[0].compare( vertex_start_token ) == 0 )
             {
+              if (tokens.size() != 4) MB_SET_ERR(MB_FAILURE, "This is not a vertex line.");
               // Read vertex and return EH
               EntityHandle new_vertex_eh;
               rval = create_new_vertex(tokens, new_vertex_eh); MB_CHK_ERR(rval);
@@ -245,7 +246,7 @@ ErrorCode ReadOBJ::load_file(const char *filename,
 
               else
                 {
-                    std::cout << "Neither tri nor a quad: " << line <<  std::endl;
+                  std::cout << "Neither tri nor a quad: " << line <<  std::endl;
                 }
               
             }
