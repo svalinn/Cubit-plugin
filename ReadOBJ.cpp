@@ -169,7 +169,7 @@ ErrorCode ReadOBJ::load_file(const char *filename,
           // Tokenize the line
           std::vector<std::string> tokens;
           tokenize(line, tokens, delimiters);
-          if (tokens.empty()) MB_SET_ERR(MB_FAILURE, "This is not an obj file."); 
+          if (tokens.empty()) continue ; 
           
           // Object line
           if( tokens[0].compare( object_start_token ) == 0 && tokens.size() > 1)
@@ -197,9 +197,8 @@ ErrorCode ReadOBJ::load_file(const char *filename,
                
             }
           // Vertex line 
-          else if( tokens[0].compare( vertex_start_token ) == 0 )
+          else if(tokens.size() == 4 && tokens[0].compare(vertex_start_token) == 0)
             {
-              if (tokens.size() != 4) MB_SET_ERR(MB_FAILURE, "This is not a vertex line.");
               // Read vertex and return EH
               EntityHandle new_vertex_eh;
               rval = create_new_vertex(tokens, new_vertex_eh); MB_CHK_ERR(rval);
