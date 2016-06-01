@@ -221,7 +221,7 @@ ErrorCode ReadRTT::generate_topology(std::vector<side> side_data,
   set_surface_senses(num_ents,entmap,side_data,cell_data);
 
   // set the group data
-  rval = setup_group_data(num_ents,entmap,side_data,cell_data);
+  rval = setup_group_data(entmap);
 
   return MB_SUCCESS;
 }
@@ -682,7 +682,7 @@ void ReadRTT::set_surface_senses(int num_ents[4], std::vector<EntityHandle> enti
 	  else if ( side_data[i].senses[shared] == -1 )
 	    rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_REVERSE);
 	  else
-	    rval = myGeomTool->set_sense(surf_handle,NULL,SENSE_REVERSE);
+	    rval = myGeomTool->set_sense(surf_handle,0,SENSE_REVERSE);
 	  if(rval != MB_SUCCESS ) {
             std::cerr << "Failed to set sense appropriately" << std::endl;
 	  }
@@ -696,8 +696,7 @@ void ReadRTT::set_surface_senses(int num_ents[4], std::vector<EntityHandle> enti
 /*
  * Add all entities that are to be part of the graveyard
  */
-ErrorCode ReadRTT::setup_group_data(int num_ents[4], std::vector<EntityHandle> entity_map[4],
-				    std::vector<side> side_data, std::vector<cell> cell_data)
+ErrorCode ReadRTT::setup_group_data( std::vector<EntityHandle> entity_map[4])
 {
   ErrorCode rval; // error codes
   EntityHandle handle;

@@ -37,13 +37,51 @@
  *
  * Sides - Defines the 6 boundary condtions for top, bottom, front, back
  *         left and right, as well as internal and external.
+ *---------------------------------------------------------------------
  * Faces - Logically equivalent to surfaces in DAGMC, containers for triangles, includes
  *         the definition of the sense of the faces with respect to the Cells (volumes)
  *         which bound it. 
- * Cells - Collections of tetrahedra which defined contiguous material properties
- * Nodes - Defines the vertices for facets and tets
+ * 
+ *         The face syntax looks like
+ *
+ *         1 (+)Pyrex@14
+ *         
+ *         This means Face (surface) 1 is used to define the insde of the Pyrex cell only
+ *          
+ *         75 (+)Pyrex/(-)Fuel30@25
+ *
+ *         This means Face (surface) 75 is used by both Cell Pyrex and Cell Fuel 30, 
+ *         the + and - signs refer to the sense, i.e. the inside sense defines the Pyrex and 
+ *         the outside sense defines the Fuel.
+ *---------------------------------------------------------------------
+ * Cells - Entityset like coillections of tetrahedra which define contiguous material properties
+ *
+ *        cell_flags
+ *          1 REGIONS
+ *            1 Pyrex
+ *        end_cell_flags
+ * 
+ * Defines that there is 1 region called Pyrex
+ *---------------------------------------------------------------------
+ * Nodes - Defines the vertices for facets and tets, the syntax of which is shown below
+ *
+ *   100  1.8900000000E+03  0.0000000000E+00  5.0000000000E+03 100
+ *
+ * Defines that this is node 100, and has the coordinates 1890.0, 0.0 5000.0 cm
+**---------------------------------------------------------------------
  * Side (element) - Triangles
+ *
+ *  1 3 874 132 154 3 6365
+ *
+ * Defines that this is side element 1, it has 3 nodes, 874, 132 and 154, 
+ * side ID 3 and surface number 6365
+ *---------------------------------------------------------------------
  * Cells (element) - Tetrahedra
+ *
+ *   691 4 599 556 1218 1216 2
+ *
+ * Defines that this is tet 691, it has 4 connections to nodes 599, 556, 
+ * 1218, 1216 and belongs to cell number 2.
  *
  */
 
@@ -185,19 +223,18 @@ private:
 
   /**
    * creates the group data requried for dagmc, reflecting planes, material assignments etc
-   * @param num_ents, vector of the number of entities in each dimension
    * @param entity_map, vector of vector of entitiy handles for each dimension
-   * @param side_data, vector of side data
-   * @param cell_data, vector of cell data
+   *
+   * @returns moab::ErrorCode
    */
-  ErrorCode setup_group_data(int num_ents[4], std::vector<EntityHandle> entity_map[4],
-			std::vector<side> side_data, std::vector<cell> cell_data);
+  ErrorCode setup_group_data(std::vector<EntityHandle> entity_map[4]);
 
 
   /**
    * create a group of a given name, mustkeep track of id
    * @param group_name, name of the group
    * @param id, integer id number
+   *
    * returns the entity handle of the group
    */
   EntityHandle create_group(std::string group_name, int id);
@@ -212,7 +249,8 @@ private:
    * @param facet_data, the triangles in the problem
    * @param tet_data, the tets in the problem
    * @param surface_map, the map of surface meshset and id numbers 
-   * @return error code
+   *
+   * @return moab::ErrorCode
    */
   ErrorCode build_moab(std::vector<node> node_data,
 		       std::vector<facet> facet_data,
@@ -224,7 +262,8 @@ private:
    *
    * @param filename, the file to read all the side data from
    * @param side data, a vector containing all the read side data
-   * @return error code
+   *
+   * @return moab::ErrorCode
    */
   ErrorCode read_sides(const char* filename, std::vector<side> &side_data);
 
@@ -233,7 +272,8 @@ private:
    *
    * @param filename, the file to read all the side data from
    * @param cell data, a vector containing all the read cell data
-   * @return error code
+   *
+   * @return moab::ErrorCode
    */
   ErrorCode read_cells(const char* filename, std::vector<cell> &cell_data);
 
@@ -242,7 +282,8 @@ private:
    *
    * @param filename, the file to read all the side data from
    * @param node data, a vector containing all the read node data
-   * @return error code
+   *
+   * @return moab::ErrorCode
    */
   ErrorCode read_nodes(const char* filename, std::vector<node> &node_data);
   
@@ -251,7 +292,8 @@ private:
    *
    * @param filename, the file to read all the side data from
    * @param facet data, a vector containing all the read facet data
-   * @return error code
+   *
+   * @return moab::ErrorCode
    */
   ErrorCode read_facets(const char* filename, std::vector<facet> &facet_data);
   
@@ -260,7 +302,8 @@ private:
    *
    * @param filename, the file to read all the side data from
    * @param tet data, a vector containing all the read tet data
-   * @return error code
+   *
+   * @return moab::ErrorCode
    */
   ErrorCode read_tets(const char* filename, std::vector<tet> &tet_data);
 
@@ -268,6 +311,7 @@ private:
    * Reads a single atomic cell data string and populates a cell struct 
    *
    * @param celldata, a string of read data and 
+   *
    * @return cell, the propulated cell struct
    */
   cell get_cell_data(std::string celldata);
@@ -276,6 +320,7 @@ private:
    * Reads a single atomic side data string and populates a side struct 
    *
    * @param sidedata, a string of read data and 
+   *
    * @return side, the propulated side struct
    */  
   side get_side_data(std::string sidedata);
@@ -284,6 +329,7 @@ private:
    * Reads a single atomic node data string and populates a node struct 
    *
    * @param sidedata, a string of read data and 
+   *
    * @return node, the propulated node struct
    */  
   node get_node_data(std::string nodedata);
@@ -292,6 +338,7 @@ private:
    * Reads a single atomic facet data string and populates a facet struct 
    *
    * @param facetdata, a string of facet data and 
+   *
    * @return facet, the propulated facet struct
    */  
   facet get_facet_data(std::string facetdata);
@@ -300,15 +347,17 @@ private:
    * Reads a single atomic tet data string and populates a tet struct 
    *
    * @param tetdata, a string of tet data and 
+   *
    * @return tet, the propulated tet struct
    */  
   tet get_tet_data(std::string tetdata);
 
   /**
-   * Splits a string into a vecotr of substrings delimited by split_char
+   * Splits a string into a vector of substrings delimited by split_char
    *
    * @param string_to_split, the string that needs splitting into chunks 
    * @param split_char, the character to split the string with
+   *
    * @return a vector of strings that are delimited by split_char
    */  
   std::vector<std::string> split_string(std::string string_to_split, char split_char);
@@ -317,6 +366,7 @@ private:
    * Splits an Attila cellname and populates a boundary structure
    *
    * @param attila_cellname, string containing the boundary information
+   *
    * @return a boundary object
    */ 
   boundary split_name(std::string atilla_cellname);
@@ -325,6 +375,7 @@ private:
    * Count the number of unique surface numbers in the dataset, also get list of surface numbers
    * @param side_data, collection of all the side data in the mesh
    * @param surface_numbers, collection of surface numbers
+   *
    * returns the number of surface numbers
    */
   int count_sides(std::vector<side> side_data,
