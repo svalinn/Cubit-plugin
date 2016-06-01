@@ -24,6 +24,29 @@
 //
 //-------------------------------------------------------------------------
 
+/**
+ * The RTT file format is used by the Attila deterministic radiation
+ * transport code. The specific mesh format can be found in Chapter 9
+ * of the Attila manual. The format is defined by xml like, block/end block
+ * type syntax. The implementation at the time of writing supports a subset
+ * of the whole format, and even Attila does not support the entireity of
+ * its own mesh format. 
+ * 
+ * The mesh contains several features, that as a whole allow the conversion
+ * from the RTT format, to a DAGMC geometry and a Tet Mesh for tallying.
+ *
+ * Sides - Defines the 6 boundary condtions for top, bottom, front, back
+ *         left and right, as well as internal and external.
+ * Faces - Logically equivalent to surfaces in DAGMC, containers for triangles, includes
+ *         the definition of the sense of the faces with respect to the Cells (volumes)
+ *         which bound it. 
+ * Cells - Collections of tetrahedra which defined contiguous material properties
+ * Nodes - Defines the vertices for facets and tets
+ * Side (element) - Triangles
+ * Cells (element) - Tetrahedra
+ *
+ */
+
 #ifndef READRTT_HPP
 #define READRTT_HPP
 
