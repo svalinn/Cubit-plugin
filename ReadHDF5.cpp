@@ -399,7 +399,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
         H5Pclose(file_prop);
 
         if (filePtr) {
-          fileInfo = mhdf_getFileSummary(filePtr, handleType, &status);
+          fileInfo = mhdf_getFileSummary(filePtr, handleType, &status, 0); // no extra set info
           if (!is_error(status)) {
             size = fileInfo->total_size;
             fileInfo->offset = (unsigned char*)fileInfo;
@@ -453,7 +453,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
     }
 
     if (!bcastSummary) {
-      fileInfo = mhdf_getFileSummary(filePtr, handleType, &status);
+      fileInfo = mhdf_getFileSummary(filePtr, handleType, &status, 0);
       if (is_error(status)) {
         free(dataBuffer);
         dataBuffer = NULL;
@@ -473,7 +473,7 @@ ErrorCode ReadHDF5::set_up_read(const char* filename,
     }
 
     // Get file info
-    fileInfo = mhdf_getFileSummary(filePtr, handleType, &status);
+    fileInfo = mhdf_getFileSummary(filePtr, handleType, &status, 0);
     if (is_error(status)) {
       free(dataBuffer);
       dataBuffer = NULL;
@@ -583,6 +583,13 @@ ErrorCode ReadHDF5::load_file(const char* filename,
     dbgOut.tprint(1, "Storing file IDs in tag\n");
     rval = store_file_ids(*file_id_tag);
   }
+  ErrorCode rval3 = opts.get_null_option("STORE_SETS_FILEIDS");
+  if (MB_SUCCESS == rval3)
+  {
+    rval = store_sets_file_ids();
+    if (MB_SUCCESS != rval) return rval;
+  }
+
   if (cputime)
     _times[STORE_FILE_IDS_TIME]=timer->time_elapsed();
 
@@ -3548,6 +3555,58 @@ ErrorCode ReadHDF5::store_file_ids(Tag tag)
     }
   }
 
+  return MB_SUCCESS;
+}
+
+ErrorCode ReadHDF5::store_sets_file_ids()
+{
+  CHECK_OPEN_HANDLES;
+
+  // create a tag that will not be saved, but it will be
+  // used by visit plugin to match the sets and their file ids
+  // it is the same type as the tag defined in ReadParallelcpp, for file id
+  Tag setFileIdTag;
+  long default_val=0;
+  ErrorCode rval = iFace->tag_get_handle("__FILE_ID_FOR_SETS", sizeof(long), MB_TYPE_OPAQUE, setFileIdTag,
+      (MB_TAG_DENSE | MB_TAG_CREAT),  &default_val);
+
+  if (MB_SUCCESS != rval || 0==setFileIdTag)
+    return rval;
+  //typedef int tag_type;
+  typedef long tag_type;
+  // change it to be able to read much bigger files (long is 64 bits ...)
+
+  tag_type* buffer = reinterpret_cast<tag_type*>(dataBuffer);
+  const long buffer_size = bufferSize / sizeof(tag_type);
+  for (IDMap::iterator i = idMap.begin(); i != idMap.end(); ++i) {
+    IDMap::Range range = *i;
+    EntityType htype = iFace->type_from_handle(range.value);
+    if (MBENTITYSET!=htype)
+      continue;
+    // work only with entity sets
+    // Make sure the values will fit in the tag type
+    IDMap::key_type rv = range.begin + (range.count - 1);
+    tag_type tv = (tag_type)rv;
+    if ((IDMap::key_type)tv != rv) {
+      assert(false);
+      return MB_INDEX_OUT_OF_RANGE;
+    }
+
+    while (range.count) {
+      long count = buffer_size < range.count ? buffer_size : range.count;
+
+      Range handles;
+      handles.insert(range.value, range.value + count - 1);
+      range.value += count;
+      range.count -= count;
+      for (long j = 0; j < count; ++j)
+        buffer[j] = (tag_type)range.begin++;
+
+      rval = iFace->tag_set_data(setFileIdTag, handles, buffer);
+      if (MB_SUCCESS != rval)
+        return rval;
+    }
+  }
   return MB_SUCCESS;
 }
 

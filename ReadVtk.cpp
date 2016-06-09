@@ -30,7 +30,7 @@
 #include "moab/ReadUtilIface.hpp"
 #include "moab/FileOptions.hpp"
 #include "FileTokenizer.hpp"
-#include "VtkUtil.hpp"
+#include "moab/VtkUtil.hpp"
 
 #define MB_VTK_MATERIAL_SETS
 #ifdef MB_VTK_MATERIAL_SETS
