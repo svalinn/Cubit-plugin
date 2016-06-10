@@ -126,6 +126,8 @@ libmoabio_la_SOURCES = \
   ReadMCNP5.hpp \
   ReadNASTRAN.cpp \
   ReadNASTRAN.hpp \
+  ReadRTT.cpp \
+  ReadRTT.hpp \
   ReadSmf.hpp \
   ReadSmf.cpp \
   ReadSms.hpp \
