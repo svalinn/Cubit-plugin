@@ -2382,8 +2382,21 @@ ErrorCode ReadHDF5::find_sets_containing(hid_t contents_handle,
         // Check whether contents include set already being loaded
         if (read_set_containing_parents) {
           tmp_range.clear();
-          if (setMeta[sets_offset + i][3] & mhdf_SET_RANGE_BIT) tmp_range.insert(*buff_iter, *(buff_iter + 1));
-          else std::copy(buff_iter, buff_iter + set_size, range_inserter(tmp_range));
+          if (setMeta[sets_offset + i][3] & mhdf_SET_RANGE_BIT)
+          {
+            // put in tmp_range the contents on the set
+            // file_ids contain at this points only other sets
+            const long* j = buff_iter;
+            const long* const end = buff_iter + set_size;
+            assert(set_size % 2 == 0);
+            while (j != end) {
+              long start = *(j++);
+              long count = *(j++);
+              tmp_range.insert(start, start+count-1);
+            }
+          }
+          else
+            std::copy(buff_iter, buff_iter + set_size, range_inserter(tmp_range));
           tmp_range = intersect(tmp_range, file_ids);
         }
 
