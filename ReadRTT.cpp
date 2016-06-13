@@ -43,7 +43,7 @@
 #include "FileTokenizer.hpp"
 #include "MBTagConventions.hpp"
 #include "moab/CN.hpp"
-
+#include "moab/ErrorHandler.hpp"
 #include "moab/GeomTopoTool.hpp"
 
 namespace moab {
@@ -485,9 +485,13 @@ side ReadRTT::get_side_data(std::string sidedata) {
 
   std::vector<std::string>::iterator it;
   // set the side id
-  new_side.id = std::atoi(tokens[2].c_str());
+  if(tokens.size() != 2 ) {
+    MB_SET_ERR_RET_VAL("Error, too many tokens found from side_data",new_side);
+  }
+  // create the new side
+  new_side.id = std::atoi(tokens[0].c_str());
 
-  std::vector<std::string> cell_names = ReadRTT::split_string(tokens[3],'/');
+  std::vector<std::string> cell_names = ReadRTT::split_string(tokens[1],'/');
   // get the boundary
   boundary new_bnd = ReadRTT::split_name(cell_names[0]);
   // set the surface sense and name
@@ -515,9 +519,14 @@ cell ReadRTT::get_cell_data(std::string celldata) {
   tokens = ReadRTT::split_string(celldata,' ');
 
   std::vector<std::string>::iterator it;
-
-  new_cell.id = std::atoi(tokens[2].c_str());
-  new_cell.name = tokens[3];
+  
+  // set the side id
+  if(tokens.size() != 2 ) {
+    MB_SET_ERR_RET_VAL("Error, too many tokens found from cell_data",new_cell);
+  }
+  // create the new side
+  new_cell.id = std::atoi(tokens[0].c_str());
+  new_cell.name = tokens[1];
 
   return new_cell;
 }
@@ -529,12 +538,16 @@ node ReadRTT::get_node_data(std::string nodedata) {
   node new_node;
   std::vector<std::string> tokens;
   tokens = ReadRTT::split_string(nodedata,' ');
-
+  
+  // set the side id
+  if(tokens.size() != 5 ) {
+    MB_SET_ERR_RET_VAL("Error, too many tokens found from get_node_data",new_node);
+  }
   std::vector<std::string>::iterator it;
-  new_node.id=std::atoi(tokens[1].c_str());
-  new_node.x=std::atof(tokens[2].c_str());
-  new_node.y=std::atof(tokens[3].c_str());
-  new_node.z=std::atof(tokens[4].c_str());
+  new_node.id=std::atoi(tokens[0].c_str());
+  new_node.x=std::atof(tokens[1].c_str());
+  new_node.y=std::atof(tokens[2].c_str());
+  new_node.z=std::atof(tokens[3].c_str());
   return new_node;
 }
 
@@ -546,12 +559,16 @@ facet ReadRTT::get_facet_data(std::string facetdata) {
   std::vector<std::string> tokens;
   tokens = ReadRTT::split_string(facetdata,' ');
 
-  new_facet.id = std::atoi(tokens[1].c_str());
-  new_facet.connectivity[0] = std::atoi(tokens[3].c_str());
-  new_facet.connectivity[1] = std::atoi(tokens[4].c_str());
-  new_facet.connectivity[2] = std::atoi(tokens[5].c_str());
-  new_facet.side_id = std::atoi(tokens[6].c_str());
-  new_facet.surface_number = std::atoi(tokens[7].c_str());
+  // set the side id
+  if(tokens.size() != 7 ) {
+    MB_SET_ERR_RET_VAL("Error, too many tokens found from get_facet_data",new_facet);
+  }
+  new_facet.id = std::atoi(tokens[0].c_str());
+  new_facet.connectivity[0] = std::atoi(tokens[1].c_str());
+  new_facet.connectivity[1] = std::atoi(tokens[2].c_str());
+  new_facet.connectivity[2] = std::atoi(tokens[3].c_str());
+  new_facet.side_id = std::atoi(tokens[4].c_str());
+  new_facet.surface_number = std::atoi(tokens[5].c_str());
 
   return new_facet;
 }
@@ -564,12 +581,16 @@ tet ReadRTT::get_tet_data(std::string tetdata) {
   std::vector<std::string> tokens;
   tokens = ReadRTT::split_string(tetdata,' ');
 
-  new_tet.id = std::atoi(tokens[1].c_str());
-  new_tet.connectivity[0] = std::atoi(tokens[3].c_str());
-  new_tet.connectivity[1] = std::atoi(tokens[4].c_str());
-  new_tet.connectivity[2] = std::atoi(tokens[5].c_str());
-  new_tet.connectivity[3] = std::atoi(tokens[6].c_str());
-  new_tet.material_number = std::atoi(tokens[7].c_str());
+  // set the side id
+  if(tokens.size() != 7 ) {
+    MB_SET_ERR_RET_VAL("Error, too many tokens found from get_tet_data",new_tet);
+  }
+  new_tet.id = std::atoi(tokens[0].c_str());
+  new_tet.connectivity[0] = std::atoi(tokens[1].c_str());
+  new_tet.connectivity[1] = std::atoi(tokens[2].c_str());
+  new_tet.connectivity[2] = std::atoi(tokens[3].c_str());
+  new_tet.connectivity[3] = std::atoi(tokens[4].c_str());
+  new_tet.material_number = std::atoi(tokens[5].c_str());
 
   return new_tet;
 }
@@ -614,9 +635,12 @@ boundary ReadRTT::split_name(std::string atilla_cellname) {
 
   // remove empty tokens
   std::vector<std::string>::iterator it;
-  for ( it = tokens.begin() ; it != tokens.end() ; ++it ) {
+  for ( it = tokens.begin() ; it != tokens.end() ; ) {
     std::string string = *it;
-    if(string.compare("\0") == 0 ) tokens.erase(it);
+    if(string.compare("\0") == 0 ) 
+      it = tokens.erase(it);
+    else
+      ++it;
   }
   return tokens;
 }
@@ -683,6 +707,7 @@ void ReadRTT::set_surface_senses(int num_ents[4], std::vector<EntityHandle> enti
 	    rval = myGeomTool->set_sense(surf_handle,cell_handle,SENSE_REVERSE);
 	  else
 	    rval = myGeomTool->set_sense(surf_handle,0,SENSE_REVERSE);
+
 	  if(rval != MB_SUCCESS ) {
             std::cerr << "Failed to set sense appropriately" << std::endl;
 	  }
