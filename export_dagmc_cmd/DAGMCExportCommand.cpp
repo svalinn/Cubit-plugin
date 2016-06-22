@@ -101,6 +101,15 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = parse_options(data);
   CHK_MB_ERR_RET("Error parsing options: ",rval);
   
+  // Always tag with the faceting_tol and geometry absolute resolution
+  // If file_set is defined, use that, otherwise (file_set == NULL) tag the interface
+  moab::EntityHandle set = 0;
+  rval = mdbImpl->tag_set_data(faceting_tol_tag, &set, 1, &faceting_tol);
+  CHK_MB_ERR_RET("Error tagging geometry with faceting tolerance: ", rval)
+
+  rval = mdbImpl->tag_set_data(geometry_resabs_tag, &set, 1, &GEOMETRY_RESABS);
+  CHK_MB_ERR_RET("Error tagging geometry with absolute geometry resolution: ", rval)
+
   rval = create_entity_sets(entmap);
   CHK_MB_ERR_RET("Error creating entity sets: ",rval);
 
