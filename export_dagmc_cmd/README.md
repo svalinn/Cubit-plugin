@@ -1,37 +1,5 @@
-
-THIS PLUGIN IS BROKEN ON AN HDF5 CONFLICT.
-
-Purpose
-==========
-
-This adds a command to Trelis to export a geometry in the MOAB-based facet format necessary for DAGMC.
-
-Dependencies
-=============
-
-This plugin/extension requires a licensed installation of Trelis 16.x and
-the Trelis 16.x SDK.  The SDK should be untarred in the Trelis install
-directory.
-
-This plugin also depends on:
-* swig
-* python2.7-dev
-* MOAB (and thus HDF5)
-
-Note
-====
-
-A change was made to the `SDK/bin/CubitExport-release.cmake` file, replacing
-`\${CMAKE_INSTALL_BINARY_DIR}` with `${CMAKE_INSTALL_BINARY_DIR}`.  This
-requires the setting of `CMAKE_INSTALL_BINARY_DIR` during configure.  This may
-be a band-aid solution to a different problem with the CMAKE configuration.
-
-Build
-======
-
-```
-mkdir bld
-cd blb
+bld
+cd bld
 cmake .. -DCMAKE_PREFIX_PATH=/path/to/Trelis-16.0/bin -DCMAKE_INSTALL_BINARY_DIR=bin -DMOAB_DIR=/path/to/MOAB/lib
 make
 ```
