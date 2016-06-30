@@ -49,6 +49,9 @@ const char* group_start_token = "g";
 const char* vertex_start_token = "v";
 const char* face_start_token = "f";
 
+#define OBJ_AMBIGUOUS "AMBIGUOUS"
+#define OBJ_UNDEFINED "UNDEFINED"
+
 // Name of geometric entities
 const char* const geom_name[] = { "Vertex\0", "Curve\0", "Surface\0", "Volume\0"};
 
@@ -169,92 +172,108 @@ ErrorCode ReadOBJ::load_file(const char *filename,
           // Tokenize the line
           std::vector<std::string> tokens;
           tokenize(line, tokens, delimiters);
-          if (tokens.empty()) continue ; 
-          
-          // Object line
-          if( tokens[0].compare( object_start_token ) == 0 && tokens.size() > 1)
-            {
-              object_id++;
-              object_name = tokens[1]; // Get name of object
 
-              // Create new meshset for object
-              rval = create_new_object(object_name, object_id, curr_meshset); MB_CHK_ERR(rval);
-            }
+          // Each group and object line must have a name, token size is at least 2
+          // Each vertex and face line should have token size of at least 4
+          if (tokens.size() < 2) continue; 
 
-          // Group line 
-          if( tokens[0].compare( group_start_token ) == 0 && tokens.size() > 1)
-            {
-              group_id++;
-              num_groups = tokens.size()-1;
-              std::string group_name = "Group";  
-              for ( int i = 0; i < num_groups; i++)
+          switch (get_keyword(tokens))
+            { 
+              // Object line
+              case object_start:         
                 {
-                  group_name = group_name + '_' + tokens[i+1];
+                   object_id++;
+                   object_name = tokens[1]; // Get name of object
+
+                   // Create new meshset for object
+                   rval = create_new_object(object_name, object_id, curr_meshset); MB_CHK_ERR(rval);
+                   break;
                 }
 
-              // Create new meshset for group 
-              rval = create_new_group(group_name, group_id, curr_meshset); MB_CHK_ERR(rval);
-               
-            }
-          // Vertex line 
-          else if(tokens.size() == 4 && tokens[0].compare(vertex_start_token) == 0)
-            {
-              // Read vertex and return EH
-              EntityHandle new_vertex_eh;
-              rval = create_new_vertex(tokens, new_vertex_eh); MB_CHK_ERR(rval);
-              
-              // Add new vertex EH to list 
-              vertex_list.push_back(new_vertex_eh);
-              
-              // Add new vertex EH to the meshset
-              MBI->add_entities( vert_meshset, &new_vertex_eh, 1);
-              MB_CHK_SET_ERR(rval, "Failed to add vertex to global meshset.");
-            }
-
-          // Face line
-          else if( tokens[0].compare( face_start_token ) == 0)
-            {
-              // Faces in .obj file can have 2, 3, or 4 vertices. If the face has
-              // 3 vertices, the EH will be immediately added to the meshset.
-              // If 4, face is split into triangles.  Anything else is ignored.
-              EntityHandle new_face_eh;
-              
-              if ( tokens.size() == 4 )
-                {  
-                  rval = create_new_face(tokens, vertex_list, new_face_eh); MB_CHK_ERR(rval);
-
-                  if (rval == MB_SUCCESS)
-                    {
-                      // Add new face EH to the meshset
-                      MBI->add_entities(curr_meshset, &new_face_eh, 1);
-                    }   
-                }
-              
-              else if( tokens.size() == 5 )  
+              // Group line
+              case group_start: 
                 {
-                  // Split_quad fxn will create 2 new triangles from 1 quad
-                  Range new_faces_eh;
-                  rval = split_quad(tokens, vertex_list, new_faces_eh); MB_CHK_ERR(rval);
-                 
-                  // Add new faces created by split quad to meshset 
-                  if (rval == MB_SUCCESS)
+                  group_id++;
+                  num_groups = tokens.size()-1;
+                  std::string group_name = "Group";  
+                  for ( int i = 0; i < num_groups; i++)
                     {
-                      MBI->add_entities(curr_meshset, new_faces_eh);
+                      group_name = group_name + '_' + tokens[i+1];
                     }
-                } 
-
-              else
-                {
-                  std::cout << "Neither tri nor a quad: " << line <<  std::endl;
+               
+                  // Create new meshset for group 
+                  rval = create_new_group(group_name, group_id, curr_meshset); MB_CHK_ERR(rval);
+                  break;             
                 }
-              
-            }
- 
-          else 
-            {
-                // First token is not recognized as a supported character
-                ++ignored;
-            }
+
+              // Vertex line 
+              case vertex_start:
+                {
+                   // Read vertex and return EH
+                   EntityHandle new_vertex_eh;
+                   rval = create_new_vertex(tokens, new_vertex_eh); MB_CHK_ERR(rval);
+                   
+                   // Add new vertex EH to list 
+                   vertex_list.push_back(new_vertex_eh);
+                   
+                   // Add new vertex EH to the meshset
+                   MBI->add_entities( vert_meshset, &new_vertex_eh, 1);
+                   MB_CHK_SET_ERR(rval, "Failed to add vertex to global meshset.");
+                   break;
+                }
+
+              // Face line
+              case face_start:
+                {
+                  // Faces in .obj file can have 2, 3, or 4 vertices. If the face has
+                  // 3 vertices, the EH will be immediately added to the meshset.
+                  // If 4, face is split into triangles.  Anything else is ignored.
+                  EntityHandle new_face_eh;
+                  
+                  if ( tokens.size() == 4 )
+                    {  
+                      rval = create_new_face(tokens, vertex_list, new_face_eh); MB_CHK_ERR(rval);
+               
+                      if (rval == MB_SUCCESS)
+                        {
+                          // Add new face EH to the meshset
+                          MBI->add_entities(curr_meshset, &new_face_eh, 1);
+                        }   
+                    }
+                  
+                  else if( tokens.size() == 5 )  
+                    {
+                      // Split_quad fxn will create 2 new triangles from 1 quad
+                      Range new_faces_eh;
+                      rval = split_quad(tokens, vertex_list, new_faces_eh); MB_CHK_ERR(rval);
+                     
+                      // Add new faces created by split quad to meshset 
+                      if (rval == MB_SUCCESS)
+                        {
+                          MBI->add_entities(curr_meshset, new_faces_eh);
+                        }
+                    } 
+               
+                  else
+                    {
+                      std::cout << "Neither tri nor a quad: " << line <<  std::endl;
+                    }
+                  
+                  break;            
+                }
+         
+              case valid_unsupported:
+                {
+                  // First token is not recognized as a supported character
+                  ++ignored;
+                  break;
+                }
+           
+              default:
+                {
+                  MB_SET_ERR(MB_FAILURE, "Invalid/unrecognized line");
+                }
+           }
         }
       
     }
@@ -300,6 +319,77 @@ void ReadOBJ::tokenize( const std::string& str,
           next_token_start = str.find_first_not_of( delimiters, next_token_end );
         }
     }
+}
+
+keyword_type ReadOBJ::get_keyword(std::vector<std::string> tokens)
+{
+  std::map<std::string, keyword_type> keywords;
+ 
+  // currently supported
+  keywords["o"] = object_start; 
+  keywords["g"] = group_start; 
+  keywords["f"] = face_start; 
+  keywords["v"] = vertex_start; 
+
+  // not currently supported, will be ignored
+  keywords["vn"] = valid_unsupported;
+  keywords["vt"] = valid_unsupported;
+  keywords["vp"] = valid_unsupported;
+  keywords["s"] = valid_unsupported;
+  keywords["mtllib"] = valid_unsupported;
+  keywords["usemtl"] = valid_unsupported;
+  keywords["#"] = valid_unsupported;
+  keywords["cstype"] = valid_unsupported;
+  keywords["deg"] = valid_unsupported;
+  keywords["bmat"] = valid_unsupported;
+  keywords["step"] = valid_unsupported;
+  keywords["p"] = valid_unsupported;
+  keywords["l"] = valid_unsupported;
+  keywords["curv"] = valid_unsupported;
+  keywords["curv2"] = valid_unsupported;
+  keywords["surf"] = valid_unsupported;
+  keywords["parm"] = valid_unsupported;
+  keywords["trim"] = valid_unsupported;
+  keywords["hole"] = valid_unsupported;
+  keywords["scrv"] = valid_unsupported;
+  keywords["sp"] = valid_unsupported;
+  keywords["end"] = valid_unsupported;
+  keywords["mg"] = valid_unsupported;
+  keywords["bevel"] = valid_unsupported;
+  keywords["c_interp"] = valid_unsupported;
+  keywords["d_interp"] = valid_unsupported;
+  keywords["lod"] = valid_unsupported;
+  keywords["shadow_obj"] = valid_unsupported;
+  keywords["trace_obj"] = valid_unsupported;
+  keywords["ctech"] = valid_unsupported;
+  keywords["stech"] = valid_unsupported;
+
+
+  return keywords[match(tokens[0], keywords)];
+}
+
+template <typename T>
+std::string ReadOBJ::match(const std::string &token,
+                              std::map<std::string, T> &tokenList)
+{
+  // Initialize with no match and obj_undefined as return string
+  std::string best_match = OBJ_UNDEFINED;
+
+  // Search the map
+  for (typename std::map<std::string, T>::iterator thisToken = tokenList.begin();
+       thisToken != tokenList.end();
+       ++thisToken) 
+    {
+      // If a perfect match break the loop (assume keyword list is unambiguous)
+      if (token == (*thisToken).first) 
+        {
+          best_match = token;
+          break;
+        }
+    }
+
+  // Possible return values: OBJ_UNDEFINED, keyword from list
+  return best_match;
 }
 
 

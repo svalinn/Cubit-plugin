@@ -42,7 +42,9 @@
  * Face lines (tri): f v1 v2 v3
  * Face lines (quad): f v1 v2 v3 v4
  *
- * Lines that begin w/ anything other than 'o ', 'g ', 'v ', and 'f ' will be ignored.
+ * Lines that begin w/ anything other than 'o ', 'g ', 'v ', and 'f ' are not
+ * supported. If a valid, but unsupported line is found, it will be ignored.
+ * If an invalid line is found, an error will be produced.
  * Face lines that contain 'vertex\texture\normal' are handled by ignoring the
  * texture and normal
  * 
@@ -72,6 +74,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <map>
 
 #include "moab/Interface.hpp"
 #include "moab/ReaderIface.hpp"
@@ -96,6 +99,15 @@ struct face {
   moab::EntityHandle conn[3];
 };
 namespace moab {
+
+/* Supported obj file keywords
+ */
+enum keyword_type {obj_undefined = 0,
+                   object_start,
+                   group_start,
+                   face_start,
+                   vertex_start,
+                   valid_unsupported};
 
 class ReadUtilIface;
 class GeomTopoTool;
@@ -139,7 +151,16 @@ private:
   const char *fileName;
   Tag geom_tag,id_tag,name_tag,category_tag,faceting_tol_tag, geometry_resabs_tag, obj_name_tag, 
     sense_tag;
+
+  /*  The keyword type function matches the first character extracted from each line to a type of line
+   */ 
+  keyword_type get_keyword(std::vector<std::string> tokens);
   
+  /*  The match function searches a list of map keys for a match with the token
+   */
+  template <typename T>
+  std::string match(const std::string &token, std::map<std::string, T> &tokenList);
+ 
 
   /* The tokenize function takes a string as input and splits it into
    * a vector of strings based on the delimiter
