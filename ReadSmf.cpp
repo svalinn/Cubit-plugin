@@ -87,6 +87,8 @@ ReadSmf::ReadSmf(Interface* impl)
   : mdbImpl(impl), mCurrentMeshHandle(0), lineNo(0), commandNo(0), versionMajor(0), versionMinor(0)
 {
   mdbImpl->query_interface(readMeshIface);
+  ivar.next_vertex = 0;
+  ivar.next_face = 0;
   _numNodes = _numFaces = 0;
   _numNodesInFile = _numElementsInFile = 0;
 }

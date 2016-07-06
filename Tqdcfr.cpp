@@ -1085,7 +1085,9 @@ ErrorCode Tqdcfr::read_block(const unsigned int blindex,
   }
   entities.merge(ho_entities);
 
-  HigherOrderFactory ho_fact(dynamic_cast<Core*>(mdbImpl), 0);
+  Core *mbcore = dynamic_cast<Core*>(mdbImpl);
+  assert(mbcore != NULL);
+  HigherOrderFactory ho_fact(mbcore, 0);
   return ho_fact.convert(entities, !!blockh->hasMidNodes[1], !!blockh->hasMidNodes[2],
                          !!blockh->hasMidNodes[3]);
 }
@@ -1102,7 +1104,7 @@ ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, Entit
   //assert(md_entry->mdStringValue.length() + 1 <= NAME_TAG_SIZE);
   char name_tag_data[NAME_TAG_SIZE];
   memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
-  strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
+  strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE - 1);
   result = mdbImpl->tag_set_data(entityNameTag, &seth, 1, name_tag_data);
   if (MB_SUCCESS != result)
     return result;
@@ -1130,7 +1132,7 @@ ErrorCode Tqdcfr::get_names(MetaDataContainer &md, unsigned int set_index, Entit
           MB_TAG_SPARSE | MB_TAG_CREAT
           ); MB_CHK_ERR(rval);
       memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
-      strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
+      strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE - 1);
       result = mdbImpl->tag_set_data(extra_name_tag, &seth, 1, name_tag_data);
     }
   }
@@ -1184,7 +1186,7 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
     }
     //assert(md_entry->mdStringValue.length() + 1 <= NAME_TAG_SIZE);
     memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
-    strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
+    strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE - 1);
     result = mdbImpl->tag_set_data(entityNameTag, &grouph->setHandle, 1,
                                    name_tag_data);
     if (MB_SUCCESS != result)
@@ -1212,7 +1214,7 @@ ErrorCode Tqdcfr::read_group(const unsigned int group_index,
             return result;
           //assert(md_entry->mdStringValue.length() + 1 <= NAME_TAG_SIZE);
           memset(name_tag_data, 0, NAME_TAG_SIZE); // Make sure any extra bytes zeroed
-          strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE);
+          strncpy(name_tag_data, md_entry->mdStringValue.c_str(), NAME_TAG_SIZE - 1);
           result = mdbImpl->tag_set_data(extra_name_tag, &grouph->setHandle, 1,
                                          name_tag_data);
         }
@@ -1306,14 +1308,22 @@ ErrorCode Tqdcfr::get_mesh_entities(const unsigned int this_type,
 {
   ErrorCode result = MB_SUCCESS;
   std::vector<EntityHandle> *ent_list = NULL;
-  EntityType this_ent_type;
+  EntityType this_ent_type = MBVERTEX;
+  const unsigned int arr_len = sizeof(group_type_to_mb_type) / sizeof(group_type_to_mb_type[0]);
   if (this_type > 1000) {
-    this_ent_type = group_type_to_mb_type[this_type - 1000];
-    ent_list = &excl_entities;
+    if (this_type - 1000 < arr_len) {
+      this_ent_type = group_type_to_mb_type[this_type - 1000];
+      ent_list = &excl_entities;
+    }
   }
   else {
-    this_ent_type = group_type_to_mb_type[this_type];
-    ent_list = &entities;
+    if (this_type < arr_len) {
+      this_ent_type = group_type_to_mb_type[this_type];
+      ent_list = &entities;
+    }
+  }
+  if (NULL == ent_list) {
+    MB_SET_ERR(MB_FAILURE, "Entities list is NULL");
   }
 
   // Get entities with this type, and get their cub id tags
@@ -1353,7 +1363,7 @@ ErrorCode Tqdcfr::get_mesh_entities(const unsigned int this_type,
       }
       else {
         std::cout << "Warning: didn't find " << CN::EntityTypeName(this_ent_type)
-                  << " " << *vit << std::endl;
+                  << " " << id_buf[i] << std::endl;
       }
     }
   }
@@ -2825,8 +2835,6 @@ ErrorCode Tqdcfr::process_record(AcisRecord &this_record)
       if (NULL == type_substr)
         return MB_FAILURE;
       type_substr = strstr(type_substr, " ") + 1;
-      if (NULL == type_substr)
-        return MB_FAILURE;
       // Copy the rest of the string to a dummy string
       std::string dum_str(type_substr);
       this_record.att_string = dum_str;

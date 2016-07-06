@@ -49,7 +49,7 @@ ReaderIface* ReadABAQUS::factory(Interface* iface)
 }
 
 ReadABAQUS::ReadABAQUS(Interface* impl)
-  : mdbImpl(impl)
+  : mdbImpl(impl), readMeshIface(NULL), lineNo(0), next_line_type(abq_undefined_line), mat_id(0)
 {
   assert(impl != NULL);
   reset();
@@ -71,8 +71,6 @@ ReadABAQUS::ReadABAQUS(Interface* impl)
   mAssemblyHandleTag = 0;
   mSetNameTag        = 0;
   mMatNameTag        = 0;
-
-  mat_id             = 0;
 
   //! Get and cache predefined tag handles
   int zero = 0, negone = -1, negonearr[] = {-1, -1, -1, -1};
@@ -807,7 +805,7 @@ ErrorCode ReadABAQUS::read_element_set(EntityHandle parent_set, EntityHandle fil
         int e1 = atoi(tokens[0].c_str());
         int e2 = atoi(tokens[1].c_str());
         int incr = atoi(tokens[2].c_str());
-        if (((e2 - e1) % incr) != 0) {
+        if ((incr == 0) || (((e2 - e1) % incr) != 0)) {
           MB_SET_ERR(MB_FAILURE, "Invalid data on GENERATE element set data line");
         }
         for (int element_id = e1; element_id <= e2; element_id += incr)
@@ -963,7 +961,7 @@ ErrorCode ReadABAQUS::read_node_set(EntityHandle parent_set, EntityHandle file_s
           int n1 = atoi(tokens[0].c_str());
           int n2 = atoi(tokens[1].c_str());
           int incr = atoi(tokens[2].c_str());
-          if (((n2 - n1) % incr) != 0) {
+          if ((incr == 0) || (((n2 - n1) % incr) != 0)) {
             MB_SET_ERR(MB_FAILURE, "Invalid data on GENERATE node set data line");
           }
           for (int node_id = n1; node_id <= n2; node_id += incr)
