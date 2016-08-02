@@ -216,13 +216,13 @@ moab::ErrorCode DAGMCExportCommand::create_tags()
 void DAGMCExportCommand::teardown()
 {
   message  << "***** Faceting Summary Information *****" << std::endl;
-  if ( 0 < failed_curve_count ) {
+  if (0 < failed_curve_count) {
     message << "----- Curve Fail Information -----" << std::endl
             << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl;
   } else {
     message << "----- All curves faceted correctly  -----" << std::endl;
   }
-  if ( 0 < failed_surface_count ) {
+  if (0 < failed_surface_count) {
     message << "----- Facet Fail Information -----" << std::endl
             << "There were " << failed_surface_count << " surfaces that could not be faceted." << std::endl;
   } else {
@@ -255,7 +255,7 @@ moab::ErrorCode DAGMCExportCommand::create_entity_sets(refentity_handle_map (&en
 
     message << "Found " << entlist.size() << " entities of dimension " << dim << std::endl;
 
-    for (int i = entlist.size(); i--; ) {
+    for (int i = entlist.size(); i--;) {
       RefEntity* ent = entlist.get_and_step();
       moab::EntityHandle handle;
 
