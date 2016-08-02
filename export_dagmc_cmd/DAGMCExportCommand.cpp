@@ -61,7 +61,6 @@ std::vector<std::string> DAGMCExportCommand::get_syntax()
       "[faceting_tolerance <value:label='faceting_tolerance',help='<faceting tolerance>'>] "
       "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
       "[normal_tolerance <value:label='normal_tolerance',help='<normal tolerance>'>] "
-      //"[overwrite] "
       "[verbose] [fatal_on_curves]";
 
   std::vector<std::string> syntax_list;
@@ -216,12 +215,20 @@ moab::ErrorCode DAGMCExportCommand::create_tags()
 
 void DAGMCExportCommand::teardown()
 {
-  message  << "***** Faceting Summary Information *****" << std::endl
-           << "----- Curve Fail Information -----" << std::endl
-           << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl
-           << "----- Facet Fail Information -----" << std::endl
-           << "There were " << failed_surface_count << " surfaces that could not be faceted." << std::endl
-           << "***** End of Faceting Summary Information *****" << std::endl;
+  message  << "***** Faceting Summary Information *****" << std::endl;
+  if ( 0 < failed_curve_count ) {
+    message << "----- Curve Fail Information -----" << std::endl
+            << "There were " << failed_curve_count << " curves that could not be faceted." << std::endl;
+  } else {
+    message << "----- All curves faceted correctly  -----" << std::endl;
+  }
+  if ( 0 < failed_surface_count ) {
+    message << "----- Facet Fail Information -----" << std::endl
+            << "There were " << failed_surface_count << " surfaces that could not be faceted." << std::endl;
+  } else {
+    message << "----- All surfaces faceted correctly  -----" << std::endl;
+  }
+  message << "***** End of Faceting Summary Information *****" << std::endl;
  
   CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); 
   message.str("");
