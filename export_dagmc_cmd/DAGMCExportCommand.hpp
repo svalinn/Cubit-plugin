@@ -32,7 +32,7 @@ public:
 protected:
 
   moab::ErrorCode create_tags();
-  moab::ErrorCode parse_options(CubitCommandData &data, moab::EntityHandle* file_set);
+  moab::ErrorCode parse_options(CubitCommandData &data, moab::EntityHandle* file_set = 0);
   moab::ErrorCode create_entity_sets(refentity_handle_map (&entmap)[5]);
   moab::ErrorCode create_topology(refentity_handle_map (&entitymap)[5]);
   moab::ErrorCode store_surface_senses(refentity_handle_map& surface_map,
