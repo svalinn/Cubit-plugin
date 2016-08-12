@@ -178,7 +178,7 @@ moab::ErrorCode DAGMCExportCommand::parse_options(CubitCommandData &data, moab::
   if (verbose_warnings && fatal_on_curves)
     message << "This export will fail if curves fail to facet" << std::endl;
 
-
+  return rval;
 }
 
 moab::ErrorCode DAGMCExportCommand::create_tags()
