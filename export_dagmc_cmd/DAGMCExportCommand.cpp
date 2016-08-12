@@ -97,17 +97,13 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = create_tags();
   CHK_MB_ERR_RET("Error initializing DAGMC export: ",rval);
 
-  rval = parse_options(data);
-  CHK_MB_ERR_RET("Error parsing options: ",rval);
+  // create a file set for storage of tolerance values
+  moab::EntityHandle file_set;
+  rval = mdbImpl->create_meshset(0, file_set);
+  CHK_MB_ERR_RET("Error creating file set.",rval);
   
-  // Always tag with the faceting_tol and geometry absolute resolution
-  // If file_set is defined, use that, otherwise (file_set == NULL) tag the interface
-  moab::EntityHandle set = 0;
-  rval = mdbImpl->tag_set_data(faceting_tol_tag, &set, 1, &faceting_tol);
-  CHK_MB_ERR_RET("Error tagging geometry with faceting tolerance: ", rval)
-
-  rval = mdbImpl->tag_set_data(geometry_resabs_tag, &set, 1, &GEOMETRY_RESABS);
-  CHK_MB_ERR_RET("Error tagging geometry with absolute geometry resolution: ", rval)
+  rval = parse_options(data, &file_set);
+  CHK_MB_ERR_RET("Error parsing options: ",rval);
 
   rval = create_entity_sets(entmap);
   CHK_MB_ERR_RET("Error creating entity sets: ",rval);
@@ -136,6 +132,10 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = create_surface_facets(entmap[2], entmap[0]);
   CHK_MB_ERR_RET("Error faceting surfaces: ",rval);
 
+  rval = gather_ents(file_set);
+  CHK_MB_ERR_RET("Could not gather entities into file set.", rval);
+
+  
   std::string filename;
   data.get_string("filename",filename);
   rval = mdbImpl->write_file(filename.c_str());
@@ -146,7 +146,7 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   return result;
 }
 
-moab::ErrorCode DAGMCExportCommand::parse_options(CubitCommandData &data)
+moab::ErrorCode DAGMCExportCommand::parse_options(CubitCommandData &data, moab::EntityHandle* file_set)
 {
   moab::ErrorCode rval;
 
@@ -158,13 +158,18 @@ moab::ErrorCode DAGMCExportCommand::parse_options(CubitCommandData &data)
   data.get_value("length_tolerance",len_tol);
   message << "Setting length tolerance to " << len_tol << std::endl;
 
-  moab::EntityHandle set = 0;
+  // Always tag with the faceting_tol and geometry absolute resolution
+  // If file_set is defined, use that, otherwise (file_set == NULL) tag the interface  
+  moab::EntityHandle set = file_set ? *file_set : 0;
   rval = mdbImpl->tag_set_data(faceting_tol_tag, &set, 1, &faceting_tol);
   CHK_MB_ERR_RET_MB("Error setting faceting tolerance tag",rval);
 
   // read parsed command for normal tolerance
   data.get_value("normal_tolerance",norm_tol);
   message << "Setting normal tolerance to " << norm_tol << std::endl;
+
+  rval = mdbImpl->tag_set_data(geometry_resabs_tag, &set, 1, &GEOMETRY_RESABS);
+  CHK_MB_ERR_RET_MB("Error setting geometry_resabs_tag",rval);
   
   // read parsed command for verbosity
   verbose_warnings = data.find_keyword("verbose");
@@ -206,10 +211,6 @@ moab::ErrorCode DAGMCExportCommand::create_tags()
   rval = mdbImpl->tag_get_handle("GEOMETRY_RESABS", 1, moab::MB_TYPE_DOUBLE, 
                                  geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
   CHK_MB_ERR_RET_MB("Error creating geometry_resabs_tag",rval);
-
-  moab::EntityHandle set = 0;
-  rval = mdbImpl->tag_set_data(geometry_resabs_tag, &set, 1, &GEOMETRY_RESABS);
-  CHK_MB_ERR_RET_MB("Error setting geometry_resabs_tag",rval);
 
 }
 
@@ -829,4 +830,26 @@ moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& 
   }
 
   return moab::MB_SUCCESS;
+}
+
+moab::ErrorCode DAGMCExportCommand::gather_ents(moab::EntityHandle gather_set)
+{
+  moab::ErrorCode rval;
+  moab::Range new_ents;
+  rval = mdbImpl->get_entities_by_handle(0,new_ents);
+  CHK_MB_ERR_RET_MB("Could not get all entity handles.",rval);
+
+  //make sure there the gather set is empty
+  moab::Range gather_ents;
+  rval = mdbImpl->get_entities_by_handle(gather_set,gather_ents);
+  CHK_MB_ERR_RET_MB("Could not get the gather set entities.",rval);
+
+  if( 0 != gather_ents.size() ){
+    CHK_MB_ERR_RET_MB("Unknown entities found in the gather set.",rval);
+  }
+
+  rval = mdbImpl->add_entities(gather_set,new_ents);
+  CHK_MB_ERR_RET_MB("Could not add newly created entities to the gather set.",rval);
+
+  return rval;
 }
