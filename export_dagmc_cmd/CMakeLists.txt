@@ -28,4 +28,4 @@ set(SRC
     DAGMCExportCommand.hpp)
 
 add_library(dagmc_export_plugin MODULE ${SRC})
-target_link_libraries(dagmc_export_plugin cubiti cubit_util ${MOAB_LIBRARIES})
+target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MOAB_LIBRARIES})
