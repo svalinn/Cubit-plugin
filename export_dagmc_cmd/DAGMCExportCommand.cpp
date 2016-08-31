@@ -212,6 +212,7 @@ moab::ErrorCode DAGMCExportCommand::create_tags()
                                  geometry_resabs_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
   CHK_MB_ERR_RET_MB("Error creating geometry_resabs_tag",rval);
 
+  return rval;
 }
 
 void DAGMCExportCommand::teardown()
