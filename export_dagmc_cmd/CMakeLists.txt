@@ -21,6 +21,8 @@ include_directories(${CUBIT_INCLUDE_DIRS})
 find_package(MOAB REQUIRED)
 include_directories(${MOAB_INCLUDE_DIRS})
 
+include_directories("/home/shriwise/dagmc_blds/dagmc/include/")
+
 set(SRC
     MyPlugin.cpp
     MyPlugin.hpp
@@ -28,4 +30,4 @@ set(SRC
     DAGMCExportCommand.hpp)
 
 add_library(dagmc_export_plugin MODULE ${SRC})
-target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MOAB_LIBRARIES})
+target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom /home/shriwise/dagmc_blds/dagmc/lib/libmakeWatertight.so ${MOAB_LIBRARIES})

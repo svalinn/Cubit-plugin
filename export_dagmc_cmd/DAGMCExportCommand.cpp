@@ -36,6 +36,7 @@
   return rval;                                                         \
   }
 
+
 DAGMCExportCommand::DAGMCExportCommand() :
   geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), geometry_resabs_tag(0)
 {
@@ -69,6 +70,7 @@ std::vector<std::string> DAGMCExportCommand::get_syntax()
       "[faceting_tolerance <value:label='faceting_tolerance',help='<faceting tolerance>'>] "
       "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
       "[normal_tolerance <value:label='normal_tolerance',help='<normal tolerance>'>] "
+      "[make_watertight]"
       "[verbose] [fatal_on_curves]";
 
   std::vector<std::string> syntax_list;
@@ -92,7 +94,9 @@ std::vector<std::string> DAGMCExportCommand::get_help()
 bool DAGMCExportCommand::execute(CubitCommandData &data)
 {
 
-  mdbImpl = new moab::Core();
+  static moab::Core instance;
+  mdbImpl = &instance;
+  mw = new MakeWatertight(mdbImpl);
   myGeomTool = new moab::GeomTopoTool(mdbImpl);
   message.str("");
 
@@ -143,6 +147,10 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = gather_ents(file_set);
   CHK_MB_ERR_RET("Could not gather entities into file set.", rval);
 
+  if (make_watertight) {
+    rval = mw->make_mesh_watertight(file_set, faceting_tol, false);
+    CHK_MB_ERR_RET("Could not make the model watertight.", rval);
+  }
   
   std::string filename;
   data.get_string("filename",filename);
@@ -182,7 +190,8 @@ moab::ErrorCode DAGMCExportCommand::parse_options(CubitCommandData &data, moab::
   // read parsed command for verbosity
   verbose_warnings = data.find_keyword("verbose");
   fatal_on_curves = data.find_keyword("fatal_on_curves");
-
+  make_watertight = data.find_keyword("make_watertight");
+  
   if (verbose_warnings && fatal_on_curves)
     message << "This export will fail if curves fail to facet" << std::endl;
 
@@ -243,7 +252,7 @@ void DAGMCExportCommand::teardown()
   CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); 
   message.str("");
   delete myGeomTool;
-  delete mdbImpl;
+  //  delete mdbImpl;
 
 }
 
@@ -862,3 +871,4 @@ moab::ErrorCode DAGMCExportCommand::gather_ents(moab::EntityHandle gather_set)
 
   return rval;
 }
+
