@@ -19,7 +19,7 @@
 
 #include "SenseEntity.hpp"
 
-// MOAB includes[
+// MOAB includes
 #include "MBTagConventions.hpp"
 #include "moab/Core.hpp"
 #include "moab/Interface.hpp"
@@ -34,6 +34,10 @@
 #define CHK_MB_ERR_RET_MB(A,B)  if (moab::MB_SUCCESS != (B)) { \
   message << (A) << (B) << std::endl;                                   \
   return rval;                                                         \
+  }
+
+#define CHK_MB_ERR(A,B)  if (moab::MB_SUCCESS != (B)) { \
+  message << (A) << (B) << std::endl;                                   \
   }
 
 
@@ -251,8 +255,12 @@ void DAGMCExportCommand::teardown()
  
   CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); 
   message.str("");
+
+  
+  moab::ErrorCode rval = mdbImpl->delete_mesh();
+  CHK_MB_ERR("Error cleaning up mesh instance.", rval);
   delete myGeomTool;
-  //  delete mdbImpl;
+
 
 }
 
