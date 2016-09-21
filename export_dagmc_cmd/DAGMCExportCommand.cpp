@@ -36,11 +36,6 @@
   return rval;                                                         \
   }
 
-#define CHK_MB_ERR(A,B)  if (moab::MB_SUCCESS != (B)) { \
-  message << (A) << (B) << std::endl;                                   \
-  }
-
-
 DAGMCExportCommand::DAGMCExportCommand() :
   geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), geometry_resabs_tag(0)
 {
@@ -161,7 +156,8 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = mdbImpl->write_file(filename.c_str());
   CHK_MB_ERR_RET("Error writing file: ",rval);
 
-  teardown();
+  rval = teardown();
+  CHK_MB_ERR_RET("Error tearing down export command.",rval);
   
   return result;
 }
@@ -236,7 +232,7 @@ moab::ErrorCode DAGMCExportCommand::create_tags()
   return rval;
 }
 
-void DAGMCExportCommand::teardown()
+moab::ErrorCode DAGMCExportCommand::teardown()
 {
   message  << "***** Faceting Summary Information *****" << std::endl;
   if (0 < failed_curve_count) {
@@ -258,9 +254,10 @@ void DAGMCExportCommand::teardown()
 
   
   moab::ErrorCode rval = mdbImpl->delete_mesh();
-  CHK_MB_ERR("Error cleaning up mesh instance.", rval);
+  CHK_MB_ERR_RET_MB("Error cleaning up mesh instance.", rval);
   delete myGeomTool;
 
+  return rval;
 
 }
 

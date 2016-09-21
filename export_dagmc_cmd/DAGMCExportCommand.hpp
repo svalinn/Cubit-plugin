@@ -52,7 +52,7 @@ protected:
   moab::ErrorCode create_surface_facets(refentity_handle_map& surface_map,
                                         refentity_handle_map& vertex_map);
   moab::ErrorCode gather_ents(moab::EntityHandle gather_set);  
-  void teardown();
+  moab::ErrorCode teardown();
 
 private:
 
