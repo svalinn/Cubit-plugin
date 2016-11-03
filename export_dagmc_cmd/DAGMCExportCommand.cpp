@@ -45,6 +45,14 @@ DAGMCExportCommand::DAGMCExportCommand() :
   len_tol = 0.0;
   verbose_warnings = false;
   fatal_on_curves = false;
+
+  CubitMessageHandler *console = CubitInterface::get_cubit_message_handler();
+  if (console) {
+    std::ostringstream load_message;
+    load_message.str("");
+    load_message <<"Loaded DAGMC export plugin." << std::endl;
+    CubitInterface::get_cubit_message_handler()->print_error(load_message.str().c_str());
+  }
 }
 
 DAGMCExportCommand::~DAGMCExportCommand()
