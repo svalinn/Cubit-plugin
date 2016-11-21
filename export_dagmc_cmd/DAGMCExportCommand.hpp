@@ -12,7 +12,7 @@
 #include "moab/GeomTopoTool.hpp"
 
 // make_watertight includes
-#include "MakeWatertight.hpp"
+#include "make_watertight/MakeWatertight.hpp"
 
 typedef std::map<RefEntity*, moab::EntityHandle> refentity_handle_map;
 typedef std::map<RefEntity*, moab::EntityHandle>::iterator refentity_handle_map_itor;
