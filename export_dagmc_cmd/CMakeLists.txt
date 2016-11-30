@@ -24,6 +24,10 @@ include_directories(${MOAB_INCLUDE_DIRS})
 include_directories("${DAGMC_DIR}/../include/")
 
 set(SRC
+    iGeom_test.cpp
+    iGeom_test.hpp
+    iGeom_funcs.cpp
+    iGeom_funcs.hpp
     MyPlugin.cpp
     MyPlugin.hpp
     DAGMCExportCommand.cpp
