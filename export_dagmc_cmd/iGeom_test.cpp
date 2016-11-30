@@ -32,6 +32,7 @@ iGeom_test::iGeom_test()
 {
   //default values
   radius = 2.0;
+  radius2 = 1.0;
 }
 
 iGeom_test::~iGeom_test()
@@ -44,7 +45,8 @@ std::vector<std::string> iGeom_test::get_syntax()
   // found in the documentation.
   std::string syntax =
       "iGeom_test"
-      "[<value:label='radius',help='<radius>'> ]";
+      "[<value:label='radius',help='<radius>'> ]"
+      "[<value:label='radius2',help='<radius2>'>]";
       /*
      "[faceting_tolerance <value:label='faceting_tolerance',help='<faceting tolerance>'>] "
       "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
@@ -74,10 +76,12 @@ bool iGeom_test::execute(CubitCommandData &data)
 {
 
   data.get_value("radius",radius);
-  std::stringstream ss;
-  ss << radius;
-//  std::string output = "Sphere of radius " + ss.str().c_str() + "coming up!\n"
-  iGeom_createSphere( radius );
+  data.get_value("radius2",radius2);
+//  iGeom_createSphere( radius );
+//  iGeom_createBrick( radius, radius + 1 , radius2 );
+//  iGeom_createCylinder( 5, radius, radius2 );
+//  iGeom_createCone( 5, radius, 0.0, radius2 );
+  iGeom_createTorus( radius, radius2 );
   return true;
 }
 

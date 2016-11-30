@@ -20,6 +20,7 @@ public:
 
 private:
   double radius;
+  double radius2;
 
 };
 
