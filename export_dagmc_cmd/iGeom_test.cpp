@@ -75,13 +75,16 @@ std::vector<std::string> iGeom_test::get_help()
 bool iGeom_test::execute(CubitCommandData &data)
 {
 
+  iBase_EntityHandle datum;
+  iBase_EntityHandle move;
   data.get_value("radius",radius);
   data.get_value("radius2",radius2);
-//  iGeom_createSphere( radius );
-//  iGeom_createBrick( radius, radius + 1 , radius2 );
-//  iGeom_createCylinder( 5, radius, radius2 );
-//  iGeom_createCone( 5, radius, 0.0, radius2 );
-  iGeom_createTorus( radius, radius2 );
+  iGeom_createSphere( radius, &datum );
+  iGeom_createBrick( radius, radius + 1 , radius2, &move );
+//  iGeom_createCylinder( 5, radius, radius2, &move );
+//  iGeom_createCone( 5, radius, 0.0, radius2, &move );
+//  iGeom_createTorus( radius, radius2, &move );
+  iGeom_moveEnt( move, 1, 2, 4 );
   return true;
 }
 
