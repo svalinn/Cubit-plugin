@@ -1,6 +1,126 @@
 #ifndef IGEOM_FUNCS_HPP
 #define IGEOM_FUNCS_HPP
 #include "iBase.h"
+#include "GeometryModifyTool.hpp"
+#include "RefGroup.hpp"
+
+class CATag;
+
+class CGMTagManager 
+{
+public:
+#ifdef ITAPS_SHIM
+//  iGeom_vtable *vtable;
+#endif
+
+  friend class CATag;
+
+  
+//  ~CGMTagManager();
+  
+  struct TagInfo
+  {
+    int tagLength;
+    std::string tagName;
+    int tagType;
+    char *defaultValue;
+    bool isActive;
+  };
+
+//  static CubitAttrib* CATag_creator(RefEntity* entity, CubitSimpleAttrib *p_csa);
+
+ 
+//  iBase_ErrorType createTag (/*in*/ const char *tag_name,
+//                             /*in*/ const int tag_size,
+//                             /*in*/ const int tag_type,
+//                             /*in*/ char* default_value,
+//                             /*out*/ long *tag_handle);
+
+  int getTagSize (/*in*/ const long tag_handle);
+
+  long getTagHandle (/*in*/ const char *tag_name);
+
+  iBase_ErrorType setArrData (/*in*/ RefEntity* const* entity_handles, 
+                                     const int entity_handles_size,
+                              /*in*/ const long tag_handle,
+                              /*in*/ const char *tag_values);
+
+  static inline CGMTagManager& instance()
+  {
+    static CGMTagManager static_instance;
+    return static_instance;
+  }
+
+private:
+//  CGMTagManager();
+
+  int CATag_att_type;
+   
+//  long pcTag;
+   
+  std::vector<TagInfo> tagInfo;
+   
+  static TagInfo* const presetTagInfo;
+//  static const int numPresetTag;
+   
+  std::map<std::string, long> tagNameMap;
+//  static const char *CATag_NAME;
+//  static const char *CATag_NAME_INTERNAL;
+   
+  RefGroup *interfaceGroup;
+
+//  iBase_ErrorType setPresetTagData(RefEntity *entity, const long tag_num, 
+//                                   const char *tag_value, const int tag_size);
+  
+   
+  CATag *get_catag(RefEntity *ent, 
+                   const bool create_if_missing = false);
+
+  RefGroup *interface_group(const bool create_if_missing = true);
+  
+};
+
+class CATag: public CubitAttrib
+{
+//private:
+//  friend class CGMTagManager;
+ 
+  std::map<int, void*> tagData;
+
+  CGMTagManager *myManager;
+
+//  CATag(CGMTagManager *manager, RefEntity *owner, CubitSimpleAttrib *csa_ptr);
+    //- create a CATag from a simple attribute
+
+public:
+
+//  virtual ~CATag();
+
+//  CubitStatus actuate() {return CUBIT_SUCCESS;}
+
+//  CubitStatus update();
+
+//  CubitStatus reset();
+
+//  CubitSimpleAttrib* cubit_simple_attrib();
+  
+//  int int_attrib_type() {return myManager->CATag_att_type;}
+
+//  void add_csa_data(CubitSimpleAttrib *csa_ptr);
+
+//  void print();
+  
+  iBase_ErrorType set_tag_data(long tag_num, const void *tag_data,
+                               const bool can_shallow_copy = false);
+};
+
+
+typedef struct iGeom_Instance_Private* iGeom_Instance;
+
+void iGeom_addEntToSet( iBase_EntityHandle entity_to_add,
+                        iBase_EntitySetHandle entity_set_handle );
+
+void iGeom_createEntSet( iBase_EntitySetHandle *entity_set );
 
 void iGeom_createSphere( double radius,
                          iBase_EntityHandle *geom_entity );
@@ -24,6 +144,15 @@ void iGeom_createCone( double height,
 void iGeom_createTorus( double major_rad, 
                         double minor_rad,
                         iBase_EntityHandle *geom_entity );
+
+void iGeom_getEntBoundBox( iBase_EntityHandle entity_handle,
+                           double* min_x,
+                           double* min_y,
+                           double* min_z,
+                           double* max_x,
+                           double* max_y,
+                           double* max_z );
+
 
 void iGeom_moveEnt( iBase_EntityHandle geom_entity, 
                     double x, double y, double z );
@@ -66,4 +195,82 @@ void iGeom_reflectEnt( iBase_EntityHandle geom_entity,
                         double plane_normal_x,
                         double plane_normal_y,
                         double plane_normal_z );
+
+void iGeom_sectionEnt( iBase_EntityHandle geom_entity,
+                       double plane_normal_x,
+                       double plane_normal_y,
+                       double plane_normal_z,
+                       double offset,
+                       int reverse,
+                       iBase_EntityHandle *geom_entity2 );
+
+void iGeom_imprintEnts( iBase_EntityHandle const* gentity_handles,
+                        int gentity_handles_size );
+
+
+void iGeom_getDescription( char* description_buffer,
+                      int description_buffer_length );
+
+void iGeom_getEntities( iBase_EntitySetHandle set_handle,
+                        int gentity_type,
+                        iBase_EntityHandle **gentity_handles,
+                        int *gentity_handles_allocated,
+                        int *gentity_handles_size );
+
+void iGeom_getNumOfType( iBase_EntitySetHandle set_handle,
+                         int gentity_type,
+                         int count );
+
+void iGeom_getRootSet( //iGeom_Instance instance,
+                       iBase_EntitySetHandle* root );
+
+void iGeom_getTagHandle( iGeom_Instance instance,
+                         const char *tag_name,
+                         iBase_TagHandle* tag_handle,
+                         int tag_name_len );
+
+void iGeom_getTagSizeBytes( iGeom_Instance instance,
+                            iBase_TagHandle tag_handle,
+                            int* tag_size );
+
+void iGeom_setData( iGeom_Instance instance,
+                    iBase_EntityHandle entity_handle,
+                    iBase_TagHandle tag_handle,
+                    const void *tag_value_tmp );
+
+void iGeom_setEntSetData( iGeom_Instance instance,
+                          iBase_EntitySetHandle entity_set,
+                          const void *tag_value_tmp );
+
+//Helper Functions
+//static CubitStatus iGeom_bounding_box( RefEntity* entity,
+static void iGeom_bounding_box( RefEntity* entity,
+                                       CubitVector& minc,
+                                       CubitVector& maxc );
+
+static void copy_ibase_type( int ibase_type,
+                             const DLIList<CubitEntity*>& list,
+                             iBase_EntityHandle** entity_handles,
+                             int* entith_handles_alloc,
+                             int* entity_handles_size );
+
+static void append_all_ibase_type( int ibase_type,
+                                   DLIList<RefEntity*>& target_list );
+
+static int count_ibase_type( int ibase_type,
+                             const DLIList<CubitEntity*>& list );
+
+template<typename SKIP_TYPE> static
+int append_not_type( const DLIList<CubitEntity*>& source_list,
+                     iBase_EntityHandle* array, 
+                     int array_size );
+
+template <typename TARGET_TYPE> static
+int append_type( const DLIList<CubitEntity*>& source_list,
+                 iBase_EntityHandle* array,
+                 int array_size );
+
+template <typename T> static
+int count_type( const DLIList<CubitEntity*>& list );
+
 #endif
