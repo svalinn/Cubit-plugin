@@ -53,6 +53,8 @@ DAGMCExportCommand::DAGMCExportCommand() :
     load_message <<"Loaded DAGMC export plugin." << std::endl;
     CubitInterface::get_cubit_message_handler()->print_error(load_message.str().c_str());
   }
+
+  progTool = new TtyProgressTool();
 }
 
 DAGMCExportCommand::~DAGMCExportCommand()
@@ -598,6 +600,9 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
 
   // Map iterator
   refentity_handle_map_itor ci;
+
+  progTool->clear_all();
+  progTool->start(0,curve_map.size(),"FACETING CURVES");
   
   // Create geometry for all curves
   GMem data;
@@ -705,7 +710,10 @@ moab::ErrorCode DAGMCExportCommand::create_curve_facets(refentity_handle_map& cu
     rval = mdbImpl->add_entities(ci->second, &edges[0], edges.size());
     if (moab::MB_SUCCESS != rval)
       return moab::MB_FAILURE;
+
+    progTool->step();
   }
+  progTool->end();
 
   if (!verbose_warnings && curve_warnings < 0) {
     message << "Suppressed " << -curve_warnings
@@ -726,6 +734,9 @@ moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& 
   failed_surface_count =0;
 
   DLIList<TopologyEntity*> me_list;
+
+  progTool->clear_all();
+  progTool->start(0,surface_map.size(),"FACETING_SURFACES");
 
   GMem data;
   // Create geometry for all surfaces
@@ -836,7 +847,11 @@ moab::ErrorCode DAGMCExportCommand::create_surface_facets(refentity_handle_map& 
     rval = mdbImpl->add_entities(ci->second, facets);
     if (moab::MB_SUCCESS != rval)
       return moab::MB_FAILURE;
+
+    progTool->step();
   }
+
+  progTool->end();
 
   return moab::MB_SUCCESS;
 }

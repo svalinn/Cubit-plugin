@@ -3,6 +3,7 @@
 
 #include "CubitCommandInterface.hpp"
 #include "CubitMessageHandler.hpp"
+#include "TtyProgressTool.hpp"
 
 // CGM includes
 #include "RefEntity.hpp"
@@ -30,6 +31,7 @@ public:
   bool execute(CubitCommandData &data);
 
 protected:
+  TtyProgressTool* progTool;
 
   moab::ErrorCode create_tags();
   moab::ErrorCode parse_options(CubitCommandData &data, moab::EntityHandle* file_set = 0);
