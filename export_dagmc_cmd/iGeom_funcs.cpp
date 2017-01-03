@@ -6,6 +6,7 @@
 #include "RefEntityFactory.hpp"
 #include "RefGroup.hpp"
 #include <cstring>
+#include "MergeTool.hpp"
 
 //setData
 #include "RefEntityName.hpp"
@@ -552,6 +553,103 @@ iGeom_intersectEnts( /*in*/ iBase_EntityHandle ent1,
 //  }
 
 //  RETURN(iBase_SUCCESS);
+}
+  
+void
+iGeom_mergeEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
+                 int gentity_handles_size,
+                 double tolerance )//,
+//                 int* err )
+{
+  double old_factor = GeometryQueryTool::instance()->get_geometry_factor();
+  if (tolerance != old_factor) 
+    GeometryQueryTool::instance()->set_geometry_factor(tolerance*1.0e6);
+  else old_factor = 0.0;
+  
+  DLIList<Body*> bods;
+  DLIList<RefVolume*> vols, temp_vols;
+  DLIList<RefFace*> faces;
+  DLIList<RefEdge*> edges;
+  DLIList<RefVertex*> verts;
+  RefEntity* const* handle_array = reinterpret_cast<RefEntity* const*>(gentity_handles);
+  for (int i = 0; i < gentity_handles_size; i++) {
+    TopologyEntity *topo_ent = dynamic_cast<TopologyEntity*>(handle_array[i]);
+    if (NULL == topo_ent) continue;
+    Body *temp_bod;
+    RefVolume *temp_vol;
+    RefFace *temp_face;
+    RefEdge *temp_edge;
+    RefVertex *temp_vert;
+    switch (handle_array[i]->dimension()) {
+      case -1:
+          // it should be a body
+        temp_bod = dynamic_cast<Body*>(handle_array[i]);
+        if (NULL == temp_bod) return;// RETURN(iBase_FAILURE);
+        temp_vols.clean_out();
+        topo_ent->ref_volumes(temp_vols);
+        vols += temp_vols;
+        break;
+      case 0:
+        temp_vert = dynamic_cast<RefVertex*>(handle_array[i]);
+        if (NULL == temp_vert) return; // RETURN(iBase_FAILURE);
+        verts.append(temp_vert);
+        break;
+      case 1:
+        temp_edge = dynamic_cast<RefEdge*>(handle_array[i]);
+        if (NULL == temp_edge) return;// RETURN(iBase_FAILURE);
+        edges.append(temp_edge);
+        break;
+      case 2:
+        temp_face = dynamic_cast<RefFace*>(handle_array[i]);
+        if (NULL == temp_face) return;// RETURN(iBase_FAILURE);
+        faces.append(temp_face);
+        break;
+      case 3:
+        temp_vol = dynamic_cast<RefVolume*>(handle_array[i]);
+        if (NULL == temp_vol) return;// RETURN(iBase_FAILURE);
+        vols.append(temp_vol);
+        break;
+    }
+  }
+  
+  CubitStatus status = CUBIT_SUCCESS, temp_status;
+    
+  if (verts.size() != 0) {
+    temp_status = MergeTool::instance()->merge_refvertices(verts, false);
+//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+  }
+    
+  if (edges.size() != 0) {
+    temp_status = MergeTool::instance()->merge_refedges(edges, true, false);
+//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+  }
+    
+  if (faces.size() != 0) {
+    temp_status = MergeTool::instance()->merge_reffaces(faces, false);
+//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+  }
+    
+  if (vols.size() != 0) {
+    temp_status = MergeTool::instance()->merge_volumes(vols, false);
+//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+  }
+    
+  if (bods.size() != 0) {
+    temp_status = MergeTool::instance()->merge_bodies(bods);
+//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+  }
+
+  if (0 != old_factor){
+    GeometryQueryTool::instance()->set_geometry_factor(old_factor);
+  }
+    
+////  if (CUBIT_SUCCESS != status) {
+//    RETURN(iBase_FAILURE);
+//  }
+  
+////  else {
+//    RETURN(iBase_SUCCESS);
+////  }
 }
 
 void

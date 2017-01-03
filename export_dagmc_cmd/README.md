@@ -1,3 +1,7 @@
+=======
+# DAGMC-Trelis
+Plugins and command extensions for Trelis
+=======
 ```
 mkdir bld
 cd bld

@@ -233,6 +233,11 @@ void iGeom_getTagSizeBytes( iGeom_Instance instance,
                             iBase_TagHandle tag_handle,
                             int* tag_size );
 
+void iGeom_newGeom( const  char* options,
+                    iGeom_Instance* instance_out,
+                    //int* err,
+                    const int options_size );
+
 void iGeom_setData( iGeom_Instance instance,
                     iBase_EntityHandle entity_handle,
                     iBase_TagHandle tag_handle,
@@ -240,7 +245,12 @@ void iGeom_setData( iGeom_Instance instance,
 
 void iGeom_setEntSetData( iGeom_Instance instance,
                           iBase_EntitySetHandle entity_set,
+                          iBase_TagHandle tag_handle,
                           const void *tag_value_tmp );
+
+void iGeom_mergeEnts( iBase_EntityHandle const* gentity_handles,
+                      int gentity_handles_size,
+                      double tolerance );
 
 //Helper Functions
 //static CubitStatus iGeom_bounding_box( RefEntity* entity,
