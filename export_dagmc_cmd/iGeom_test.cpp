@@ -48,12 +48,6 @@ std::vector<std::string> iGeom_test::get_syntax()
       "iGeom_test"
       "[<value:label='radius',help='<radius>'> ]"
       "[<value:label='radius2',help='<radius2>'>]";
-      /*
-     "[faceting_tolerance <value:label='faceting_tolerance',help='<faceting tolerance>'>] "
-      "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
-      "[normal_tolerance <value:label='normal_tolerance',help='<normal tolerance>'>] "
-      "[verbose] [fatal_on_curves]";
-      */
 
   std::vector<std::string> syntax_list;
   syntax_list.push_back(syntax);
@@ -75,9 +69,7 @@ std::vector<std::string> iGeom_test::get_help()
 
 bool iGeom_test::execute(CubitCommandData &data)
 {
-
-//iGeom_getDescription doesn't currently work without CGM.
-//Not sure how to test iGeom_getEntBoundBox.
+  int igm_result;
 
   iBase_EntitySetHandle set;
   iBase_EntityHandle datum;
@@ -85,35 +77,35 @@ bool iGeom_test::execute(CubitCommandData &data)
 //  iBase_EntityHandle move[1];
   data.get_value("radius",radius);
   data.get_value("radius2",radius2);
-  iGeom_createEntSet( &set );
-  iGeom_createSphere( radius, &datum );
-  iGeom_createBrick( radius, radius + 1 , radius2, &move[0] );
-//  iGeom_createCylinder( 5, radius, radius2, &move[0] );
-//  iGeom_createCone( 5, radius, 0.0, radius2, &move[1] );
-//  iGeom_createTorus( radius, radius2, &move[0] );
-  iGeom_copyEnt( move[0], &move[1] );
-//  iGeom_reflectEnt( move[1], 0, 0, 0, 0, 0, 1 );
-  iGeom_rotateEnt( move[0], 90, 1, 0, 0 ); 
-  iGeom_rotateEnt( move[1], 90, 0, 1, 0 );
-  iGeom_scaleEnt( move[1], 0, 0, 0, 1, 0.5, 2 );
-  iGeom_moveEnt( move[0], 1, 2, 4 );
-  iGeom_moveEnt( move[1], 1, 2, 4 );
+  iGeom_createEntSet( &set, &igm_result );
+  iGeom_createSphere( radius, &datum, &igm_result );
+  iGeom_createBrick( radius, radius + 1 , radius2, &move[0], &igm_result );
+//  iGeom_createCylinder( 5, radius, radius2, &move[0], &igm_result );
+//  iGeom_createCone( 5, radius, 0.0, radius2, &move[1], &igm_result );
+//  iGeom_createTorus( radius, radius2, &move[0], &igm_result );
+  iGeom_copyEnt( move[0], &move[1], &igm_result );
+//  iGeom_reflectEnt( move[1], 0, 0, 0, 0, 0, 1, &igm_result );
+  iGeom_rotateEnt( move[0], 90, 1, 0, 0, &igm_result ); 
+  iGeom_rotateEnt( move[1], 90, 0, 1, 0, &igm_result );
+  iGeom_scaleEnt( move[1], 0, 0, 0, 1, 0.5, 2, &igm_result );
+  iGeom_moveEnt( move[0], 1, 2, 4, &igm_result );
+  iGeom_moveEnt( move[1], 1, 2, 4, &igm_result );
   iBase_EntityHandle result;
-  iGeom_uniteEnts( move, 2, &result );
-//  iGeom_subtractEnts( move[0], move[1], &result );
-//  iGeom_intersectEnts( move[0], move[1], &result );
-  iGeom_sectionEnt( datum, 1, 0, 0, 0.4, 1, &datum );
-  iGeom_addEntToSet( result, set );
-  iGeom_createCone( 5, radius, 0.0, radius2, &move[1] );
-  iGeom_deleteEnt( move[1] );
+  iGeom_uniteEnts( move, 2, &result, &igm_result );
+//  iGeom_subtractEnts( move[0], move[1], &result, &igm_result );
+//  iGeom_intersectEnts( move[0], move[1], &result, &igm_result );
+  iGeom_sectionEnt( datum, 1, 0, 0, 0.4, 1, &datum, &igm_result );
+  iGeom_addEntToSet( result, set, &igm_result );
+  iGeom_createCone( 5, radius, 0.0, radius2, &move[1], &igm_result );
+  iGeom_deleteEnt( move[1], &igm_result );
 
   //Testing how functions handle working with deleted entities
-  iGeom_moveEnt( move[1], 1, 2, 4 );
-  iGeom_deleteEnt( move[1] );
-  iGeom_reflectEnt( move[1], 0, 0, 0, 0, 0, 1 );
-  iGeom_sectionEnt( move[1], 1, 0, 0, 0.4, 0, &datum );
-  iGeom_copyEnt( move[1], &move[0] );
-  iGeom_reflectEnt( move[1], 0, 0, 0, 0, 0, 1 );
+  iGeom_moveEnt( move[1], 1, 2, 4, &igm_result );
+  iGeom_deleteEnt( move[1], &igm_result );
+  iGeom_reflectEnt( move[1], 0, 0, 0, 0, 0, 1, &igm_result );
+  iGeom_sectionEnt( move[1], 1, 0, 0, 0.4, 0, &datum, &igm_result );
+  iGeom_copyEnt( move[1], &move[0], &igm_result );
+  iGeom_reflectEnt( move[1], 0, 0, 0, 0, 0, 1, &igm_result );
 
   return true;
 }

@@ -7,6 +7,7 @@
 #include "CubitMessageHandler.hpp"
 
 // CGM includes
+#include "moab/Interface.hpp"
 #include "RefEntity.hpp"
 
 class MCNP2CAD: public CubitCommand
@@ -19,26 +20,23 @@ public:
   std::vector<std::string> get_syntax_help();
   std::vector<std::string> get_help();
   bool execute( CubitCommandData &data );
-  void parse_options( CubitCommandData &data );
+  moab::ErrorCode parse_options( CubitCommandData &data, moab::EntityHandle* file_segt );
+  class GeometryContext;
 /*
 protected:
 
   void teardown();
 
 */
-private:
+//private:
 
  // CubitMessageHandler* console;
 
   std::ostringstream message;
 
-/*
-  int norm_tol;
-  double faceting_tol;
-  double len_tol;
-  bool verbose_warnings;
-  bool fatal_on_curves;
-  */
+  static double specific_tol;
+  bool verbose, debug, din, dout, extraEff, skipMats, skipMerge,
+       skipImps, skipNums, skipGrave, skipImprint, uwuwNames;
 
 };
 

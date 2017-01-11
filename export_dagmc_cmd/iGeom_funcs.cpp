@@ -16,8 +16,12 @@
 #include "RefFace.hpp"
 #include "RefEdge.hpp"
 #include "RefVertex.hpp"
+#include "mcnp2cad/iGeomError.h"
 
 #include <iostream>
+
+#define RETURN(a) do {CGM_iGeom_setLastError((*err = a)); return; } while(false)
+#define ERROR(a, b) do {CGM_iGeom_setLastError((*err = a), b); return; } while(false)
 
 const char *iGeom_entity_type_names[] = {"vertex", "curve", "surface", "body"};
 
@@ -81,31 +85,29 @@ public:
 
 void
 iGeom_addEntToSet( /*in*/ iBase_EntityHandle entity_to_add,
-                   /*inout*/ iBase_EntitySetHandle entity_set_handle )//,
-//                   int* err )
+                   /*inout*/ iBase_EntitySetHandle entity_set_handle,
+                   int* err )
 {
   if (NULL == entity_to_add) {
     //TODO Make error message
-    //RETURN(iBase_INVALID_ARGUMENT);
-    return;
+    RETURN(iBase_INVALID_ARGUMENT);
+    //return;
   }
   
   CubitStatus status = reinterpret_cast<RefGroup*>(entity_set_handle)->
     add_ref_entity(const_cast<RefEntity*>(reinterpret_cast<RefEntity*>(entity_to_add)));
   
-  /*
   if (CUBIT_SUCCESS != status) {
     ERROR(iBase_FAILURE, "Problem adding entity to another set.");
   }
 
   RETURN(iBase_SUCCESS);
-  */
 }
 
 void
 iGeom_copyEnt( /*in*/ iBase_EntityHandle geom_entity,
-               /*out*/ iBase_EntityHandle *geom_entity2 )//,
-//               int* err )
+               /*out*/ iBase_EntityHandle *geom_entity2,
+               int* err )
 {
   RefEntity *this_ent = reinterpret_cast<RefEntity*>(geom_entity);
 //  if (NULL == dynamic_cast<Body*>(this_ent)) return;
@@ -117,7 +119,7 @@ iGeom_copyEnt( /*in*/ iBase_EntityHandle geom_entity,
     if (NULL == this_body) {
       this_body = this_vol->get_body_ptr();
       if (NULL == this_body) {
-//TODO        ERROR(iBase_FAILURE, "Can't get body from volume.");
+        ERROR(iBase_FAILURE, "Can't get body from volume.");
         return;
       }
     }
@@ -131,21 +133,21 @@ iGeom_copyEnt( /*in*/ iBase_EntityHandle geom_entity,
     *geom_entity2 = reinterpret_cast<iBase_EntityHandle>(temp_entity);
   }
 
-/*
+
   if (NULL == *geom_entity2) {
     ERROR(iBase_FAILURE, "NULL returned from CGM copy.");
   }
   
   RETURN(iBase_SUCCESS);
-  */
+
 }
 
 void
 iGeom_createBrick( /*in*/ double x,
                    /*in*/ double y,
                    /*in*/ double z,
-                   /*out*/ iBase_EntityHandle *geom_entity )
-//                   int* err )
+                   /*out*/ iBase_EntityHandle *geom_entity, 
+                   int* err )
 {
   double tmp_x = x;
   double tmp_y = y;
@@ -168,14 +170,13 @@ iGeom_createBrick( /*in*/ double x,
 
   *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
   }
-/*  *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
+//  *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
 
   if (NULL == *geom_entity) {
     RETURN(iBase_FAILURE);
   }
 
   RETURN(iBase_SUCCESS);
-  */
 }
 
 void
@@ -183,14 +184,13 @@ iGeom_createCone( /*in*/ double height,
                   /*in*/ double major_rad_base,
                   /*in*/ double minor_rad_base,
                   /*in*/ double rad_top,
-                  /*out*/ iBase_EntityHandle *geom_entity )
-//                  int* err )
+                  /*out*/ iBase_EntityHandle *geom_entity,
+                  int* err )
 {
   double tmp_minor = (0.0 == minor_rad_base ? major_rad_base : minor_rad_base);
   RefEntity *temp_body = 
     GeometryModifyTool::instance()->cylinder(height, major_rad_base, tmp_minor, rad_top);
   *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
-  /*
 
 
   if (NULL == *geom_entity) {
@@ -198,21 +198,19 @@ iGeom_createCone( /*in*/ double height,
   }
 
   RETURN(iBase_SUCCESS);
-  */
 }
 
 void
 iGeom_createCylinder( /*in*/ double height,
                       /*in*/ double major_rad,
                       /*in*/ double minor_rad,
-                      /*out*/ iBase_EntityHandle *geom_entity )
- //                     int* err )
+                      /*out*/ iBase_EntityHandle *geom_entity,
+                      int* err )
 {
   double tmp_minor = (0.0 == minor_rad ? major_rad : minor_rad);
   RefEntity *temp_body = 
     GeometryModifyTool::instance()->cylinder(height, major_rad, tmp_minor, major_rad);
   *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
-  /*
 
 
   if (NULL == *geom_entity) {
@@ -220,17 +218,15 @@ iGeom_createCylinder( /*in*/ double height,
   }
 
   RETURN(iBase_SUCCESS);
-  */
 }
 
 void
-iGeom_createEntSet( /*out*/ iBase_EntitySetHandle *entity_set )//,
-//                    int* err )
+iGeom_createEntSet( /*out*/ iBase_EntitySetHandle *entity_set,
+                    int* err )
 {
   RefGroup* grp = RefEntityFactory::instance()->construct_RefGroup();
   *entity_set = reinterpret_cast<iBase_EntitySetHandle>(grp);
     // need to set a tag denoting multiset or not...
-  /*
   if (*entity_set == NULL) {
     RETURN(iBase_FAILURE);
   }
@@ -238,12 +234,12 @@ iGeom_createEntSet( /*out*/ iBase_EntitySetHandle *entity_set )//,
   else {
     RETURN(iBase_SUCCESS);
   }
-  */
 }
 
 void
 iGeom_createSphere( double radius,
-                   /*out*/ iBase_EntityHandle *geom_entity )
+                   /*out*/ iBase_EntityHandle *geom_entity,
+                   int* err )
 {
 /*  if (radius <= 0.0) {
     std::ostringstream error_message;
@@ -262,30 +258,27 @@ iGeom_createSphere( double radius,
 void
 iGeom_createTorus( /*in*/ double major_rad,
                    /*in*/ double minor_rad,
-                   /*out*/ iBase_EntityHandle *geom_entity )//,
-//                   int* err )
+                   /*out*/ iBase_EntityHandle *geom_entity,
+                   int* err )
 {
-/*  if (minor_rad >= major_rad) {
+  if (minor_rad >= major_rad) {
     ERROR(iBase_INVALID_ARGUMENT, "Major radius must be greater than minor radius for tori.");
   }
-  */
   
   RefEntity *temp_body = GeometryModifyTool::instance()->torus(major_rad, minor_rad);
   *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
-  /*
    
   if (NULL == *geom_entity) {
     RETURN(iBase_FAILURE);
   }
 
   RETURN(iBase_SUCCESS);
-  */
 }
 
 
 void
-iGeom_deleteEnt( /*in*/ iBase_EntityHandle geom_entity )//,
-//                 int* err )
+iGeom_deleteEnt( /*in*/ iBase_EntityHandle geom_entity,
+                 int* err )
 {
   RefEntity *this_ent = reinterpret_cast<RefEntity*>(geom_entity);
 
@@ -297,11 +290,11 @@ iGeom_deleteEnt( /*in*/ iBase_EntityHandle geom_entity )//,
   else if(NULL != this_ent && NULL != dynamic_cast<Body*>(this_ent)) { 
     result = GeometryQueryTool::instance()->delete_RefEntity(this_ent);}
 
-/*
+
   if (CUBIT_FAILURE == result) {
     ERROR(iBase_FAILURE, "Problems deleting entity.");
   }
-  */
+  
 
     // check to see if this was last thing deleted; if so, reset ids
   RefEntityFactory *rfi = RefEntityFactory::instance();
@@ -312,7 +305,7 @@ iGeom_deleteEnt( /*in*/ iBase_EntityHandle geom_entity )//,
       rfi->num_ref_vertices() == 0)
     rfi->reset_ids();
 
-//  RETURN(iBase_SUCCESS);
+  RETURN(iBase_SUCCESS);
 }
 
 //XXX This uses CGM, so would need a new way to check errors.  But we aren't using the iBase errors at the moment, so not high priority.
@@ -320,7 +313,7 @@ void
 iGeom_getDescription( char* description_buffer,
                       int description_buffer_length )
 {
-//    CGM_iGeom_getLastErrorDesc(description_buffer, description_buffer_length);
+    CGM_iGeom_getLastErrorDesc(description_buffer, description_buffer_length);
 
     std::string lastErrorDesc = "No Error";
     if (description_buffer && description_buffer_length > 0) {
@@ -337,16 +330,15 @@ iGeom_getEntBoundBox( /*in*/ iBase_EntityHandle entity_handle,
                       /*out*/ double* min_z,
                       /*out*/ double* max_x,
                       /*out*/ double* max_y,
-                      /*out*/ double* max_z )//,
-//                      int* err )
+                      /*out*/ double* max_z,
+                      int* err )
 {
   RefEntity* entity = (RefEntity*)entity_handle;
   CubitVector minc, maxc;
-  //CubitStatus status = iGeom_bounding_box( entity, minc, maxc );
-  iGeom_bounding_box( entity, minc, maxc );
+  CubitStatus status = iGeom_bounding_box( entity, minc, maxc );
   minc.get_xyz( *min_x, *min_y, *min_z );
   maxc.get_xyz( *max_x, *max_y, *max_z );
-//  RETURN( (status == CUBIT_SUCCESS ? iBase_SUCCESS : iBase_FAILURE) );
+  RETURN( (status == CUBIT_SUCCESS ? iBase_SUCCESS : iBase_FAILURE) );
 }
 
 void
@@ -354,8 +346,8 @@ iGeom_getEntities( /*in*/ iBase_EntitySetHandle set_handle,
                    /*in*/ int gentity_type,
                    /*out*/ iBase_EntityHandle **gentity_handles,
                    int *gentity_handles_allocated,
-                   int *gentity_handles_size )//,
-//                   int* err )
+                   int *gentity_handles_size,
+                   int* err )
 {
   if (RefGroup *this_set = reinterpret_cast<RefGroup*>(set_handle)) {
     static DLIList<CubitEntity*> centities;
@@ -364,28 +356,28 @@ iGeom_getEntities( /*in*/ iBase_EntitySetHandle set_handle,
     copy_ibase_type( gentity_type, centities, 
                      gentity_handles,
                      gentity_handles_allocated,
-                     gentity_handles_size );//,
-//                     err );
+                     gentity_handles_size,
+                     err );
   }
   else {
     static DLIList<RefEntity*> dim_entities;
     dim_entities.clean_out();
-    append_all_ibase_type( gentity_type, dim_entities/*, err*/ );
-//    if (iBase_SUCCESS != *err)
-//      return;
+    append_all_ibase_type( gentity_type, dim_entities, err );
+    if (iBase_SUCCESS != *err)
+      return;
     
     iGeomArrayManager gentity_handles_manager ( reinterpret_cast<void**>(gentity_handles), *(gentity_handles_allocated), *(gentity_handles_size), dim_entities.size(), sizeof(**gentity_handles) );
     gentity_handles_manager.keep_array();
     dim_entities.copy_to((RefEntity**)*gentity_handles);
-//    RETURN(iBase_SUCCESS);
+    RETURN(iBase_SUCCESS);
   }  
 }
 
 void
 iGeom_getNumOfType( /*in*/ iBase_EntitySetHandle set_handle,
                     /*in*/ int gentity_type,
-                    int* count )//,
-//                    int* err )
+                    int* count,
+                    int* err )
 {
   const RefGroup *this_set = reinterpret_cast<RefGroup*>(set_handle);
   if (0 == this_set) {
@@ -409,33 +401,33 @@ iGeom_getNumOfType( /*in*/ iBase_EntitySetHandle set_handle,
         *count = GeometryQueryTool::instance()->num_ref_vertices();
         break;
       default:
-//        RETURN(iBase_BAD_TYPE_AND_TOPO);
+        RETURN(iBase_BAD_TYPE_AND_TOPO);
         break;
     }
-//    RETURN (iBase_SUCCESS);
+    RETURN (iBase_SUCCESS);
   }
   else {
     static DLIList<CubitEntity*> centities;
     centities.clean_out();
     const_cast<RefGroup*>(this_set)->get_child_entities(centities);
-    *count = count_ibase_type( gentity_type, centities/*, err*/ );
+    *count = count_ibase_type( gentity_type, centities, err );
   }
 }
 
 void
 iGeom_getRootSet( //iGeom_Instance,
-                  iBase_EntitySetHandle* root )//,
-//                  int* err )
+                  iBase_EntitySetHandle* root,
+                  int* err )
 {
   *root = NULL;
-//  RETURN(iBase_SUCCESS);
+  RETURN(iBase_SUCCESS);
 }
 
 void
 iGeom_getTagHandle( iGeom_Instance instance,
                     /*in*/ const char *tag_name,
                     iBase_TagHandle* tag_handle,
-//                    int* err,
+                    int* err,
                     int tag_name_len )
 {
     // make sure string is null-terminated
@@ -450,28 +442,28 @@ iGeom_getTagHandle( iGeom_Instance instance,
 void
 iGeom_getTagSizeBytes( iGeom_Instance instance,
                        /*in*/ iBase_TagHandle tag_handle,
-                       int* tag_size )//,
-//                       int* err )
+                       int* tag_size,
+                       int* err )
 {
   *tag_size = reinterpret_cast<CGMTagManager*>(instance)->getTagSize(reinterpret_cast<long>(tag_handle));
-//  RETURN(iBase_SUCCESS);
+  RETURN(iBase_SUCCESS);
 }
 
 
 void
 iGeom_imprintEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
-                   int gentity_handles_size )//,
-//                   int* err )
+                   int gentity_handles_size,
+                   int* err )
 {
   if (gentity_handles_size < 1) // GMT::imprint segfaults if passed an empty list
-//    RETURN(iBase_SUCCESS);
+    RETURN(iBase_SUCCESS);
     return;
 
   DLIList<Body*> bods;
   DLIList<RefVolume*> vols, temp_vols;
   RefEntity* const* handle_array = reinterpret_cast<RefEntity* const*>(gentity_handles);
-//  CubitStatus status = CUBIT_SUCCESS;
-  bool status = true;
+  CubitStatus status = CUBIT_SUCCESS;
+//  bool status = true;
   for (int i = 0; i < gentity_handles_size; i++) {
     Body *temp_bod = dynamic_cast<Body*>(handle_array[i]);
     if (NULL != temp_bod) {
@@ -483,14 +475,14 @@ iGeom_imprintEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
     if (NULL != temp_vol) {
       TopologyEntity *topo_ent = dynamic_cast<TopologyEntity*>(handle_array[i]);
       if (NULL == topo_ent) {
- //       status = CUBIT_FAILURE;
-        status = false;
+        status = CUBIT_FAILURE;
+//        status = false;
         continue;
       }
       temp_bod = topo_ent->body();
       if (NULL == temp_bod) {
-//        status = CUBIT_FAILURE;
-        status = false;
+        status = CUBIT_FAILURE;
+//        status = false;
         continue;
       }
       bods.append_unique(temp_bod);
@@ -498,68 +490,74 @@ iGeom_imprintEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
     }
 
       // if we've gotten here, it's an error
- //   status = CUBIT_FAILURE;
-    status = false;
+   status = CUBIT_FAILURE;
+//   status = false;
   }
   
-  if (true != status) return; //RETURN(iBase_FAILURE);
+  if (status==CUBIT_FAILURE) RETURN(iBase_FAILURE);
 
   DLIList<Body*> temp_bods;
   status = GeometryModifyTool::instance()->imprint(bods, temp_bods, false);
   
-//  RETURN(iBase_SUCCESS);
+  RETURN(iBase_SUCCESS);
 }
 
 void
 iGeom_intersectEnts( /*in*/ iBase_EntityHandle ent1,
                      /*in*/ iBase_EntityHandle ent2,
-                     /*out*/ iBase_EntityHandle *geom_entity )//,
-//                     int* err )
+                     /*out*/ iBase_EntityHandle *geom_entity,
+                     int* err )
 {
   Body *this_ent1 = dynamic_cast<Body*>(reinterpret_cast<RefEntity*>(ent1));
   if( NULL == this_ent1 ){
     return;
   }
   Body *ent1_copy = GeometryModifyTool::instance()->copy_body(this_ent1);
-//  if (NULL == ent1_copy) {
-//    ERROR(iBase_FAILURE, "Trouble copying blank.");
-//  }
+  if (NULL == ent1_copy) {
+    ERROR(iBase_FAILURE, "Trouble copying blank.");
+  }
   Body *this_ent2 = dynamic_cast<Body*>(reinterpret_cast<RefEntity*>(ent2));
+  /*
   if( NULL == this_ent2 ){
     return;
   }
+  */
   Body *ent2_copy = GeometryModifyTool::instance()->copy_body(this_ent2);
-/*  if (NULL == ent2_copy) {
+  if (NULL == ent2_copy) {
     ERROR(iBase_FAILURE, "Trouble copying tool.");
     GeometryQueryTool::instance()->delete_RefEntity(ent1_copy);
     RETURN(iBase_FAILURE);
   }
-  */
+  
 
   DLIList<Body*> ent1_list, new_body_list;
   ent1_list.append(ent1_copy);
   
   RefEntity *new_body = NULL;
   CubitStatus result = GeometryModifyTool::instance()->intersect(ent2_copy, ent1_list, new_body_list);
-/*  if (CUBIT_SUCCESS != result || 0 == new_body_list.size()) {
+  if (CUBIT_SUCCESS != result || 0 == new_body_list.size()) {
     ERROR(iBase_FAILURE, "Intersect failed.");
   }
+  
+  if( 0 == new_body_list.size() ) {
+    CubitInterface::get_cubit_message_handler()->print_error("Intersect Failed");
+    return;
+  }
   else {
-  */
     new_body = new_body_list.get();
     *geom_entity = reinterpret_cast<iBase_EntityHandle>(new_body);
     GeometryQueryTool::instance()->delete_RefEntity(this_ent2);
     GeometryQueryTool::instance()->delete_RefEntity(this_ent1);
-//  }
+  }
 
-//  RETURN(iBase_SUCCESS);
+  RETURN(iBase_SUCCESS);
 }
   
 void
 iGeom_mergeEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
                  int gentity_handles_size,
-                 double tolerance )//,
-//                 int* err )
+                 double tolerance,
+                 int* err )
 {
   double old_factor = GeometryQueryTool::instance()->get_geometry_factor();
   if (tolerance != old_factor) 
@@ -584,29 +582,29 @@ iGeom_mergeEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
       case -1:
           // it should be a body
         temp_bod = dynamic_cast<Body*>(handle_array[i]);
-        if (NULL == temp_bod) return;// RETURN(iBase_FAILURE);
+        if (NULL == temp_bod) RETURN(iBase_FAILURE);
         temp_vols.clean_out();
         topo_ent->ref_volumes(temp_vols);
         vols += temp_vols;
         break;
       case 0:
         temp_vert = dynamic_cast<RefVertex*>(handle_array[i]);
-        if (NULL == temp_vert) return; // RETURN(iBase_FAILURE);
+        if (NULL == temp_vert) RETURN(iBase_FAILURE);
         verts.append(temp_vert);
         break;
       case 1:
         temp_edge = dynamic_cast<RefEdge*>(handle_array[i]);
-        if (NULL == temp_edge) return;// RETURN(iBase_FAILURE);
+        if (NULL == temp_edge) RETURN(iBase_FAILURE);
         edges.append(temp_edge);
         break;
       case 2:
         temp_face = dynamic_cast<RefFace*>(handle_array[i]);
-        if (NULL == temp_face) return;// RETURN(iBase_FAILURE);
+        if (NULL == temp_face) RETURN(iBase_FAILURE);
         faces.append(temp_face);
         break;
       case 3:
         temp_vol = dynamic_cast<RefVolume*>(handle_array[i]);
-        if (NULL == temp_vol) return;// RETURN(iBase_FAILURE);
+        if (NULL == temp_vol) RETURN(iBase_FAILURE);
         vols.append(temp_vol);
         break;
     }
@@ -616,63 +614,64 @@ iGeom_mergeEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
     
   if (verts.size() != 0) {
     temp_status = MergeTool::instance()->merge_refvertices(verts, false);
-//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+    if (CUBIT_SUCCESS != temp_status) status = temp_status;
   }
     
   if (edges.size() != 0) {
     temp_status = MergeTool::instance()->merge_refedges(edges, true, false);
-//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+    if (CUBIT_SUCCESS != temp_status) status = temp_status;
   }
     
   if (faces.size() != 0) {
     temp_status = MergeTool::instance()->merge_reffaces(faces, false);
-//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+    if (CUBIT_SUCCESS != temp_status) status = temp_status;
   }
     
   if (vols.size() != 0) {
     temp_status = MergeTool::instance()->merge_volumes(vols, false);
-//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+    if (CUBIT_SUCCESS != temp_status) status = temp_status;
   }
     
   if (bods.size() != 0) {
     temp_status = MergeTool::instance()->merge_bodies(bods);
-//    if (CUBIT_SUCCESS != temp_status) status = temp_status;
+    if (CUBIT_SUCCESS != temp_status) status = temp_status;
   }
 
   if (0 != old_factor){
     GeometryQueryTool::instance()->set_geometry_factor(old_factor);
   }
     
-////  if (CUBIT_SUCCESS != status) {
-//    RETURN(iBase_FAILURE);
-//  }
+  if (CUBIT_SUCCESS != status) {
+    RETURN(iBase_FAILURE);
+  }
   
-////  else {
-//    RETURN(iBase_SUCCESS);
-////  }
+  else {
+    RETURN(iBase_SUCCESS);
+  }
 }
 
 void
 iGeom_moveEnt( /*inout*/ iBase_EntityHandle geom_entity,
                /*in*/ double x,
                /*in*/ double y,
-               /*in*/ double z )//,
-//               int* err )
+               /*in*/ double z,
+               int* err )
 {
   CubitVector vec(x, y, z);
-  Body *this_bod = dynamic_cast<Body*>(reinterpret_cast<RefEntity*>(geom_entity));
+  RefEntity *this_ent = reinterpret_cast<RefEntity*>(geom_entity);
+  Body *this_bod = dynamic_cast<Body*>(this_ent);
   DLIList<Body*> bodies = DLIList<Body*>();
   bodies.insert( this_bod );
   CubitStatus result;
   if (NULL != this_bod) {
     result = GeometryQueryTool::instance()->translate(bodies, vec);
-/*    if (CUBIT_SUCCESS != result) {
+    if (CUBIT_SUCCESS != result) {
       ERROR(iBase_FAILURE, "Failed to move body.");
       RETURN(iBase_FAILURE);
     }
     
     RETURN(iBase_SUCCESS);
-    */
+    
   }
   
   /*
@@ -713,13 +712,13 @@ iGeom_moveEnt( /*inout*/ iBase_EntityHandle geom_entity,
   }
         */
   
- // ERROR(iBase_INVALID_ENTITY_TYPE, "Wrong type of entity specified for move.");
+  ERROR(iBase_INVALID_ENTITY_TYPE, "Wrong type of entity specified for move.");
 }
 
 void
 iGeom_newGeom( const char* options,
                iGeom_Instance* instance_out,
-//               int* err,
+               int* err,
                const int options_size ) 
 {
     // scan options for default engine option
@@ -746,17 +745,15 @@ iGeom_newGeom( const char* options,
     // initialize static var with result so that call happens only once
 //  static const CubitStatus status = init_cgm( engine );
     // but check the result for every call
-  /*
-  if (CUBIT_SUCCESS != status)
-    RETURN (iBase_FAILURE);
-    */
+//  if (CUBIT_SUCCESS != status)
+//    RETURN (iBase_FAILURE);
 
     // return the tagmanager as the instance
 #ifdef ITAPS_SHIM
 //  CGMTagManager::instance().vtable = &CGM_iGeom_vtable;
 #endif
   *instance_out = reinterpret_cast<iGeom_Instance>(&CGMTagManager::instance());
-// RETURN(iBase_SUCCESS);
+ RETURN(iBase_SUCCESS);
 }
 
 void
@@ -766,8 +763,8 @@ iGeom_reflectEnt( /*inout*/ iBase_EntityHandle geom_entity,
                   /*in*/ double point_z,
                   /*in*/ double plane_normal_x,
                   /*in*/ double plane_normal_y,
-                  /*in*/ double plane_normal_z )//,
-  //                int* err )
+                  /*in*/ double plane_normal_z,
+                  int* err )
 {
   CubitVector this_plane(plane_normal_x, plane_normal_y, plane_normal_z);
   CubitVector point(point_x, point_y, point_z);
@@ -777,13 +774,13 @@ iGeom_reflectEnt( /*inout*/ iBase_EntityHandle geom_entity,
   CubitStatus result;
   if (NULL != this_bod) {
     result = GeometryQueryTool::instance()->reflect(bods, point , this_plane);
-    /*
+    
     if (CUBIT_SUCCESS != result) {
       ERROR(iBase_FAILURE, "Failed to reflect body.");
     }
     
     RETURN(iBase_SUCCESS);
-    */
+    
     return;
   }
   
@@ -792,18 +789,18 @@ iGeom_reflectEnt( /*inout*/ iBase_EntityHandle geom_entity,
   btes.append(this_bte);
   if (NULL != this_bte) {
     result = GeometryQueryTool::instance()->reflect(btes, point, this_plane);
-    /*
+    
     if (CUBIT_SUCCESS != result) {
       ERROR(iBase_FAILURE, "Failed to reflect entity.");
     }
     
     RETURN(iBase_SUCCESS);
-    */
+    
     return;
   }
   
   //TODO Output error message here.
-//  ERROR(iBase_INVALID_ENTITY_TYPE, "Wrong type of entity specified for reflect.");
+  ERROR(iBase_INVALID_ENTITY_TYPE, "Wrong type of entity specified for reflect.");
 }
 
 
@@ -812,23 +809,22 @@ iGeom_rotateEnt( /*inout*/ iBase_EntityHandle geom_entity,
                  /*in*/ double angle,
                  /*in*/ double axis_normal_x,
                  /*in*/ double axis_normal_y,
-                 /*in*/ double axis_normal_z )//,
-//                 int* err )
+                 /*in*/ double axis_normal_z,
+                 int* err )
 {
   CubitVector this_axis(axis_normal_x, axis_normal_y, axis_normal_z);
-  Body *this_bod = dynamic_cast<Body*>(reinterpret_cast<RefEntity*>(geom_entity));
+  RefEntity *this_ent = reinterpret_cast<RefEntity*>(geom_entity);
+  Body *this_bod = dynamic_cast<Body*>(this_ent);
   DLIList<Body*> bodies = DLIList<Body*>();
   bodies.insert( this_bod );
   CubitStatus result;
   if (NULL != this_bod) {
     result = GeometryQueryTool::instance()->rotate(bodies, this_axis, angle);
-    /*
     if (CUBIT_SUCCESS != result) {
       ERROR(iBase_FAILURE, "Failed to rotate body.");
     }
     
-    RETURN(iBase_SUCCESS);
-    */
+      RETURN(iBase_SUCCESS);
   }
   
   /*
@@ -842,8 +838,8 @@ iGeom_rotateEnt( /*inout*/ iBase_EntityHandle geom_entity,
     RETURN(iBase_SUCCESS);
   }
   
-  ERROR(iBase_INVALID_ENTITY_TYPE, "Wrong type of entity specified for move.");
   */
+  ERROR(iBase_INVALID_ENTITY_TYPE, "Wrong type of entity specified for move.");
 }
 
 
@@ -854,8 +850,8 @@ iGeom_scaleEnt( /*inout*/ iBase_EntityHandle geom_entity,
                 /*in*/ double point_z,
                 /*in*/ double scale_x,
                 /*in*/ double scale_y,
-                /*in*/ double scale_z )//,
-//                int* err )
+                /*in*/ double scale_z,
+                int* err )
 {
   CubitVector factor(scale_x, scale_y, scale_z);
   CubitVector point(point_x, point_y, point_z);
@@ -865,13 +861,11 @@ iGeom_scaleEnt( /*inout*/ iBase_EntityHandle geom_entity,
   CubitStatus result;
   if (NULL != this_ent) {
     GeometryQueryTool::instance()->scale(ents, point, scale_x, scale_y, scale_z, true, ents);
-    /*
     if (CUBIT_SUCCESS != result) {
       ERROR(iBase_FAILURE, "Failed to scale body.");
     }
     
     RETURN(iBase_SUCCESS);
-    */
   }
   
   //I don't think we need to worry about siblings in mcnp2cad
@@ -911,9 +905,9 @@ iGeom_scaleEnt( /*inout*/ iBase_EntityHandle geom_entity,
       ERROR(iBase_FAILURE, "Too many siblings for an entity to scale it.");
     }
   }
+  */
 
   RETURN(iBase_SUCCESS);
-  */
 }
 
 
@@ -924,8 +918,8 @@ iGeom_sectionEnt( /*inout*/ iBase_EntityHandle geom_entity,
                   /*in*/ double plane_normal_z,
                   /*in*/ double offset,
                   /*in*/ int reverse,
-                  /*out*/ iBase_EntityHandle *geom_entity2 )//,
-//                  int* err )
+                  /*out*/ iBase_EntityHandle *geom_entity2,
+                  int* err )
 {
   RefEntity* this_ent = reinterpret_cast<RefEntity*>(geom_entity);
 
@@ -943,14 +937,14 @@ iGeom_sectionEnt( /*inout*/ iBase_EntityHandle geom_entity,
   }
   */
   if (NULL == this_body) {
-//    ERROR(iBase_INVALID_ARGUMENT, "Can only section bodies.");
+    ERROR(iBase_INVALID_ARGUMENT, "Can only section bodies.");
       //TODO add error message
       return;
   }
 
   CubitVector normal(plane_normal_x, plane_normal_y, plane_normal_z);
   if (normal.length_squared() == 0.0) {
- //   ERROR(iBase_INVALID_ARGUMENT, "Zero-length vector input.");
+    ERROR(iBase_INVALID_ARGUMENT, "Zero-length vector input.");
     //TODO add error message
     return;
   }
@@ -978,22 +972,22 @@ iGeom_sectionEnt( /*inout*/ iBase_EntityHandle geom_entity,
   CubitStatus result = GeometryModifyTool::instance()->section(blank_list, point1, point2, point3,
                                     new_body_list, !reverse,
                                     false);
-  /*
+  
   if (CUBIT_SUCCESS != result || 0 == new_body_list.size()) {
     GeometryQueryTool::instance()->delete_RefEntity(blank_list.get());
     ERROR(iBase_FAILURE, "Section failed.");
   }
     
   else {
-  */
+  
       // need to assign it to a RE* first so the void cast gets done right
     RefEntity *new_body = new_body_list.get();
     *geom_entity2 = reinterpret_cast<iBase_EntityHandle>(new_body);
       // also, delete the original body, now that the section worked
 //    GeometryQueryTool::instance()->delete_RefEntity(this_body);
-//  }
+  }
 
-//  RETURN(iBase_SUCCESS);
+  RETURN(iBase_SUCCESS);
 }
 
 
@@ -1001,15 +995,15 @@ void
 iGeom_setData( iGeom_Instance instance,
                /*in*/ iBase_EntityHandle entity_handle,
                /*in*/ iBase_TagHandle tag_handle,
-               /*in*/ const void *tag_value_tmp )//,
-//               int* err )
+               /*in*/ const void *tag_value_tmp,
+               int* err )
 {
   const char *tag_value = reinterpret_cast<const char *>(tag_value_tmp);
   RefEntity *tmp_entity = reinterpret_cast<RefEntity*>(entity_handle);
   iBase_ErrorType retval = reinterpret_cast<CGMTagManager*>(instance)->setArrData(&tmp_entity, 1, 
                                           reinterpret_cast<long>(tag_handle), 
                                           tag_value);
-//  RETURN(retval);
+  RETURN(retval);
 }
 
 
@@ -1017,89 +1011,89 @@ void
 iGeom_setEntSetData( iGeom_Instance instance,
                      /*in*/ iBase_EntitySetHandle entity_set,
                      /*in*/ iBase_TagHandle tag_handle,
-                     /*in*/ const void *tag_value_tmp )//,
-//                     int* err )
+                     /*in*/ const void *tag_value_tmp,
+                     int* err )
 {
   const char *tag_value = reinterpret_cast<const char *>(tag_value_tmp);
     // have to go through RefEntity* so that RefEntity** gets set right
   RefEntity *tmp_entity = reinterpret_cast<RefGroup*>(entity_set);
   iBase_ErrorType retval = reinterpret_cast<CGMTagManager*>(instance)->setArrData(&tmp_entity, 1, reinterpret_cast<long>(tag_handle), 
                                           tag_value);
-//  RETURN(retval);
+  RETURN(retval);
 }
 
 
 void
 iGeom_subtractEnts( /*in*/ iBase_EntityHandle blank,
                     /*in*/ iBase_EntityHandle tool,
-                    /*out*/ iBase_EntityHandle *geom_entity )//,
-//                    int* err )
+                    /*out*/ iBase_EntityHandle *geom_entity,
+                    int* err )
 {
   Body *this_blank = dynamic_cast<Body*>(reinterpret_cast<RefEntity*>(blank));
   if( NULL == blank ){
     return;
   }
   Body *blank_copy = GeometryModifyTool::instance()->copy_body(this_blank);
-  /*
+  
   if (NULL == blank_copy) {
-//    ERROR(iBase_FAILURE, "Trouble copying blank.");
+    ERROR(iBase_FAILURE, "Trouble copying blank.");
     return;
   }
-  */
+  
   Body *this_tool = dynamic_cast<Body*>(reinterpret_cast<RefEntity*>(tool));
   if (NULL == this_tool) {
     return;
   }
   Body *tool_copy = GeometryModifyTool::instance()->copy_body(this_tool);
-  /*
+  
   if (NULL == tool_copy) {
-  //  ERROR(iBase_FAILURE, "Trouble copying tool.");
+    ERROR(iBase_FAILURE, "Trouble copying tool.");
     GeometryQueryTool::instance()->delete_RefEntity(blank_copy);
-  //  RETURN(iBase_FAILURE);
+    RETURN(iBase_FAILURE);
     return;
   }
-  */
+  
 
   DLIList<Body*> blank_list, new_body_list;
   blank_list.append(blank_copy);
   
   RefEntity *new_body = NULL;
   CubitStatus result = GeometryModifyTool::instance()->subtract(tool_copy, blank_list, new_body_list);
-  /*
+  
   if (CUBIT_SUCCESS != result || 0 == new_body_list.size()) {
     ERROR(iBase_FAILURE, "Subtract failed.");
   }
   else {
-  */
+  
     new_body = new_body_list.get();
     *geom_entity = reinterpret_cast<iBase_EntityHandle>(new_body);
     GeometryQueryTool::instance()->delete_RefEntity(this_blank);
     GeometryQueryTool::instance()->delete_RefEntity(this_tool);
-//  }
+  }
 
-//  RETURN(iBase_SUCCESS);
+  RETURN(iBase_SUCCESS);
 }
 
 
 void
 iGeom_uniteEnts( /*in*/ iBase_EntityHandle const* geom_entities,
                  int geom_entities_size,
-                 /*out*/ iBase_EntityHandle *geom_entity )//,
-//                 int* err )
+                 /*out*/ iBase_EntityHandle *geom_entity,
+                 int* err )
 {
   DLIList<Body*> bods, orig_bods;
   RefEntity* const* handle_array = reinterpret_cast<RefEntity* const*>(geom_entities);
   for (int i = 0; i < geom_entities_size; i++) {
     Body *this_body = dynamic_cast<Body*>(handle_array[i]);
     if (NULL != this_body) {
-//      Body *new_body = GeometryModifyTool::instance()->copy_body(this_body);
-  //    if (NULL != new_body) {
+      Body *new_body = GeometryModifyTool::instance()->copy_body(this_body);
+      if (NULL != new_body) {
         bods.append(this_body);
- //       orig_bods.append(new_body);
-  //    }
+        orig_bods.append(new_body);
+      }
     }
   }
-  /*
+  
   if (bods.size() < geom_entities_size) {
     ERROR(iBase_INVALID_ARGUMENT, "Not all entities input were regions.");
     for (int i = bods.size(); i > 0; i--)
@@ -1107,46 +1101,48 @@ iGeom_uniteEnts( /*in*/ iBase_EntityHandle const* geom_entities,
     
     RETURN(iBase_SUCCESS);
   }
-  */
+  
   
   DLIList<Body*> new_bods;
   CubitStatus result = GeometryModifyTool::instance()->unite(bods, new_bods, false);
-  /*
+  
   if (CUBIT_SUCCESS != result || 1 != new_bods.size()) {
     ERROR(iBase_FAILURE, "Unite failed.");
   }
-  */
+  
     
-//  else {
+  else {
     *geom_entity = reinterpret_cast<iBase_EntityHandle>(dynamic_cast<RefEntity*>(new_bods.get()));
-//    for (int i = orig_bods.size(); i > 0; i--)
- //     GeometryQueryTool::instance()->delete_RefEntity(orig_bods.get_and_step());
-//  }
+    for (int i = orig_bods.size(); i > 0; i--)
+      GeometryQueryTool::instance()->delete_RefEntity(orig_bods.get_and_step());
+  }
 
-// RETURN(iBase_SUCCESS);
+ RETURN(iBase_SUCCESS);
 }
 
 /*****************
 *Helper Functions*
 *****************/
-//static CubitStatus
-static void
+static CubitStatus
+//static void
 iGeom_bounding_box( RefEntity* entity, CubitVector& minc, CubitVector& maxc )
 {
   CubitBox box;
-  if (BasicTopologyEntity* bte = dynamic_cast<BasicTopologyEntity*>(entity))
+  if (BasicTopologyEntity* bte = dynamic_cast<BasicTopologyEntity*>(entity)){
     box = bte->bounding_box();
+    }
   else if(Body* body = dynamic_cast<Body*>(entity))
+  {
     box = body->bounding_box();
+    }
   else {
-//    CGM_iGeom_setLastError(iBase_INVALID_ENTITY_HANDLE, "Entities passed into gentityBoundingBox must be vertex, edge, face, or region."); 
-//    return CUBIT_FAILURE;
-    return;
+    CGM_iGeom_setLastError(iBase_INVALID_ENTITY_HANDLE, "Entities passed into gentityBoundingBox must be vertex, edge, face, or region."); 
+    return CUBIT_FAILURE;
   }
   
   minc = box.minimum();
   maxc = box.maximum();
-//  return CUBIT_SUCCESS;
+  return CUBIT_SUCCESS;
 }
 
 static 
@@ -1154,17 +1150,17 @@ void copy_ibase_type( int ibase_type,
                       const DLIList<CubitEntity*>& list,
                       iBase_EntityHandle** entity_handles,
                       int* entity_handles_alloc,
-                      int* entity_handles_size )//,
-//                      int* err )
+                      int* entity_handles_size,
+                      int* err )
 {
   int count;
   if (*entity_handles_alloc == 0) {
-    count = count_ibase_type( ibase_type, list/*, err */);
+    count = count_ibase_type( ibase_type, list, err );
     if (count < 0)
       return;
     *entity_handles = (iBase_EntityHandle*)malloc( count * sizeof(iBase_EntityHandle) );
     if (!*entity_handles) 
-//      RETURN(iBase_MEMORY_ALLOCATION_FAILED);
+      RETURN(iBase_MEMORY_ALLOCATION_FAILED);
       return;
     *entity_handles_alloc = count;
   }
@@ -1186,24 +1182,24 @@ void copy_ibase_type( int ibase_type,
       count = append_type<RefVertex>(list,*entity_handles, *entity_handles_alloc);
       break;
     default:
-   //   RETURN(iBase_INVALID_ENTITY_TYPE);
+      RETURN(iBase_INVALID_ENTITY_TYPE);
       return;
       break;
   }
   
   *entity_handles_size = count;
-  /*
+  
   if (count > *entity_handles_alloc)
     RETURN(iBase_BAD_ARRAY_DIMENSION);
-    */
+    
   
-//  RETURN(iBase_SUCCESS);
+  RETURN(iBase_SUCCESS);
 }
 
 static 
 void append_all_ibase_type( int ibase_type, 
-                            DLIList<RefEntity*>& target_list )//,
-//                            int* err )
+                            DLIList<RefEntity*>& target_list,
+                            int* err )
 {
   RefEntityFactory *const ref = RefEntityFactory::instance();
   if (ibase_type == iBase_ALL_TYPES) {
@@ -1216,19 +1212,17 @@ void append_all_ibase_type( int ibase_type,
   else if (abs(ibase_type) < iBase_ALL_TYPES) {
     ref->ref_entity_list( iGeom_entity_type_names[ibase_type], target_list );
   }
-  /*
   else {
     RETURN(iBase_INVALID_ENTITY_TYPE);
   }
   
   RETURN(iBase_SUCCESS);
-  */
 }
 
 static inline
-int count_ibase_type( int ibase_type, const DLIList<CubitEntity*>& list/*, int* err */)
+int count_ibase_type( int ibase_type, const DLIList<CubitEntity*>& list, int* err )
 {
-//  *err = iBase_SUCCESS;
+  *err = iBase_SUCCESS;
   switch (ibase_type) {
     case iBase_ALL_TYPES: return list.size() - count_type<RefGroup>(list);
     case iBase_REGION:    return count_type<Body>(list);
@@ -1236,8 +1230,8 @@ int count_ibase_type( int ibase_type, const DLIList<CubitEntity*>& list/*, int* 
     case iBase_EDGE:      return count_type<RefEdge>(list);
     case iBase_VERTEX:    return count_type<RefVertex>(list);
     default:
-//      *err = iBase_INVALID_ENTITY_TYPE;
-//      CGM_iGeom_setLastError( *err );
+      *err = iBase_INVALID_ENTITY_TYPE;
+      CGM_iGeom_setLastError( *err );
       return -1;
   }
 }
@@ -1295,12 +1289,12 @@ long CGMTagManager::getTagHandle (/*in*/ const char *tag_name)
     bool active = (it->second > 0 ? tagInfo[it->second] :
                    presetTagInfo[-it->second]).isActive;
     if (active) {
-//      CGM_iGeom_clearLastError();
+      CGM_iGeom_clearLastError();
       return it->second;
     }
   }
 
-//  CGM_iGeom_setLastError( iBase_TAG_NOT_FOUND );
+  CGM_iGeom_setLastError( iBase_TAG_NOT_FOUND );
   return 0;
 }
 
@@ -1319,7 +1313,7 @@ CGMTagManager::TagInfo* const CGMTagManager::presetTagInfo = preset_tag_list;
 
 int CGMTagManager::getTagSize (/*in*/ const long tag_handle)
 {
-//  CGM_iGeom_clearLastError();
+  CGM_iGeom_clearLastError();
   return (tag_handle > 0 ? 
           tagInfo[tag_handle].tagLength : 
           presetTagInfo[-tag_handle].tagLength);
@@ -1335,7 +1329,7 @@ iBase_ErrorType CGMTagManager::setArrData (/*in*/ RefEntity* const* entity_handl
   
   const char *val_ptr = tag_values;
 
-/*
+
   iBase_ErrorType result = iBase_SUCCESS, tmp_result;
   
   if (tag_handle < 0) {
@@ -1346,11 +1340,14 @@ iBase_ErrorType CGMTagManager::setArrData (/*in*/ RefEntity* const* entity_handl
         tmp_result = setPresetTagData(entity_handles[i], tag_handle, val_ptr, tag_size);
 
       val_ptr += tag_size;
-//      if (iBase_SUCCESS != tmp_result) result = tmp_result;
-//    }
-//    RETURN(result);
+      if (iBase_SUCCESS != tmp_result) result = tmp_result;
+    }
+   // RETURN(result);
+    CGM_iGeom_setLastError(result); 
+    return result;
+
   }
-*/
+
 
   for (int i = 0; i < entity_handles_size; i++) {
     RefEntity *this_ent = (NULL == entity_handles[i] ? interface_group() : 
@@ -1384,6 +1381,7 @@ CATag *CGMTagManager::get_catag(RefEntity *ent,
   else
     return NULL;
 }
+
   
 iBase_ErrorType CATag::set_tag_data(long tag_handle, const void *tag_data, 
                                      const bool can_shallow_copy)
@@ -1413,5 +1411,8 @@ iBase_ErrorType CATag::set_tag_data(long tag_handle, const void *tag_data,
     (*tdpos).second = const_cast<void*>(tag_data);
   }
 
- // RETURN(iBase_SUCCESS);
+  //RETURN(iBase_SUCCESS);
+  CGM_iGeom_setLastError(iBase_SUCCESS); 
+  return iBase_SUCCESS;
 }
+

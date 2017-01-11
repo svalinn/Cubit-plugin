@@ -19,8 +19,8 @@ iBase_EntityHandle makeWorldSphere( double world_size ){
   // Note: I tried using createBrick instead of createSphere to bound the universe with a box
   // instead of a sphere.  This worked but led to a substantial increase in run times and
   // memory usage, so should be avoided.
-  iGeom_createSphere( world_size, &world_sphere/*, &igm_result*/);
-  //CHECK_IGEOM( igm_result, "making world sphere" );
+  iGeom_createSphere( world_size, &world_sphere, &igm_result);
+  CHECK_IGEOM( igm_result, "making world sphere" );
   return world_sphere;
 }
 
@@ -43,11 +43,11 @@ static iBase_EntityHandle embedWithinWorld( bool positive, double world_size,
     iBase_EntityHandle world_sphere = makeWorldSphere( world_size );    
     
     if( positive ){
-      iGeom_subtractEnts( world_sphere, body, &final_body/*, &igm_result*/);
+      iGeom_subtractEnts( world_sphere, body, &final_body, &igm_result);
       //CHECK_IGEOM( igm_result, "making positive body" );
     }
     else{ // !positive && bound_with_world
-      iGeom_intersectEnts( world_sphere, body, &final_body/*, &igm_result*/);
+      iGeom_intersectEnts( world_sphere, body, &final_body, &igm_result);
 //      CHECK_IGEOM( igm_result, "making negative body" );
     }
   }
@@ -61,7 +61,7 @@ iBase_EntityHandle applyTransform( const Transform& t, iBase_EntityHandle& e ) {
   int igm_result;
   if( t.hasRot()  ){
     const Vector3d& axis = t.getAxis();
-    iGeom_rotateEnt( e, t.getTheta(), axis.v[0], axis.v[1], axis.v[2]/*, &igm_result*/ );
+    iGeom_rotateEnt( e, t.getTheta(), axis.v[0], axis.v[1], axis.v[2], &igm_result );
     CHECK_IGEOM( igm_result, "applying rotation" );
   }
   
@@ -70,21 +70,21 @@ iBase_EntityHandle applyTransform( const Transform& t, iBase_EntityHandle& e ) {
       //iGeom_rotateEnt( e, 180, 0, 0, 0, &igm_result );
 
     //if( !t.hasRot() ){
-      iGeom_reflectEnt( e, 0, 0, 0, 0, 0, 1/*, &igm_result*/ );
-      iGeom_reflectEnt( e, 0, 0, 0, 0, 1, 0/*, &igm_result*/ );
-      iGeom_reflectEnt( e, 0, 0, 0, 1, 0, 0/*, &igm_result*/ );
+      iGeom_reflectEnt( e, 0, 0, 0, 0, 0, 1, &igm_result );
+      iGeom_reflectEnt( e, 0, 0, 0, 0, 1, 0, &igm_result );
+      iGeom_reflectEnt( e, 0, 0, 0, 1, 0, 0, &igm_result );
       //}
       //else{
       //   const Vector3d& axis = t.getAxis();
       //   iGeom_reflectEnt( e, axis.v[0], axis.v[1], axis.v[2], &igm_result );
       //   }
 
-      CHECK_IGEOM( igm_result, "inverting for transformation" );
+//      CHECK_IGEOM( igm_result, "inverting for transformation" );
     }
 
 
   const Vector3d& translation = t.getTranslation();
-  iGeom_moveEnt( e, translation.v[0], translation.v[1], translation.v[2]/*, &igm_result*/);
+  iGeom_moveEnt( e, translation.v[0], translation.v[1], translation.v[2], &igm_result);
   CHECK_IGEOM( igm_result, "applying translation" );
   
   return e;
@@ -96,17 +96,17 @@ iBase_EntityHandle applyReverseTransform( const Transform& tx, iBase_EntityHandl
   Transform rev_t = tx.reverse();
 
   const Vector3d& translation = rev_t.getTranslation();
-  iGeom_moveEnt( e, translation.v[0], translation.v[1], translation.v[2]/*, &igm_result*/);
+  iGeom_moveEnt( e, translation.v[0], translation.v[1], translation.v[2], &igm_result);
   CHECK_IGEOM( igm_result, "applying reverse translation" );
 
   if( rev_t.hasInversion() ){
-    iGeom_rotateEnt( e, 180, 0, 0, 0/*, &igm_result*/ );
+    iGeom_rotateEnt( e, 180, 0, 0, 0, &igm_result );
     CHECK_IGEOM( igm_result, "inverting for reverse transformation" );
   }
 
   if( rev_t.hasRot() ){
     const Vector3d& axis = rev_t.getAxis();
-    iGeom_rotateEnt( e, rev_t.getTheta(), axis.v[0], axis.v[1], axis.v[2]/*, &igm_result*/ );
+    iGeom_rotateEnt( e, rev_t.getTheta(), axis.v[0], axis.v[1], axis.v[2], &igm_result );
     CHECK_IGEOM( igm_result, "applying rotation" );
   }
   
@@ -173,7 +173,7 @@ protected:
     iBase_EntityHandle hemisphere;
     // note the reversal of sense in this call; mcnp and igeom define it differently.
     iGeom_sectionEnt( world_sphere, 
-                      normal.v[0], normal.v[1], normal.v[2], offset, !positive, &hemisphere/*, &igm_result*/);
+                      normal.v[0], normal.v[1], normal.v[2], offset, !positive, &hemisphere, &igm_result);
     CHECK_IGEOM( igm_result, "Sectioning world for a plane" );
     return hemisphere;
 
@@ -343,14 +343,14 @@ protected:
     }
 
     iBase_EntityHandle cyl;
-    iGeom_createCylinder(2*world_size,r1,r2,&cyl/*,&igm_result*/);
+    iGeom_createCylinder(2*world_size,r1,r2,&cyl,&igm_result);
     CHECK_IGEOM(igm_result, "Creating elliptic cylinder for GQ.");
 
     if (1 == axis) {
-      iGeom_rotateEnt(cyl,90,1,0,0/*,&igm_result*/);
+      iGeom_rotateEnt(cyl,90,1,0,0,&igm_result);
     }
     else if (0 == axis) {
-      iGeom_rotateEnt(cyl,90,0,1,0/*,&igm_result*/);
+      iGeom_rotateEnt(cyl,90,0,1,0,&igm_result);
     }
     else if (2 == axis) {
       igm_result = iBase_SUCCESS;
@@ -390,30 +390,30 @@ protected:
 
     //create cone
     iBase_EntityHandle pos_cone;
-    iGeom_createCone( 2*world_size, major_radius, minor_radius, 0, &pos_cone/*, &igm_result*/);
+    iGeom_createCone( 2*world_size, major_radius, minor_radius, 0, &pos_cone, &igm_result);
     CHECK_IGEOM(igm_result, "Creating positive cone for GQ.");
 
     //now move the cone s.t. the point is on the origin
-    iGeom_moveEnt(pos_cone, 0, 0, -world_size/*, &igm_result*/);
+    iGeom_moveEnt(pos_cone, 0, 0, -world_size, &igm_result );
     CHECK_IGEOM(igm_result, "Moving positive cone for GQ.");
 
     double rot_vec[3] = {0,0,0};
     rot_vec[rot_axis] = 1;
 
     //rotate to proper axis
-    iGeom_rotateEnt( pos_cone, rot_angle, rot_vec[0], rot_vec[1], rot_vec[2]/*, &igm_result*/);
+    iGeom_rotateEnt( pos_cone, rot_angle, rot_vec[0], rot_vec[1], rot_vec[2], &igm_result );
     CHECK_IGEOM(igm_result, "Rotating positive cone for GQ.");
 
     //create a copy
     iBase_EntityHandle neg_cone;
-    iGeom_copyEnt(pos_cone, &neg_cone/*, &igm_result*/);
+    iGeom_copyEnt(pos_cone, &neg_cone, &igm_result );
     CHECK_IGEOM(igm_result, "Copying positive cone for GQ.");
 
-    iGeom_rotateEnt(neg_cone, 180, rot_vec[0], rot_vec[1], rot_vec[2]/*, &igm_result*/);
+    iGeom_rotateEnt(neg_cone, 180, rot_vec[0], rot_vec[1], rot_vec[2], &igm_result );
     CHECK_IGEOM(igm_result, "Rotating negative cone for GQ.");
 
     iBase_EntityHandle cones[2] = {pos_cone, neg_cone};
-    iGeom_uniteEnts( cones, 2, &gq_handle/*, &igm_result*/);
+    iGeom_uniteEnts( cones, 2, &gq_handle, &igm_result );
     CHECK_IGEOM(igm_result, "Uniting positive and negative cones for GQ.");
 
     return gq_handle;
@@ -477,21 +477,21 @@ protected:
     int igm_result;
 
     iBase_EntityHandle cylinder;
-    iGeom_createCylinder(  2.0 * world_size, radius, 0, &cylinder/*, &igm_result*/);
+    iGeom_createCylinder(  2.0 * world_size, radius, 0, &cylinder, &igm_result);
     CHECK_IGEOM( igm_result, "making cylinder" );
 
     
     if( axis == X ){
-      iGeom_rotateEnt( cylinder, 90, 0, 1, 0/*, &igm_result*/ );
+      iGeom_rotateEnt( cylinder, 90, 0, 1, 0, &igm_result );
       CHECK_IGEOM( igm_result, "rotating cylinder (X)" );
     }
     else if( axis == Y ){
-      iGeom_rotateEnt( cylinder, 90, 1, 0, 0/*, &igm_result*/ );
+      iGeom_rotateEnt( cylinder, 90, 1, 0, 0, &igm_result );
       CHECK_IGEOM( igm_result, "rotating cylinder (Y)" );
     }
 
     if( onaxis == false ){
-      iGeom_moveEnt( cylinder, center.v[0], center.v[1], center.v[2]/*, &igm_result*/);
+      iGeom_moveEnt( cylinder, center.v[0], center.v[1], center.v[2], &igm_result);
       CHECK_IGEOM( igm_result, "moving cylinder" );
     }
 
@@ -561,18 +561,18 @@ protected:
     iBase_EntityHandle cone; 
     
     if( nappe != LEFT){
-      iGeom_createCone( height, base_radius, 0, 0, &right_nappe/*, &igm_result*/);
+      iGeom_createCone( height, base_radius, 0, 0, &right_nappe, &igm_result);
       CHECK_IGEOM( igm_result, "making cone (right nappe)" );
-      iGeom_rotateEnt( right_nappe, 180, 1, 0, 0/*, &igm_result*/);
+      iGeom_rotateEnt( right_nappe, 180, 1, 0, 0, &igm_result);
       CHECK_IGEOM( igm_result, "Rotating cone (right nappe)");
-      iGeom_moveEnt( right_nappe, 0, 0, height/2.0/*, &igm_result*/ );
+      iGeom_moveEnt( right_nappe, 0, 0, height/2.0, &igm_result );
       CHECK_IGEOM( igm_result, "Moving cone (right nappe)");      
       cone = right_nappe;
     }
     if( nappe != RIGHT ){
-      iGeom_createCone( height, base_radius, 0, 0, &left_nappe/*, &igm_result*/ );
+      iGeom_createCone( height, base_radius, 0, 0, &left_nappe, &igm_result );
       CHECK_IGEOM( igm_result, "making cone (left nappe)" );
-      iGeom_moveEnt( left_nappe, 0, 0, -height/2.0/*, &igm_result*/ );
+      iGeom_moveEnt( left_nappe, 0, 0, -height/2.0, &igm_result );
       CHECK_IGEOM( igm_result, "Moving cone (left nappe)" );
       cone = left_nappe;
     }
@@ -580,20 +580,20 @@ protected:
     
     if( right_nappe && left_nappe ){
       iBase_EntityHandle nappes[2] = {right_nappe, left_nappe};
-      iGeom_uniteEnts( nappes, 2, &cone/*, &igm_result*/ );
+      iGeom_uniteEnts( nappes, 2, &cone, &igm_result );
       CHECK_IGEOM( igm_result, "Unioning cone nappes" );
     }
 
     if( axis == X ){
-      iGeom_rotateEnt( cone, 90, 0, 1, 0/*, &igm_result*/ );
+      iGeom_rotateEnt( cone, 90, 0, 1, 0, &igm_result );
       CHECK_IGEOM( igm_result, "rotating cone (X)" );
     }
     else if( axis == Y ){
-      iGeom_rotateEnt( cone, -90, 1, 0, 0/*, &igm_result*/ );
+      iGeom_rotateEnt( cone, -90, 1, 0, 0, &igm_result );
       CHECK_IGEOM( igm_result, "rotating cone (Y)" );
     }
 
-    iGeom_moveEnt( cone, center.v[0], center.v[1], center.v[2]/*, &igm_result*/);
+    iGeom_moveEnt( cone, center.v[0], center.v[1], center.v[2], &igm_result);
     CHECK_IGEOM( igm_result, "moving cone to its apex" );
 
     iBase_EntityHandle final_cone = embedWithinWorld( positive, world_size, cone, true );
@@ -631,25 +631,25 @@ protected:
 
     iBase_EntityHandle torus;
 
-    iGeom_createTorus( radius, ellipse_perp_rad, &torus/*, &igm_result*/ );
+    iGeom_createTorus( radius, ellipse_perp_rad, &torus, &igm_result );
     CHECK_IGEOM( igm_result, "Creating initial torus");
 
     if( ellipse_axis_rad != ellipse_perp_rad ){
       double scalef = ellipse_axis_rad / ellipse_perp_rad;
-      iGeom_scaleEnt( torus, 0, 0, 0, 1.0, 1.0, scalef/*, &igm_result*/ );
+      iGeom_scaleEnt( torus, 0, 0, 0, 1.0, 1.0, scalef, &igm_result );
       CHECK_IGEOM( igm_result, "Scaling torus" );
     }
     
     if( axis == X ){
-      iGeom_rotateEnt( torus, 90, 0, 1, 0/*, &igm_result*/ );
+      iGeom_rotateEnt( torus, 90, 0, 1, 0, &igm_result );
       CHECK_IGEOM( igm_result, "rotating torus (X)" );
     }
     else if( axis == Y ){
-      iGeom_rotateEnt( torus, -90, 1, 0, 0/*, &igm_result*/ );
+      iGeom_rotateEnt( torus, -90, 1, 0, 0, &igm_result );
       CHECK_IGEOM( igm_result, "rotating torus (Y)" );
     }
 
-    iGeom_moveEnt( torus, center.v[0], center.v[1], center.v[2]/*, &igm_result*/);
+    iGeom_moveEnt( torus, center.v[0], center.v[1], center.v[2], &igm_result);
     CHECK_IGEOM( igm_result, "moving torus to its center point" );
     
     
@@ -684,10 +684,10 @@ protected:
     int igm_result;
     iBase_EntityHandle sphere;
 
-    iGeom_createSphere( radius, &sphere/*, &igm_result*/);
+    iGeom_createSphere( radius, &sphere, &igm_result);
     CHECK_IGEOM( igm_result, "making sphere" );
 
-    iGeom_moveEnt( sphere, center.v[0], center.v[1], center.v[2]/*, &igm_result*/ );
+    iGeom_moveEnt( sphere, center.v[0], center.v[1], center.v[2], &igm_result );
     CHECK_IGEOM( igm_result, "moving sphere" );
 
 
@@ -722,13 +722,13 @@ protected:
     iBase_EntityHandle sphere;
     double radius = 1;
 
-    iGeom_createSphere( radius, &sphere/*, &igm_result*/);
+    iGeom_createSphere( radius, &sphere, &igm_result);
     CHECK_IGEOM( igm_result, "making sphere" );
 
-    iGeom_scaleEnt( sphere, 0, 0, 0, sqrt(1/axes.v[0]), sqrt(1/axes.v[1]), sqrt(1/axes.v[2])/*, &igm_result*/);
+    iGeom_scaleEnt( sphere, 0, 0, 0, sqrt(1/axes.v[0]), sqrt(1/axes.v[1]), sqrt(1/axes.v[2]), &igm_result);
     CHECK_IGEOM( igm_result, "scaling sphere to ellipsoid" );
 
-    iGeom_moveEnt( sphere, center.v[0], center.v[1], center.v[2]/*, &igm_result*/ );
+    iGeom_moveEnt( sphere, center.v[0], center.v[1], center.v[2], &igm_result );
     CHECK_IGEOM( igm_result, "moving sphere" );
 
 
@@ -800,11 +800,11 @@ protected:
     int igm_result;
     iBase_EntityHandle box;
 
-    iGeom_createBrick( dimensions.v[0], dimensions.v[1], dimensions.v[2], &box/*, &igm_result*/ );
+    iGeom_createBrick( dimensions.v[0], dimensions.v[1], dimensions.v[2], &box, &igm_result );
     CHECK_IGEOM( igm_result, "making box" );
 
     Vector3d halfdim = dimensions.scale( 1.0 / 2.0 );
-    iGeom_moveEnt( box, halfdim.v[0], halfdim.v[1], halfdim.v[2]/*, &igm_result*/ );
+    iGeom_moveEnt( box, halfdim.v[0], halfdim.v[1], halfdim.v[2], &igm_result );
     CHECK_IGEOM( igm_result, "moving box (halfdim)" );
 
     box = applyTransform( transform, box );
@@ -841,10 +841,10 @@ protected:
     int igm_result;
     iBase_EntityHandle rpp;
 
-    iGeom_createBrick( dimensions.v[0], dimensions.v[1], dimensions.v[2], &rpp/*, &igm_result*/ );
+    iGeom_createBrick( dimensions.v[0], dimensions.v[1], dimensions.v[2], &rpp, &igm_result );
     CHECK_IGEOM( igm_result, "making rpp" );
 
-    iGeom_moveEnt( rpp, center_offset.v[0], center_offset.v[1], center_offset.v[2]/*, &igm_result*/ );
+    iGeom_moveEnt( rpp, center_offset.v[0], center_offset.v[1], center_offset.v[2], &igm_result );
     CHECK_IGEOM( igm_result, "moving rpp" );
 
     iBase_EntityHandle final_rpp = embedWithinWorld( positive, world_size, rpp, false );
@@ -883,16 +883,16 @@ protected:
     iBase_EntityHandle rec;
     
     if( facet ){
-      iGeom_createCylinder( 2.0 * world_size + length / 2.0, radius1, radius2, &rec/*, &igm_result*/ );
+      iGeom_createCylinder( 2.0 * world_size + length / 2.0, radius1, radius2, &rec, &igm_result );
     }
     else{
-      iGeom_createCylinder( length, radius1, radius2, &rec/*, &igm_result*/ );
+      iGeom_createCylinder( length, radius1, radius2, &rec, &igm_result );
     }
     CHECK_IGEOM( igm_result, "creating rec" );
 
 
     double movement_factor = length / 2.0;
-    iGeom_moveEnt( rec, 0, 0, movement_factor/*, &igm_result*/ );
+    iGeom_moveEnt( rec, 0, 0, movement_factor, &igm_result );
     CHECK_IGEOM( igm_result, "moving rec" );
     
     rec = applyTransform( transform, rec );
@@ -925,15 +925,15 @@ protected:
     iBase_EntityHandle rcc;
 
     if( facet ){
-      iGeom_createCylinder( 2.0 * world_size, radius, 0, &rcc/*, &igm_result*/ );
+      iGeom_createCylinder( 2.0 * world_size, radius, 0, &rcc, &igm_result );
     }
     else{
-      iGeom_createCylinder( length, radius, 0, &rcc/*, &igm_result*/ );
+      iGeom_createCylinder( length, radius, 0, &rcc, &igm_result );
     }
     CHECK_IGEOM( igm_result, "creating rcc" );
     
     double movement_factor = length / 2.0;
-    iGeom_moveEnt( rcc, 0, 0, movement_factor/*, &igm_result*/ );
+    iGeom_moveEnt( rcc, 0, 0, movement_factor, &igm_result );
     CHECK_IGEOM( igm_result, "moving rcc" );
 
     rcc = applyTransform( transform, rcc );
@@ -967,10 +967,10 @@ protected:
     int igm_result;
     iBase_EntityHandle trc;
 
-    iGeom_createCone( length, radius1, 0, radius2, &trc/*, &igm_result*/ );
+    iGeom_createCone( length, radius1, 0, radius2, &trc, &igm_result );
     CHECK_IGEOM( igm_result, "creating trc" );
     
-    iGeom_moveEnt( trc, 0, 0, length / 2.0/*, &igm_result*/ );
+    iGeom_moveEnt( trc, 0, 0, length / 2.0, &igm_result );
     CHECK_IGEOM( igm_result, "moving trc" );
 
     trc = applyTransform( transform, trc );
@@ -1016,11 +1016,11 @@ protected:
     hex = makeWorldSphere( world_size );
 
     Vector3d b = - heightV.normalize();
-    iGeom_sectionEnt( hex, b.v[0], b.v[1], b.v[2], 0, true, &hex/*, &igm_result*/ );
+    iGeom_sectionEnt( hex, b.v[0], b.v[1], b.v[2], 0, true, &hex, &igm_result );
     CHECK_IGEOM( igm_result, "Sectioning world for a hex (1)" );
 
     b = -b;
-    iGeom_sectionEnt( hex, b.v[0], b.v[1], b.v[2], heightV.length(), true, &hex/*, &igm_result*/ );
+    iGeom_sectionEnt( hex, b.v[0], b.v[1], b.v[2], heightV.length(), true, &hex, &igm_result );
     CHECK_IGEOM( igm_result, "Sectioning world for a hex (2)" );
 
 
@@ -1031,17 +1031,17 @@ protected:
       double length = v.length(); 
       v = v.normalize();
       
-      iGeom_sectionEnt( hex, v.v[0], v.v[1], v.v[2], length, true, &hex/*, &igm_result*/ );
+      iGeom_sectionEnt( hex, v.v[0], v.v[1], v.v[2], length, true, &hex, &igm_result );
       CHECK_IGEOM( igm_result, "Sectioning world for a hex (3)" );
       
       v = -v;
-      iGeom_sectionEnt( hex, v.v[0], v.v[1], v.v[2], length, true, &hex/*, &igm_result*/ );
+      iGeom_sectionEnt( hex, v.v[0], v.v[1], v.v[2], length, true, &hex, &igm_result );
       CHECK_IGEOM( igm_result, "Sectioning world for a hex (4)" );
       
 
     }
 
-    iGeom_moveEnt( hex, base_center.v[0], base_center.v[1], base_center.v[2]/*, &igm_result*/ );
+    iGeom_moveEnt( hex, base_center.v[0], base_center.v[1], base_center.v[2], &igm_result );
     CHECK_IGEOM( igm_result, "Moving hex" );
 
     iBase_EntityHandle final_hex = embedWithinWorld( positive, world_size, hex, false );
