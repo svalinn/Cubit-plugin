@@ -241,18 +241,9 @@ iGeom_createSphere( double radius,
                    /*out*/ iBase_EntityHandle *geom_entity,
                    int* err )
 {
-/*  if (radius <= 0.0) {
-    std::ostringstream error_message;
-    error_message.str("");
-    error_message << "Sphere radius must be positive!" << std::endl;
-    CubitInterface::get_cubit_message_handler()->print_error(error_message.str().c_str());
-  }
-  else{
-  */
-  
-  RefEntity* temp_body = GeometryModifyTool::instance()->sphere( radius );
-  *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
-  //}
+  RefEntity* tmp_body = GeometryModifyTool::instance()->sphere( radius );
+  *geom_entity = reinterpret_cast<iBase_EntityHandle>(tmp_body);
+  RETURN ((tmp_body ? iBase_SUCCESS : iBase_FAILURE));
 }
 
 void
@@ -433,10 +424,12 @@ iGeom_getTagHandle( iGeom_Instance instance,
     // make sure string is null-terminated
   std::string tag_name_buf( tag_name, tag_name_len );
   tag_name = tag_name_buf.c_str();
-  *tag_handle = reinterpret_cast<iBase_TagHandle>(static_cast<size_t>(reinterpret_cast<CGMTagManager*>(instance)->getTagHandle( tag_name )));
+  CGMTagManager* tag_manager = &CGMTagManager::instance();
+  size_t tag_size_t = static_cast<size_t>( tag_manager->getTagHandle( tag_name ));
+  *tag_handle = reinterpret_cast<iBase_TagHandle>(tag_size_t);
 
     // XXX: this seems really wrong...
-//  iGeom_getErrorType(err);
+  iGeom_getErrorType(err);
 }
 
 void
@@ -457,7 +450,6 @@ iGeom_imprintEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
 {
   if (gentity_handles_size < 1) // GMT::imprint segfaults if passed an empty list
     RETURN(iBase_SUCCESS);
-    return;
 
   DLIList<Body*> bods;
   DLIList<RefVolume*> vols, temp_vols;
@@ -1123,6 +1115,13 @@ iGeom_uniteEnts( /*in*/ iBase_EntityHandle const* geom_entities,
 /*****************
 *Helper Functions*
 *****************/
+
+void
+iGeom_getErrorType( int *error_type )
+{
+  *error_type = CGM_iGeom_getLastErrorType();
+}
+
 static CubitStatus
 //static void
 iGeom_bounding_box( RefEntity* entity, CubitVector& minc, CubitVector& maxc )
@@ -1281,6 +1280,10 @@ int count_type( const DLIList<CubitEntity*>& list )
   return count;
 }
 
+/****************
+* CGMTagManager *
+****************/
+
 long CGMTagManager::getTagHandle (/*in*/ const char *tag_name)
 {
   std::map<std::string,long>::iterator it =
@@ -1298,6 +1301,8 @@ long CGMTagManager::getTagHandle (/*in*/ const char *tag_name)
   return 0;
 }
 
+const char *CGMTagManager::CATag_NAME_INTERNAL = "ITAPS_TAG";
+
 static CGMTagManager::TagInfo preset_tag_list[] = {
    // tag size      tag name           tag data type  default active
  { 0,              "",                 iBase_BYTES,   NULL,  false },
@@ -1308,6 +1313,42 @@ static CGMTagManager::TagInfo preset_tag_list[] = {
  { sizeof(double), "MESH_SIZE",        iBase_DOUBLE,  NULL,   true },
  { 4,              "SIZE_FIRMNESS",    iBase_BYTES,   NULL,   true } };
  
+const int CGMTagManager::numPresetTag = sizeof(preset_tag_list)/sizeof(preset_tag_list[0]);
+
+CGMTagManager::CGMTagManager() 
+    : interfaceGroup(NULL)
+{
+  tagInfo.push_back(preset_tag_list[0]);
+  
+    // get the tag number for CATag
+  DLIList<int> tag_types;
+  int max_type = 0;
+  CubitAttribManager *cam = CGMApp::instance()->attrib_manager();
+  cam->get_registered_types(tag_types);
+  for (int i = 0; i < tag_types.size(); i++) {
+    int this_type = tag_types.get_and_step();
+    max_type = (max_type < this_type ? this_type : max_type);
+  }
+  
+  max_type++;
+/*
+  CubitStatus status = cam->register_attrib_type(max_type, CATag_NAME, CATag_NAME_INTERNAL,
+                                                // &CGMTagManager::CATag_creator, false, true, 
+                                                 (CACreateFunction)&CGMTagManager::CATag_creator, false, true, 
+                                                 true, true, true, false);
+                                                 */
+  CubitStatus status = CUBIT_SUCCESS;
+  if (CUBIT_FAILURE == status) {
+    CGM_iGeom_setLastError( iBase_FAILURE, "Couldn't create cgm attribute for tags." );
+  }
+  else
+    CATag_att_type = max_type;
+
+    // create preset tags, for CGM attributes we want to be visible as tags
+    // name - make same as in MBTagConventions
+  for (int i = 1; i < numPresetTag; ++i)
+    tagNameMap[presetTagInfo[i].tagName] = -i; // neg handles beginning with -1
+}
 
 CGMTagManager::TagInfo* const CGMTagManager::presetTagInfo = preset_tag_list;
 
@@ -1372,6 +1413,44 @@ RefGroup *CGMTagManager::interface_group(const bool create_if_missing)
   return interfaceGroup;
 }
 
+iBase_ErrorType CGMTagManager::setPresetTagData(RefEntity *entity, 
+                                                const long tag_handle, 
+                                                const char *tag_value, 
+                                                const int tag_size) 
+{
+  switch (-tag_handle) {
+    case 1:
+        // entity name
+      if (presetTagInfo[-tag_handle].tagLength != tag_size) {
+        std::string tmp_str = "Tag of type '";
+        tmp_str += presetTagInfo[-tag_handle].tagName + "' is the wrong size.";
+        CGM_iGeom_setLastError(iBase_INVALID_ARGUMENT, tmp_str.c_str());
+        return iBase_INVALID_ARGUMENT;
+      }
+      entity->entity_name(CubitString(tag_value));
+//      RETURN(iBase_SUCCESS);
+      CGM_iGeom_setLastError(iBase_SUCCESS); 
+      return iBase_SUCCESS;
+    case 2:
+        // entity id
+      CGM_iGeom_setLastError( iBase_NOT_SUPPORTED, "Can't set id of entities with this implementation." );
+      return iBase_NOT_SUPPORTED;
+    case 3:
+        // unique id
+      CGM_iGeom_setLastError( iBase_NOT_SUPPORTED, "Can't set unique id of entities with this implementation." );
+      return iBase_NOT_SUPPORTED;
+    case 4: // mesh interval
+    case 5: // mesh size
+    case 6: // mesh interval firmness
+    default:
+      CGM_iGeom_setLastError( iBase_NOT_SUPPORTED, "Can't set this tag on entities with this implementation." );
+      return iBase_NOT_SUPPORTED;
+  }
+
+  CGM_iGeom_setLastError( iBase_TAG_NOT_FOUND );
+  return iBase_TAG_NOT_FOUND;
+}
+
 CATag *CGMTagManager::get_catag(RefEntity *ent, 
                                   const bool create_if_missing) 
 {
@@ -1382,7 +1461,179 @@ CATag *CGMTagManager::get_catag(RefEntity *ent,
     return NULL;
 }
 
+/*
+CubitAttrib *CGMTagManager::CATag_creator(RefEntity* entity, CubitSimpleAttrib &p_csa)
+{
+  CATag *this_ca = new CATag(&instance(), entity, &p_csa);
+  return this_ca;
+}
+*/
+
+iBase_ErrorType CGMTagManager::createTag (/*in*/ const char *tag_name,
+                                          /*in*/ const int tag_length,
+                                          /*in*/ const int tag_type,
+                                          /*in*/ char* default_value,
+                                          /*out*/ long *tag_handle)
+{
+  std::string tmp_name(tag_name);
+  TagInfo tmp_info = {tag_length, tmp_name, tag_type, NULL, true};
+
+  std::map<std::string,long>::iterator mit = tagNameMap.find(tmp_name);
+  if (mit != tagNameMap.end()) {
+    // we found a tag with this name; is it still active?
+    bool active = (mit->second > 0 ? tagInfo[mit->second] :
+                   presetTagInfo[-mit->second]).isActive;
+    *tag_handle = mit->second;
+    if (active) {
+      CGM_iGeom_setLastError( iBase_TAG_ALREADY_EXISTS );
+      return iBase_TAG_ALREADY_EXISTS;
+    }
+
+    tagInfo[*tag_handle] = tmp_info;
+  }
+  else {
+    // create a new tag entirely
+    tagInfo.push_back(tmp_info);
+    *tag_handle = tagInfo.size() - 1;
+
+    // put the name and handle into the map too
+    tagNameMap[std::string(tag_name)] = *tag_handle;
+  }
+
+  if (default_value != NULL) {
+    tagInfo[*tag_handle].defaultValue = (char *) malloc(tag_length);
+    memcpy(tagInfo[*tag_handle].defaultValue, default_value, tag_length);
+  }
+
+//  RETURN(iBase_SUCCESS);
+  CGM_iGeom_setLastError(iBase_SUCCESS); 
+  return iBase_SUCCESS;
+}
+
+/**********
+*  CATag  *
+**********/
+
+CubitStatus CATag::reset()
+{
+  for (std::map<int, void*>::iterator 
+         mit = tagData.begin(); mit != tagData.end(); mit++)
+    if (NULL != (*mit).second) free ((*mit).second);
+
+  tagData.clear();
+
+  return CUBIT_SUCCESS;
+}
+
+CubitStatus CATag::update() 
+{
+  if (tagData.empty())
+    this->delete_attrib(true);
+
+  return CUBIT_SUCCESS;
+}
+
+CubitSimpleAttrib CATag::cubit_simple_attrib() 
+{
+    //if (tagData.size() == 0) return NULL;
   
+  std::vector<int> int_data;
+  std::vector<CubitString> str_data;
+  std::vector<double> dbl_data;
+
+  str_data.push_back(*(new CubitString(myManager->CATag_NAME_INTERNAL)));
+
+    // int data first gets the # tags on this entity
+  int_data.push_back(tagData.size());
+
+    // for each tag:
+  for (std::map<int, void*>::iterator 
+         mit = tagData.begin(); mit != tagData.end(); mit++) {
+    long tag_handle = (*mit).first;
+    CGMTagManager::TagInfo *tinfo = (tag_handle > 0 ? 
+                                     &(myManager->tagInfo[tag_handle]) :
+                                     &(myManager->presetTagInfo[-tag_handle]));
+
+      // store the name
+    str_data.push_back(*(new CubitString(tinfo->tagName.c_str())));
+    
+      // store the length in bytes
+    int_data.push_back(tinfo->tagLength);
+    
+      // now the data
+      // store the raw memory interpreted as an array of ints, padded to a full int
+    int tag_ints = tinfo->tagLength/4;
+    if (tinfo->tagLength % 4 != 0) tag_ints++;
+    
+    int *tag_data = reinterpret_cast<int*>((*mit).second);
+    for (int i = 0; i < tag_ints; i++)
+      int_data.push_back(tag_data[i]);
+  }
+
+    // store the data on the csa
+  CubitSimpleAttrib *csa = new CubitSimpleAttrib(&str_data, &dbl_data, &int_data);
+
+  for (int i = 0; i < str_data.size(); i++)
+    delete &str_data.at(i);
+  
+  return *csa;
+}
+
+
+
+CATag::CATag(CGMTagManager *manager, RefEntity *owner, CubitSimpleAttrib *csa_ptr) 
+    : CubitAttrib(owner), myManager(manager)
+{
+  if (NULL != csa_ptr) add_csa_data(csa_ptr);
+}
+
+void CATag::add_csa_data(CubitSimpleAttrib *csa_ptr) 
+{
+    // make sure it's a CATag
+  static CubitString my_type("CA_TAG");
+  DLIList<int>* int_list;
+  DLIList<CubitString>* string_list;
+  if (csa_ptr->character_type() != my_type) 
+    return;
+
+  *int_list = DLIList<int>( csa_ptr->int_data_list() );
+  *string_list = DLIList<CubitString>( csa_ptr->string_data_list() );
+  int num_attribs = (int_list->get_and_step());
+
+  int *tmp_data;
+  
+  for (int i = 0; i < num_attribs; i++) {
+
+      // map the attrib name to a tag
+    std::map<std::string,long>::iterator pos =
+      myManager->tagNameMap.find(std::string(string_list->get().c_str()));
+
+    long thandle = 0;
+    
+    if (pos == myManager->tagNameMap.end()) {
+        // tag doesn't exist - create one
+      myManager->createTag(string_list->get().c_str(),
+                           (int_list->get()), iBase_BYTES,
+                           NULL, &thandle);
+    }
+    else thandle = (*pos).second;
+
+    
+    long tag_handle = thandle;
+
+      // copy the ints to a temporary space we can get a ptr to...
+    int int_length = int_list->get_and_step();
+    if (int_length % 4 != 0) int_length++;
+    tmp_data = (int*) malloc(int_length*sizeof(int));
+    for (int j = 0; j < int_length; j++) 
+      tmp_data[j] = int_list->get_and_step();
+
+      // now actually set the data
+    this->set_tag_data(tag_handle, tmp_data, true);
+  }
+}
+
+
 iBase_ErrorType CATag::set_tag_data(long tag_handle, const void *tag_data, 
                                      const bool can_shallow_copy)
 {

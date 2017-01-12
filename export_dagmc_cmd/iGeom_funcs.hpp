@@ -15,7 +15,7 @@ public:
 
   friend class CATag;
 
-  
+//  If the destructor is there, the plugin isn't recognized.
 //  ~CGMTagManager();
   
   struct TagInfo
@@ -27,14 +27,14 @@ public:
     bool isActive;
   };
 
-//  static CubitAttrib* CATag_creator(RefEntity* entity, CubitSimpleAttrib *p_csa);
+  static CubitAttrib* CATag_creator(RefEntity* entity, CubitSimpleAttrib &p_csa);
 
  
-//  iBase_ErrorType createTag (/*in*/ const char *tag_name,
-//                             /*in*/ const int tag_size,
-//                             /*in*/ const int tag_type,
-//                             /*in*/ char* default_value,
-//                             /*out*/ long *tag_handle);
+  iBase_ErrorType createTag (/*in*/ const char *tag_name,
+                             /*in*/ const int tag_size,
+                             /*in*/ const int tag_type,
+                             /*in*/ char* default_value,
+                             /*out*/ long *tag_handle);
 
   int getTagSize (/*in*/ const long tag_handle);
 
@@ -52,20 +52,18 @@ public:
   }
 
 private:
-//  CGMTagManager();
+  CGMTagManager();
 
   int CATag_att_type;
-   
-//  long pcTag;
    
   std::vector<TagInfo> tagInfo;
    
   static TagInfo* const presetTagInfo;
-//  static const int numPresetTag;
+  static const int numPresetTag;
    
   std::map<std::string, long> tagNameMap;
-//  static const char *CATag_NAME;
-//  static const char *CATag_NAME_INTERNAL;
+  static const char *CATag_NAME;
+  static const char *CATag_NAME_INTERNAL;
    
   RefGroup *interfaceGroup;
 
@@ -94,17 +92,18 @@ private:
 
 public:
 
+  CubitStatus actuate() {return CUBIT_SUCCESS;}
+
+//  the destructor will make the plugin not be recognized.
 //  virtual ~CATag();
 
-//  CubitStatus actuate() {return CUBIT_SUCCESS;}
+  CubitStatus update();
 
-//  CubitStatus update();
+  CubitStatus reset();
 
-//  CubitStatus reset();
-
-//  CubitSimpleAttrib* cubit_simple_attrib();
+  CubitSimpleAttrib cubit_simple_attrib();
   
-//  int int_attrib_type() {return myManager->CATag_att_type;}
+  int int_attrib_type() {return myManager->CATag_att_type;}
 
   void add_csa_data(CubitSimpleAttrib *csa_ptr);
 
@@ -282,6 +281,9 @@ void iGeom_mergeEnts( iBase_EntityHandle const* gentity_handles,
 
 
 //Helper Functions
+
+void iGeom_getErrorType( int *error_type );
+
 static CubitStatus iGeom_bounding_box( RefEntity* entity,
 //static void iGeom_bounding_box( RefEntity* entity,
                                        CubitVector& minc,
