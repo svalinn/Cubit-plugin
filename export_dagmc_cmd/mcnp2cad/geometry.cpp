@@ -49,7 +49,7 @@ void Transform::set_rots_from_matrix( double raw_matrix[9], enum mat_format f ){
 
   double det = matrix_det(raw_matrix); // determinant is the same regardless of ordering
 
-/*  if( OPT_DEBUG ){
+  if( OPT_DEBUG ){
     std::cout << "Constructing rotation: " << std::endl;
     for( int i = 0; i < 3; i++ ){
       std::cout << "  [ ";
@@ -60,14 +60,13 @@ void Transform::set_rots_from_matrix( double raw_matrix[9], enum mat_format f ){
     }
     std::cout << "  det = " << det << std::endl;
   }
-  */
 
   if( det < 0.0 ){
     // negative determinant-> this transformation contains a reflection.
     invert = true;
     det *= -1;
     for( int i = 0; i < 9; i++){  mat[i/3][i%3] = -mat[i/3][i%3]; } 
-//    if( OPT_DEBUG ) std::cout << "  negative determinant => improper rotation (adding inversion)" << std::endl;
+    if( OPT_DEBUG ) std::cout << "  negative determinant => improper rotation (adding inversion)" << std::endl;
   }
   
   if( fabs( det - 1.0 ) > DBL_EPSILON ){
@@ -97,17 +96,17 @@ void Transform::set_rots_from_matrix( double raw_matrix[9], enum mat_format f ){
   double t = mat[0][0] + mat[1][1] + mat[2][2];
   theta = atan2(r,t-1);
   
-/*  if( OPT_DEBUG ){
+  if( OPT_DEBUG ){
     std:: cout << "  r = " << r << " t = " << t << " theta = " << theta << std::endl;
     std:: cout << "  x = " << x << " y = " << y << " z = " << z << std::endl;
   }
-  */
+  
 
   if( std::fabs(theta) <= DBL_EPSILON ){ 
     // theta is 0 or extremely close to it, so let's say there's no rotation after all.
     has_rot = false; 
     axis = Vector3d(); // zero vector
-//    if( OPT_DEBUG ) std::cout << "  (0) "; // std::endl comes below
+    if( OPT_DEBUG ) std::cout << "  (0) "; // std::endl comes below
   }
   else if( std::fabs( theta - M_PI ) <= DBL_EPSILON ){
     // theta is pi (180 degrees) or extremely close to it
@@ -121,7 +120,7 @@ void Transform::set_rots_from_matrix( double raw_matrix[9], enum mat_format f ){
     axis.v[(col+1)%3] = mat[col][(col+1)%3] / denom;
     axis.v[(col+2)%3] = mat[col][(col+2)%3] / denom;
 
-//    if( OPT_DEBUG ) std::cout << "  (180) "; // std::endl comes below
+    if( OPT_DEBUG ) std::cout << "  (180) "; // std::endl comes below
 
   }
   else{ 
@@ -135,7 +134,7 @@ void Transform::set_rots_from_matrix( double raw_matrix[9], enum mat_format f ){
   // convert theta back to degrees, as used by iGeom
   theta *= 180.0 / M_PI;
   
-//  if( OPT_DEBUG ) std::cerr << "computed rotation: " << *this << std::endl;
+  if( OPT_DEBUG ) std::cerr << "computed rotation: " << *this << std::endl;
 
 }
 

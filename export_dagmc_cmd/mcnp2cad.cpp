@@ -15,11 +15,10 @@
 #include <cassert>
 
 //MCNP2CAD includes
+#include "mcnp2cad/options.hpp"
 #include "mcnp2cad/geometry.hpp"
 #include "mcnp2cad/MCNPInput.hpp"
-#include "mcnp2cad/options.hpp"
 #include "mcnp2cad/volumes.hpp"
-#include "mcnp2cad/ProgOptions.hpp"
 #include "mcnp2cad/version.hpp"
 #include "CubitInterface.hpp"
 
@@ -49,6 +48,15 @@
 #include "moab/Interface.hpp"
 #include "moab/GeomTopoTool.hpp"
 
+/*
+#define CHK_MB_ERR_RET(A,B)  if (moab::MB_SUCCESS != (B)) { \
+  message << (A) << (B) << std::endl;                                   \
+  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
+  return false;                                                         \
+  }
+*/
+
+struct program_option_struct Gopt;
 
 typedef std::vector<iBase_EntityHandle> entity_collection_t;
 
@@ -95,6 +103,7 @@ static bool intersectIfPossible( iBase_EntityHandle h1, iBase_EntityHandle h2, i
   }
 }
 
+
 class MCNP2CAD::GeometryContext {
 
   /** 
@@ -114,7 +123,7 @@ protected:
   std::string materialName( int mat, double rho ){
     std::string ret;
     std::stringstream formatter;
-//    if(Gopt.uwuw_names){
+    if(Gopt.uwuw_names){
       bool mass_density = false;
       if (rho <= 0){
         mass_density = true;
@@ -127,9 +136,9 @@ protected:
           formatter << "/rho:" <<rho_formatted;
       else
           formatter << "/atom:" << rho_formatted;
-//    }
-//    else
-//      formatter << "mat_" << mat << "_rho_" << rho;
+    }
+    else
+      formatter << "mat_" << mat << "_rho_" << rho;
     formatter >> ret;
     return ret;
   }
@@ -216,8 +225,8 @@ protected:
   NamedGroup* getNamedGroup( const std::string& name ){
     if( named_groups.find( name ) == named_groups.end() ){
       named_groups[ name ] = new NamedGroup( name );
-//      if( OPT_DEBUG ) std::cout << "New named group: " << name 
- //                               << "num groups now " << named_groups.size() << std::endl;
+      if( OPT_DEBUG ) std::cout << "New named group: " << name 
+                                << "num groups now " << named_groups.size() << std::endl;
     }
     return named_groups[ name ];
   }
@@ -241,13 +250,13 @@ public:
   void addToVolumeGroup( iBase_EntityHandle cell, const std::string& groupname );
   void setVolumeCellID( iBase_EntityHandle cell, int ident);
   void setMaterial( iBase_EntityHandle cell, int material, double density ){
- //   if( Gopt.tag_materials ){
+    if( Gopt.tag_materials ){
         addToVolumeGroup( cell, materialName(material,density) );
-  //  }
+    }
   }
 
   void setImportances( iBase_EntityHandle cell, const std::map<char, double>& imps ){
-//    if( Gopt.tag_importances ){
+    if( Gopt.tag_importances ){
       for( std::map<char, double>::const_iterator i = imps.begin();
            i != imps.end(); ++i )
       {
@@ -255,7 +264,7 @@ public:
           double imp = (*i).second;
           addToVolumeGroup( cell, importanceName( impchar, imp ) );
       }
-//    }
+    }
   }
 
   void createGeometry( ){
@@ -319,9 +328,9 @@ public:
     std::cout << "World size: " << world_size << " (trs added " << translation_addition << ")" << std::endl;
 
     iBase_EntityHandle graveyard = NULL, graveyard_boundary = NULL;
-//    if( Gopt.make_graveyard ){
+    if( Gopt.make_graveyard ){
       graveyard = createGraveyard ( graveyard_boundary ); 
-//    }
+    }
 
     std::cout << "Defining geometry..." << std::endl;
 
@@ -334,32 +343,32 @@ public:
       cell_array[i] = defined_cells[i];
     }
 
-    // if( OPT_DEBUG ){ mapSanityCheck(cell_array, count); }
+     if( OPT_DEBUG ){ mapSanityCheck(cell_array, count); }
     tagGroups();
 
-    //  if( Gopt.tag_cell_IDs ){
+      if( Gopt.tag_cell_IDs ){
     tagCellIDsAsEntNames();
-    //  }
+      }
 
 
-    //  if ( Gopt.imprint_geom ) {
+      if ( Gopt.imprint_geom ) {
     std::cout << "Imprinting all...\t\t\t" << std::flush;
     iGeom_imprintEnts( cell_array, count, &igm_result );
     CHECK_IGEOM( igm_result, "Imprinting all cells" );
     std::cout << " done." << std::endl;
 
     double tolerance = world_size / 1.0e7;
-    //    if( Gopt.override_tolerance ){
-    //      tolerance = Gopt.specific_tolerance;
-    //    }
+        if( Gopt.override_tolerance ){
+          tolerance = Gopt.specific_tolerance;
+        }
 
-    //    if ( Gopt.merge_geom ) {
+        if ( Gopt.merge_geom ) {
     std::cout << "Merging, tolerance=" << tolerance << "...\t\t" << std::flush;
     iGeom_mergeEnts( cell_array, count,  tolerance, &igm_result );
     CHECK_IGEOM( igm_result, "Merging all cells" );
     std::cout << " done." << std::endl;
-    //    }
-    //  }
+        }
+      }
 
 
     /*
@@ -388,11 +397,67 @@ public:
 
 };
 
+bool MCNP2CAD::GeometryContext::mapSanityCheck( iBase_EntityHandle* cells, size_t count){ 
+  bool good = true;
+  int igm_result;
+
+  iBase_EntitySetHandle rootset;
+  iGeom_getRootSet( igm, &rootset, &igm_result );
+  CHECK_IGEOM( igm_result, "Getting root set for sanity check" );
+
+  int num_regions;
+  iGeom_getNumOfType( rootset, iBase_REGION, &num_regions, &igm_result );
+  CHECK_IGEOM( igm_result, "Getting num regions for sanity check" );
+
+  iBase_EntityHandle * handle_vector = new iBase_EntityHandle[ num_regions ];
+  int size = 0;
+
+  std::cout << "Map sanity check: num_regions = " << num_regions << std::endl;
+  iGeom_getEntities( rootset, iBase_REGION, &handle_vector, &num_regions, &size, &igm_result );
+  CHECK_IGEOM( igm_result, "Getting entities for sanity check" );
+
+  std::cout << "Map sanity check: root set size = " << size << " (" << num_regions << ")" << std::endl;
+  std::cout << "Cell count: " << count << std::endl;
+  
+  // sanity conditions: all the entityhandles in the naming lists are part of the cells list
+  std::set< iBase_EntityHandle > allRegions;
+  for( size_t i = 0; i < count; ++i ){
+    allRegions.insert( cells[i] );
+  }
+  
+  int named_group_volume_count = 0;
+  for( std::map<std::string, NamedGroup*>::iterator i = named_groups.begin(); i!=named_groups.end(); ++i){
+    NamedGroup* group = (*i).second;
+    named_group_volume_count += group->getEntities().size();
+
+    // graveyard cells are not present in allRegions
+    if( group->getName() == "graveyard" )
+      continue;
+
+    entity_collection_t group_cells = group->getEntities();
+    
+    for( entity_collection_t::iterator j = group_cells.begin(); j != group_cells.end(); ++j ){
+      bool check = allRegions.find( *j ) != allRegions.end();
+      if( ! check ){
+        std::cout << "Entity handle " << *j << " is not in allRegions!" << std::endl;
+      }
+      good = good && check;
+    }
+  }
+
+  std::cout << "Num EntityHandles in NamedGroups: " << named_group_volume_count << std::endl;
+
+  if( good ){ std::cout << "Map sanity check: pass!"  << std::endl; }
+  else{ std::cout << "WARNING: Failed map sanity check!" << std::endl; }
+
+  return good;
+}
+
 entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBase_EntityHandle container = NULL, 
                                                      const Transform* transform /*= NULL*/ )
 {
 
-//  if( OPT_VERBOSE ) std::cout << uprefix() << "Defining universe " << universe << std::endl;
+  if( OPT_VERBOSE ) std::cout << uprefix() << "Defining universe " << universe << std::endl;
   universe_depth++;
 
   InputDeck::cell_card_list u_cells = deck.getCellsOfUniverse( universe );
@@ -427,7 +492,7 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
     
     for( size_t i = 0; i < subcells.size(); ++i ){
       
-//      if( OPT_DEBUG ) std::cout << uprefix() << "Bounding a universe cell..." << std::flush;    
+      if( OPT_DEBUG ) std::cout << uprefix() << "Bounding a universe cell..." << std::flush;    
       bool subcell_removed = false;
 
       if( boundBoxesIntersect( subcells[i], container )){
@@ -440,7 +505,7 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
         if( valid_result ){
           updateMaps( subcells[i], subcell_bounded );
           subcells[i] = subcell_bounded;
-//          if( OPT_DEBUG ) std::cout << " ok." <<  std::endl;
+          if( OPT_DEBUG ) std::cout << " ok." <<  std::endl;
         }
         else{
           subcell_removed = true;
@@ -459,7 +524,7 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
         updateMaps( subcells[i], NULL );
         subcells.erase( subcells.begin()+i );
         i--;
-//        if( OPT_DEBUG ) std::cout << " removed." << std::endl;
+        if( OPT_DEBUG ) std::cout << " removed." << std::endl;
       }
       
     }
@@ -469,7 +534,7 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
   }
 
   universe_depth--;
-//  if( OPT_VERBOSE ) std::cout << uprefix() << "Done defining universe " << universe << std::endl;
+  if( OPT_VERBOSE ) std::cout << uprefix() << "Done defining universe " << universe << std::endl;
 
   return subcells;
  
@@ -497,7 +562,7 @@ iBase_EntityHandle MCNP2CAD::GeometryContext::createGraveyard( iBase_EntityHandl
   
   // reset world size to a sphere that bounds the inner shell of this graveyard
   world_size *= sqrt(3.0);
-//if( OPT_DEBUG ) std::cout << "Spherical world size for graveyard: " << world_size << std::endl;
+if( OPT_DEBUG ) std::cout << "Spherical world size for graveyard: " << world_size << std::endl;
   
   return graveyard;
 
@@ -509,8 +574,8 @@ void MCNP2CAD::GeometryContext::addToVolumeGroup( iBase_EntityHandle cell, const
   NamedGroup* group = getNamedGroup( name );
   group->add( cell );
 
-//  if( OPT_DEBUG ){ std::cout << uprefix() 
-//                             << "Added cell to volgroup " << group->getName() << std::endl; }
+  if( OPT_DEBUG ){ std::cout << uprefix() 
+                             << "Added cell to volgroup " << group->getName() << std::endl; }
 }
 
 entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  bool defineEmbedded = true, 
@@ -519,7 +584,7 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
   int ident = cell.getIdent();
   const CellCard::geom_list_t& geom = cell.getGeom();
  
-//  if( OPT_VERBOSE ) std::cout << uprefix() << "Defining cell " << ident << std::endl;
+  if( OPT_VERBOSE ) std::cout << uprefix() << "Defining cell " << ident << std::endl;
 
   int igm_result;
 
@@ -685,7 +750,7 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
                                                    iBase_EntityHandle lattice_shell = NULL )
 {
   
-//  if( OPT_DEBUG ) std::cout << uprefix() << "Populating cell " << cell.getIdent() << std::endl;
+  if( OPT_DEBUG ) std::cout << uprefix() << "Populating cell " << cell.getIdent() << std::endl;
 
 
   if( !cell.hasFill() && !cell.isLattice() ){
@@ -701,11 +766,10 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
     const FillNode& n = cell.getFill().getOriginNode();
     int filling_universe = n.getFillingUniverse();
     
-/*    if( OPT_DEBUG ){
+    if( OPT_DEBUG ){
       std::cout << uprefix() << "Creating cell " << cell.getIdent() 
                 << ", which is filled with universe " << filling_universe << std::endl;
     }
-    */
     
     // the contained universe is transformed by the FillNode's transform, if any, or
     // else by the cell's TRCL value, if any.
@@ -718,7 +782,7 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
       t = NULL; 
     }
 
-//    if( OPT_DEBUG && t ) std::cout << uprefix() << " ... and has transform: " << *t << std::endl;
+    if( OPT_DEBUG && t ) std::cout << uprefix() << " ... and has transform: " << *t << std::endl;
 
     entity_collection_t subcells = defineUniverse(  filling_universe, cell_shell, t );
  
@@ -731,18 +795,18 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
 
     assert(lattice_shell);
     
-//    if( OPT_VERBOSE ) std::cout << uprefix() << "Creating cell " << cell.getIdent() << "'s lattice" << std::endl;
+    if( OPT_VERBOSE ) std::cout << uprefix() << "Creating cell " << cell.getIdent() << "'s lattice" << std::endl;
 
     entity_collection_t subcells;
         
     const Lattice& lattice = cell.getLattice();
     int num_dims = lattice.numFiniteDirections();
     
-//    if( OPT_DEBUG ) std::cout << uprefix() << "  lattice num dims: " << num_dims << std::endl;
+    if( OPT_DEBUG ) std::cout << uprefix() << "  lattice num dims: " << num_dims << std::endl;
 
     if( lattice.isFixedSize() ){
 
-//      if( OPT_DEBUG ) std::cout << uprefix() << "Defining fixed lattice" << std::endl;
+      if( OPT_DEBUG ) std::cout << uprefix() << "Defining fixed lattice" << std::endl;
 
       irange xrange = lattice.getXRange(), yrange = lattice.getYRange(), zrange = lattice.getZRange();
 
@@ -750,7 +814,7 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
         for( int j = yrange.first; j <= yrange.second; ++j ){
           for( int k = zrange.first; k <= zrange.second; ++k ){
 
-//            if( OPT_DEBUG ) std::cout << uprefix() << "Defining lattice node " << i << ", " << j << ", " << k << std::endl;
+            if( OPT_DEBUG ) std::cout << uprefix() << "Defining lattice node " << i << ", " << j << ", " << k << std::endl;
 
             /* bool success = */ defineLatticeNode( cell, cell_shell, lattice_shell, i, j, k, subcells );
 
@@ -763,9 +827,9 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
     }
     else{
 
-//      if( OPT_DEBUG ) std::cout << uprefix() << "Defining infinite lattice" << std::endl;
-//      if( OPT_VERBOSE && Gopt.infinite_lattice_extra_effort ) 
-//        std::cout << uprefix() << "Infinite lattice extra effort enabled." << std::endl;
+      if( OPT_DEBUG ) std::cout << uprefix() << "Defining infinite lattice" << std::endl;
+      if( OPT_VERBOSE && Gopt.infinite_lattice_extra_effort ) 
+        std::cout << uprefix() << "Infinite lattice extra effort enabled." << std::endl;
 
       // when extra effort is enabled, initialize done_one to false;
       // the code will keep trying to create lattice elements until at least one 
@@ -783,7 +847,7 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
           int y = (*i).v[1];
           int z = (*i).v[2];
           
-//          if( OPT_DEBUG ) std::cout << uprefix() << "Defining lattice node " << x << ", " << y << ", " << z << std::endl;
+          if( OPT_DEBUG ) std::cout << uprefix() << "Defining lattice node " << x << ", " << y << ", " << z << std::endl;
 
           bool success = defineLatticeNode( cell, cell_shell, lattice_shell, x, y, z, subcells );
           if( success ){
@@ -866,14 +930,14 @@ void MCNP2CAD::GeometryContext::tagGroups( ){
   
   iGeom_getTagSizeBytes( igm, name_tag, &name_tag_maxlength, &igm_result );
   CHECK_IGEOM( igm_result, "Querying NAME tag length" );
-//  if( OPT_DEBUG ) std::cout << "Name tag length: " << name_tag_maxlength << " actual id " << name_tag << std::endl;
+  if( OPT_DEBUG ) std::cout << "Name tag length: " << name_tag_maxlength << " actual id " << name_tag << std::endl;
 
   for( std::map<std::string,NamedGroup*>::iterator i = named_groups.begin(); i != named_groups.end(); ++i ){
 
     NamedGroup* group = (*i).second;
-//    if(OPT_VERBOSE){ 
-//      std::cout << "Creating volume group " << group->getName() << " of size " << group->getEntities().size() << std::endl;
-//    }
+    if(OPT_VERBOSE){ 
+      std::cout << "Creating volume group " << group->getName() << " of size " << group->getEntities().size() << std::endl;
+    }
 
     iBase_EntitySetHandle set;
     iGeom_createEntSet(/* 0,*/ &set, &igm_result );
@@ -914,10 +978,10 @@ void MCNP2CAD::GeometryContext::tagCellIDsAsEntNames(){
   
   iGeom_getTagSizeBytes( igm, name_tag, &name_tag_maxlength, &igm_result );
   CHECK_IGEOM( igm_result, "Querying NAME tag length" );
-//  if( OPT_DEBUG ) std::cout << "Name tag length: " << name_tag_maxlength << " actual id " << name_tag << std::endl;
+  if( OPT_DEBUG ) std::cout << "Name tag length: " << name_tag_maxlength << " actual id " << name_tag << std::endl;
 
 
-//  if( OPT_VERBOSE ){ std::cout << "Naming " << named_cells.size() << " volumes." <<  std::endl; }
+  if( OPT_VERBOSE ){ std::cout << "Naming " << named_cells.size() << " volumes." <<  std::endl; }
 
   for( std::vector< NamedEntity* >::iterator i = named_cells.begin(); i!=named_cells.end(); ++i){
     std::string name = (*i)->getName();
@@ -957,7 +1021,7 @@ bool MCNP2CAD::GeometryContext::defineLatticeNode(  CellCard& cell, iBase_Entity
   if( !boundBoxesIntersect( cell_copy, lattice_shell ) ){
     iGeom_deleteEnt( cell_copy, &igm_result);
     CHECK_IGEOM( igm_result, "Deleting a lattice cell shell" );
-//    if( OPT_DEBUG ) std::cout << uprefix() << " node failed bbox check" << std::endl;
+    if( OPT_DEBUG ) std::cout << uprefix() << " node failed bbox check" << std::endl;
     return false;
   }
 
@@ -1001,7 +1065,7 @@ bool MCNP2CAD::GeometryContext::defineLatticeNode(  CellCard& cell, iBase_Entity
     iBase_EntityHandle result;
     if( intersectIfPossible( lattice_shell_copy, node_subcells[i], &result, true ) ){
       updateMaps( node_subcells[i], result );
-//      if( OPT_DEBUG ) std::cout << " node defined successfully" << std::endl;
+      if( OPT_DEBUG ) std::cout << " node defined successfully" << std::endl;
       accum.push_back( result );
       success = true;
     }
@@ -1009,23 +1073,30 @@ bool MCNP2CAD::GeometryContext::defineLatticeNode(  CellCard& cell, iBase_Entity
       // lattice_shell_copy and node_subcells[i] were deleted by intersectIfPossible(),
       // so there's no need to delete them explicitly
       updateMaps( node_subcells[i], NULL );
-//      if( OPT_DEBUG ) std::cout << " node failed intersection" << std::endl;
+      if( OPT_DEBUG ) std::cout << " node failed intersection" << std::endl;
     }
   }
 
   return success;
 }
 
-MCNP2CAD::MCNP2CAD()// :
-//  geom_tag(0), id_tag(0), name_tag(0), category_tag(0), faceting_tol_tag(0), geometry_resabs_tag(0)// Look into this
+MCNP2CAD::MCNP2CAD()
 {
   // set default values
-/*  norm_tol = 5;
-  faceting_tol = 1e-3;
-  len_tol = 0.0;
-  */
- // verbose_warnings = false;
-//  fatal_on_curves = false;
+  Gopt.verbose = false;
+  Gopt.debug = false;
+  din = false;
+  dout = false;
+  Gopt.infinite_lattice_extra_effort = false;
+  Gopt.tag_materials = true;
+  Gopt.merge_geom = true;
+  Gopt.tag_importances = true;
+  Gopt.tag_cell_IDs = true;
+  Gopt.make_graveyard = true;
+  Gopt.imprint_geom = true;
+  Gopt.uwuw_names = false;
+  Gopt.override_tolerance = false;
+  Gopt.input_file = "";
 
 }
 
@@ -1038,20 +1109,13 @@ std::vector<std::string> MCNP2CAD::get_syntax()
   // format. Full documentation on the command specification syntax can be
   // found in the documentation.
   std::string syntax =
-      "import MCNP2CAD "
+      "import MCNP "
       "<string:label='filename',help='<filename>'> "
-      "[verbose] [debug] [extra_effort] [skip-mats] "
-      "[skip-imps] [skip-nums] [skip_graveyard] "
+      "[verbose] [debug] [debug_output] [debug_input] "
+      "[extra_effort] [skip_mats] [skip_merge] "
+      "[skip_imps] [skip_nums] [skip_graveyard] "
+      "[skip_imprint] [uwuw_names] "
       "[tol <value:label='specific_tolerance',help='<specific tolerance>'>] ";
-      /*
-      //input file, igeom_init options?
-      "[uwuw_names]";
-      /*
-      "[faceting_tolerance <value:label='faceting_tolerance',help='<faceting tolerance>'>] "
-      "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
-      "[normal_tolerance <value:label='normal_tolerance',help='<normal tolerance>'>] "
-      "[verbose] [fatal_on_curves]";
-      */
 
   std::vector<std::string> syntax_list;
   syntax_list.push_back(syntax);
@@ -1071,60 +1135,54 @@ std::vector<std::string> MCNP2CAD::get_help()
   return help;
 }
 
+void debugSurfaceDistances( InputDeck& deck, std::ostream& out = std::cout ){
+
+  InputDeck::surface_card_list& surfaces = deck.getSurfaces();
+  for( InputDeck::surface_card_list::iterator i = surfaces.begin(); i!=surfaces.end(); ++i){
+    try{
+      const SurfaceVolume& s = makeSurface(*i);
+      out << "S" << (*i)->getIdent() << " distance from origin: " << s.getFarthestExtentFromOrigin() << std::endl;
+    }
+    catch(std::runtime_error& e){
+      std::cerr << "Error debugging surface distances: " << e.what() << std::endl;
+      throw;
+    }
+  }
+  
+}
+
+
 bool MCNP2CAD::execute(CubitCommandData &data)
 {
 
   std::string mcnp2cad_version(bool full = true);
 
-  struct program_option_struct Gopt;
-
-  Gopt.verbose = Gopt.debug = false;
-  Gopt.infinite_lattice_extra_effort = false;
-  Gopt.tag_materials = true;
-  Gopt.tag_importances = true;
-  Gopt.tag_cell_IDs = true;
-  Gopt.make_graveyard = true;
-//  Gopt.input_file = "";
-//  Gopt.igeom_init_options = "";
-  Gopt.override_tolerance = false;
-  Gopt.uwuw_names = false;
-
-  bool DiFlag = false, DoFlag = false;
-
-  ProgOptions po("mcnp2cad " + mcnp2cad_version(false) +  ": An MCNP geometry to CAD file converter");
-  po.setVersion( mcnp2cad_version() );
-
-  po.addOpt<void>("extra-effort,e","Use extra effort to get infinite lattices right (may be slow)", 
-                  &Gopt.infinite_lattice_extra_effort );
-  po.addOpt<void>("verbose,v", "Verbose output", &Gopt.verbose, po.store_true );
-  po.addOpt<void>("debug,D", "Debugging (very verbose) output", &Gopt.debug, po.store_true );
-  po.addOpt<void>("Di", "Debug output for MCNP parsing phase only", &DiFlag, po.store_true );
-  po.addOpt<void>("Do","Debug output for iGeom output phase only", &DoFlag, po.store_true );
-
-  po.addOptionHelpHeading( "Options controlling CAD output:" );
-  po.addOpt<double>("tol,t", "Specify a tolerance for merging surfaces", &Gopt.specific_tolerance );
-  po.addOpt<void>("skip-mats,M", "Do not tag materials using group names", 
-                  &Gopt.tag_materials, po.store_false );
-  po.addOpt<void>("skip-imps,P", "Do not tag cell importances using group names",
-                  &Gopt.tag_importances, po.store_false );
-  po.addOpt<void>("skip-nums,N", "Do not tag cell numbers using body names",
-                  &Gopt.tag_cell_IDs, po.store_false );
-  po.addOpt<void>("skip-graveyard,G", "Do not bound the geometry with a `graveyard' bounding box",
-                  &Gopt.make_graveyard, po.store_false );
-  po.addOpt<void>("uwuw-names,U", "Use a UWUW compatible name scheme for material groups,"
-                                   "i.e. 'mat:mX/rho:Y' where X is material number is Y is density",
-                  &Gopt.uwuw_names, po.store_true );
-
-  po.addRequiredArg( "input_file", "Path to MCNP geometry input file", &Gopt.input_file );
 
 
   std::string filename;
   data.get_string("filename",filename);
 
+  bool rval;
+
+  rval = parse_options(data);
+
+//  TODO: find a way to check whether the parsing worked as expected
+//  CHK_MB_ERR_RET("Error parsing options: ",rval);
+
+
   std::ifstream input( filename.c_str(), std::ios::in );
   InputDeck& deck = InputDeck::build(input);
   std::string output = "filename is " + filename + "\n";
   PRINT_INFO( output.c_str() );
+
+  // turn off debug if it was set by debug_input only
+  if( din ){ Gopt.debug = false; }
+  
+  if( dout && !OPT_DEBUG ){ Gopt.debug = true; }
+
+  if( OPT_DEBUG ){ 
+    debugSurfaceDistances( deck );
+  }
 
   iGeom_Instance igm;
   int igm_result;
@@ -1135,71 +1193,54 @@ bool MCNP2CAD::execute(CubitCommandData &data)
   GeometryContext context( igm, deck );
   context.createGeometry();
   
-  /*
-  mdbImpl = new moab::Core();
-  myGeomTool = new moab::GeomTopoTool(mdbImpl);
-  message.str("");
-
-  bool result = true;
-  moab::ErrorCode rval;
-
-  // Create entity sets for all geometric entities
-  refentity_handle_map entmap[5];
-
-  rval = create_tags();
-  CHK_MB_ERR_RET("Error initializing DAGMC export: ",rval);
-
-  rval = parse_options(data);
-  CHK_MB_ERR_RET("Error parsing options: ",rval);
-  
-  // Always tag with the faceting_tol and geometry absolute resolution
-  // If file_set is defined, use that, otherwise (file_set == NULL) tag the interface
-  moab::EntityHandle set = 0;
-  rval = mdbImpl->tag_set_data(faceting_tol_tag, &set, 1, &faceting_tol);
-  CHK_MB_ERR_RET("Error tagging geometry with faceting tolerance: ", rval)
-
-  rval = mdbImpl->tag_set_data(geometry_resabs_tag, &set, 1, &GEOMETRY_RESABS);
-  CHK_MB_ERR_RET("Error tagging geometry with absolute geometry resolution: ", rval)
-
-  rval = create_entity_sets(entmap);
-  CHK_MB_ERR_RET("Error creating entity sets: ",rval);
-
-  rval = create_topology(entmap);
-  CHK_MB_ERR_RET("Error creating topology: ",rval);
-  
-  rval = store_surface_senses(entmap[2], entmap[3]);
-  CHK_MB_ERR_RET("Error storing surface senses: ",rval);
-  
-  rval = store_curve_senses(entmap[1], entmap[2]);
-  CHK_MB_ERR_RET("Error storing curve senses: ",rval);
-    
-  rval = store_groups(entmap);
-  CHK_MB_ERR_RET("Error storing groups: ",rval);
-  
-  entmap[3].clear();
-  entmap[4].clear();
-  
-  rval = create_vertices(entmap[0]);
-  CHK_MB_ERR_RET("Error creating vertices: ",rval);
-  
-  rval = create_curve_facets(entmap[1], entmap[0]);
-  CHK_MB_ERR_RET("Error faceting curves: ",rval);
-
-  rval = create_surface_facets(entmap[2], entmap[0]);
-  CHK_MB_ERR_RET("Error faceting surfaces: ",rval);
-
-*/
-  /*
-  rval = mdbImpl->write_file(filename.c_str());
-  CHK_MB_ERR_RET("Error writing file: ",rval);
-
-  teardown();
-  
-  return result;
-  */
   return true;
 }
 
+bool MCNP2CAD::parse_options(CubitCommandData &data)
+{
+
+  // read parsed command for tolerance
+  data.get_value("specific_tolerance",Gopt.specific_tolerance);
+  message << "Setting specific tolerance to " << Gopt.specific_tolerance << std::endl;
+  //If tolerance was specified
+  if( data.find_keyword("tol") ){
+    Gopt.override_tolerance = true;
+    if( Gopt.specific_tolerance <= 0.0 || Gopt.specific_tolerance > .1 ){
+      std::cerr << "Warning: you seem to have specified an unusual tolerance (" 
+                << Gopt.specific_tolerance << ")." << std::endl;
+    }
+  }
+  
+  // read parsed boolean commands
+  Gopt.verbose = data.find_keyword("verbose");
+  Gopt.debug = data.find_keyword("debug");
+  Gopt.infinite_lattice_extra_effort = data.find_keyword("extra_effort");
+  Gopt.tag_materials = !data.find_keyword("skip_mats");
+  Gopt.tag_importances = !data.find_keyword("skip_imps");
+  Gopt.tag_cell_IDs = !data.find_keyword("skip_nums");
+  Gopt.make_graveyard = !data.find_keyword("skip_graveyard");
+  Gopt.merge_geom = !data.find_keyword("skip_merge");
+  Gopt.imprint_geom = !data.find_keyword("skip_imprint");
+  Gopt.uwuw_names = data.find_keyword("uwuw_names");
+  dout = data.find_keyword("debug_output");
+  din  = data.find_keyword("debug_input");
+
+  if( Gopt.merge_geom && !Gopt.imprint_geom ) {
+    std::cerr << "Warning: cannot merge geometry without imprinting, will skip merge too." << std::endl;
+  }
+  
+  std::cout << "Reading input file..." << std::endl;
+
+  // if debug_input and not debug, set debugging to be true for InputDeck::build() call only
+  
+  if( din && !OPT_DEBUG ){
+    Gopt.debug = true;
+  }
+  else{ din = false; }
+
+
+  return true;
+}
 
 std::string mcnp2cad_version( bool full ){
   std::stringstream str;
@@ -1211,5 +1252,4 @@ std::string mcnp2cad_version( bool full ){
       str << "\nCompiled on " << __DATE__ << " at " << __TIME__ ;
   return str.str();
 }
-//}
 

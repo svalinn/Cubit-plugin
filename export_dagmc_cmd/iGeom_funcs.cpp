@@ -406,7 +406,7 @@ iGeom_getNumOfType( /*in*/ iBase_EntitySetHandle set_handle,
 }
 
 void
-iGeom_getRootSet( //iGeom_Instance,
+iGeom_getRootSet( iGeom_Instance,
                   iBase_EntitySetHandle* root,
                   int* err )
 {

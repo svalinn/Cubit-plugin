@@ -239,10 +239,10 @@ void iGeom_getEntities( iBase_EntitySetHandle set_handle,
 
 void iGeom_getNumOfType( iBase_EntitySetHandle set_handle,
                          int gentity_type,
-                         int count,
+                         int* count,
                          int* err );
 
-void iGeom_getRootSet( //iGeom_Instance instance,
+void iGeom_getRootSet( iGeom_Instance instance,
                        iBase_EntitySetHandle* root,
                        int* err );
 

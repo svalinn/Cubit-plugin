@@ -12,7 +12,6 @@
 
 static Vector3d origin(0,0,0);
 
-
 iBase_EntityHandle makeWorldSphere( double world_size ){
   iBase_EntityHandle world_sphere;
   int igm_result;
@@ -44,11 +43,11 @@ static iBase_EntityHandle embedWithinWorld( bool positive, double world_size,
     
     if( positive ){
       iGeom_subtractEnts( world_sphere, body, &final_body, &igm_result);
-      //CHECK_IGEOM( igm_result, "making positive body" );
+      CHECK_IGEOM( igm_result, "making positive body" );
     }
     else{ // !positive && bound_with_world
       iGeom_intersectEnts( world_sphere, body, &final_body, &igm_result);
-//      CHECK_IGEOM( igm_result, "making negative body" );
+      CHECK_IGEOM( igm_result, "making negative body" );
     }
   }
   return final_body;
@@ -746,7 +745,7 @@ static Transform axesImage( const Vector3d& v1, const Vector3d& v2, const Vector
   Vector3d x(1, 0, 0), y(0, 1, 0), z(0, 0, 1);
   Vector3d a1 = v1.normalize(), a2 = v2.normalize(), a3 = v3.normalize();
     
-//  if( OPT_DEBUG ) std::cout << "Axes image: " << a1 << " : " << a2 << " : " << a3 << std::endl;
+  if( OPT_DEBUG ) std::cout << "Axes image: " << a1 << " : " << a2 << " : " << a3 << std::endl;
 
   double rot_matrix[9] = 
     { a1.dot(x), a2.dot(x), a3.dot(x),
@@ -767,7 +766,7 @@ static Transform imageZAxisTo( const Vector3d& v, const Vector3d& translation = 
   if( b.length() < DBL_EPSILON ){
     // v is indistinguishable from the x axis
     b = Vector3d(0, -1, 0);
-//    if( OPT_DEBUG ) std::cout << "imageZAxisTo: Changing v " << std::endl;
+    if( OPT_DEBUG ) std::cout << "imageZAxisTo: Changing v " << std::endl;
   }
 
   Vector3d c = b.cross( v.normalize() );
@@ -998,9 +997,9 @@ public:
   HexVolume( const Vector3d& center_p, const Vector3d& h_p, const Vector3d& r_p ) :
     base_center(center_p), heightV(h_p), RV(r_p), SV( r_p.rotate_about(h_p,60.0) ), TV( r_p.rotate_about(h_p,120.0) )
   {
-/*    if( OPT_DEBUG ){ 
+    if( OPT_DEBUG ){ 
       std::cout << "Inferred vectors for 9-args HEX/RHP:" << RV << SV << TV << std::endl;
-    }*/
+    }
   }
 
   virtual double getFarthestExtentFromOrigin ( ) const { 
