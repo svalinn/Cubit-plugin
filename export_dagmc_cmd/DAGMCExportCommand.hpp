@@ -11,6 +11,9 @@
 #include "moab/Interface.hpp"
 #include "moab/GeomTopoTool.hpp"
 
+// make_watertight includes
+#include "make_watertight/MakeWatertight.hpp"
+
 typedef std::map<RefEntity*, moab::EntityHandle> refentity_handle_map;
 typedef std::map<RefEntity*, moab::EntityHandle>::iterator refentity_handle_map_itor;
 
@@ -28,7 +31,8 @@ public:
   std::vector<std::string> get_syntax_help();
   std::vector<std::string> get_help();
   bool execute(CubitCommandData &data);
-
+  MakeWatertight* mw;
+  
 protected:
 
   moab::ErrorCode create_tags();
@@ -48,7 +52,7 @@ protected:
   moab::ErrorCode create_surface_facets(refentity_handle_map& surface_map,
                                         refentity_handle_map& vertex_map);
   moab::ErrorCode gather_ents(moab::EntityHandle gather_set);  
-  void teardown();
+  moab::ErrorCode teardown();
 
 private:
 
@@ -65,7 +69,8 @@ private:
   double len_tol;
   bool verbose_warnings;
   bool fatal_on_curves;
-
+  bool make_watertight;
+  
   int failed_curve_count;
   std::vector<int> failed_curves;
 
