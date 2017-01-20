@@ -89,9 +89,7 @@ iGeom_addEntToSet( /*in*/ iBase_EntityHandle entity_to_add,
                    int* err )
 {
   if (NULL == entity_to_add) {
-    //TODO Make error message
     RETURN(iBase_INVALID_ARGUMENT);
-    //return;
   }
   
   CubitStatus status = reinterpret_cast<RefGroup*>(entity_set_handle)->
@@ -299,7 +297,7 @@ iGeom_deleteEnt( /*in*/ iBase_EntityHandle geom_entity,
   RETURN(iBase_SUCCESS);
 }
 
-//XXX This uses CGM, so would need a new way to check errors.  But we aren't using the iBase errors at the moment, so not high priority.
+// This uses CGM, so might need a new way to check errors.
 void
 iGeom_getDescription( char* description_buffer,
                       int description_buffer_length )
@@ -791,7 +789,6 @@ iGeom_reflectEnt( /*inout*/ iBase_EntityHandle geom_entity,
     return;
   }
   
-  //TODO Output error message here.
   ERROR(iBase_INVALID_ENTITY_TYPE, "Wrong type of entity specified for reflect.");
 }
 
@@ -930,14 +927,12 @@ iGeom_sectionEnt( /*inout*/ iBase_EntityHandle geom_entity,
   */
   if (NULL == this_body) {
     ERROR(iBase_INVALID_ARGUMENT, "Can only section bodies.");
-      //TODO add error message
       return;
   }
 
   CubitVector normal(plane_normal_x, plane_normal_y, plane_normal_z);
   if (normal.length_squared() == 0.0) {
     ERROR(iBase_INVALID_ARGUMENT, "Zero-length vector input.");
-    //TODO add error message
     return;
   }
   

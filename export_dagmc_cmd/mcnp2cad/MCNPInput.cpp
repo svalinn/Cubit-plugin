@@ -1,10 +1,13 @@
 #include "MCNPInput.hpp"
 #include "geometry.hpp"
 #include "options.hpp"
+//#include "CubitMessage.hpp"
+#include "mcnp2cad.hpp"
 
 #include <stdexcept>
 #include <cassert>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <cstdlib>
 
@@ -53,6 +56,7 @@ static int makeint( const std::string& token ){
   char* end;
   int ret = strtol(str, &end, 10);
   if( end != str+token.length() ){
+    record << "Warning: string [" << token << "] did not convert to int as expected." << std::endl;
     std::cerr << "Warning: string [" << token << "] did not convert to int as expected." << std::endl;
   }
   return ret;
@@ -65,6 +69,7 @@ static std::vector<std::string> parseID( const token_list_t tokens ){
   identifier[0] = tokens.at(0);
   if(identifier[0].find_first_of("*+") != identifier[0].npos){
     std::cerr << "Warning: no special handling for reflecting or white-boundary surfaces" << std::endl;
+    record << "Warning: no special handling for reflecting or white-boundary surfaces" << std::endl;
     identifier[0][0] = ' ';
   } 
   
@@ -76,6 +81,7 @@ static std::vector<std::string> parseID( const token_list_t tokens ){
     identifier[1] = tokens.at(1);
     identifier[2] = tokens.at(2);
     if( makeint( identifier.at(1) ) == 0 ){
+      record << "I don't think 0 is a valid surface transformation ID, so I'm ignoring it." << std::endl;
       std::cerr << "I don't think 0 is a valid surface transformation ID, so I'm ignoring it." << std::endl;
     }
   }
@@ -91,13 +97,18 @@ static double makedouble( const std::string& token ){
   size_t s_idx = tmp.find_last_of("+-");
   if( s_idx != tmp.npos && s_idx > tmp.find_first_of("1234567890") && tmp.at(s_idx-1) != 'e' ){
     tmp.insert( tmp.find_last_of("+-"), "e" );
-    if( OPT_DEBUG ) std::cout << "Formatting FORTRAN value: converted " << token << " to " << tmp << std::endl;
+//    if( OPT_DEBUG ){
+//      std::string output =  "Formatting FORTRAN value: converted " + token + " to " + tmp + "\n";
+//      PRINT_INFO( output.c_str() );
+//    }
+    if( OPT_DEBUG ) record << "Formatting FORTRAN value: converted " << token << " to " << tmp << std::endl;
   }
 
   const char* str = tmp.c_str();
   char* end;
   double ret = strtod(str, &end);
   if( end != str+tmp.length() ){
+    record << "Warning: string [" << tmp << "] did not convert to double as expected." << std::endl;
     std::cerr << "Warning: string [" << tmp << "] did not convert to double as expected." << std::endl;
   }
   return ret;
@@ -117,6 +128,7 @@ static std::vector<double> makeTransformArgs( const token_list_t tokens ){
       args.push_back( makedouble( token ) );
     }
     else if( token.length() > 0) {
+      record << "Warning: makeTransformArgs ignoring unrecognized input token [" << token << "]" << std::endl;
       std::cerr << "Warning: makeTransformArgs ignoring unrecognized input token [" << token << "]" << std::endl;
     }
   }
@@ -356,7 +368,7 @@ protected:
       } 
     }
     
-    if( OPT_DEBUG ) std::cout << tokens << " -> " << geom << std::endl;
+    if( OPT_DEBUG ) record << tokens << " -> " << geom << std::endl;
     
   }
 
@@ -415,7 +427,7 @@ protected:
 
   void setupLattice(){
 
-    if( OPT_DEBUG ) std::cout << "Setting up lattice for cell " << ident << std::endl;
+    if( OPT_DEBUG ) record << "Setting up lattice for cell " << ident << std::endl;
 
     std::vector< std::pair<SurfaceCard*,bool> > surfaceCards;
     
@@ -436,6 +448,7 @@ protected:
     if( surfaceCards.size() == 1 ){ 
       planes = surfaceCards.at(0).first->getMacrobodyPlaneParams();
       if( surfaceCards.at(0).second != false ){
+        record << "Warning: macrobody lattice with positive sense, will proceed as if it was negative.";
         std::cerr << "Warning: macrobody lattice with positive sense, will proceed as if it was negative.";
       }
     }
@@ -448,7 +461,7 @@ protected:
 
     if( OPT_DEBUG ){
       for( unsigned int i = 0; i < planes.size(); ++i){
-        std::cout << " plane " << i << " normal = " << planes[i].first << " d = " << planes[i].second  << std::endl;
+        record << " plane " << i << " normal = " << planes[i].first << " d = " << planes[i].second  << std::endl;
       }
     }
     
@@ -530,7 +543,7 @@ protected:
       }
     }
 
-    if( OPT_DEBUG )std::cout << " dims " << num_finite_dims << " vectors " << v1 << v2 << v3 << std::endl;
+    if( OPT_DEBUG )record << " dims " << num_finite_dims << " vectors " << v1 << v2 << v3 << std::endl;
     
     Lattice l;
     if( fill->hasData() ){
@@ -567,7 +580,7 @@ protected:
         int lat_designator = makeint(*(++i));
         assert( lat_designator >= 0 && lat_designator <= 2 );
         lat_type = static_cast<lattice_type_t>(lat_designator);
-        if( OPT_DEBUG ) std::cout << "cell " << ident << " is lattice type " << lat_type << std::endl;
+        if( OPT_DEBUG ) record << "cell " << ident << " is lattice type " << lat_type << std::endl;
       }
       else if ( token == "mat" ){
         material = makeint(*(++i));
@@ -606,7 +619,7 @@ protected:
             }
             while( spec.find(":") == spec.npos || spec.at(spec.length()-1) == ':' );
             
-            if(OPT_DEBUG) std::cout << "gridspec[" << dim << "]: " << spec << std::endl;
+            if(OPT_DEBUG) record << "gridspec[" << dim << "]: " << spec << std::endl;
             gridspec[dim] = spec;
 
           }
@@ -845,6 +858,7 @@ SurfaceCard::SurfaceCard( InputDeck& deck, const token_list_t tokens ):
       }
       else if ( tx_id < 0 ){
         // abs(tx_id) is the ID of surface with respect to which this surface is periodic.
+        record << "Warning: surface " << ident << " periodic, but this program has no special handling for periodic surfaces";
         std::cerr << "Warning: surface " << ident << " periodic, but this program has no special handling for periodic surfaces";
       }
       else{ // tx_id is positive and nonzero
@@ -873,6 +887,7 @@ SurfaceCard::SurfaceCard( InputDeck& deck, const SurfaceCard s, int facetNum ):
   else if ( tx_id < 0 ){
     // abs(tx_id) is the ID of surface with respect to which this surface is periodic.
     std::cerr << "Warning: surface " << ident << " periodic, but this program has no special handling for periodic surfaces";
+    record << "Warning: surface " << ident << " periodic, but this program has no special handling for periodic surfaces";
   }
   else{ // tx_id is positive and nonzero
     coord_xform = new CardRef<Transform>( deck, DataCard::TR, tx_id );
@@ -1134,8 +1149,8 @@ void appendToTokenList( const std::string& token, token_list_t& tokens ){
       return;
     }
 
-    if( OPT_DEBUG ) { std::cout << "Repeat syntax: " << token << " repeats " 
-                                << tokens.back() << " " << num << " times." << std::endl; }
+    if( OPT_DEBUG ) { record << "Repeat syntax: " << token << " repeats " 
+                             << tokens.back() << " " << num << " times." << std::endl; }
 
     for( int i = 0; i < num; ++i){
       const std::string& last_tok = tokens.back();
@@ -1245,10 +1260,10 @@ void InputDeck::parseCells( LineExtractor& lines ){
       continue;
     }
 
-    if( OPT_DEBUG ) std::cout << "Creating cell with the following tokens:\n" << token_buffer << std::endl;
+    if( OPT_DEBUG ) record << "Creating cell with the following tokens:\n" << token_buffer << std::endl;
     CellCard* c = new CellCardImpl(*this, token_buffer);
 
-    if( OPT_VERBOSE ) c->print(std::cout);
+    if( OPT_VERBOSE ) c->print(record);
 
     this->cells.push_back(c);
     this->cell_map.insert( std::make_pair(c->getIdent(), c) );
@@ -1269,7 +1284,7 @@ void InputDeck::parseTitle( LineExtractor& lines ){
   int lineno;
   std::string topLine = lines.takeLine(lineno);
   if(topLine.find("message:") == 0){
-    if( OPT_VERBOSE ) std::cout << "Skipping MCNP file message block..." << std::endl;
+    if( OPT_VERBOSE ) record << "Skipping MCNP file message block..." << std::endl;
     do{
       // nothing
     }
@@ -1281,9 +1296,11 @@ void InputDeck::parseTitle( LineExtractor& lines ){
   if(topLine.find("continue") == 0){
     std::cerr << "Warning: this looks like it might be a `continue-run' input file." << std::endl;
     std::cerr << "  beware of trouble ahead!" << std::endl;
+    record << "Warning: this looks like it might be a `continue-run' input file." << std::endl;
+    record << "  beware of trouble ahead!" << std::endl;
   }
 
-  std::cout << "The MCNP title card is: " << topLine << std::endl;
+  record << "The MCNP title card is: " << topLine << std::endl;
   //std::cout << "    and occupies line " << lineno << std::endl;
 }
 
@@ -1301,7 +1318,7 @@ void InputDeck::parseSurfaces( LineExtractor& lines ){
     }
     //Create a surface card for each surface
     SurfaceCard* s = new SurfaceCard(*this, token_buffer);
-    if( OPT_VERBOSE) s->print(std::cout);
+    if( OPT_VERBOSE) s->print(record);
 
     this->surfaces.push_back(s);
     this->surface_map.insert( std::make_pair(s->getIdent(), s) );
@@ -1324,6 +1341,8 @@ void InputDeck::parseDataCards( LineExtractor& lines ){
     else if( token_buffer.at(0) == "#" ){
       std::cerr << "Vertical data card format not supported" << std::endl;
       std::cerr << "Data written in this format will be ignored." << std::endl;
+      record << "Vertical data card format not supported" << std::endl;
+      record << "Data written in this format will be ignored." << std::endl;
     }
 
     DataCard* d = NULL;
@@ -1363,7 +1382,7 @@ void InputDeck::parseDataCards( LineExtractor& lines ){
     }
     
     if(d){
-      if( OPT_VERBOSE ){ d->print( std::cout ); }
+      if( OPT_VERBOSE ){ d->print( record ); }
       this->datacards.push_back(d);
       this->datacard_map.insert( std::make_pair( std::make_pair(t,ident), d) );
     }
@@ -1393,7 +1412,7 @@ void InputDeck::copyMacrobodies(){
           SurfaceCard* surface = this->lookup_surface_card( surfaceNum );
           SurfaceCard* s = new SurfaceCard( *this, *surface, ident );
 
-          if( OPT_VERBOSE ) s->print(std::cout);
+          if( OPT_VERBOSE ) s->print(record);
 
           this->surfaces.push_back(s);
           this->surface_map.insert( std::make_pair(s->getIdent(), s) );
@@ -1422,7 +1441,7 @@ InputDeck& InputDeck::build( std::istream& input){
   }
 
   while(lines.hasLine()){ lines.takeLine(); }
-  if( OPT_VERBOSE ) { std::cout << "Total lines read: " << lines.getLineCount()  <<  std::endl; }
+  if( OPT_VERBOSE ) { record << "Total lines read: " << lines.getLineCount()  <<  std::endl; }
 
   return *deck;
 }

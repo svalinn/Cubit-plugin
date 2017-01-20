@@ -102,8 +102,9 @@ public:
 
 };
 
-std::ostream& operator<<(std::ostream& str, const Vector3d& v );
+std::ostream& operator<<( std::ostream& str, const Vector3d& v );
 
+//std::string to_string( const Vector3d& v );
 
 // determinant of 3x3 matrix (C-style matrix ordering)
 double matrix_det( double mat[9] );

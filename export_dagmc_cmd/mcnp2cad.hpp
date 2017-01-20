@@ -9,6 +9,10 @@
 // CGM includes
 #include "moab/Interface.hpp"
 #include "RefEntity.hpp"
+#include <iostream>
+#include <fstream>
+
+extern std::ofstream record;
 
 class MCNP2CAD: public CubitCommand
 {
