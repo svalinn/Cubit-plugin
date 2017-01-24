@@ -431,7 +431,6 @@ protected:
       break;
     default:
       record << "GQ type is currently unsupported" << std::endl;
-//      std::cout << "GQ type is currently unsupported" << std::endl;
 //      PRINT_INFO( "GQ type is currently unsupported\n" );
     }
 
@@ -514,13 +513,15 @@ protected:
 
   static enum nappe make_nappe( double param ){
     
-    enum nappe n = static_cast<enum nappe>(param);
+    int wrapper = static_cast<int>(param);
+    enum nappe n = static_cast<enum nappe>(wrapper);
+//    enum nappe n = static_cast<enum nappe>(param);
     if( -1 <= n && n <= 1 ){
       return n;
     }
     else{
-//      std::cerr << "WARNING: Bad cylinder +/-1 argument: " << param << std::endl;
-//      std::cerr << "         will pretend it was really 0" << std::endl;
+      std::cerr << "WARNING: Bad cylinder +/-1 argument: " << param << std::endl;
+      std::cerr << "         will pretend it was really 0" << std::endl;
       record << "WARNING: Bad cylinder +/-1 argument: " << param << std::endl;
       record << "         will pretend it was really 0" << std::endl;
       return BOTH;
@@ -751,7 +752,6 @@ static Transform axesImage( const Vector3d& v1, const Vector3d& v2, const Vector
   Vector3d a1 = v1.normalize(), a2 = v2.normalize(), a3 = v3.normalize();
     
   if( OPT_DEBUG ) record << "Axes image: " << a1 << " : " << a2 << " : " << a3 << std::endl;
-//  if( OPT_DEBUG ) std::cout << "Axes image: " << a1 << " : " << a2 << " : " << a3 << std::endl;
 //  if( OPT_DEBUG ){
 //    std::string output = "Axes image: " + to_string(a1) + " : " 
 //                         + to_string(a2) + " : " + to_string(a3) + "\n";
@@ -778,7 +778,6 @@ static Transform imageZAxisTo( const Vector3d& v, const Vector3d& translation = 
     // v is indistinguishable from the x axis
     b = Vector3d(0, -1, 0);
 //    if( OPT_DEBUG ) PRINT_INFO( "imageZAxisTo: Changing v \n" );
-//    if( OPT_DEBUG ) std::cout << "imageZAxisTo: Changing v " << std::endl;
     if( OPT_DEBUG ) record << "imageZAxisTo: Changing v " << std::endl;
   }
 
@@ -1013,7 +1012,6 @@ public:
     if( OPT_DEBUG ){ 
 //      std::string output = "Inferred vectors for 9-args HEX/RHP:" + to_string(RV) + to_string(SV) + to_string(TV) + "\n";
 //      PRINT_INFO( output.c_str() );
-//      std::cout << "Inferred vectors for 9-args HEX/RHP:" << RV << SV << TV << std::endl;
       record << "Inferred vectors for 9-args HEX/RHP:" << RV << SV << TV << std::endl;
     }
   }

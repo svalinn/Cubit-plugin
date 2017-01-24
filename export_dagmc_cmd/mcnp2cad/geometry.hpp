@@ -12,7 +12,7 @@
 #define _USE_MATH_DEFINES
 #endif 
 
-#include <cmath>
+#include <math.h>
 
 class Vector3d{
 
