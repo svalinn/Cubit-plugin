@@ -1,7 +1,7 @@
 #include "geometry.hpp"
 #include <cfloat>
 #include <iostream>
-#include <cassert>
+//#include <cassert>
 
 #include "mcnp2cad.hpp"
 #include "options.hpp"
@@ -247,7 +247,14 @@ size_t Fill::indicesToSerialIndex( int x, int y, int z ) const {
   
   int index = grid_z * (dy*dx) + grid_y * dx + grid_x;
 
-  assert( index >= 0 && (unsigned)(index) <= nodes.size() );
+  if( index < 0 || (unsigned)(index) > nodes.size() ){
+    if( OPT_DEBUG ){
+      record << "Error in Fill::indicesToSerialIndex( int x, int y, int z ) in geometry.cpp" << std::endl;
+      record << "index < 0 || (unsigned)(index) > nodes.size()" << std::endl;
+    }
+    throw std::runtime_error("Error creating grid.");
+  }
+  //assert( index >= 0 && (unsigned)(index) <= nodes.size() );
   return static_cast<size_t>( index );
 }
 
@@ -259,7 +266,14 @@ const FillNode& Fill::getOriginNode() const {
 }
 
 const FillNode& Fill::getNode( int x, int y, int z ) const {
-  assert( has_grid );
+  if( !has_grid ){
+    if( OPT_DEBUG ){
+      record << "Error in Fill::getNode( int x, int y, int z ) in geometry.cpp" << std::endl;
+      record << "!has_grid" << std::endl;
+    }
+    throw std::runtime_error("Grid expected and not found.");
+  }
+  //assert( has_grid );
   return nodes.at( indicesToSerialIndex(x, y, z) );
 }
 

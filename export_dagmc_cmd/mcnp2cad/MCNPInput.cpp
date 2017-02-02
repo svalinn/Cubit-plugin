@@ -1,11 +1,10 @@
 #include "MCNPInput.hpp"
 #include "geometry.hpp"
 #include "options.hpp"
-//#include "CubitMessage.hpp"
 #include "mcnp2cad.hpp"
 
 #include <stdexcept>
-#include <cassert>
+//#include <cassert>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -333,9 +332,23 @@ protected:
           // the number refers to a cell if the previous token is a complement
           bool is_cell = geom.size() && ((geom.at(geom.size()-1)).first == COMPLEMENT);
           IMPLICIT_INTERSECT();
-          assert(isdigit(cj) || cj == '+' || cj == '-' );
+          if( !(isdigit(cj) || cj == '+' || cj == '-' ) ){
+            if( OPT_DEBUG ){
+              record << "Error in CellCard::retokenize_geometry( const token_list_t& tokens ) in MCNPInput.cpp" << std::endl;
+              record << "isdigit(cj) || cj == '+' || cj == '-'" << std::endl;
+            }
+            throw std::runtime_error("Illegal character found while evaluating cell geometry.");
+          }
+          //assert(isdigit(cj) || cj == '+' || cj == '-' );
           size_t end = token.find_first_not_of("1234567890-+.",j);
-          assert(j != end);
+          if( j == end ){
+            if( OPT_DEBUG ){
+              record << "Error in CellCard::retokenize_geometry( const token_list_t& tokens ) in MCNPInput.cpp" << std::endl;
+              record << "j == end" << std::endl;
+            }
+            throw std::runtime_error("Error tokenizing geometry.");
+          }
+          //assert(j != end);
 
           std::string numstr( token, j, end-j );
           const char* numstr_c = numstr.c_str();
@@ -344,10 +357,24 @@ protected:
 
           if( *p == '.' ){
             // This is a macrobody facet
-            assert( !is_cell );
+            if( is_cell ){
+              if( OPT_DEBUG ){
+                record << "Error in CellCard::retokenize_geometry( const token_list_t& tokens ) in MCNPInput.cpp" << std::endl;
+                record << "is_cell" << std::endl;
+              }
+              throw std::runtime_error("Macrobody facet used where cell needed.");
+            }
+            //assert( !is_cell );
 
             int facet = strtol( p+1, NULL, 10 );
-            assert( facet > 0 && facet <= 8 );
+            if( facet < 1 || facet > 8 ){
+              if( OPT_DEBUG ){
+                record << "Error in CellCard::retokenize_geometry( const token_list_t& tokens ) in MCNPInput.cpp" << std::endl;
+                record << "facet = 0 || facet > 8" << std::endl;
+              }
+              throw std::runtime_error("facet number " + std::to_string(facet) + " is not viable.");
+            }
+            //assert( facet > 0 && facet <= 8 );
 
             // storage of macrobody facets: multiply cell number by ten, add facet number
             num *= 10;
@@ -435,7 +462,14 @@ protected:
       geom_list_entry_t entry = *i;
       if( entry.first == SURFNUM ){
         SurfaceCard* surf = parent_deck.lookup_surface_card( std::abs(entry.second) );
-        assert(surf);
+        if( !surf ){
+          if( OPT_DEBUG ){
+            record << "Error in CellCard::setupLattice() in MCNPInput.cpp" << std::endl;
+            record << "!surf" << std::endl;
+          }
+          throw std::runtime_error("Problem looking up a surface for a lattice");
+        }
+        //assert(surf);
         surfaceCards.push_back( std::make_pair(surf, (entry.second>0) ) );
       }
     }
@@ -466,7 +500,14 @@ protected:
     }
     
     if( lat_type == HEXAHEDRAL ){
-      assert( planes.size() == 2 || planes.size() == 4 || planes.size() == 6 );
+      if( planes.size() != 2 && planes.size() != 4 && planes.size() != 6 ){
+        if( OPT_DEBUG ){
+          record << "Error in CellCard::setupLattice() in MCNPInput.cpp" << std::endl;
+          record << "planes.size() != 2 && planes.size() != 4 && planes.size() != 6" << std::endl;
+        }
+        throw std::runtime_error("Error while setting up hexahedral lattice.");
+      }
+      //assert( planes.size() == 2 || planes.size() == 4 || planes.size() == 6 );
       if( planes.size() == 2 ){
 
         num_finite_dims = 1;
@@ -513,7 +554,14 @@ protected:
       
     }
     else if( lat_type == HEXAGONAL ){
-      assert( planes.size() == 6 || planes.size() == 8 );
+      if( planes.size() != 6 && planes.size() != 8 ){
+        if( OPT_DEBUG ){
+          record << "Error in CellCard::setupLattice() in MCNPInput.cpp" << std::endl;
+          record << "planes.size() != 6 && planes.size() != 8" << std::endl;
+        }
+        throw std::runtime_error("Error while setting up hexagonal lattice.");
+      }
+      //assert( planes.size() == 6 || planes.size() == 8 );
 
       v3 = planes[0].first.cross( planes[2].first ).normalize(); // prism's primary axis
 
@@ -578,7 +626,14 @@ protected:
       } // token == "u"
       else if ( token == "lat" ){
         int lat_designator = makeint(*(++i));
-        assert( lat_designator >= 0 && lat_designator <= 2 );
+        if( lat_designator < 0 || lat_designator > 2 ){
+          if( OPT_DEBUG ){
+            record << "Error in CellCard::makeData() in MCNPInput.cpp" << std::endl;
+            record << "lat_designator < 0 || lat_designator > 2" << std::endl;
+          }
+          throw std::runtime_error("Error while setting up data for a lattice.");
+        }
+        //assert( lat_designator >= 0 && lat_designator <= 2 );
         lat_type = static_cast<lattice_type_t>(lat_designator);
         if( OPT_DEBUG ) record << "cell " << ident << " is lattice type " << lat_type << std::endl;
       }
@@ -754,7 +809,7 @@ public:
     if( fill && fill->hasData() ){
       return fill->getData();
     }
-    throw std::runtime_error( "Called getFill() on an unfilled cell");
+    throw std::runtime_error( "Called getFill() on an unfilled cell" );
   }
 
   virtual bool isLattice() const {
@@ -971,15 +1026,15 @@ std::vector< std::pair<Vector3d, double> > SurfaceCard::getMacrobodyPlaneParams(
 
     len = TV.projection( vertex+TV ).length();
     ret.push_back( std::make_pair( TV.normalize(), len ) );
-    ret.push_back( std::make_pair(-TV.normalize(), len - 2.0 * TV.length() ));
+    ret.push_back( std::make_pair(-TV.normalize(), len - 2.0 * TV.length()) );
 
     len = height.projection( vertex+height ).length();
     ret.push_back( std::make_pair( height.normalize(), len ) );
-    ret.push_back( std::make_pair(-height.normalize(), len - height.length() ));
+    ret.push_back( std::make_pair(-height.normalize(), len - height.length()) );
 
   }
   else{ 
-    throw std::runtime_error("Tried to get macrobody plane normals of unsupported surface!" );
+    throw std::runtime_error( "Tried to get macrobody plane normals of unsupported surface!" );
   }
   return ret;
 }
@@ -1461,16 +1516,35 @@ InputDeck::cell_card_list InputDeck::getCellsOfUniverse( int universe ){
 
 
 CellCard* InputDeck::lookup_cell_card(int ident){
-  assert( cell_map.find(ident) != cell_map.end() );
+  if( cell_map.find(ident) == cell_map.end() ){
+    record << "Error in InputDeck::lookup_cell_card(int ident) in MCNPInput.cpp" << std::endl;
+    record << "cell_map.find(ident) == cell_map.end()" << std::endl;
+//    std::string error = "No cell " + std::to_string(ident) + " found in cell deck.\n";
+    throw std::runtime_error("No cell " + std::to_string(ident) + " found in cell deck.");
+  }
+  //assert( cell_map.find(ident) != cell_map.end() );
   return (*cell_map.find(ident)).second;
 }
 
 SurfaceCard* InputDeck::lookup_surface_card(int ident){
-  assert( surface_map.find(ident) != surface_map.end() );
+  if( surface_map.find(ident) == surface_map.end() ){
+    record << "Error in InputDeck::lookup_surface_card(int ident) in MCNPInput.cpp" << std::endl;
+    record << "surface_map.find(ident) == surface_map.end()" << std::endl;
+//    std::string error = "No surface " + std::to_string(ident) + " found in surface deck.\n";
+    throw std::runtime_error("No surface " + std::to_string(ident) + " found in surface deck.");
+  }
+  //assert( surface_map.find(ident) != surface_map.end() );
   return (*surface_map.find(ident)).second;
 }
 
 DataCard* InputDeck::lookup_data_card( const DataCard::id_t& ident ){
-  assert( datacard_map.find(ident) != datacard_map.end() );
+  if( datacard_map.find(ident) == datacard_map.end() ){
+    if( OPT_DEBUG ){
+      record << "Error in InputDeck::lookup_data_card(const DataCard::id_t& ident) in MCNPInput.cpp" << std::endl;
+      record << "datacard_map.find(ident) == datacard_map.end()" << std::endl;
+    }
+    throw std::runtime_error("Improper datacard found in datacard deck.");
+  }
+  //assert( datacard_map.find(ident) != datacard_map.end() );
   return (*datacard_map.find(ident)).second;
 }

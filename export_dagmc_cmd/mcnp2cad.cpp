@@ -11,7 +11,7 @@
 #include <sstream>
 #include <algorithm>
 
-#include <cassert>
+//#include <cassert>
 
 //MCNP2CAD includes
 #include "mcnp2cad/options.hpp"
@@ -58,9 +58,8 @@
 //Stores all of the options selected
 struct program_option_struct Gopt;
 
-//Writes the output to mcnp_input.log.
-//std::ofstream record;
-std::ofstream record("mcnp_input.log");
+//Writes the output to mcnp_import.log.
+std::ofstream record;
 
 typedef std::vector<iBase_EntityHandle> entity_collection_t;
 
@@ -288,21 +287,21 @@ public:
 
     // estimate how large the geometry will need to be to accomodate all the surfaces
     for( InputDeck::surface_card_list::iterator i = surfaces.begin(); i!=surfaces.end(); ++i){
+      if( surfaces.at(k)->getIdent() < 0 ){
+        ident = surfaces.at(k)->getIdent()/10;
+        facet = -( surfaces.at(k)->getIdent() - 10*ident );
+      }
+      else{
+        facet = 0;
+      }
+      k++;
       // catch all exceptions from makeSurface at this time; if they exist, they will
       // more properly be displayed to the user at a later time.  Right now we just want
       // to estimate a size and failures can be ignored.
-      try{
-        if( surfaces.at(k)->getIdent() < 0 ){
-          ident = surfaces.at(k)->getIdent()/10;
-          facet = -( surfaces.at(k)->getIdent() - 10*ident );
-        }
-        else{
-          facet = 0;
-        }
-        k++;
+//      try{
 
         world_size = std::max( world_size, makeSurface( *i, NULL, facet ).getFarthestExtentFromOrigin() );
-      } catch(std::runtime_error& e){}
+//      } catch(std::runtime_error& e){}
     }
 
     // translations can extend the size of the world
@@ -656,7 +655,15 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
       // a cell number appears in a geometry list only because it is being complemented with the # operator
       // thus, when defineCell is called on it, set defineEmbedded to false
       tmp = defineCell( *(deck.lookup_cell_card(token.second)), false);
-      assert(tmp.size() == 1);
+      if( tmp.size() != 1 ){
+        if( OPT_DEBUG ){
+          record << "Error in MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  bool defineEmbedded, iBase_EntityHandle lattice_shell ) in mcnp2cad.cpp" << std::endl;
+          record << "tmp.size() != 1" << std::endl;
+        }
+        throw std::runtime_error("Problem with cell complement.");
+      }
+          
+      //assert(tmp.size() == 1);
       stack.push_back( tmp.at(0) );
       break;
     case CellCard::SURFNUM:
@@ -666,15 +673,15 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
         if( surface < 0){
           positive = false; surface = -surface;
         }
-        try{
+        //try{
           SurfaceVolume& surf = makeSurface( deck.lookup_surface_card( surface ) );
           iBase_EntityHandle surf_handle = surf.define( positive, world_size );
           stack.push_back(surf_handle);
-        }
-        catch(std::runtime_error& e) { 
-          record << e.what() << std::endl;
-          std::cerr << e.what() << std::endl;
-        }
+        //}
+        //catch(std::runtime_error& e) { 
+         // record << e.what() << std::endl;
+          //std::cerr << e.what() << std::endl;
+        //}
       }
       break;
     case CellCard::MBODYFACET:
@@ -683,7 +690,7 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
         int surfacenum = -identifier / 10;
         int facet = -identifier - ( surfacenum * 10 );
 
-        try{
+        //try{
           SurfaceVolume& surf = makeSurface( deck.lookup_surface_card( identifier ) );
           const std::string& mnemonic = deck.lookup_surface_card( identifier )->getMnemonic();
           bool positive = true;
@@ -705,18 +712,26 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
 
           iBase_EntityHandle surf_handle = surf.define ( positive, world_size );
           stack.push_back(surf_handle);
-        }
-        catch(std::runtime_error& e) { 
-          record << e.what() << std::endl; 
-          std::cerr << e.what() << std::endl; 
-        }
+        //}
+        //catch(std::runtime_error& e) { 
+          //record << e.what() << std::endl; 
+          //std::cerr << e.what() << std::endl; 
+        //}
 
 
       }
       break;
     case CellCard::INTERSECT:
       {
-        assert( stack.size() >= 2 );
+        if( stack.size() < 2 ){
+          if( OPT_DEBUG ){
+            record << "Error in MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  bool defineEmbedded, iBase_EntityHandle lattice_shell ) in mcnp2cad.cpp" << std::endl;
+            record << "stack.size() < 2" << std::endl;
+          }
+          throw std::runtime_error("Not enough surfaces to intersect.");
+        }
+
+        //assert( stack.size() >= 2 );
         iBase_EntityHandle s1 = stack.back(); stack.pop_back();
         iBase_EntityHandle s2 = stack.back(); stack.pop_back();
         iBase_EntityHandle result;
@@ -733,7 +748,14 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
       break;
     case CellCard::UNION:
       { 
-        assert( stack.size() >= 2 );
+        if( stack.size() < 2 ){
+          if( OPT_DEBUG ){
+            record << "Error in MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  bool defineEmbedded, iBase_EntityHandle lattice_shell ) in mcnp2cad.cpp" << std::endl;
+            record << "stack.size() < 2" << std::endl;
+          }
+          throw std::runtime_error("Not enough surfaces for a union.");
+        }
+        //assert( stack.size() >= 2 );
         iBase_EntityHandle s[2];
         s[0] = stack.back(); stack.pop_back();
         s[1] = stack.back(); stack.pop_back();
@@ -745,7 +767,14 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
       break;
     case CellCard::COMPLEMENT:
       {
-        assert (stack.size() >= 1 );
+        if( stack.size() < 1 ){
+          if( OPT_DEBUG ){
+            record << "Error in MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  bool defineEmbedded, iBase_EntityHandle lattice_shell ) in mcnp2cad.cpp" << std::endl;
+            record << "stack.size() < 1" << std::endl;
+          }
+          throw std::runtime_error("Problem with cell complement.");
+        }
+        //assert (stack.size() >= 1 );
         iBase_EntityHandle world_sphere = makeWorldSphere( world_size);
         iBase_EntityHandle s = stack.back(); stack.pop_back();
         iBase_EntityHandle result;
@@ -761,7 +790,15 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
     }
   }
 
-  assert( stack.size() == 1);
+  if( stack.size() != 1 ){
+    if( OPT_DEBUG ){
+      record << "Error in MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  bool defineEmbedded, iBase_EntityHandle lattice_shell ) in mcnp2cad.cpp" << std::endl;
+      record << "stack.size() != 1" << std::endl;
+    }
+    throw std::runtime_error("Unexpected input in cell deck.");
+  }
+    
+  //assert( stack.size() == 1);
 
   iBase_EntityHandle cellHandle = stack[0];
 
@@ -871,12 +908,19 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
     // cell is a lattice, bounded by lattice_shell.  cell_shell is the origin element of the lattice and
     // cell->getLattice() has the lattice parameters.
 
-    assert(lattice_shell);
+    if( !lattice_shell ){
+      if( OPT_DEBUG ){
+        record << "Error in MCNP2CAD::GeometryContext::populateCell(  CellCard& cell, iBase_EntityHandle cell_shell, iBase_EntityHandle lattice_shell ) in mcnp2cad.cpp" << std::endl;
+        record << "!lattice_shell" << std::endl;
+      }
+      throw std::runtime_error("Problem creating lattice");
+    }
+    //assert(lattice_shell);
     
     if( OPT_VERBOSE ) {
       record << uprefix() << "Creating cell " << cell.getIdent() << "'s lattice" << std::endl;
-//      std::string output = uprefix() + "Creating cell " + std::to_string(cell.getIdent()) + "'s lattice\n";
-//      PRINT_INFO( output.c_str() );
+      //std::string output = uprefix() + "Creating cell " + std::to_string(cell.getIdent()) + "'s lattice\n";
+      //PRINT_INFO( output.c_str() );
     }
 
     entity_collection_t subcells;
@@ -1277,15 +1321,15 @@ void debugSurfaceDistances( InputDeck& deck, std::ostream& out = record ){
   int k = 0;
   int facet, ident;
   for( InputDeck::surface_card_list::iterator i = surfaces.begin(); i!=surfaces.end(); ++i){
+    if( surfaces.at(k)->getIdent() < 0 ){
+      ident = surfaces.at(k)->getIdent()/10;
+      facet = -( surfaces.at(k)->getIdent() - 10*ident );
+    }
+    else{
+      facet = 0;
+    }
+    k++;
     try{
-      if( surfaces.at(k)->getIdent() < 0 ){
-        ident = surfaces.at(k)->getIdent()/10;
-        facet = -( surfaces.at(k)->getIdent() - 10*ident );
-      }
-      else{
-        facet = 0;
-      }
-      k++;
 
       //Facets are numbered as -10*(identification).
       const SurfaceVolume& s = makeSurface(*i, NULL, facet );
@@ -1295,8 +1339,8 @@ void debugSurfaceDistances( InputDeck& deck, std::ostream& out = record ){
       out << "S" << (*i)->getIdent() << " distance from origin: " << s.getFarthestExtentFromOrigin() << std::endl;
     }
     catch(std::runtime_error& e){
-      record << "Error debugging surface distances: " << e.what() << std::endl;
-      std::cerr << "Error debugging surface distances: " << e.what() << std::endl;
+      record << "Error debugging surface distances: ";
+      std::cerr << "Error debugging surface distances: ";
       throw;
     }
   }
@@ -1307,7 +1351,7 @@ void debugSurfaceDistances( InputDeck& deck, std::ostream& out = record ){
 bool MCNP2CAD::execute(CubitCommandData &data)
 {
 
-//  std::ofstream record("mcnp_input.log");
+  record.open("mcnp_import.log");
 
   std::string mcnp2cad_version(bool full = true);
 
@@ -1323,31 +1367,41 @@ bool MCNP2CAD::execute(CubitCommandData &data)
 //  CHK_MB_ERR_RET("Error parsing options: ",rval);
 
 
-  std::ifstream input( filename.c_str(), std::ios::in );
-  InputDeck& deck = InputDeck::build(input);
-  record << "filename is " << filename << std::endl;
-//  std::string output = "filename is " + filename + "\n";
-//  PRINT_INFO( output.c_str() );
-
-  // turn off debug if it was set by debug_input only
-  if( din ){ Gopt.debug = false; }
+  try{
+    std::ifstream input( filename.c_str(), std::ios::in );
+    InputDeck& deck = InputDeck::build(input);
+    record << "filename is " << filename << std::endl;
+//    std::string output = "filename is " + filename + "\n";
+//    PRINT_INFO( output.c_str() );
   
-  if( dout && !OPT_DEBUG ){ Gopt.debug = true; }
-
-  if( OPT_DEBUG ){ 
-    debugSurfaceDistances( deck );
+    // turn off debug if it was set by debug_input only
+    if( din ){ Gopt.debug = false; }
+    
+    if( dout && !OPT_DEBUG ){ Gopt.debug = true; }
+  
+    if( OPT_DEBUG ){ 
+      debugSurfaceDistances( deck );
+    }
+  
+    iGeom_Instance igm;
+    int igm_result;
+  
+    iGeom_newGeom( Gopt.igeom_init_options.c_str(), &igm, &igm_result, Gopt.igeom_init_options.length() );
+    CHECK_IGEOM( igm_result, "Initializing iGeom" );
+  
+    GeometryContext context( igm, deck );
+    context.createGeometry();
   }
-
-  iGeom_Instance igm;
-  int igm_result;
-
-  iGeom_newGeom( Gopt.igeom_init_options.c_str(), &igm, &igm_result, Gopt.igeom_init_options.length() );
-  CHECK_IGEOM( igm_result, "Initializing iGeom" );
-
-  GeometryContext context( igm, deck );
-  context.createGeometry();
+  catch(std::runtime_error& e){
+    record << e.what() << std::endl;
+    PRINT_INFO( e.what() );
+    PRINT_INFO( "\n" );
+    std::cerr << e.what() << std::endl;
+    record.close();
+    return false;
+  }
   
-//  record.close();
+  record.close();
   return true;
 }
 
