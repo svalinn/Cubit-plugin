@@ -4,7 +4,6 @@
 #include "mcnp2cad.hpp"
 
 #include <stdexcept>
-//#include <cassert>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -96,10 +95,6 @@ static double makedouble( const std::string& token ){
   size_t s_idx = tmp.find_last_of("+-");
   if( s_idx != tmp.npos && s_idx > tmp.find_first_of("1234567890") && tmp.at(s_idx-1) != 'e' ){
     tmp.insert( tmp.find_last_of("+-"), "e" );
-//    if( OPT_DEBUG ){
-//      std::string output =  "Formatting FORTRAN value: converted " + token + " to " + tmp + "\n";
-//      PRINT_INFO( output.c_str() );
-//    }
     if( OPT_DEBUG ) record << "Formatting FORTRAN value: converted " << token << " to " << tmp << std::endl;
   }
 
@@ -303,7 +298,7 @@ protected:
           
           // the following macro pushes an intersect token onto the geom list
           // if the end of that list indicates that one is needed
-#define IMPLICIT_INTERSECT() do{                                \
+          #define IMPLICIT_INTERSECT() do{                                \
             if(geom.size()){                                    \
               geom_list_entry_t &t = geom.at(geom.size()-1);    \
               if( is_num_token(t) || t.first == RPAREN ){       \
@@ -339,7 +334,6 @@ protected:
             }
             throw std::runtime_error("Illegal character found while evaluating cell geometry.");
           }
-          //assert(isdigit(cj) || cj == '+' || cj == '-' );
           size_t end = token.find_first_not_of("1234567890-+.",j);
           if( j == end ){
             if( OPT_DEBUG ){
@@ -348,7 +342,6 @@ protected:
             }
             throw std::runtime_error("Error tokenizing geometry.");
           }
-          //assert(j != end);
 
           std::string numstr( token, j, end-j );
           const char* numstr_c = numstr.c_str();
@@ -364,7 +357,6 @@ protected:
               }
               throw std::runtime_error("Macrobody facet used where cell needed.");
             }
-            //assert( !is_cell );
 
             int facet = strtol( p+1, NULL, 10 );
             if( facet < 1 || facet > 8 ){
@@ -374,7 +366,6 @@ protected:
               }
               throw std::runtime_error("facet number " + std::to_string(facet) + " is not viable.");
             }
-            //assert( facet > 0 && facet <= 8 );
 
             // storage of macrobody facets: multiply cell number by ten, add facet number
             num *= 10;
@@ -469,7 +460,6 @@ protected:
           }
           throw std::runtime_error("Problem looking up a surface for a lattice");
         }
-        //assert(surf);
         surfaceCards.push_back( std::make_pair(surf, (entry.second>0) ) );
       }
     }
@@ -507,7 +497,6 @@ protected:
         }
         throw std::runtime_error("Error while setting up hexahedral lattice.");
       }
-      //assert( planes.size() == 2 || planes.size() == 4 || planes.size() == 6 );
       if( planes.size() == 2 ){
 
         num_finite_dims = 1;
@@ -561,7 +550,6 @@ protected:
         }
         throw std::runtime_error("Error while setting up hexagonal lattice.");
       }
-      //assert( planes.size() == 6 || planes.size() == 8 );
 
       v3 = planes[0].first.cross( planes[2].first ).normalize(); // prism's primary axis
 
@@ -633,7 +621,6 @@ protected:
           }
           throw std::runtime_error("Error while setting up data for a lattice.");
         }
-        //assert( lat_designator >= 0 && lat_designator <= 2 );
         lat_type = static_cast<lattice_type_t>(lat_designator);
         if( OPT_DEBUG ) record << "cell " << ident << " is lattice type " << lat_type << std::endl;
       }
@@ -1517,23 +1504,23 @@ InputDeck::cell_card_list InputDeck::getCellsOfUniverse( int universe ){
 
 CellCard* InputDeck::lookup_cell_card(int ident){
   if( cell_map.find(ident) == cell_map.end() ){
-    record << "Error in InputDeck::lookup_cell_card(int ident) in MCNPInput.cpp" << std::endl;
-    record << "cell_map.find(ident) == cell_map.end()" << std::endl;
-//    std::string error = "No cell " + std::to_string(ident) + " found in cell deck.\n";
+    if(OPT_DEBUG){
+      record << "Error in InputDeck::lookup_cell_card(int ident) in MCNPInput.cpp" << std::endl;
+      record << "cell_map.find(ident) == cell_map.end()" << std::endl;
+    }
     throw std::runtime_error("No cell " + std::to_string(ident) + " found in cell deck.");
   }
-  //assert( cell_map.find(ident) != cell_map.end() );
   return (*cell_map.find(ident)).second;
 }
 
 SurfaceCard* InputDeck::lookup_surface_card(int ident){
   if( surface_map.find(ident) == surface_map.end() ){
-    record << "Error in InputDeck::lookup_surface_card(int ident) in MCNPInput.cpp" << std::endl;
-    record << "surface_map.find(ident) == surface_map.end()" << std::endl;
-//    std::string error = "No surface " + std::to_string(ident) + " found in surface deck.\n";
+    if(OPT_DEBUG){
+      record << "Error in InputDeck::lookup_surface_card(int ident) in MCNPInput.cpp" << std::endl;
+      record << "surface_map.find(ident) == surface_map.end()" << std::endl;
+    }
     throw std::runtime_error("No surface " + std::to_string(ident) + " found in surface deck.");
   }
-  //assert( surface_map.find(ident) != surface_map.end() );
   return (*surface_map.find(ident)).second;
 }
 
@@ -1545,6 +1532,5 @@ DataCard* InputDeck::lookup_data_card( const DataCard::id_t& ident ){
     }
     throw std::runtime_error("Improper datacard found in datacard deck.");
   }
-  //assert( datacard_map.find(ident) != datacard_map.end() );
   return (*datacard_map.find(ident)).second;
 }

@@ -47,14 +47,6 @@
 #include "moab/Interface.hpp"
 #include "moab/GeomTopoTool.hpp"
 
-/*
-#define CHK_MB_ERR_RET(A,B)  if (moab::MB_SUCCESS != (B)) { \
-  message << (A) << (B) << std::endl;                                   \
-  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
-  return false;                                                         \
-  }
-*/
-
 //Stores all of the options selected
 struct program_option_struct Gopt;
 
@@ -230,9 +222,6 @@ protected:
       if( OPT_DEBUG ){
         record << "New named group: " << name << " num groups now "
                << named_groups.size() << std::endl;
-//        std::string output = "New named group: " + name + " num groups now "
-//                             + std::to_string( named_groups.size() ) + "\n";
-//        PRINT_INFO( output.c_str() );
       }
     }
     return named_groups[ name ];
@@ -295,13 +284,8 @@ public:
         facet = 0;
       }
       k++;
-      // catch all exceptions from makeSurface at this time; if they exist, they will
-      // more properly be displayed to the user at a later time.  Right now we just want
-      // to estimate a size and failures can be ignored.
-//      try{
 
-        world_size = std::max( world_size, makeSurface( *i, NULL, facet ).getFarthestExtentFromOrigin() );
-//      } catch(std::runtime_error& e){}
+      world_size = std::max( world_size, makeSurface( *i, NULL, facet ).getFarthestExtentFromOrigin() );
     }
 
     // translations can extend the size of the world
@@ -333,15 +317,11 @@ public:
     world_size *= 1.2;
 
     record << "World size: " << world_size << " (trs added " << translation_addition << ")" << std::endl;
-//    std::string output = "World size: " + std::to_string(world_size) + " (trs added " + std::to_string(translation_addition) + ")" + "\n";
-//    PRINT_INFO( output.c_str() );
 
     iBase_EntityHandle graveyard = NULL, graveyard_boundary = NULL;
     if( Gopt.make_graveyard ){
       graveyard = createGraveyard ( graveyard_boundary ); 
     }
-
-//    PRINT_INFO( "Defining geometry... \n" );
 
     entity_collection_t defined_cells = defineUniverse( 0, graveyard_boundary );
     if( graveyard ){ defined_cells.push_back(graveyard); }
@@ -352,49 +332,30 @@ public:
       cell_array[i] = defined_cells[i];
     }
 
-      if( OPT_DEBUG ){ mapSanityCheck(cell_array, count); }
-      tagGroups();
+    if( OPT_DEBUG ){ mapSanityCheck(cell_array, count); }
+    tagGroups();
 
-      if( Gopt.tag_cell_IDs ){
-        tagCellIDsAsEntNames();
+    if( Gopt.tag_cell_IDs ){
+      tagCellIDsAsEntNames();
+    }
+
+
+    if ( Gopt.imprint_geom ) {
+      record << "Imprinting all..." << std::endl;
+      iGeom_imprintEnts( cell_array, count, &igm_result );
+      CHECK_IGEOM( igm_result, "Imprinting all cells" );
+
+      double tolerance = world_size / 1.0e7;
+      if( Gopt.override_tolerance ){
+        tolerance = Gopt.specific_tolerance;
       }
 
-
-      if ( Gopt.imprint_geom ) {
-//        std::cout << "Imprinting all...\t\t\t" << std::flush;
-        record << "Imprinting all..." << std::endl;
-//        PRINT_INFO("Imprinting all...\t\t\t");
-        iGeom_imprintEnts( cell_array, count, &igm_result );
-        CHECK_IGEOM( igm_result, "Imprinting all cells" );
-//        PRINT_INFO(" done.\n");
-//        std::cout << " done." << std::endl;
-
-        double tolerance = world_size / 1.0e7;
-        if( Gopt.override_tolerance ){
-          tolerance = Gopt.specific_tolerance;
-        }
-
-        if ( Gopt.merge_geom ) {
-//          std::cout << "Merging, tolerance=" << tolerance << "...\t\t" << std::flush;
-//          output = "Merging, tolerance=" + std::to_string(tolerance) + "...\t\t";
-//          PRINT_INFO( output.c_str() );
-          record << "Tolerance=" << tolerance << std::endl;
-          iGeom_mergeEnts( cell_array, count,  tolerance, &igm_result );
-          CHECK_IGEOM( igm_result, "Merging all cells" );
-//          PRINT_INFO(" done.\n");
-//          std::cout << " done." << std::endl;
-        }
+      if ( Gopt.merge_geom ) {
+        record << "Tolerance=" << tolerance << std::endl;
+        iGeom_mergeEnts( cell_array, count,  tolerance, &igm_result );
+        CHECK_IGEOM( igm_result, "Merging all cells" );
       }
-
-
-    /*
-       std::string outName = Gopt.output_file;
-       std::cout << "Saving file \"" << outName << "\"...\t\t\t" << std::flush;
-       iGeom_save( outName.c_str(), ""/*, &igm_result* /, outName.length(), 0 );
-       CHECK_IGEOM( igm_result, "saving the output file "+outName );
-       std::cout << " done." << std::endl;
-     */
-
+    }
   }
 
   void updateMaps ( iBase_EntityHandle old_cell, iBase_EntityHandle new_cell );
@@ -409,7 +370,6 @@ public:
   }
 
   iBase_EntityHandle createGraveyard( iBase_EntityHandle& boundary );
-//  void createGeometry( );
 
 };
 
@@ -428,17 +388,11 @@ bool MCNP2CAD::GeometryContext::mapSanityCheck( iBase_EntityHandle* cells, size_
   iBase_EntityHandle * handle_vector = new iBase_EntityHandle[ num_regions ];
   int size = 0;
 
-//  std::string output =  "Map sanity check: num_regions = " + std::to_string(num_regions) + "\n";
-//  PRINT_INFO( output.c_str() );
   record << "Map sanity check: num_regions = " << num_regions << std::endl;
   iGeom_getEntities( rootset, iBase_REGION, &handle_vector, &num_regions, &size, &igm_result );
   CHECK_IGEOM( igm_result, "Getting entities for sanity check" );
 
-//  output = "Map sanity check: root set size = " + std::to_string(size) + " (" + std::to_string(num_regions) + ")\n";
-//  PRINT_INFO( output.c_str() );
   record << "Map sanity check: root set size = " << size << " (" << num_regions << ")" << std::endl;
-//  output = "Cell count: " + std::to_string(count) + "\n";
-//  PRINT_INFO( output.c_str() );
   record << "Cell count: " << count << std::endl;
   
   // sanity conditions: all the entityhandles in the naming lists are part of the cells list
@@ -461,23 +415,15 @@ bool MCNP2CAD::GeometryContext::mapSanityCheck( iBase_EntityHandle* cells, size_
     for( entity_collection_t::iterator j = group_cells.begin(); j != group_cells.end(); ++j ){
       bool check = allRegions.find( *j ) != allRegions.end();
       if( ! check ){
-        /*
-        output = "Entity handle " + std::to_string(*j) + " is not in allRegions!\n";
-        PRINT_INFO( output.c_str() );
-        */
         record << "Entity handle " << *j << " is not in allRegions!" << std::endl;
       }
       good = good && check;
     }
   }
 
-//  output = "Num EntityHandles in NamedGroups: " + std::to_string(named_group_volume_count) + "\n";
-//  PRINT_INFO( output.c_str() );
   record << "Num EntityHandles in NamedGroups: " << named_group_volume_count << std::endl;
 
-//  if( good ){ PRINT_INFO("Map sanity check: pass!\n"); }
     if( good ){ record << "Map sanity check: pass!" << std::endl; }
-//  else{ PRINT_INFO("WARNING: Failed map sanity check!\n"); }
     else{ record << "WARNING: Failed map sanity check!" << std::endl; }
 
   return good;
@@ -489,8 +435,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
 
   if( OPT_VERBOSE ){
     record << uprefix() << "Defining universe " << universe << std::endl;
-//    std::string output = uprefix() + "Defining universe " + std::to_string(universe) + "\n";
-//    PRINT_INFO( output.c_str() );
   }
   universe_depth++;
 
@@ -526,10 +470,8 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
     
     for( size_t i = 0; i < subcells.size(); ++i ){
       
-      if( OPT_DEBUG ){ //std::cout << uprefix() << "Bounding a universe cell" << std::flush;
+      if( OPT_DEBUG ){
         record << uprefix() << "Bounding a universe cell...";
-//        std::string output = uprefix() + "Bounding a universe cell...";
-//        PRINT_INFO( output.c_str() );
       }
 
       bool subcell_removed = false;
@@ -545,7 +487,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
           updateMaps( subcells[i], subcell_bounded );
           subcells[i] = subcell_bounded;
           if( OPT_DEBUG ) record << " ok." <<  std::endl;
-//            PRINT_INFO( " ok.\n" );
         }
         else{
           subcell_removed = true;
@@ -565,7 +506,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
         subcells.erase( subcells.begin()+i );
         i--;
         if( OPT_DEBUG ) record << " removed." << std::endl;
-//          PRINT_INFO( " removed.\n" );
       }
       
     }
@@ -577,8 +517,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineUniverse( int universe, iBa
   universe_depth--;
   if( OPT_VERBOSE ){
     record << uprefix() << "Done defining universe " << universe << std::endl;
-//    std::string output = uprefix() + "Done defining universe " + std::to_string(universe) + "\n";
-//    PRINT_INFO( output.c_str() );
   }
 
   return subcells;
@@ -609,8 +547,6 @@ iBase_EntityHandle MCNP2CAD::GeometryContext::createGraveyard( iBase_EntityHandl
   world_size *= sqrt(3.0);
   if( OPT_DEBUG ){
     record << "Spherical world size for graveyard: " << world_size << std::endl;
-//    std::string output = "Spherical world size for graveyard: " + std::to_string(world_size) + "\n";
-//    PRINT_INFO( output.c_str() );
   }
   
   return graveyard;
@@ -625,8 +561,6 @@ void MCNP2CAD::GeometryContext::addToVolumeGroup( iBase_EntityHandle cell, const
 
   if( OPT_DEBUG ){
     record << uprefix() << "Added cell to volgroup " << group->getName() << std::endl; 
-//    std::string output = uprefix() + "Added cell to volgroup " + group->getName() + "\n";
-//    PRINT_INFO( output.c_str() );
   }
 }
 
@@ -638,8 +572,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
  
   if( OPT_VERBOSE ){
     record << uprefix() << "Defining cell " << ident << std::endl;
-//    std::string output = uprefix() + "Defining cell " + std::to_string( ident ) + "\n";
-//    PRINT_INFO( output.c_str() );
   }
 
   int igm_result;
@@ -663,7 +595,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
         throw std::runtime_error("Problem with cell complement.");
       }
           
-      //assert(tmp.size() == 1);
       stack.push_back( tmp.at(0) );
       break;
     case CellCard::SURFNUM:
@@ -673,15 +604,9 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
         if( surface < 0){
           positive = false; surface = -surface;
         }
-        //try{
           SurfaceVolume& surf = makeSurface( deck.lookup_surface_card( surface ) );
           iBase_EntityHandle surf_handle = surf.define( positive, world_size );
           stack.push_back(surf_handle);
-        //}
-        //catch(std::runtime_error& e) { 
-         // record << e.what() << std::endl;
-          //std::cerr << e.what() << std::endl;
-        //}
       }
       break;
     case CellCard::MBODYFACET:
@@ -690,7 +615,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
         int surfacenum = -identifier / 10;
         int facet = -identifier - ( surfacenum * 10 );
 
-        //try{
           SurfaceVolume& surf = makeSurface( deck.lookup_surface_card( identifier ) );
           const std::string& mnemonic = deck.lookup_surface_card( identifier )->getMnemonic();
           bool positive = true;
@@ -712,12 +636,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
 
           iBase_EntityHandle surf_handle = surf.define ( positive, world_size );
           stack.push_back(surf_handle);
-        //}
-        //catch(std::runtime_error& e) { 
-          //record << e.what() << std::endl; 
-          //std::cerr << e.what() << std::endl; 
-        //}
-
 
       }
       break;
@@ -731,7 +649,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
           throw std::runtime_error("Not enough surfaces to intersect.");
         }
 
-        //assert( stack.size() >= 2 );
         iBase_EntityHandle s1 = stack.back(); stack.pop_back();
         iBase_EntityHandle s2 = stack.back(); stack.pop_back();
         iBase_EntityHandle result;
@@ -739,8 +656,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
           stack.push_back(result);
         }
         else{
-//          std::string output = "FAILED INTERSECTION CELL #" + std::to_string(cell.getIdent()) + "\n";
-//          PRINT_INFO( output.c_str() );
           record << "FAILED INTERSECTION CELL #" << cell.getIdent() << std::endl;
           throw std::runtime_error("Intersection failed");
         }
@@ -755,7 +670,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
           }
           throw std::runtime_error("Not enough surfaces for a union.");
         }
-        //assert( stack.size() >= 2 );
         iBase_EntityHandle s[2];
         s[0] = stack.back(); stack.pop_back();
         s[1] = stack.back(); stack.pop_back();
@@ -774,7 +688,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
           }
           throw std::runtime_error("Problem with cell complement.");
         }
-        //assert (stack.size() >= 1 );
         iBase_EntityHandle world_sphere = makeWorldSphere( world_size);
         iBase_EntityHandle s = stack.back(); stack.pop_back();
         iBase_EntityHandle result;
@@ -797,8 +710,6 @@ entity_collection_t MCNP2CAD::GeometryContext::defineCell(  CellCard& cell,  boo
     }
     throw std::runtime_error("Unexpected input in cell deck.");
   }
-    
-  //assert( stack.size() == 1);
 
   iBase_EntityHandle cellHandle = stack[0];
 
@@ -854,8 +765,6 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
   
   if( OPT_DEBUG ){
     record << uprefix() << "Populating cell " << cell.getIdent() << std::endl;
-//    std::string output = uprefix() + "Populating cell " + std::to_string( cell.getIdent() ) + "\n";
-//    PRINT_INFO( output.c_str() );
   }
 
 
@@ -875,9 +784,6 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
     if( OPT_DEBUG ){
       record << uprefix() << "Creating cell " << cell.getIdent() 
              << ", which is filled with universe " << filling_universe << std::endl;
-//      std::string output = uprefix() + "Creating cell " + std::to_string(cell.getIdent()) + 
-//                           ", which is filled with universe " + std::to_string(filling_universe) + "\n";
-//      PRINT_INFO( output.c_str() );
     }
     
     // the contained universe is transformed by the FillNode's transform, if any, or
@@ -893,10 +799,6 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
 
     if( OPT_DEBUG && t ) {
       record << uprefix() << " ... and has transform: " << *t << std::endl;
-    /*
-      output = uprefix() + " ... and has transform: " + *t + "\n";
-      PRINT_INFO( output.c_str() );
-      */
     }
 
     entity_collection_t subcells = defineUniverse(  filling_universe, cell_shell, t );
@@ -915,12 +817,9 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
       }
       throw std::runtime_error("Problem creating lattice");
     }
-    //assert(lattice_shell);
     
     if( OPT_VERBOSE ) {
       record << uprefix() << "Creating cell " << cell.getIdent() << "'s lattice" << std::endl;
-      //std::string output = uprefix() + "Creating cell " + std::to_string(cell.getIdent()) + "'s lattice\n";
-      //PRINT_INFO( output.c_str() );
     }
 
     entity_collection_t subcells;
@@ -930,16 +829,12 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
     
     if( OPT_DEBUG ) {
       record << uprefix() << "  lattice num dims: " << num_dims << std::endl;
-//      std::string output = uprefix() + "  lattice num dims: " + std::to_string(num_dims) + "\n";
-//      PRINT_INFO( output.c_str() );
     }
 
     if( lattice.isFixedSize() ){
 
       if( OPT_DEBUG ){
         record << uprefix() << "Defining fixed lattice" << std::endl;
-//        std::string output = uprefix() + "Defining fixed lattice\n";
-//        PRINT_INFO( output.c_str() );
       }
       irange xrange = lattice.getXRange(), yrange = lattice.getYRange(), zrange = lattice.getZRange();
 
@@ -949,9 +844,6 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
 
             if( OPT_DEBUG ) {
               record << uprefix() << "Defining lattice node " << i << ", " << j << ", " << k << std::endl;
-//              std::string output = uprefix() + "Defining lattice node " + std::to_string(i) 
-//                                   + ", " + std::to_string(j) + ", " + std::to_string(k) + "\n";
-//              PRINT_INFO( output.c_str() );
             }
 
             /* bool success = */ defineLatticeNode( cell, cell_shell, lattice_shell, i, j, k, subcells );
@@ -967,13 +859,9 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
 
       if( OPT_DEBUG ){
         record << uprefix() << "Defining infinite lattice" << std::endl;
-//        std::string output = uprefix() + "Defining infinite lattice\n";
-//        PRINT_INFO( output.c_str() );
       }
       if( OPT_VERBOSE && Gopt.infinite_lattice_extra_effort ) 
         record << uprefix() << "Infinite lattice extra effort enabled." << std::endl;
-//        std::string output = uprefix() + "Infinite lattice extra effort enabled.\n";
-//        PRINT_INFO( output.c_str() );
 
       // when extra effort is enabled, initialize done_one to false;
       // the code will keep trying to create lattice elements until at least one 
@@ -993,9 +881,6 @@ entity_collection_t MCNP2CAD::GeometryContext::populateCell( CellCard& cell,  iB
           
           if( OPT_DEBUG ){
             record << uprefix() << "Defining lattice node " << x << ", " << y << ", " << z << std::endl;
-//            std::string output = uprefix() + "Defining lattice node " + std::to_string(x) 
-//                                 + ", " + std::to_string(y) + ", " + std::to_string(z) + "\n";
-//            PRINT_INFO( output.c_str() );
           }
 
           bool success = defineLatticeNode( cell, cell_shell, lattice_shell, x, y, z, subcells );
@@ -1080,21 +965,11 @@ void MCNP2CAD::GeometryContext::tagGroups( ){
   iGeom_getTagSizeBytes( igm, name_tag, &name_tag_maxlength, &igm_result );
   CHECK_IGEOM( igm_result, "Querying NAME tag length" );
   if( OPT_DEBUG ) record << "Name tag length: " << name_tag_maxlength << " actual id " << name_tag << std::endl;
-  /*
-  if( OPT_DEBUG ){
-    std::string output = "Name tag length: " + std::to_string(name_tag_maxlength) 
-                         + " actual id " + std::to_string(name_tag) + "\n";
-    PRINT_INFO( output.c_str() );
-  }
-  */
 
   for( std::map<std::string,NamedGroup*>::iterator i = named_groups.begin(); i != named_groups.end(); ++i ){
 
     NamedGroup* group = (*i).second;
     if(OPT_VERBOSE){ 
-//      std::string output = "Creating volume group " + group->getName() + " of size " 
-//                           + std::to_string(group->getEntities().size()) + "\n";
-//      PRINT_INFO( output.c_str() );
       record << "Creating volume group " << group->getName() << " of size " << group->getEntities().size() << std::endl;
     }
 
@@ -1138,19 +1013,11 @@ void MCNP2CAD::GeometryContext::tagCellIDsAsEntNames(){
   
   iGeom_getTagSizeBytes( igm, name_tag, &name_tag_maxlength, &igm_result );
   CHECK_IGEOM( igm_result, "Querying NAME tag length" );
-  /*
-  if( OPT_DEBUG ){
-    std::string output = "Name tag length: " + std::to_string(name_tag_maxlength) + " actual id " + std::to_string(name_tag) + "\n";
-    PRINT_INFO( output.c_str() );
-  }
-  */
   if( OPT_DEBUG ) record << "Name tag length: " << name_tag_maxlength << " actual id " << name_tag << std::endl;
 
 
   if( OPT_VERBOSE ){ 
     record << "Naming " << named_cells.size() << " volumes." <<  std::endl;
-//    std::string output = "Naming " + std::to_string(named_cells.size()) + " volumes.\n";
-//    PRINT_INFO( output.c_str() );
   }
 
   for( std::vector< NamedEntity* >::iterator i = named_cells.begin(); i!=named_cells.end(); ++i){
@@ -1196,8 +1063,6 @@ bool MCNP2CAD::GeometryContext::defineLatticeNode(  CellCard& cell, iBase_Entity
     iGeom_deleteEnt( cell_copy, &igm_result);
     CHECK_IGEOM( igm_result, "Deleting a lattice cell shell" );
     if( OPT_DEBUG ){
-//      std::string output = uprefix() + " node failed bbox check\n";
-//      PRINT_INFO( output.c_str() );
       record << uprefix() << " node failed bbox check" << std::endl;
     }
     return false;
@@ -1243,7 +1108,6 @@ bool MCNP2CAD::GeometryContext::defineLatticeNode(  CellCard& cell, iBase_Entity
     iBase_EntityHandle result;
     if( intersectIfPossible( lattice_shell_copy, node_subcells[i], &result, true ) ){
       updateMaps( node_subcells[i], result );
-//      if( OPT_DEBUG ) PRINT_INFO( " node defined successfully\n" );
         if( OPT_DEBUG )record << " node defined successfully" << std::endl;
       accum.push_back( result );
       success = true;
@@ -1252,7 +1116,6 @@ bool MCNP2CAD::GeometryContext::defineLatticeNode(  CellCard& cell, iBase_Entity
       // lattice_shell_copy and node_subcells[i] were deleted by intersectIfPossible(),
       // so there's no need to delete them explicitly
       updateMaps( node_subcells[i], NULL );
-//      if( OPT_DEBUG ) PRINT_INFO( " node failed intersection\n" );
       if( OPT_DEBUG ) record << " node failed intersection" << std::endl;
     }
   }
@@ -1333,9 +1196,6 @@ void debugSurfaceDistances( InputDeck& deck, std::ostream& out = record ){
 
       //Facets are numbered as -10*(identification).
       const SurfaceVolume& s = makeSurface(*i, NULL, facet );
-//      std::string output = "S" + std::to_string((*i)->getIdent()) + " distance from origin: " 
-//                           + std::to_string(s.getFarthestExtentFromOrigin()) + "\n";
-//      PRINT_INFO( output.c_str() );
       out << "S" << (*i)->getIdent() << " distance from origin: " << s.getFarthestExtentFromOrigin() << std::endl;
     }
     catch(std::runtime_error& e){
@@ -1371,8 +1231,6 @@ bool MCNP2CAD::execute(CubitCommandData &data)
     std::ifstream input( filename.c_str(), std::ios::in );
     InputDeck& deck = InputDeck::build(input);
     record << "filename is " << filename << std::endl;
-//    std::string output = "filename is " + filename + "\n";
-//    PRINT_INFO( output.c_str() );
   
     // turn off debug if it was set by debug_input only
     if( din ){ Gopt.debug = false; }
@@ -1441,7 +1299,6 @@ bool MCNP2CAD::parse_options(CubitCommandData &data)
     std::cerr << "Warning: cannot merge geometry without imprinting, will skip merge too." << std::endl;
   }
   
-//  PRINT_INFO( "Reading input file...\n" );
   record << "Reading input file..." << std::endl;
 
   // if debug_input and not debug, set debugging to be true for InputDeck::build() call only

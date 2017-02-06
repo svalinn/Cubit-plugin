@@ -1,7 +1,6 @@
 #include "geometry.hpp"
 #include <cfloat>
 #include <iostream>
-//#include <cassert>
 
 #include "mcnp2cad.hpp"
 #include "options.hpp"
@@ -10,14 +9,6 @@ std::ostream& operator<<(std::ostream& str, const Vector3d& v ){
   str << "(" << v.v[0] << ", " << v.v[1] << ", " << v.v[2] << ")";
   return str;
 }
-
-/*
-std::string to_string( const Vector3d& v ){
-  std::string str = "(" + std::to_string(v.v[0]) + ", " 
-                    + std::to_string(v.v[1]) + ", " + std::to_string(v.v[2]) + ")";
-  return str;
-}
-*/
 
 double matrix_det( double mat[9] ){
   return (mat[0]*mat[4]*mat[8] -
@@ -106,8 +97,6 @@ void Transform::set_rots_from_matrix( double raw_matrix[9], enum mat_format f ){
   theta = atan2(r,t-1);
   
   if( OPT_DEBUG ){
-//    std:: cout << "  r = " << r << " t = " << t << " theta = " << theta << std::endl;
-//    std:: cout << "  x = " << x << " y = " << y << " z = " << z << std::endl;
     record << "  r = " << r << " t = " << t << " theta = " << theta << std::endl;
     record << "  x = " << x << " y = " << y << " z = " << z << std::endl;
   }
@@ -254,7 +243,6 @@ size_t Fill::indicesToSerialIndex( int x, int y, int z ) const {
     }
     throw std::runtime_error("Error creating grid.");
   }
-  //assert( index >= 0 && (unsigned)(index) <= nodes.size() );
   return static_cast<size_t>( index );
 }
 
@@ -273,7 +261,6 @@ const FillNode& Fill::getNode( int x, int y, int z ) const {
     }
     throw std::runtime_error("Grid expected and not found.");
   }
-  //assert( has_grid );
   return nodes.at( indicesToSerialIndex(x, y, z) );
 }
 

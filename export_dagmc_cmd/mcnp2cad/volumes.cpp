@@ -2,8 +2,6 @@
 #include <map>
 #include <cfloat>
 
-//#include <cassert>
-
 #include "mcnp2cad.hpp"
 #include "MCNPInput.hpp"
 #include "volumes.hpp"
@@ -368,7 +366,6 @@ protected:
       }
       throw std::runtime_error("Error in definition of elliptic cone.");
     }
-    //assert(0 != A_ && 0 != B_ && 0 != C_);
 
     iBase_EntityHandle gq_handle;
     int igm_result=0;
@@ -438,7 +435,6 @@ protected:
       break;
     default:
       record << "GQ type is currently unsupported" << std::endl;
-      //      PRINT_INFO( "GQ type is currently unsupported\n" );
     }
 
     //re-orient gq into original position
@@ -759,11 +755,6 @@ static Transform axesImage( const Vector3d& v1, const Vector3d& v2, const Vector
   Vector3d a1 = v1.normalize(), a2 = v2.normalize(), a3 = v3.normalize();
 
   if( OPT_DEBUG ) record << "Axes image: " << a1 << " : " << a2 << " : " << a3 << std::endl;
-//  if( OPT_DEBUG ){
-//    std::string output = "Axes image: " + to_string(a1) + " : " 
-//                         + to_string(a2) + " : " + to_string(a3) + "\n";
-//    PRINT_INFO( output.c_str() );
-//  }
 
   double rot_matrix[9] = 
     { a1.dot(x), a2.dot(x), a3.dot(x),
@@ -784,7 +775,6 @@ static Transform imageZAxisTo( const Vector3d& v, const Vector3d& translation = 
   if( b.length() < DBL_EPSILON ){
     // v is indistinguishable from the x axis
     b = Vector3d(0, -1, 0);
-    //if( OPT_DEBUG ) PRINT_INFO( "imageZAxisTo: Changing v \n" );
     if( OPT_DEBUG ) record << "imageZAxisTo: Changing v " << std::endl;
   }
 
@@ -1017,8 +1007,6 @@ public:
     base_center(center_p), heightV(h_p), RV(r_p), SV( r_p.rotate_about(h_p,60.0) ), TV( r_p.rotate_about(h_p,120.0) )
   {
     if( OPT_DEBUG ){ 
-      //std::string output = "Inferred vectors for 9-args HEX/RHP:" + to_string(RV) + to_string(SV) + to_string(TV) + "\n";
-      //PRINT_INFO( output.c_str() );
       record << "Inferred vectors for 9-args HEX/RHP:" << RV << SV << TV << std::endl;
     }
   }
@@ -1092,7 +1080,6 @@ public:
       }
       throw std::runtime_error("Surface card not found in surface volume.");
     }
-    //assert( contains( c ) );
     return (*(mapping.find(c))).second;
   }
 
