@@ -2,7 +2,7 @@
 #include <map>
 #include <cfloat>
 
-#include "mcnp2cad.hpp"
+#include "../mcnp2cad.hpp"
 #include "MCNPInput.hpp"
 #include "volumes.hpp"
 #include "geometry.hpp"

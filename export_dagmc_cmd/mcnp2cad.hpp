@@ -17,6 +17,7 @@ extern std::ofstream record;
 class MCNP2CAD: public CubitCommand
 {
 public:
+
   MCNP2CAD();
   ~MCNP2CAD();
 
@@ -24,20 +25,10 @@ public:
   std::vector<std::string> get_syntax_help();
   std::vector<std::string> get_help();
   bool execute( CubitCommandData &data );
-  bool parse_options( CubitCommandData &data/*, moab::EntityHandle* file_set*/ );
+  bool parse_options( CubitCommandData &data );
   class GeometryContext;
-/*
-protected:
 
-  void teardown();
-
-*/
-//private:
-
- // CubitMessageHandler* console;
-
-  std::ostringstream message;
-
+  //variables for debug verbosity
   bool din, dout;
 
 };

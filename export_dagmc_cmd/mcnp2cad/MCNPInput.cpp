@@ -1,7 +1,7 @@
 #include "MCNPInput.hpp"
 #include "geometry.hpp"
 #include "options.hpp"
-#include "mcnp2cad.hpp"
+#include "../mcnp2cad.hpp"
 
 #include <stdexcept>
 #include <iostream>

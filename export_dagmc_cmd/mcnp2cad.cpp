@@ -1268,7 +1268,7 @@ bool MCNP2CAD::parse_options(CubitCommandData &data)
 
   // read parsed command for tolerance
   data.get_value("specific_tolerance",Gopt.specific_tolerance);
-  message << "Setting specific tolerance to " << Gopt.specific_tolerance << std::endl;
+  record << "Setting specific tolerance to " << Gopt.specific_tolerance << std::endl;
   //If tolerance was specified
   if( data.find_keyword("tol") ){
     Gopt.override_tolerance = true;

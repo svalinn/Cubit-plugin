@@ -2,8 +2,7 @@
 #define MCNP2CAD_VOLUMES_H
 
 #include <cstdlib>
-#include "iGeom_funcs.hpp"
-//#include "../igeom/src/iGeomError.cc"
+#include "../iGeom_funcs.hpp"
 
 
 class Transform;

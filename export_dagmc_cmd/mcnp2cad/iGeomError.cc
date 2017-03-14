@@ -1,6 +1,6 @@
 //#include "iGeom.h"
 #include "iGeomError.h"
-#include "iGeom_funcs.hpp"
+#include "../iGeom_funcs.hpp"
 #include <string>
 #include <assert.h>
 
