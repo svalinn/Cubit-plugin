@@ -4,29 +4,9 @@
 #include "CubitInterface.hpp"
 
 // CGM includes
-//#include "GeometryQueryTool.hpp"
 #include "GeometryModifyTool.hpp"
-/*
-#include "GeometryModifyEngine.hpp"
-#include "ModelQueryEngine.hpp"
-#include "GMem.hpp"
-
-#include "RefEntityName.hpp"
-
-*/
 #include "Body.hpp"
 #include "RefEntity.hpp"
-/*
-#include "Surface.hpp"
-#include "Curve.hpp"
-
-#include "RefGroup.hpp"
-#include "RefFace.hpp"
-#include "RefEdge.hpp"
-#include "RefVertex.hpp"
-
-#include "SenseEntity.hpp"
-*/
 #include <iostream>
 
 iGeom_test::iGeom_test()
