@@ -26,8 +26,6 @@ include_directories("${DAGMC_DIR}/../include/")
 set(SRC
     iGeom_test.cpp
     iGeom_test.hpp
-    iGeom_funcs.cpp
-    iGeom_funcs.hpp
     MyPlugin.cpp
     MyPlugin.hpp
     DAGMCExportCommand.cpp
@@ -36,6 +34,8 @@ set(SRC
     iGeom_funcs.hpp
     mcnp2cad.cpp
     mcnp2cad.hpp
+    MCNPImp.cpp
+    MCNPImp.hpp
     mcnp2cad/MCNPInput.cpp
     mcnp2cad/MCNPInput.hpp
     mcnp2cad/geometry.cpp

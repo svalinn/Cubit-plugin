@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <iosfwd>
+#include <cmath>
+#include <cstdlib>
 
 #include "dataref.hpp"
 

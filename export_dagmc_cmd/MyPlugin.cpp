@@ -2,6 +2,7 @@
 #include "DAGMCExportCommand.hpp"
 #include "iGeom_test.hpp"
 #include "mcnp2cad.hpp"
+#include "MCNPImp.hpp"
 
 MyPlugin::MyPlugin()
 {}
@@ -14,7 +15,7 @@ std::vector<std::string> MyPlugin::get_keys()
   std::vector<std::string> keys;
   keys.push_back("DAGMCExportCommand");
   keys.push_back("iGeom_test");
-  keys.push_back("MCNP2CAD");
+  keys.push_back("MCNPImp");
 
   return keys;
 }
@@ -30,8 +31,8 @@ CubitCommand* MyPlugin::create_command(const std::string &key)
   if(key == "iGeom_test")
     return new iGeom_test();
   
-  if(key == "MCNP2CAD")
-    return new MCNP2CAD();
+  if(key == "MCNPImp")
+    return new MCNPImp();
 
   return NULL;
 }
