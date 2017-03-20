@@ -23,26 +23,38 @@ include_directories(${MOAB_INCLUDE_DIRS})
 
 include_directories("${DAGMC_DIR}/../include/")
 
-set(SRC
-    iGeom_test.cpp
-    iGeom_test.hpp
+include_directories("${CMAKE_SOURCE_DIR}/mcnp2cad")
+
+set(PLUGIN_SRC
     MyPlugin.cpp
     MyPlugin.hpp
     DAGMCExportCommand.cpp
     DAGMCExportCommand.hpp
-    iGeom_funcs.cpp
-    iGeom_funcs.hpp
-    mcnp2cad.cpp
-    mcnp2cad.hpp
     MCNPImp.cpp
     MCNPImp.hpp
+    iGeom_test.cpp
+    iGeom_test.hpp)
+
+SET(IGEOM_SRC
+    mcnp2cad/iGeom.cpp
+    mcnp2cad/iGeom.h
+    mcnp2cad/iGeomError.cc)
+
+SET(MCNP2CAD_SRC
+    mcnp2cad.cpp
+    mcnp2cad.hpp
     mcnp2cad/MCNPInput.cpp
     mcnp2cad/MCNPInput.hpp
     mcnp2cad/geometry.cpp
     mcnp2cad/geometry.hpp
     mcnp2cad/volumes.cpp
-    mcnp2cad/volumes.hpp
-    mcnp2cad/iGeomError.cc)
+    mcnp2cad/volumes.hpp)
 
-add_library(dagmc_export_plugin MODULE ${SRC})
-target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${DAGMC_DIR}/libmakeWatertight.so ${MOAB_LIBRARIES})
+add_library(igeom SHARED ${IGEOM_SRC})
+target_link_libraries(igeom cubit_geom)
+
+add_library(mcnp2cad SHARED ${MCNP2CAD_SRC})
+target_link_libraries(mcnp2cad igeom)
+
+add_library(dagmc_export_plugin MODULE ${PLUGIN_SRC})
+target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${DAGMC_DIR}/libmakeWatertight.so ${MOAB_LIBRARIES} mcnp2cad)

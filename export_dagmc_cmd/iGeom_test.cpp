@@ -1,5 +1,5 @@
 #include "iGeom_test.hpp"
-#include "iGeom_funcs.hpp"
+#include "iGeom.h"
 #include <vector>
 #include "CubitInterface.hpp"
 

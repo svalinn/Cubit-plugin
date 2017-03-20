@@ -682,8 +682,45 @@ void iGeom_mergeEnts( iBase_EntityHandle const* gentity_handles,
                       double tolerance,
                       int* err );
 
+    /**\brief  Save a geom to a file
+     *
+     * Save a geom to a file.  If entity set is specified, save only the
+     * geom contained in that set.
+     * \param instance iGeom instance handle
+     * \param entity_set_handle Entity set being saved
+     * \param name File name to which geom is to be saved
+     * \param options Pointer to implementation-specific options string
+     * \param *err Pointer to error type returned from function
+     * \param name_len Length of the file name character string
+     * \param options_len Length of the options character string
+     */
+  void iGeom_save( char const* name,
+                   char const* options,
+                   int* err,
+                   int name_len,
+                   int options_len );
+
+
 
 //Helper Functions
+
+static void tokenize( const std::string& str, 
+                      std::vector<std::string>& tokens );
+
+// Expect option of the form "NAME=VALUE".
+// If NAME portion matches, pass back VALUE and return true.
+// Otherwise, leave 'value' unchanged and return false.
+static bool match_option( const std::string& opt,
+                          const char* name,
+                          std::string& value );
+
+CubitStatus 
+CubitCompat_export_solid_model( DLIList<RefEntity*>& ref_entity_list,
+                                const char* filename,
+                                const char * filetype,
+                                int &num_ents_exported,
+                                const CubitString &cubit_version,
+                                const char* logfile_name = NULL );
 
 void iGeom_getErrorType( int *error_type );
 

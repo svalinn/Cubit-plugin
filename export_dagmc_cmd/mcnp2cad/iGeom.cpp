@@ -1,5 +1,5 @@
 #include "CubitEntity.hpp"
-#include "iGeom_funcs.hpp"
+#include "iGeom.h"
 #include "CubitInterface.hpp"
 #include "GeometryQueryTool.hpp"
 #include "Body.hpp"
@@ -11,12 +11,13 @@
 //setData
 #include "RefEntityName.hpp"
 
-//#include "GeometryModifyTool.hpp"
+#include "GeometryModifyTool.hpp"
 #include "RefEntity.hpp"
 #include "RefFace.hpp"
 #include "RefEdge.hpp"
 #include "RefVertex.hpp"
-#include "mcnp2cad/iGeomError.h"
+#include "iGeomError.h"
+//#include "mcnp2cad/iGeomError.h"
 
 #include <iostream>
 
@@ -1107,6 +1108,75 @@ iGeom_uniteEnts( /*in*/ iBase_EntityHandle const* geom_entities,
  RETURN(iBase_SUCCESS);
 }
 
+void iGeom_save( /*in*/ const char *name,
+            /*in*/ const char* options,
+            int* err,
+            int name_len,
+            int options_len )
+{
+    // make sure strings are null terminated
+  std::string name_buf(name, name_len);
+  name = name_buf.c_str();
+  
+    // parse options
+  std::string file_type;
+  std::vector<std::string> opts;
+  tokenize( std::string(options, options_len), opts );
+  for (std::vector<std::string>::iterator i = opts.begin(); i != opts.end(); ++i)
+  {
+    if (!match_option( *i, "TYPE", file_type )) // e.g TYPE=ACIS_SAT
+      ERROR( iBase_INVALID_ARGUMENT, i->c_str() );
+  }
+
+    // if no type, check file type for known extensions
+  if (file_type.empty()) {
+    size_t name_len = name_buf.length();
+    if (name_buf.find(".igs") < name_len ||
+        name_buf.find(".IGS") < name_len ||
+        name_buf.find(".iges") < name_len ||
+        name_buf.find(".IGES") < name_len)
+      file_type = "IGES";
+    else if (name_buf.find(".stp") < name_len ||
+             name_buf.find(".STP") < name_len ||
+             name_buf.find(".step") < name_len ||
+             name_buf.find(".STEP") < name_len)
+      file_type = "STEP";
+    else if (name_buf.find(".sat") < name_len ||
+             name_buf.find(".SAT") < name_len)
+      file_type = "ACIS_SAT";
+    else if (name_buf.find(".occ") < name_len ||
+             name_buf.find(".brep") < name_len ||
+             name_buf.find(".OCC") < name_len ||
+             name_buf.find(".BREP") < name_len)
+      file_type = "OCC";
+    else
+      ERROR(iBase_FAILURE, "Unknown geometry file extension and no file type.");
+  }
+  
+  /** 
+   * Work around AcisQueryEngine log file handling bug:
+   * If the export format is iges or step, be sure the log file name is not null
+   */
+  const char* logfile_name = NULL;
+  if( file_type == "IGES" ){
+    logfile_name = "igeom_iges_export.log";
+  }
+  else if( file_type == "STEP" ){
+    logfile_name = "igeom_step_export.log";
+  }
+
+    // process options (none right now...)
+  DLIList<RefEntity*> bodies;
+  int num_ents_exported;
+  CubitString cubit_version(" (iGeom)");
+  CubitStatus status = CubitCompat_export_solid_model(bodies, name, file_type.c_str(),
+                                               num_ents_exported, cubit_version, logfile_name );
+  if (CUBIT_SUCCESS != status) 
+    ERROR(iBase_FAILURE, "Trouble saving geometry file.");
+
+  RETURN(iBase_SUCCESS);
+}
+
 /*****************
 *Helper Functions*
 *****************/
@@ -1274,6 +1344,89 @@ int count_type( const DLIList<CubitEntity*>& list )
       ++count;
   return count;
 }
+
+static void tokenize( const std::string& str, 
+                      std::vector<std::string>& tokens )
+{
+  char delim =  str[0];
+  std::string::size_type last = str.find_first_not_of( delim, 1 );
+  std::string::size_type pos  = str.find_first_of( delim, last );
+  while (std::string::npos != pos && std::string::npos != last) {
+    tokens.push_back( str.substr( last, pos - last ) );
+    last = str.find_first_not_of( delim, pos );
+    pos  = str.find_first_of( delim, last ); 
+  }
+}
+
+// Expect option of the form "NAME=VALUE".
+// If NAME portion matches, pass back VALUE and return true.
+// Otherwise, leave 'value' unchanged and return false.
+static bool match_option( const std::string& opt,
+                          const char* name,
+                          std::string& value )
+{
+  std::string::size_type len = strlen( name );
+  if (opt[len] != '=')
+    return false;
+  if (opt.compare( 0, len, name, len ))
+    return false;
+  value = opt.substr( len + 1 );
+  return true;
+}
+
+#define CUBIT_COMPAT_FT_ELIF(TYPE) \
+  else if (!strcmp(file_type,#TYPE)) \
+    return TYPE ## _TYPE
+
+static Model_File_Type
+CubitCompat_file_type( const char* file_type )
+{
+  if (!file_type)
+    return MFT_NOT_DEFINED;
+  CUBIT_COMPAT_FT_ELIF(ACIS);
+  CUBIT_COMPAT_FT_ELIF(ACIS_SAT);
+  CUBIT_COMPAT_FT_ELIF(ACIS_SAB);
+  CUBIT_COMPAT_FT_ELIF(ACIS_DEBUG);
+  CUBIT_COMPAT_FT_ELIF(IGES);
+  CUBIT_COMPAT_FT_ELIF(CATIA);
+  CUBIT_COMPAT_FT_ELIF(STEP);
+  CUBIT_COMPAT_FT_ELIF(PROE);
+  CUBIT_COMPAT_FT_ELIF(GRANITE);
+  CUBIT_COMPAT_FT_ELIF(GRANITE_G);
+  CUBIT_COMPAT_FT_ELIF(GRANITE_SAT);
+  CUBIT_COMPAT_FT_ELIF(GRANITE_PROE_PART);
+  CUBIT_COMPAT_FT_ELIF(GRANITE_PROE_ASM);
+  CUBIT_COMPAT_FT_ELIF(GRANITE_NEUTRAL);
+  CUBIT_COMPAT_FT_ELIF(NCGM);
+  CUBIT_COMPAT_FT_ELIF(CATIA_NCGM);
+  CUBIT_COMPAT_FT_ELIF(CATPART);
+  CUBIT_COMPAT_FT_ELIF(CATPRODUCT);
+  CUBIT_COMPAT_FT_ELIF(FACET);
+  CUBIT_COMPAT_FT_ELIF(SOLIDWORKS);
+  CUBIT_COMPAT_FT_ELIF(OCC);
+  else
+    return MFT_NOT_DEFINED;
+}
+
+CubitStatus 
+CubitCompat_export_solid_model( DLIList<RefEntity*>& ref_entity_list,
+                                const char* filename,
+                                const char * filetype,
+                                int &num_ents_exported,
+                                const CubitString &cubit_version,
+                                const char* logfile_name )
+{
+  ModelExportOptions CubitCompat_opts = {1, logfile_name ? logfile_name : "" }; 
+
+  return GeometryQueryTool::instance()->export_solid_model(
+           ref_entity_list,
+           filename,
+           CubitCompat_file_type(filetype),
+           num_ents_exported,
+           cubit_version,
+           CubitCompat_opts );
+}
+
 
 /****************
 * CGMTagManager *
@@ -1661,4 +1814,3 @@ iBase_ErrorType CATag::set_tag_data(long tag_handle, const void *tag_data,
   CGM_iGeom_setLastError(iBase_SUCCESS); 
   return iBase_SUCCESS;
 }
-

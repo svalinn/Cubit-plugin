@@ -7,15 +7,13 @@
 #include <algorithm>
 
 //MCNP2CAD includes
-#include "mcnp2cad/options.hpp"
-#include "mcnp2cad/MCNPInput.hpp"
-#include "mcnp2cad/volumes.hpp"
-#include "mcnp2cad/version.hpp"
+#include "options.hpp"
+#include "MCNPInput.hpp"
+#include "volumes.hpp"
+#include "version.hpp"
 
 #include "moab/GeomTopoTool.hpp"
 
-//Stores all of the options selected
-struct program_option_struct Gopt;
 
 //Writes the output to mcnp_import.log.
 std::ofstream record;
@@ -230,7 +228,7 @@ public:
     }
   }
 
-  void createGeometry( ){
+  void createGeometry( bool plugin_build ){
 
 
     int igm_result;
@@ -323,6 +321,15 @@ public:
         CHECK_IGEOM( igm_result, "Merging all cells" );
       }
     }
+
+    if( !plugin_build ){
+      std::string outName = Gopt.output_file;
+      std::cout << "Saving file \"" << outName << "\"...\t\t\t" << std::flush;
+      iGeom_save( outName.c_str(), "", &igm_result, outName.length(), 0 );
+      CHECK_IGEOM( igm_result, "saving the output file "+outName );
+      std::cout << " done." << std::endl;
+    }
+
   }
 
   void updateMaps ( iBase_EntityHandle old_cell, iBase_EntityHandle new_cell );
@@ -1121,7 +1128,7 @@ void debugSurfaceDistances( InputDeck& deck, std::ostream& out = record ){
 }
 
 
-bool import_mcnp(std::string filename)
+bool convert_mcnp(std::string filename, bool plugin_build)
 {
 
   record.open("mcnp_import.log");
@@ -1149,7 +1156,7 @@ bool import_mcnp(std::string filename)
     CHECK_IGEOM( igm_result, "Initializing iGeom" );
   
     GeometryContext context( igm, deck );
-    context.createGeometry();
+    context.createGeometry( plugin_build );
   }
   catch(std::runtime_error& e){
     record << e.what() << std::endl;

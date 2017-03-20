@@ -1,6 +1,9 @@
-#include "mcnp2cad/options.hpp"
+#include "options.hpp"
 #include "MCNPImp.hpp"
 #include "mcnp2cad.hpp"
+
+//Stores all of the options selected
+struct program_option_struct Gopt;
 
 MCNPImp::MCNPImp()
 {
@@ -62,13 +65,10 @@ bool MCNPImp::execute(CubitCommandData &data)
   std::string filename;
   data.get_string("filename",filename);
 
-  bool rval;
-
-  rval = parse_options(data);
+  parse_options(data);
 //  TODO: find a way to check whether the parsing worked as expected
-//  CHK_MB_ERR_RET("Error parsing options: ",rval);
 
-  return import_mcnp(filename);
+  return convert_mcnp(filename, true);
 }
 
 
