@@ -72,6 +72,10 @@ if(${BUILD_MCNP_IMPORTER})
     endif()
 endif()
 
+if(${BUILD_DAGMC_EXPORTER})
+    find_library(MAKE_WATERTIGHT NAMES makeWatertight PATHS ${DAGMC_DIR})
+endif()
+
 ###############################################################################
 # Source variables
 ###############################################################################
@@ -128,9 +132,4 @@ target_link_libraries(mcnp2cad igeom)
 ]]
 
 add_library(dagmc_export_plugin MODULE ${PLUGIN_SRC} ${DAGMC_SRC} ${MCNP_SRC} ${IGEOMTEST_SRC})
-if(${BUILD_DAGMC_EXPORTER})
-    target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${DAGMC_DIR}/libmakeWatertight.so ${MOAB_LIBRARIES} ${MCNP2CAD})
-else()
-    target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MOAB_LIBRARIES} ${MCNP2CAD})
-endif()
-
+target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} ${MCNP2CAD})

@@ -1,7 +1,11 @@
 #include "MyPlugin.hpp"
-#include "DAGMCExportCommand.hpp"
 #include "iGeom_test.hpp"
 #include "MCNPImp.hpp"
+
+//Not including this when you aren't building the DAGMC export means you don't need to have MakeWatertight.hpp
+#ifdef BUILD_DAGMC_EXPORT
+#include "DAGMCExportCommand.hpp"
+#endif
 
 MyPlugin::MyPlugin()
 {}
@@ -29,6 +33,8 @@ CubitCommand* MyPlugin::create_command(const std::string &key)
 {
   // NOTE: The internals of Trelis will take owernship of the command,
   // and delete it when it is time to clean up.
+  
+  // Trelis will crash if included keys haven't been built.
 
 #ifdef BUILD_DAGMC_EXPORT
   if(key == "DAGMCExportCommand")
