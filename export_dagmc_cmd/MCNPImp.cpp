@@ -1,6 +1,6 @@
-#include "options.hpp"
 #include "MCNPImp.hpp"
-#include "mcnp2cad.hpp"
+#include "mcnp2cad/options.hpp"
+#include "mcnp2cad/mcnp2cad.hpp"
 
 //Stores all of the options selected
 struct program_option_struct Gopt;

@@ -2,7 +2,7 @@
 #include <cfloat>
 #include <iostream>
 
-#include "../mcnp2cad.hpp"
+#include "mcnp2cad.hpp"
 #include "options.hpp"
 
 std::ostream& operator<<(std::ostream& str, const Vector3d& v ){
