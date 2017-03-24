@@ -110,18 +110,6 @@ SET(IGEOM_SRC
     igeom/iGeom.h
     igeom/iGeomError.cc)
 
-#[[
-SET(MCNP2CAD_SRC
-    mcnp2cad/mcnp2cad.cpp
-    mcnp2cad/mcnp2cad.hpp
-    mcnp2cad/MCNPInput.cpp
-    mcnp2cad/MCNPInput.hpp
-    mcnp2cad/geometry.cpp
-    mcnp2cad/geometry.hpp
-    mcnp2cad/volumes.cpp
-    mcnp2cad/volumes.hpp)
-]]
-
 ###############################################################################
 # Build commands
 ###############################################################################
@@ -129,11 +117,5 @@ SET(MCNP2CAD_SRC
 add_library(iGeom SHARED ${IGEOM_SRC})
 target_link_libraries(iGeom cubit_geom ${CUBITI19})
 
-#[[
-add_library(mcnp2cad SHARED ${MCNP2CAD_SRC})
-target_link_libraries(mcnp2cad iGeom armadillo)
-]]
-
 add_library(dagmc_export_plugin MODULE ${PLUGIN_SRC} ${DAGMC_SRC} ${MCNP_SRC} ${IGEOMTEST_SRC})
 target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} ${MCNP2CAD})
-#target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} mcnp2cad)
