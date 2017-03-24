@@ -136,6 +136,7 @@ public:
                                const bool can_shallow_copy = false);
 };
 
+extern "C" {
   /** \mainpage The ITAPS Geometry Interface iGeom
    *
    * The ITAPS Geometry Interface iGeom provides a common interface for
@@ -207,7 +208,8 @@ typedef struct iGeom_Instance_Private* iGeom_Instance;
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_addEntToSet( iBase_EntityHandle entity_to_add,
+void iGeom_addEntToSet( iGeom_Instance instance,
+                        iBase_EntityHandle entity_to_add,
                         iBase_EntitySetHandle entity_set_handle, 
                         int* err );
 
@@ -220,7 +222,9 @@ void iGeom_addEntToSet( iBase_EntityHandle entity_to_add,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_createEntSet( iBase_EntitySetHandle *entity_set,
+void iGeom_createEntSet( iGeom_Instance instance,
+                         int isList,
+                         iBase_EntitySetHandle *entity_set,
                          int* err );
 
     /**\brief Create a sphere
@@ -231,7 +235,8 @@ void iGeom_createEntSet( iBase_EntitySetHandle *entity_set,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_createSphere( double radius,
+void iGeom_createSphere( iGeom_Instance instance,
+                         double radius,
                          iBase_EntityHandle *geom_entity,
                          int* err );
 
@@ -246,7 +251,8 @@ void iGeom_createSphere( double radius,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_createBrick( double x, 
+void iGeom_createBrick( iGeom_Instance instance,
+                        double x, 
                         double y, 
                         double z, 
                         iBase_EntityHandle *geom_entity,
@@ -264,7 +270,8 @@ void iGeom_createBrick( double x,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_createCylinder( double height, 
+void iGeom_createCylinder( iGeom_Instance instance,
+                           double height, 
                            double major_rad, 
                            double minor_rad,
                            iBase_EntityHandle *geom_entity,
@@ -288,7 +295,8 @@ void iGeom_createCylinder( double height,
    * \param *err Pointer to error type returned from function
    */
 
-void iGeom_createCone( double height,
+void iGeom_createCone( iGeom_Instance instance,
+                       double height,
                        double major_rad_base,
                        double minor_rad_base,
                        double rad_top,
@@ -305,7 +313,8 @@ void iGeom_createCone( double height,
      * \param *err Pointer to error type returned from function
      */
                        
-void iGeom_createTorus( double major_rad, 
+void iGeom_createTorus( iGeom_Instance instance,
+                        double major_rad, 
                         double minor_rad,
                         iBase_EntityHandle *geom_entity,
                         int* err );
@@ -323,7 +332,8 @@ void iGeom_createTorus( double major_rad,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_getEntBoundBox( iBase_EntityHandle entity_handle,
+void iGeom_getEntBoundBox( iGeom_Instance instance,
+                           iBase_EntityHandle entity_handle,
                            double* min_x,
                            double* min_y,
                            double* min_z,
@@ -342,7 +352,8 @@ void iGeom_getEntBoundBox( iBase_EntityHandle entity_handle,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_moveEnt( iBase_EntityHandle geom_entity, 
+void iGeom_moveEnt( iGeom_Instance instance,
+                    iBase_EntityHandle geom_entity, 
                     double x, double y, double z,
                     int* err );
 
@@ -357,7 +368,8 @@ void iGeom_moveEnt( iBase_EntityHandle geom_entity,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_rotateEnt( iBase_EntityHandle geom_entity,
+void iGeom_rotateEnt( iGeom_Instance instance,
+                      iBase_EntityHandle geom_entity,
                       double angle,
                       double axis_normal_x,
                       double axis_normal_y,
@@ -372,7 +384,8 @@ void iGeom_rotateEnt( iBase_EntityHandle geom_entity,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_copyEnt( iBase_EntityHandle geom_entity,
+void iGeom_copyEnt( iGeom_Instance instance,
+                    iBase_EntityHandle geom_entity,
                     iBase_EntityHandle *geom_entity2,
                     int* err );
 
@@ -389,7 +402,8 @@ void iGeom_copyEnt( iBase_EntityHandle geom_entity,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_scaleEnt( iBase_EntityHandle geom_entity,
+void iGeom_scaleEnt( iGeom_Instance instance,
+                     iBase_EntityHandle geom_entity,
                      double point_x,
                      double point_y,
                      double point_z,
@@ -407,7 +421,8 @@ void iGeom_scaleEnt( iBase_EntityHandle geom_entity,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_uniteEnts( iBase_EntityHandle const* geom_entities,
+void iGeom_uniteEnts( iGeom_Instance instance,
+                      iBase_EntityHandle const* geom_entities,
                       int geom_entities_size,
                       iBase_EntityHandle *geom_enttiy,
                       int* err );
@@ -421,7 +436,8 @@ void iGeom_uniteEnts( iBase_EntityHandle const* geom_entities,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_subtractEnts( iBase_EntityHandle blank,
+void iGeom_subtractEnts( iGeom_Instance instance,
+                         iBase_EntityHandle blank,
                          iBase_EntityHandle tool,
                          iBase_EntityHandle *geom_entity,
                          int* err );
@@ -433,7 +449,8 @@ void iGeom_subtractEnts( iBase_EntityHandle blank,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_deleteEnt( iBase_EntityHandle geom_entity,
+void iGeom_deleteEnt( iGeom_Instance instance,
+                      iBase_EntityHandle geom_entity,
                       int* err );
 
     /**\brief  Geometrically intersect a pair of entities
@@ -445,7 +462,8 @@ void iGeom_deleteEnt( iBase_EntityHandle geom_entity,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_intersectEnts( iBase_EntityHandle ent1,
+void iGeom_intersectEnts( iGeom_Instance instance,
+                          iBase_EntityHandle ent1,
                           iBase_EntityHandle ent2,
                           iBase_EntityHandle *geom_entity,
                           int* err );
@@ -465,7 +483,8 @@ though
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_reflectEnt( iBase_EntityHandle geom_entity,
+void iGeom_reflectEnt( iGeom_Instance instance,
+                       iBase_EntityHandle geom_entity,
                         double point_x,
                         double point_y,
                         double point_z,
@@ -488,7 +507,8 @@ void iGeom_reflectEnt( iBase_EntityHandle geom_entity,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_sectionEnt( iBase_EntityHandle geom_entity,
+void iGeom_sectionEnt( iGeom_Instance instance,
+                       iBase_EntityHandle geom_entity,
                        double plane_normal_x,
                        double plane_normal_y,
                        double plane_normal_z,
@@ -505,7 +525,8 @@ void iGeom_sectionEnt( iBase_EntityHandle geom_entity,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_imprintEnts( iBase_EntityHandle const* gentity_handles,
+void iGeom_imprintEnts( iGeom_Instance instance,
+                        iBase_EntityHandle const* gentity_handles,
                         int gentity_handles_size,
                         int* err );
 
@@ -518,9 +539,9 @@ void iGeom_imprintEnts( iBase_EntityHandle const* gentity_handles,
      *        pointed to by descr
      */
 
-void iGeom_getDescription( char* description_buffer,
-                      int description_buffer_length);//,
-//                      int* err );
+void iGeom_getDescription( iGeom_Instance instance,
+                           char* description_buffer,
+                           int description_buffer_length );
 
     /**\brief  Get entities of specific type in set or instance
      *
@@ -539,7 +560,8 @@ void iGeom_getDescription( char* description_buffer,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_getEntities( iBase_EntitySetHandle set_handle,
+void iGeom_getEntities( iGeom_Instance instance,
+                        iBase_EntitySetHandle set_handle,
                         int gentity_type,
                         iBase_EntityHandle **gentity_handles,
                         int *gentity_handles_allocated,
@@ -560,7 +582,8 @@ void iGeom_getEntities( iBase_EntitySetHandle set_handle,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_getNumOfType( iBase_EntitySetHandle set_handle,
+void iGeom_getNumOfType( iGeom_Instance instance,
+                         iBase_EntitySetHandle set_handle,
                          int gentity_type,
                          int* count,
                          int* err );
@@ -643,6 +666,7 @@ void iGeom_setData( iGeom_Instance instance,
                     iBase_EntityHandle entity_handle,
                     iBase_TagHandle tag_handle,
                     const void *tag_value_tmp,
+                    int tag_value_size, 
                     int* err );
 
     /**\brief  Set a tag value of arbitrary type on an entity set
@@ -665,6 +689,7 @@ void iGeom_setEntSetData( iGeom_Instance instance,
                           iBase_EntitySetHandle entity_set,
                           iBase_TagHandle tag_handle,
                           const void *tag_value_tmp,
+                          const int tag_value_size,
                           int* err );
 
     /**\brief  Merge ents
@@ -677,7 +702,8 @@ void iGeom_setEntSetData( iGeom_Instance instance,
      * \param *err Pointer to error type returned from function
      */
 
-void iGeom_mergeEnts( iBase_EntityHandle const* gentity_handles,
+void iGeom_mergeEnts( iGeom_Instance instance,
+                      iBase_EntityHandle const* gentity_handles,
                       int gentity_handles_size,
                       double tolerance,
                       int* err );
@@ -694,7 +720,8 @@ void iGeom_mergeEnts( iBase_EntityHandle const* gentity_handles,
      * \param name_len Length of the file name character string
      * \param options_len Length of the options character string
      */
-  void iGeom_save( char const* name,
+  void iGeom_save( iGeom_Instance instance,
+                   char const* name,
                    char const* options,
                    int* err,
                    int name_len,
@@ -703,6 +730,11 @@ void iGeom_mergeEnts( iBase_EntityHandle const* gentity_handles,
 
 
 //Helper Functions
+
+void iGeom_getErrorType( iGeom_Instance& instance,
+                         int *error_type );
+
+} //extern C
 
 static void tokenize( const std::string& str, 
                       std::vector<std::string>& tokens );
@@ -721,8 +753,6 @@ CubitCompat_export_solid_model( DLIList<RefEntity*>& ref_entity_list,
                                 int &num_ents_exported,
                                 const CubitString &cubit_version,
                                 const char* logfile_name = NULL );
-
-void iGeom_getErrorType( int *error_type );
 
 static CubitStatus iGeom_bounding_box( RefEntity* entity,
 //static void iGeom_bounding_box( RefEntity* entity,

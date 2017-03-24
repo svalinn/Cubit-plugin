@@ -20,14 +20,14 @@ std::ofstream record;
 
 typedef std::vector<iBase_EntityHandle> entity_collection_t;
 
-static bool boundBoxesIntersect( iBase_EntityHandle h1, iBase_EntityHandle h2 ){
+static bool boundBoxesIntersect( iGeom_Instance& igm, iBase_EntityHandle h1, iBase_EntityHandle h2 ){
 
   Vector3d h1_min, h1_max, h2_min, h2_max;
   int igm_result;
   
-  iGeom_getEntBoundBox( h1, h1_min.v, h1_min.v+1, h1_min.v+2, h1_max.v, h1_max.v+1, h1_max.v+2, &igm_result );
+  iGeom_getEntBoundBox( igm, h1, h1_min.v, h1_min.v+1, h1_min.v+2, h1_max.v, h1_max.v+1, h1_max.v+2, &igm_result );
   CHECK_IGEOM( igm_result, "Getting bounding box h1" );
-  iGeom_getEntBoundBox( h2, h2_min.v, h2_min.v+1, h2_min.v+2, h2_max.v, h2_max.v+1, h2_max.v+2, &igm_result );
+  iGeom_getEntBoundBox( igm, h2, h2_min.v, h2_min.v+1, h2_min.v+2, h2_max.v, h2_max.v+1, h2_max.v+2, &igm_result );
   CHECK_IGEOM( igm_result, "Getting bounding box h2" );
 
   bool ret = false;
@@ -41,21 +41,22 @@ static bool boundBoxesIntersect( iBase_EntityHandle h1, iBase_EntityHandle h2 ){
 
 }
 
-static bool intersectIfPossible( iBase_EntityHandle h1, iBase_EntityHandle h2, iBase_EntityHandle* result, 
+static bool intersectIfPossible( iGeom_Instance& igm, iBase_EntityHandle h1, 
+                                 iBase_EntityHandle h2, iBase_EntityHandle* result, 
                                  bool delete_on_failure = true)
 {
   int igm_result;
 
-  iGeom_intersectEnts( h1, h2, result, &igm_result);
+  iGeom_intersectEnts( igm, h1, h2, result, &igm_result);
   
   if( igm_result == iBase_SUCCESS ){
     return true;
   }
   else{
     if( delete_on_failure ){
-      iGeom_deleteEnt( h1, &igm_result);
+      iGeom_deleteEnt( igm, h1, &igm_result);
       CHECK_IGEOM(igm_result, "deleting an intersection candidate");
-      iGeom_deleteEnt( h2, &igm_result);
+      iGeom_deleteEnt( igm, h2, &igm_result);
       CHECK_IGEOM(igm_result, "deleting an intersection candidate");
     }
     return false;
@@ -307,7 +308,7 @@ public:
 
     if ( Gopt.imprint_geom ) {
       record << "Imprinting all..." << std::endl;
-      iGeom_imprintEnts( cell_array, count, &igm_result );
+      iGeom_imprintEnts( igm, cell_array, count, &igm_result );
       CHECK_IGEOM( igm_result, "Imprinting all cells" );
 
       double tolerance = world_size / 1.0e7;
@@ -317,7 +318,7 @@ public:
 
       if ( Gopt.merge_geom ) {
         record << "Tolerance=" << tolerance << std::endl;
-        iGeom_mergeEnts( cell_array, count,  tolerance, &igm_result );
+        iGeom_mergeEnts( igm, cell_array, count,  tolerance, &igm_result );
         CHECK_IGEOM( igm_result, "Merging all cells" );
       }
     }
@@ -325,7 +326,7 @@ public:
     if( !plugin_build ){
       std::string outName = Gopt.output_file;
       std::cout << "Saving file \"" << outName << "\"...\t\t\t" << std::flush;
-      iGeom_save( outName.c_str(), "", &igm_result, outName.length(), 0 );
+      iGeom_save( igm, outName.c_str(), "", &igm_result, outName.length(), 0 );
       CHECK_IGEOM( igm_result, "saving the output file "+outName );
       std::cout << " done." << std::endl;
     }
@@ -356,14 +357,14 @@ bool GeometryContext::mapSanityCheck( iBase_EntityHandle* cells, size_t count){
   CHECK_IGEOM( igm_result, "Getting root set for sanity check" );
 
   int num_regions;
-  iGeom_getNumOfType( rootset, iBase_REGION, &num_regions, &igm_result );
+  iGeom_getNumOfType( igm, rootset, iBase_REGION, &num_regions, &igm_result );
   CHECK_IGEOM( igm_result, "Getting num regions for sanity check" );
 
   iBase_EntityHandle * handle_vector = new iBase_EntityHandle[ num_regions ];
   int size = 0;
 
   record << "Map sanity check: num_regions = " << num_regions << std::endl;
-  iGeom_getEntities( rootset, iBase_REGION, &handle_vector, &num_regions, &size, &igm_result );
+  iGeom_getEntities( igm, rootset, iBase_REGION, &handle_vector, &num_regions, &size, &igm_result );
   CHECK_IGEOM( igm_result, "Getting entities for sanity check" );
 
   record << "Map sanity check: root set size = " << size << " (" << num_regions << ")" << std::endl;
@@ -420,7 +421,7 @@ entity_collection_t GeometryContext::defineUniverse( int universe, iBase_EntityH
     lattice_shell = container;
     // reverse-transform the containing volume before using it as a lattice boundary
     if(transform){
-      lattice_shell = applyReverseTransform( *transform, lattice_shell );
+      lattice_shell = applyReverseTransform( *transform, igm, lattice_shell );
     }
   }
 
@@ -434,7 +435,7 @@ entity_collection_t GeometryContext::defineUniverse( int universe, iBase_EntityH
   
   if( transform ){
     for( size_t i = 0; i < subcells.size(); ++i){
-      subcells[i] = applyTransform( *transform, subcells[i] );      
+      subcells[i] = applyTransform( *transform, igm, subcells[i] );      
     }
   }
 
@@ -450,13 +451,13 @@ entity_collection_t GeometryContext::defineUniverse( int universe, iBase_EntityH
 
       bool subcell_removed = false;
 
-      if( boundBoxesIntersect( subcells[i], container )){
+      if( boundBoxesIntersect( igm, subcells[i], container )){
         iBase_EntityHandle container_copy;
-        iGeom_copyEnt( container, &container_copy, &igm_result);
+        iGeom_copyEnt( igm, container, &container_copy, &igm_result);
         CHECK_IGEOM( igm_result, "Copying a universe-bounding cell" );
         
         iBase_EntityHandle subcell_bounded;
-        bool valid_result = intersectIfPossible( container_copy, subcells[i], &subcell_bounded );
+        bool valid_result = intersectIfPossible( igm, container_copy, subcells[i], &subcell_bounded );
         if( valid_result ){
           updateMaps( subcells[i], subcell_bounded );
           subcells[i] = subcell_bounded;
@@ -470,7 +471,7 @@ entity_collection_t GeometryContext::defineUniverse( int universe, iBase_EntityH
       else{
         //bounding boxes didn't intersect, delete subcells[i].
         //this suggests invalid geometry, but we can continue anyway.
-        iGeom_deleteEnt( subcells[i], &igm_result );
+        iGeom_deleteEnt( igm, subcells[i], &igm_result );
         CHECK_IGEOM( igm_result, "Deleting a subcell that didn't intersect a parent's bounding box (strange!)" );
         subcell_removed = true;
       }
@@ -484,7 +485,7 @@ entity_collection_t GeometryContext::defineUniverse( int universe, iBase_EntityH
       
     }
         
-    iGeom_deleteEnt( container, &igm_result );
+    iGeom_deleteEnt( igm, container, &igm_result );
     CHECK_IGEOM( igm_result, "Deleting a bounding cell" );
   }
 
@@ -502,17 +503,17 @@ iBase_EntityHandle GeometryContext::createGraveyard( iBase_EntityHandle& inner_c
   int igm_result;
 
   double inner_size = 2.0 * world_size;
-  iGeom_createBrick( inner_size, inner_size, inner_size, &inner, &igm_result );
+  iGeom_createBrick( igm, inner_size, inner_size, inner_size, &inner, &igm_result );
   CHECK_IGEOM( igm_result, "Making graveyard" );
   
-  iGeom_copyEnt( inner, &inner_copy, &igm_result );
+  iGeom_copyEnt( igm, inner, &inner_copy, &igm_result );
   CHECK_IGEOM( igm_result, "Copying graveyard" );
   
   double outer_size = 2.0 * ( world_size + (world_size / 50.0) );
-  iGeom_createBrick( outer_size, outer_size, outer_size, &outer, &igm_result );
+  iGeom_createBrick( igm, outer_size, outer_size, outer_size, &outer, &igm_result );
   CHECK_IGEOM( igm_result, "Making outer graveyard" );
 
-  iGeom_subtractEnts( outer, inner, &graveyard, &igm_result );
+  iGeom_subtractEnts( igm, outer, inner, &graveyard, &igm_result );
   CHECK_IGEOM( igm_result, "subtracting graveyard" );
   
   addToVolumeGroup( graveyard, "graveyard" );
@@ -579,7 +580,7 @@ entity_collection_t GeometryContext::defineCell(  CellCard& cell,  bool defineEm
           positive = false; surface = -surface;
         }
           SurfaceVolume& surf = makeSurface( deck.lookup_surface_card( surface ) );
-          iBase_EntityHandle surf_handle = surf.define( positive, world_size );
+          iBase_EntityHandle surf_handle = surf.define( positive, igm, world_size );
           stack.push_back(surf_handle);
       }
       break;
@@ -608,7 +609,7 @@ entity_collection_t GeometryContext::defineCell(  CellCard& cell,  bool defineEm
             }
           }
 
-          iBase_EntityHandle surf_handle = surf.define ( positive, world_size );
+          iBase_EntityHandle surf_handle = surf.define ( positive, igm, world_size );
           stack.push_back(surf_handle);
 
       }
@@ -626,7 +627,7 @@ entity_collection_t GeometryContext::defineCell(  CellCard& cell,  bool defineEm
         iBase_EntityHandle s1 = stack.back(); stack.pop_back();
         iBase_EntityHandle s2 = stack.back(); stack.pop_back();
         iBase_EntityHandle result;
-        if( intersectIfPossible( s1, s2, &result ) ){
+        if( intersectIfPossible( igm, s1, s2, &result ) ){
           stack.push_back(result);
         }
         else{
@@ -648,7 +649,7 @@ entity_collection_t GeometryContext::defineCell(  CellCard& cell,  bool defineEm
         s[0] = stack.back(); stack.pop_back();
         s[1] = stack.back(); stack.pop_back();
         iBase_EntityHandle result;
-        iGeom_uniteEnts( s, 2, &result, &igm_result);
+        iGeom_uniteEnts( igm, s, 2, &result, &igm_result);
         CHECK_IGEOM( igm_result, "Uniting two entities" );
         stack.push_back(result);
       }
@@ -662,11 +663,11 @@ entity_collection_t GeometryContext::defineCell(  CellCard& cell,  bool defineEm
           }
           throw std::runtime_error("Problem with cell complement.");
         }
-        iBase_EntityHandle world_sphere = makeWorldSphere( world_size);
+        iBase_EntityHandle world_sphere = makeWorldSphere( igm, world_size );
         iBase_EntityHandle s = stack.back(); stack.pop_back();
         iBase_EntityHandle result;
 
-        iGeom_subtractEnts(  world_sphere, s, &result, &igm_result);
+        iGeom_subtractEnts( igm,  world_sphere, s, &result, &igm_result);
         CHECK_IGEOM( igm_result, "Complementing an entity" );
         stack.push_back(result);
       }
@@ -688,7 +689,7 @@ entity_collection_t GeometryContext::defineCell(  CellCard& cell,  bool defineEm
   iBase_EntityHandle cellHandle = stack[0];
 
   if( cell.getTrcl().hasData() ){
-    cellHandle = applyTransform( cell.getTrcl().getData(), cellHandle );
+    cellHandle = applyTransform( cell.getTrcl().getData(), igm, cellHandle );
   }
 
   if( defineEmbedded ){
@@ -840,7 +841,7 @@ entity_collection_t GeometryContext::populateCell( CellCard& cell,  iBase_Entity
       // when extra effort is enabled, initialize done_one to false;
       // the code will keep trying to create lattice elements until at least one 
       // element has been successfully created.
-      bool done = false, done_one = false;//!Gopt.infinite_lattice_extra_effort;
+      bool done = false, done_one = !Gopt.infinite_lattice_extra_effort;
       int radius = 0;
 
       while( !done ){
@@ -868,9 +869,9 @@ entity_collection_t GeometryContext::populateCell( CellCard& cell,  iBase_Entity
     }
 
     int igm_result;
-    iGeom_deleteEnt( cell_shell, &igm_result );
+    iGeom_deleteEnt( igm, cell_shell, &igm_result );
     CHECK_IGEOM( igm_result, "Deleting cell shell after building lattice" );
-    iGeom_deleteEnt( lattice_shell, &igm_result );
+    iGeom_deleteEnt( igm, lattice_shell, &igm_result );
     CHECK_IGEOM( igm_result, "Deleting lattice shell after building lattice" );
 
     return subcells;
@@ -948,12 +949,12 @@ void GeometryContext::tagGroups( ){
     }
 
     iBase_EntitySetHandle set;
-    iGeom_createEntSet(/* 0,*/ &set, &igm_result );
+    iGeom_createEntSet( igm, 0, &set, &igm_result );
     CHECK_IGEOM( igm_result, "Creating a new entity set " );
     
     const entity_collection_t& group_list = group->getEntities();
     for( entity_collection_t::const_iterator j = group_list.begin(); j != group_list.end(); ++j ){
-      iGeom_addEntToSet( *j, set, &igm_result );
+      iGeom_addEntToSet( igm, *j, set, &igm_result );
       CHECK_IGEOM( igm_result, "Adding entity to material set" );
     }
 
@@ -967,7 +968,7 @@ void GeometryContext::tagGroups( ){
              << " to length " << name_tag_maxlength << std::endl;
     }
 
-    iGeom_setEntSetData( igm, set, name_tag, name.c_str(), &igm_result );
+    iGeom_setEntSetData( igm, set, name_tag, name.c_str(), name.length(), &igm_result );
     CHECK_IGEOM( igm_result, "Naming a material group's EntitySet" );
     
   }
@@ -1012,7 +1013,7 @@ void GeometryContext::tagCellIDsAsEntNames(){
       continue;
     }
     
-    iGeom_setData( igm, entity, name_tag, name.c_str(), &igm_result );
+    iGeom_setData( igm, entity, name_tag, name.c_str(), name.length(), &igm_result );
     CHECK_IGEOM( igm_result, "Naming an NamedEntity" );
   }
 
@@ -1029,12 +1030,12 @@ bool GeometryContext::defineLatticeNode(  CellCard& cell, iBase_EntityHandle cel
   int igm_result;
   
   iBase_EntityHandle cell_copy;
-  iGeom_copyEnt( cell_shell, &cell_copy, &igm_result );
+  iGeom_copyEnt( igm, cell_shell, &cell_copy, &igm_result );
   CHECK_IGEOM( igm_result, "Copying a lattice cell shell" );
-  cell_copy = applyTransform( t, cell_copy );
+  cell_copy = applyTransform( t, igm, cell_copy );
   
-  if( !boundBoxesIntersect( cell_copy, lattice_shell ) ){
-    iGeom_deleteEnt( cell_copy, &igm_result);
+  if( !boundBoxesIntersect( igm, cell_copy, lattice_shell ) ){
+    iGeom_deleteEnt( igm, cell_copy, &igm_result);
     CHECK_IGEOM( igm_result, "Deleting a lattice cell shell" );
     if( OPT_DEBUG ){
       record << uprefix() << " node failed bbox check" << std::endl;
@@ -1046,7 +1047,7 @@ bool GeometryContext::defineLatticeNode(  CellCard& cell, iBase_EntityHandle cel
   if( fn->getFillingUniverse() == 0 ){
     // this node of the lattice was assigned universe zero, meaning it's
     // defined to be emtpy. Delete the shell and return true.
-    iGeom_deleteEnt( cell_copy, &igm_result );
+    iGeom_deleteEnt( igm, cell_copy, &igm_result );
     CHECK_IGEOM( igm_result, "Deleting a universe-0 lattice cell" );
     return true;
   }
@@ -1061,14 +1062,14 @@ bool GeometryContext::defineLatticeNode(  CellCard& cell, iBase_EntityHandle cel
     // this node has an embedded universe
 
     iBase_EntityHandle cell_copy_unmoved;
-    iGeom_copyEnt( cell_shell, &cell_copy_unmoved, &igm_result );
+    iGeom_copyEnt( igm, cell_shell, &cell_copy_unmoved, &igm_result );
     CHECK_IGEOM( igm_result, "Re-copying a lattice cell shell" );
     node_subcells = defineUniverse(  fn->getFillingUniverse(), cell_copy_unmoved, (fn->hasTransform() ? &(fn->getTransform()) : NULL ) );
     for( size_t i = 0; i < node_subcells.size(); ++i ){
-      node_subcells[i] = applyTransform( t, node_subcells[i] );
+      node_subcells[i] = applyTransform( t, igm, node_subcells[i] );
     }
 
-    iGeom_deleteEnt( cell_copy, &igm_result );
+    iGeom_deleteEnt( igm, cell_copy, &igm_result );
     CHECK_IGEOM( igm_result, "Deleting lattice cell copy" );
 
   }
@@ -1077,10 +1078,10 @@ bool GeometryContext::defineLatticeNode(  CellCard& cell, iBase_EntityHandle cel
   bool success = false;
   for( size_t i = 0; i < node_subcells.size(); ++i ){
     iBase_EntityHandle lattice_shell_copy;
-    iGeom_copyEnt( lattice_shell, &lattice_shell_copy, &igm_result );
+    iGeom_copyEnt( igm, lattice_shell, &lattice_shell_copy, &igm_result );
 
     iBase_EntityHandle result;
-    if( intersectIfPossible( lattice_shell_copy, node_subcells[i], &result, true ) ){
+    if( intersectIfPossible( igm, lattice_shell_copy, node_subcells[i], &result, true ) ){
       updateMaps( node_subcells[i], result );
         if( OPT_DEBUG )record << " node defined successfully" << std::endl;
       accum.push_back( result );

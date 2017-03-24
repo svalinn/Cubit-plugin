@@ -18,6 +18,9 @@ option(BUILD_IGEOM_TESTS     "Include tests for iGeom."             OFF)
 
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -DHAVE_IGEOM_CONE" )
+
+# These are used in MyPlugin.cpp to keep the plugin working 
+# if not all parts are built.
 if(${BUILD_DAGMC_EXPORTER})
     set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBUILD_DAGMC_EXPORT" )
 endif()
@@ -52,7 +55,7 @@ find_package(MOAB REQUIRED)
 include_directories(${MOAB_INCLUDE_DIRS})
 
 
-#Find the other libraries and directories
+# Find the other libraries and directories
 include_directories("${DAGMC_DIR}/../include/")
 include_directories("${CMAKE_SOURCE_DIR}/igeom")
 
@@ -123,13 +126,14 @@ SET(MCNP2CAD_SRC
 # Build commands
 ###############################################################################
 
-add_library(igeom SHARED ${IGEOM_SRC})
-target_link_libraries(igeom cubit_geom ${CUBITI19})
+add_library(iGeom SHARED ${IGEOM_SRC})
+target_link_libraries(iGeom cubit_geom ${CUBITI19})
 
 #[[
 add_library(mcnp2cad SHARED ${MCNP2CAD_SRC})
-target_link_libraries(mcnp2cad igeom)
+target_link_libraries(mcnp2cad iGeom armadillo)
 ]]
 
 add_library(dagmc_export_plugin MODULE ${PLUGIN_SRC} ${DAGMC_SRC} ${MCNP_SRC} ${IGEOMTEST_SRC})
 target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} ${MCNP2CAD})
+#target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} mcnp2cad)

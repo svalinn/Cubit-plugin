@@ -17,7 +17,6 @@
 #include "RefEdge.hpp"
 #include "RefVertex.hpp"
 #include "iGeomError.h"
-//#include "mcnp2cad/iGeomError.h"
 
 #include <iostream>
 
@@ -37,30 +36,26 @@ public:
                      int& array_allocated_space,
                      int& array_size,
                      int count,
-                     int val_size/*,
-                     int* err */) : arrayPtr(0)
+                     int val_size,
+                     int* err ) : arrayPtr(0)
   {
     if (!*array_ptr) {
       *array_ptr = malloc(val_size * count);
       array_allocated_space = array_size = count;
-      /*
       if (!*array_ptr) {
         ERROR(iBase_MEMORY_ALLOCATION_FAILED, "Couldn't allocate array.");
       }
-      */
       arrayPtr = array_ptr;
     }
     else {
       array_size = count;
-      /*
+      
       if (array_allocated_space < count) {
         ERROR(iBase_BAD_ARRAY_DIMENSION, 
           "Allocated array not large enough to hold returned contents.");
       }
-      */
     }
-//    RETURN(iBase_SUCCESS);
-    return;
+    RETURN(iBase_SUCCESS);
   }
   
   ~iGeomArrayManager() 
@@ -83,9 +78,11 @@ public:
 
 
 
+extern "C" {
 
 void
-iGeom_addEntToSet( /*in*/ iBase_EntityHandle entity_to_add,
+iGeom_addEntToSet( iGeom_Instance instance,
+                   /*in*/ iBase_EntityHandle entity_to_add,
                    /*inout*/ iBase_EntitySetHandle entity_set_handle,
                    int* err )
 {
@@ -104,7 +101,8 @@ iGeom_addEntToSet( /*in*/ iBase_EntityHandle entity_to_add,
 }
 
 void
-iGeom_copyEnt( /*in*/ iBase_EntityHandle geom_entity,
+iGeom_copyEnt( iGeom_Instance instance,
+               /*in*/ iBase_EntityHandle geom_entity,
                /*out*/ iBase_EntityHandle *geom_entity2,
                int* err )
 {
@@ -142,7 +140,8 @@ iGeom_copyEnt( /*in*/ iBase_EntityHandle geom_entity,
 }
 
 void
-iGeom_createBrick( /*in*/ double x,
+iGeom_createBrick( iGeom_Instance instance,
+                   /*in*/ double x,
                    /*in*/ double y,
                    /*in*/ double z,
                    /*out*/ iBase_EntityHandle *geom_entity, 
@@ -179,7 +178,8 @@ iGeom_createBrick( /*in*/ double x,
 }
 
 void
-iGeom_createCone( /*in*/ double height,
+iGeom_createCone( iGeom_Instance instance,
+                  /*in*/ double height,
                   /*in*/ double major_rad_base,
                   /*in*/ double minor_rad_base,
                   /*in*/ double rad_top,
@@ -200,7 +200,8 @@ iGeom_createCone( /*in*/ double height,
 }
 
 void
-iGeom_createCylinder( /*in*/ double height,
+iGeom_createCylinder( iGeom_Instance instance,
+                      /*in*/ double height,
                       /*in*/ double major_rad,
                       /*in*/ double minor_rad,
                       /*out*/ iBase_EntityHandle *geom_entity,
@@ -220,7 +221,9 @@ iGeom_createCylinder( /*in*/ double height,
 }
 
 void
-iGeom_createEntSet( /*out*/ iBase_EntitySetHandle *entity_set,
+iGeom_createEntSet( iGeom_Instance instance,
+                    /*in*/ int isList,
+                    /*out*/ iBase_EntitySetHandle *entity_set,
                     int* err )
 {
   RefGroup* grp = RefEntityFactory::instance()->construct_RefGroup();
@@ -236,9 +239,10 @@ iGeom_createEntSet( /*out*/ iBase_EntitySetHandle *entity_set,
 }
 
 void
-iGeom_createSphere( double radius,
-                   /*out*/ iBase_EntityHandle *geom_entity,
-                   int* err )
+iGeom_createSphere( iGeom_Instance instance,
+                    double radius,
+                    /*out*/ iBase_EntityHandle *geom_entity,
+                    int* err )
 {
   RefEntity* tmp_body = GeometryModifyTool::instance()->sphere( radius );
   *geom_entity = reinterpret_cast<iBase_EntityHandle>(tmp_body);
@@ -246,11 +250,13 @@ iGeom_createSphere( double radius,
 }
 
 void
-iGeom_createTorus( /*in*/ double major_rad,
+iGeom_createTorus( iGeom_Instance instance,
+                   /*in*/ double major_rad,
                    /*in*/ double minor_rad,
                    /*out*/ iBase_EntityHandle *geom_entity,
                    int* err )
 {
+  /*
   if (minor_rad >= major_rad) {
     ERROR(iBase_INVALID_ARGUMENT, "Major radius must be greater than minor radius for tori.");
   }
@@ -263,11 +269,103 @@ iGeom_createTorus( /*in*/ double major_rad,
   }
 
   RETURN(iBase_SUCCESS);
+  */
+  if (minor_rad >= major_rad) {
+    // first calculate the 3 control vertices and 2 control points
+    double height = sqrt((minor_rad*minor_rad) - (major_rad*major_rad));
+    double maxima = major_rad+minor_rad;
+    CubitVector v1_pos(0,0,height);
+    RefVertex *v1 = GeometryModifyTool::instance()->make_RefVertex(v1_pos);
+
+    // control point 2
+    CubitVector v2_pos(major_rad,0,minor_rad);
+
+    // point point 3
+    CubitVector v3_pos(maxima,0,0);
+    RefVertex *v3 = GeometryModifyTool::instance()->make_RefVertex(v3_pos);
+
+    // point point 4
+    CubitVector v4_pos(major_rad,0,-minor_rad);
+
+    // point point 5
+    CubitVector v5_pos(0,0,-height);
+    RefVertex *v5 = GeometryModifyTool::instance()->make_RefVertex(v5_pos);
+
+    //now create the appropriate curves and add them to this list
+    DLIList<RefEdge*> profile_edges;
+
+    //the straight cutoff curve
+    RefEdge *curve = GeometryModifyTool::instance()->make_RefEdge(STRAIGHT_CURVE_TYPE, v1, v5);
+    profile_edges.insert(curve); 
+
+    //the first arc
+    curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v1, v3, &v2_pos);
+    profile_edges.insert(curve); 
+
+    //the second arc
+    curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v3, v5, &v4_pos);
+    profile_edges.insert(curve); 
+        
+    // make surf from the curves
+    // This fails in Trelis
+    RefFace *surf = GeometryModifyTool::instance()->make_RefFace( TORUS_SURFACE_TYPE, profile_edges, true);
+
+    RefEntity *surf_ent = dynamic_cast<RefEntity*>(surf);
+    DLIList<RefEntity*> surfs_to_sweep;
+    surfs_to_sweep.insert(surf_ent);
+    
+    DLIList<Body*> new_bodies;
+    CubitVector sweep_point(0,0,0);
+    CubitVector sweep_axis(0,0,1);
+    CubitStatus status = GeometryModifyTool::instance()->sweep_rotational(surfs_to_sweep, sweep_point, 
+                         sweep_axis, 2*CUBIT_PI, new_bodies, 
+                         CUBIT_FALSE, CUBIT_TRUE);
+    if(status != CUBIT_SUCCESS)
+      std::cerr << "Failed to sweep surface" << std::endl;
+
+    if(new_bodies.size() != 1 )
+      std::cerr << "Too many bodies returned from sweep" << std::endl;
+
+
+    // convert body into volume
+    DLIList<RefVolume*> vols;
+    for( int nv = new_bodies.size(); nv > 0; nv-- )
+    {
+      DLIList<RefVolume*> t2;
+      new_bodies.get_and_step()->ref_volumes( t2 );
+      vols += t2;
+    }
+
+    if(vols.size() != 1)
+      std::cerr << "More than one vol from sweep" << std::endl;
+
+
+    //segfault here if degenerate.
+    GeometryQueryTool::instance()->delete_RefFace(surf);
+
+    //    *geom_entity = reinterpret_cast<iBase_EntityHandle>(vols[0]);
+    RefEntity *temp_body = new_bodies[0];
+    *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
+
+    //    iGeom_save(instance,"test_surfac2.sat","",&err,16,0);
+
+  } else {
+    RefEntity *temp_body = GeometryModifyTool::instance()->torus(major_rad, minor_rad);
+    *geom_entity = reinterpret_cast<iBase_EntityHandle>(temp_body);
+  }
+
+  if (NULL == *geom_entity) {
+    std::cerr << "invalid entity" << std::endl;
+    RETURN(iBase_FAILURE);
+  }
+
+  RETURN(iBase_SUCCESS);
 }
 
 
 void
-iGeom_deleteEnt( /*in*/ iBase_EntityHandle geom_entity,
+iGeom_deleteEnt( iGeom_Instance instance,
+                 /*in*/ iBase_EntityHandle geom_entity,
                  int* err )
 {
   RefEntity *this_ent = reinterpret_cast<RefEntity*>(geom_entity);
@@ -300,7 +398,8 @@ iGeom_deleteEnt( /*in*/ iBase_EntityHandle geom_entity,
 
 // This uses CGM, so might need a new way to check errors.
 void
-iGeom_getDescription( char* description_buffer,
+iGeom_getDescription( iGeom_Instance instance,
+                      char* description_buffer,
                       int description_buffer_length )
 {
     CGM_iGeom_getLastErrorDesc(description_buffer, description_buffer_length);
@@ -314,7 +413,8 @@ iGeom_getDescription( char* description_buffer,
 }
 
 void
-iGeom_getEntBoundBox( /*in*/ iBase_EntityHandle entity_handle,
+iGeom_getEntBoundBox( iGeom_Instance instance,
+                      /*in*/ iBase_EntityHandle entity_handle,
                       /*out*/ double* min_x,
                       /*out*/ double* min_y,
                       /*out*/ double* min_z,
@@ -332,7 +432,8 @@ iGeom_getEntBoundBox( /*in*/ iBase_EntityHandle entity_handle,
 }
 
 void
-iGeom_getEntities( /*in*/ iBase_EntitySetHandle set_handle,
+iGeom_getEntities( iGeom_Instance instance,
+                   /*in*/ iBase_EntitySetHandle set_handle,
                    /*in*/ int gentity_type,
                    /*out*/ iBase_EntityHandle **gentity_handles,
                    int *gentity_handles_allocated,
@@ -356,7 +457,7 @@ iGeom_getEntities( /*in*/ iBase_EntitySetHandle set_handle,
     if (iBase_SUCCESS != *err)
       return;
     
-    iGeomArrayManager gentity_handles_manager ( reinterpret_cast<void**>(gentity_handles), *(gentity_handles_allocated), *(gentity_handles_size), dim_entities.size(), sizeof(**gentity_handles) );
+    iGeomArrayManager gentity_handles_manager ( reinterpret_cast<void**>(gentity_handles), *(gentity_handles_allocated), *(gentity_handles_size), dim_entities.size(), sizeof(**gentity_handles), err );
     gentity_handles_manager.keep_array();
     dim_entities.copy_to((RefEntity**)*gentity_handles);
     RETURN(iBase_SUCCESS);
@@ -364,7 +465,8 @@ iGeom_getEntities( /*in*/ iBase_EntitySetHandle set_handle,
 }
 
 void
-iGeom_getNumOfType( /*in*/ iBase_EntitySetHandle set_handle,
+iGeom_getNumOfType( iGeom_Instance instance,
+                    /*in*/ iBase_EntitySetHandle set_handle,
                     /*in*/ int gentity_type,
                     int* count,
                     int* err )
@@ -428,7 +530,7 @@ iGeom_getTagHandle( iGeom_Instance instance,
   *tag_handle = reinterpret_cast<iBase_TagHandle>(tag_size_t);
 
     // XXX: this seems really wrong...
-  iGeom_getErrorType(err);
+  iGeom_getErrorType(instance, err);
 }
 
 void
@@ -443,7 +545,8 @@ iGeom_getTagSizeBytes( iGeom_Instance instance,
 
 
 void
-iGeom_imprintEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
+iGeom_imprintEnts( iGeom_Instance instance,
+                   /*in*/ iBase_EntityHandle const* gentity_handles,
                    int gentity_handles_size,
                    int* err )
 {
@@ -494,7 +597,8 @@ iGeom_imprintEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
 }
 
 void
-iGeom_intersectEnts( /*in*/ iBase_EntityHandle ent1,
+iGeom_intersectEnts( iGeom_Instance instance,
+                     /*in*/ iBase_EntityHandle ent1,
                      /*in*/ iBase_EntityHandle ent2,
                      /*out*/ iBase_EntityHandle *geom_entity,
                      int* err )
@@ -545,7 +649,8 @@ iGeom_intersectEnts( /*in*/ iBase_EntityHandle ent1,
 }
   
 void
-iGeom_mergeEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
+iGeom_mergeEnts( iGeom_Instance instance,
+                 /*in*/ iBase_EntityHandle const* gentity_handles,
                  int gentity_handles_size,
                  double tolerance,
                  int* err )
@@ -642,7 +747,8 @@ iGeom_mergeEnts( /*in*/ iBase_EntityHandle const* gentity_handles,
 }
 
 void
-iGeom_moveEnt( /*inout*/ iBase_EntityHandle geom_entity,
+iGeom_moveEnt( iGeom_Instance instance,
+               /*inout*/ iBase_EntityHandle geom_entity,
                /*in*/ double x,
                /*in*/ double y,
                /*in*/ double z,
@@ -748,7 +854,8 @@ iGeom_newGeom( const char* options,
 }
 
 void
-iGeom_reflectEnt( /*inout*/ iBase_EntityHandle geom_entity,
+iGeom_reflectEnt( iGeom_Instance instance,
+                  /*inout*/ iBase_EntityHandle geom_entity,
                   /*in*/ double point_x,
                   /*in*/ double point_y,
                   /*in*/ double point_z,
@@ -795,7 +902,8 @@ iGeom_reflectEnt( /*inout*/ iBase_EntityHandle geom_entity,
 
 
 void
-iGeom_rotateEnt( /*inout*/ iBase_EntityHandle geom_entity,
+iGeom_rotateEnt( iGeom_Instance instance,
+                 /*inout*/ iBase_EntityHandle geom_entity,
                  /*in*/ double angle,
                  /*in*/ double axis_normal_x,
                  /*in*/ double axis_normal_y,
@@ -834,7 +942,8 @@ iGeom_rotateEnt( /*inout*/ iBase_EntityHandle geom_entity,
 
 
 void
-iGeom_scaleEnt( /*inout*/ iBase_EntityHandle geom_entity,
+iGeom_scaleEnt( iGeom_Instance instance,
+                /*inout*/ iBase_EntityHandle geom_entity,
                 /*in*/ double point_x,
                 /*in*/ double point_y,
                 /*in*/ double point_z,
@@ -902,7 +1011,8 @@ iGeom_scaleEnt( /*inout*/ iBase_EntityHandle geom_entity,
 
 
 void
-iGeom_sectionEnt( /*inout*/ iBase_EntityHandle geom_entity,
+iGeom_sectionEnt( iGeom_Instance instance,
+                  /*inout*/ iBase_EntityHandle geom_entity,
                   /*in*/ double plane_normal_x,
                   /*in*/ double plane_normal_y,
                   /*in*/ double plane_normal_z,
@@ -984,6 +1094,7 @@ iGeom_setData( iGeom_Instance instance,
                /*in*/ iBase_EntityHandle entity_handle,
                /*in*/ iBase_TagHandle tag_handle,
                /*in*/ const void *tag_value_tmp,
+               int tag_value_size,
                int* err )
 {
   const char *tag_value = reinterpret_cast<const char *>(tag_value_tmp);
@@ -1000,6 +1111,7 @@ iGeom_setEntSetData( iGeom_Instance instance,
                      /*in*/ iBase_EntitySetHandle entity_set,
                      /*in*/ iBase_TagHandle tag_handle,
                      /*in*/ const void *tag_value_tmp,
+                     int tag_value_size,
                      int* err )
 {
   const char *tag_value = reinterpret_cast<const char *>(tag_value_tmp);
@@ -1012,7 +1124,8 @@ iGeom_setEntSetData( iGeom_Instance instance,
 
 
 void
-iGeom_subtractEnts( /*in*/ iBase_EntityHandle blank,
+iGeom_subtractEnts( iGeom_Instance instance,
+                    /*in*/ iBase_EntityHandle blank,
                     /*in*/ iBase_EntityHandle tool,
                     /*out*/ iBase_EntityHandle *geom_entity,
                     int* err )
@@ -1064,7 +1177,8 @@ iGeom_subtractEnts( /*in*/ iBase_EntityHandle blank,
 
 
 void
-iGeom_uniteEnts( /*in*/ iBase_EntityHandle const* geom_entities,
+iGeom_uniteEnts( iGeom_Instance instance,
+                 /*in*/ iBase_EntityHandle const* geom_entities,
                  int geom_entities_size,
                  /*out*/ iBase_EntityHandle *geom_entity,
                  int* err )
@@ -1108,11 +1222,12 @@ iGeom_uniteEnts( /*in*/ iBase_EntityHandle const* geom_entities,
  RETURN(iBase_SUCCESS);
 }
 
-void iGeom_save( /*in*/ const char *name,
-            /*in*/ const char* options,
-            int* err,
-            int name_len,
-            int options_len )
+void iGeom_save( iGeom_Instance instance,
+                 /*in*/ const char *name,
+                 /*in*/ const char* options,
+                 int* err,
+                 int name_len,
+                 int options_len )
 {
     // make sure strings are null terminated
   std::string name_buf(name, name_len);
@@ -1177,15 +1292,19 @@ void iGeom_save( /*in*/ const char *name,
   RETURN(iBase_SUCCESS);
 }
 
+
 /*****************
 *Helper Functions*
 *****************/
 
 void
-iGeom_getErrorType( int *error_type )
+iGeom_getErrorType( iGeom_Instance& instance,
+                    int *error_type )
 {
   *error_type = CGM_iGeom_getLastErrorType();
 }
+
+} //extern "C"
 
 static CubitStatus
 //static void
