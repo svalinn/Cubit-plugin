@@ -17,7 +17,7 @@ option(BUILD_IGEOM_TESTS     "Include tests for iGeom."             OFF)
 ###############################################################################
 
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -DHAVE_IGEOM_CONE" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
 
 # These are used in MyPlugin.cpp to keep the plugin working 
 # if not all parts are built.
@@ -74,6 +74,8 @@ if(${BUILD_MCNP_IMPORTER})
         find_library(MCNP2CAD NAMES mcnp2cad PATHS ${CMAKE_PREFIX_PATH})
     endif()
 endif()
+
+include_directories(${MCNP2CAD_DIR}/..)
 
 if(${BUILD_DAGMC_EXPORTER})
     find_library(MAKE_WATERTIGHT NAMES makeWatertight PATHS ${DAGMC_DIR})

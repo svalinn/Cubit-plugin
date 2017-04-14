@@ -1,6 +1,7 @@
 #include "MCNPImp.hpp"
-#include "mcnp2cad/options.hpp"
-#include "mcnp2cad/mcnp2cad.hpp"
+#include "CubitMessage.hpp"
+#include "options.hpp"
+#include "mcnp2cad.hpp"
 
 //Stores all of the options selected
 struct program_option_struct Gopt;
@@ -22,7 +23,6 @@ MCNPImp::MCNPImp()
   Gopt.uwuw_names = false;
   Gopt.override_tolerance = false;
   Gopt.input_file = "";
-
 }
 
 MCNPImp::~MCNPImp()
@@ -48,6 +48,8 @@ std::vector<std::string> MCNPImp::get_syntax()
   return syntax_list;
 }
 
+// These two functions need to be implemented for the plugin to be recognized
+// by Trelis, but they do nothing.
 std::vector<std::string> MCNPImp::get_syntax_help()
 {
   std::vector<std::string> help;
@@ -60,38 +62,39 @@ std::vector<std::string> MCNPImp::get_help()
   return help;
 }
 
+// This is the function that is actually called when the command is run.
 bool MCNPImp::execute(CubitCommandData &data)
 {
   std::string filename;
-  data.get_string("filename",filename);
+  data.get_string("filename", filename);
 
   parse_options(data);
-//  TODO: find a way to check whether the parsing worked as expected
+  // TODO: find a way to check whether the parsing worked as expected
 
+  // calls primary mcnp2cad function from mcnp2cad.cpp, in libmcnp2cad.
   return convert_mcnp(filename, true);
 }
 
-
-bool MCNPImp::parse_options(CubitCommandData &data)
+void MCNPImp::parse_options(CubitCommandData &data)
 {
 
   // read parsed command for tolerance
-  data.get_value("specific_tolerance",Gopt.specific_tolerance);
+  data.get_value("specific_tolerance", Gopt.specific_tolerance);
   record << "Setting specific tolerance to " << Gopt.specific_tolerance << std::endl;
-  //If tolerance was specified
-  if( data.find_keyword("tol") ){
+  // If a tolerance was specified, set specific_tolerance to that value.
+  if (data.find_keyword("tol")) {
     Gopt.override_tolerance = true;
-    if( Gopt.specific_tolerance <= 0.0 || Gopt.specific_tolerance > .1 ){
-      std::cerr << "Warning: you seem to have specified an unusual tolerance (" 
-                << Gopt.specific_tolerance << ")." << std::endl;
-      record << "Warning: you seem to have specified an unusual tolerance (" 
+    if (Gopt.specific_tolerance <= 0.0 || Gopt.specific_tolerance > .1) {
+      record << "Warning: you seem to have specified an unusual tolerance ("
              << Gopt.specific_tolerance << ")." << std::endl;
     }
   }
-  
-  // read parsed boolean commands
+
+  // read parsed boolean commands and set options.
   Gopt.verbose = data.find_keyword("verbose");
   Gopt.debug = data.find_keyword("debug");
+  // OPT_VERBOSE and OPT_DEBUG are set to (Gopt.verbose || Gopt.debug)
+  // and (Gopt.debug) respectively in options.hpp of project mcnp2cad.
   Gopt.infinite_lattice_extra_effort = data.find_keyword("extra_effort");
   Gopt.tag_materials = !data.find_keyword("skip_mats");
   Gopt.tag_importances = !data.find_keyword("skip_imps");
@@ -103,20 +106,18 @@ bool MCNPImp::parse_options(CubitCommandData &data)
   Gopt.dout = data.find_keyword("debug_output");
   Gopt.din  = data.find_keyword("debug_input");
 
-  if( Gopt.merge_geom && !Gopt.imprint_geom ) {
+  if (Gopt.merge_geom && !Gopt.imprint_geom) {
     record << "Warning: cannot merge geometry without imprinting, will skip merge too." << std::endl;
-    std::cerr << "Warning: cannot merge geometry without imprinting, will skip merge too." << std::endl;
+    PRINT_INFO("Warning: cannot merge geometry without imprinting, will skip merge too.\n");
   }
-  
+
   record << "Reading input file..." << std::endl;
 
   // if debug_input and not debug, set debugging to be true for InputDeck::build() call only
-  
-  if( Gopt.din && !OPT_DEBUG ){
+  if (Gopt.din && !OPT_DEBUG) {
     Gopt.debug = true;
   }
-  else{ Gopt.din = false; }
-
-
-  return true;
+  else {
+    Gopt.din = false;
+  }
 }
