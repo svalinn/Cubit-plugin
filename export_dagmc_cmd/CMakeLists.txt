@@ -1,6 +1,5 @@
 project(SDK_CommandPluginExample)
 
- #cmake_minimum_required(VERSION 3.1)
 cmake_minimum_required(VERSION 2.8)
 
 ###############################################################################
@@ -121,3 +120,4 @@ target_link_libraries(iGeom cubit_geom ${CUBITI19})
 
 add_library(dagmc_export_plugin MODULE ${PLUGIN_SRC} ${DAGMC_SRC} ${MCNP_SRC} ${IGEOMTEST_SRC})
 target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} ${MCNP2CAD})
+add_dependencies(dagmc_export_plugin iGeom)

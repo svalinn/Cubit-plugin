@@ -1,7 +1,6 @@
 #ifndef IGEOM_FUNCS_HPP
 #define IGEOM_FUNCS_HPP
 #include "iBase.h"
-#include "GeometryModifyTool.hpp"
 #include "RefGroup.hpp"
 
 /**
