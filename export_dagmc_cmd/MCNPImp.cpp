@@ -72,7 +72,17 @@ bool MCNPImp::execute(CubitCommandData &data)
   // TODO: find a way to check whether the parsing worked as expected
 
   // calls primary mcnp2cad function from mcnp2cad.cpp, in libmcnp2cad.
-  return convert_mcnp(filename, true);
+  bool success;
+  try{
+    success = convert_mcnp(filename, true);
+  }
+  catch(std::runtime_error& e){
+    PRINT_INFO( e.what() );
+    PRINT_INFO( "\n" );
+    success = false;
+  }
+
+  return success;
 }
 
 void MCNPImp::parse_options(CubitCommandData &data)

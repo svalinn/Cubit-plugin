@@ -10,11 +10,9 @@ option(BUILD_DAGMC_EXPORTER  "Include DagMC export capability."     ON )
 option(BUILD_MCNP_IMPORTER   "Include MCNP import capability."      ON )
 option(BUILD_IGEOM_TESTS     "Include tests for iGeom."             OFF)
 
-
 ###############################################################################
 # Compilation flags
 ###############################################################################
-
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
 
@@ -39,9 +37,6 @@ if(CMAKE_SYSTEM_NAME MATCHES Linux AND CMAKE_COMPILER_IS_GNUCXX)
   endif()
 endif()
 
-
-
-
 ###############################################################################
 # Find necessary packages, libraries, and include directories
 ###############################################################################
@@ -52,7 +47,6 @@ include_directories(${CUBIT_INCLUDE_DIRS})
 
 find_package(MOAB REQUIRED)
 include_directories(${MOAB_INCLUDE_DIRS})
-
 
 # Find the other libraries and directories
 include_directories("${DAGMC_DIR}/../include/")
