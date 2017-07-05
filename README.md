@@ -1,7 +1,15 @@
-=======
-# DAGMC-Trelis
 Svalinn plugins and command extensions for Trelis
-=======
+===================================================
+
+Build
+======
+
+If you are building the MCNP importer, you should first clone the mcnp2cad library repo into this repo.
+```
+git clone -b modular --single-branch https://github.com/svalinn/mcnp2cad
+```
+
+From here building should work as follows:
 ```
 mkdir bld
 cd bld
