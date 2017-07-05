@@ -50,7 +50,7 @@ DAGMCExportCommand::DAGMCExportCommand() :
   if (console) {
     std::ostringstream load_message;
     load_message.str("");
-    load_message << "Loaded DAGMC export plugin." << std::endl;
+    load_message << "-- DAGMC export command available." << std::endl;
     CubitInterface::get_cubit_message_handler()->print_error(load_message.str().c_str());
   }
 }

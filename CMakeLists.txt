@@ -84,8 +84,8 @@ set(PLUGIN_SRC
     
 if(${BUILD_DAGMC_EXPORTER})
     set(DAGMC_SRC
-        DAGMCExportCommand.cpp
-        DAGMCExportCommand.hpp)
+        export_dagmc_cmd/DAGMCExportCommand.cpp
+        export_dagmc_cmd/DAGMCExportCommand.hpp)
 endif()
 
 if(${BUILD_MCNP_IMPORTER})
@@ -101,9 +101,9 @@ if(${BUILD_IGEOM_TESTS})
 endif()
 
 SET(IGEOM_SRC
-    igeom/iGeom.cpp
-    igeom/iGeom.h
-    igeom/iGeomError.cc)
+    iGeom/iGeom.cpp
+    iGeom/iGeom.h
+    iGeom/iGeomError.cc)
 
 ###############################################################################
 # Build commands
@@ -112,6 +112,6 @@ SET(IGEOM_SRC
 add_library(iGeom SHARED ${IGEOM_SRC})
 target_link_libraries(iGeom cubit_geom ${CUBITI19})
 
-add_library(dagmc_export_plugin MODULE ${PLUGIN_SRC} ${DAGMC_SRC} ${MCNP_SRC} ${IGEOMTEST_SRC})
-target_link_libraries(dagmc_export_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} ${MCNP2CAD})
-add_dependencies(dagmc_export_plugin iGeom)
+add_library(svalinn_plugin MODULE ${PLUGIN_SRC} ${DAGMC_SRC} ${MCNP_SRC} ${IGEOMTEST_SRC})
+target_link_libraries(svalinn_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} ${MCNP2CAD})
+add_dependencies(svalinn_plugin iGeom)
