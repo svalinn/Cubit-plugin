@@ -7,11 +7,11 @@
 #endif
 
 #ifdef BUILD_MCNP_IMPORT
-#include "MCNPImp.hpp"
+#include "import_mcnp_cmd/MCNPImp.hpp"
 #endif
 
-#ifdef BUILD_IGEOM_TEST
-#include "iGeom_test.hpp"
+#ifdef BUILD_IGEOM_TESTS
+#include "iGeom/tests/iGeom_test.hpp"
 #endif
 
 SvalinnPlugin::SvalinnPlugin()
