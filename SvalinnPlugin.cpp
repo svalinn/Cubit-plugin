@@ -1,4 +1,4 @@
-#include "MyPlugin.hpp"
+#include "SvalinnPlugin.hpp"
 #include "iGeom_test.hpp"
 #include "MCNPImp.hpp"
 
@@ -7,13 +7,13 @@
 #include "DAGMCExportCommand.hpp"
 #endif
 
-MyPlugin::MyPlugin()
+SvalinnPlugin::SvalinnPlugin()
 {}
 
-MyPlugin::~MyPlugin()
+SvalinnPlugin::~SvalinnPlugin()
 {}
 
-std::vector<std::string> MyPlugin::get_keys()
+std::vector<std::string> SvalinnPlugin::get_keys()
 {
   std::vector<std::string> keys;
 #ifdef BUILD_DAGMC_EXPORT
@@ -29,7 +29,7 @@ std::vector<std::string> MyPlugin::get_keys()
   return keys;
 }
 
-CubitCommand* MyPlugin::create_command(const std::string &key)
+CubitCommand* SvalinnPlugin::create_command(const std::string &key)
 {
   // NOTE: The internals of Trelis will take owernship of the command,
   // and delete it when it is time to clean up.

@@ -1,19 +1,19 @@
-#ifndef MYPLUGIN_HPP
-#define MYPLUGIN_HPP
+#ifndef SVALINNPLUGIN_HPP
+#define SVALINNPLUGIN_HPP
 
 #include "CubitCommandInterface.hpp"
 #include "CubitPluginExport.hpp"
 
 /*!
- * \brief The MyPlugin class derives from CubitCommandInterface
+ * \brief The SvalinnPlugin class derives from CubitCommandInterface
  * which gives access to the parser and allows you to implement
  * your own commands.
  */
-class MyPlugin : public CubitCommandInterface
+class SvalinnPlugin : public CubitCommandInterface
 {
 public:
-  MyPlugin();
-  ~MyPlugin();
+  SvalinnPlugin();
+  ~SvalinnPlugin();
 
   //! Used to get a list of unique keys that identify the commands this plugin
   //! will create.
@@ -25,6 +25,6 @@ public:
 
 //! This macro is required to identify this as a valid Cubit plugin. The plugin
 //! will NOT be loaded if this macro is not present.
-CUBIT_PLUGIN(MyPlugin)
+CUBIT_PLUGIN(SvalinnPlugin)
 
-#endif // MYPLUGIN_HPP
+#endif // SVALINNPLUGIN_HPP

@@ -1,4 +1,4 @@
-project(SDK_CommandPluginExample)
+project(SvalinnCommandPlugin)
 
 cmake_minimum_required(VERSION 2.8)
 
@@ -16,7 +16,7 @@ option(BUILD_IGEOM_TESTS     "Include tests for iGeom."             OFF)
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
 
-# These are used in MyPlugin.cpp to keep the plugin working 
+# These are used in SvalinnPlugin.cpp to keep the plugin working 
 # if not all parts are built.
 if(${BUILD_DAGMC_EXPORTER})
     set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBUILD_DAGMC_EXPORT" )
@@ -79,8 +79,8 @@ endif()
 ###############################################################################
 
 set(PLUGIN_SRC
-    MyPlugin.cpp
-    MyPlugin.hpp)
+    SvalinnPlugin.cpp
+    SvalinnPlugin.hpp)
     
 if(${BUILD_DAGMC_EXPORTER})
     set(DAGMC_SRC
