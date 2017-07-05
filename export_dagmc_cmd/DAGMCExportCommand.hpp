@@ -1,5 +1,5 @@
-#ifndef MYEXPORTCOMMAND_HPP
-#define MYEXPORTCOMMAND_HPP
+#ifndef DAGMCEXPORTCOMMAND_HPP
+#define DAGMCEXPORTCOMMAND_HPP
 
 #include "CubitCommandInterface.hpp"
 #include "CubitMessageHandler.hpp"
@@ -80,4 +80,4 @@ private:
 
 };
 
-#endif // MYEXPORTCOMMAND_HPP
+#endif // DAGMCEXPORTCOMMAND_HPP
