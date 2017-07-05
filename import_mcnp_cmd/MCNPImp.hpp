@@ -7,7 +7,6 @@
 #include "CubitMessageHandler.hpp"
 
 // CGM includes
-#include "moab/Interface.hpp"
 #include "RefEntity.hpp"
 
 class MCNPImp: public CubitCommand
