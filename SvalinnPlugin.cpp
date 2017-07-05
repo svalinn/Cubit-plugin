@@ -1,10 +1,16 @@
 #include "SvalinnPlugin.hpp"
-#include "iGeom_test.hpp"
-#include "MCNPImp.hpp"
 
 //Not including this when you aren't building the DAGMC export means you don't need to have MakeWatertight.hpp
 #ifdef BUILD_DAGMC_EXPORT
 #include "DAGMCExportCommand.hpp"
+#endif
+
+#ifdef BUILD_MCNP_IMPORT
+#include "MCNPImp.hpp"
+#endif
+
+#ifdef BUILD_IGEOM_TEST
+#include "iGeom_test.hpp"
 #endif
 
 SvalinnPlugin::SvalinnPlugin()
