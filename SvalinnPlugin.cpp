@@ -1,4 +1,7 @@
 #include "SvalinnPlugin.hpp"
+#include <sstream>
+
+#include "CubitMessageHandler.hpp"
 #include "CubitInterface.hpp"
 
 //Not including this when you aren't building the DAGMC export means you don't need to have MakeWatertight.hpp

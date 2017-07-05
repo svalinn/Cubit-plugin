@@ -1,4 +1,5 @@
 #include "MCNPImp.hpp"
+#include "CubitInterface.hpp"
 #include "CubitMessage.hpp"
 #include "options.hpp"
 #include "mcnp2cad.hpp"
@@ -23,6 +24,16 @@ MCNPImp::MCNPImp()
   Gopt.uwuw_names = false;
   Gopt.override_tolerance = false;
   Gopt.input_file = "";
+
+
+  CubitMessageHandler *console = CubitInterface::get_cubit_message_handler();
+  if (console) {
+    std::ostringstream load_message;
+    load_message.str("");
+    load_message << "-- MCNP import command available." << std::endl;
+    CubitInterface::get_cubit_message_handler()->print_error(load_message.str().c_str());
+  }
+
 }
 
 MCNPImp::~MCNPImp()
