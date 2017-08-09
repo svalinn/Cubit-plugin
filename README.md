@@ -49,12 +49,9 @@ cp libiGeom.so $PLUGINDIR
 cp libmcnp2cad.so $PLUGINDIR
 cp /path/to/MOAB/lib/libMOAB.so.0 $PLUGINDIR
 cp /path/to/DAGMC/lib/libmakeWatertight.so $PLUGINDIR
+cp install.sh $PLUGINDIR
 cd $PLUGINDIR/../..
-ln -s plugins/svalinn/libiGeom.so .
-ln -s plugins/svalinn/libmcnp2cad.so .
-ln -s plugins/svalinn/libMOAB.so .
-ln -s plugins/svalinn/libmakeWatertight.so .
-ln -s plugins/svalinn/libsvalinn_plugin.so plugins/.
+bash plugins/svalinn/install.sh
 ```
 
 You may also need to find and "install" a copy of your HDF5 library in a
@@ -67,6 +64,23 @@ Copy MOAB.dll to "path\to\Trelis #\bin\" and svalinn_plugin.dll to "path\to\Trel
 
 Ensure that you have a copy of hdf5 installed and in your path.  If you do not, download from https://support.hdfgroup.org/HDF5/release/obtain5.html the distribution built for Windows 64-bit using VS 2013. Copy hdf5.dll into "path\to\Trelis #\bin\". 
 
+Distribution
+============
+
+The simplest way to make a tarball for distribution is the following command
+from the Trelis bin directory on a system with a complete/valid installation:
+
+```
+tar czhf ~/tmp/svalinn-plugin.tgz plugins/svalinn
+```
+
+This can then be deployed with the following commands from the same directory
+on another system:
+
+```
+tar xzf ~/Downloads/svalinn-plugin.tgz
+bash plugins/svalinn/install.sh
+```
 
 Notes & Limitations
 ====================
