@@ -1,6 +1,18 @@
 Svalinn plugins and command extensions for Trelis
 ===================================================
 
+**Beta:** This software is currently under early development.  It has been
+demonstrated to work on a wide range of problems, but the build system is not
+well developed.
+
+Requirements
+============
+
+- Trelis 16.x SDK
+- Armadillo
+- MOAB (and therefore HDF5 & Lapack/blas)
+- DAGMC
+
 Build
 ======
 
@@ -13,7 +25,9 @@ From here building should work as follows:
 ```
 mkdir bld
 cd bld
-cmake .. -DCMAKE_PREFIX_PATH=/path/to/Trelis-16.x/bin -DCMAKE_INSTALL_BINARY_DIR=bin -DMOAB_DIR=/path/to/MOAB/lib -DDAGMC_DIR=/path/to/DAGMC/ -DMCNP2CAD_DIR=/path/to/libmcnp2cad
+cmake .. -DCMAKE_PREFIX_PATH=/path/to/Trelis-16.x/bin \
+         -DMOAB_DIR=/path/to/MOAB/lib \
+         -DDAGMC_DIR=/path/to/DAGMC/
 make
 ```
 
@@ -28,19 +42,19 @@ Install
 
 (some of these many need to be completed as `sudo`)
 ```
-mkdir /path/to/Trelis-16.x/bin/plugins/svalinn
-cp libsvalinn_plugin.so /path/to/Trelis-16.x/bin/plugins/svalinn
-cp libiGeom.so /path/to/Trelis-16.x/bin/plugins/svalinn
-cp libmcnp2cad.so /path/to/Trelis-16.x/bin/plugins/svalinn
-cp /path/to/MOAB/lib/libMOAB.so.0 /path/to/Trelis-16.x/bin/plugins/svalinn
-cp /path/to/DAGMC/lib/libmakeWatertight.so /path/to/Trelis-16.x/bin/plugins/svalinn
-cd /path/to/Trelis-16.x/bin
+PLUGINDIR=/path/to/Trelis-16.x/bin/plugins/svalinn
+mkdir $PLUGINDIR
+cp libsvalinn_plugin.so $PLUGINDIR
+cp libiGeom.so $PLUGINDIR
+cp libmcnp2cad.so $PLUGINDIR
+cp /path/to/MOAB/lib/libMOAB.so.0 $PLUGINDIR
+cp /path/to/DAGMC/lib/libmakeWatertight.so $PLUGINDIR
+cd $PLUGINDIR/../..
 ln -s plugins/svalinn/libiGeom.so .
 ln -s plugins/svalinn/libmcnp2cad.so .
 ln -s plugins/svalinn/libMOAB.so .
 ln -s plugins/svalinn/libmakeWatertight.so .
-cd plugins
-ln -s svalinn/libsvalinn_plugin.so .
+ln -s plugins/svalinn/libsvalinn_plugin.so plugins/.
 ```
 
 You may also need to find and "install" a copy of your HDF5 library in a
