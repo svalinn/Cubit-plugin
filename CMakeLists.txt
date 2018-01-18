@@ -2,141 +2,86 @@ project(SvalinnCommandPlugin)
 
 cmake_minimum_required(VERSION 2.8)
 
-###############################################################################
-# Find necessary packages, libraries, and include directories
-###############################################################################
-
-# Get the packages needed to use the SDK
+# Find Cubit/Trelis
+list(APPEND CMAKE_PREFIX_PATH ${CUBIT_DIR} ${CUBIT_DIR}/bin)
 find_package(Cubit REQUIRED CONFIG)
+message(STATUS "Cubit_DIR: ${Cubit_DIR}")
+message(STATUS "CUBIT_INCLUDE_DIRS: ${CUBIT_INCLUDE_DIRS}")
 include_directories(${CUBIT_INCLUDE_DIRS})
+find_library(CUBITI19 NAMES cubiti19 PATHS ${Cubit_DIR} NO DEFAULT_PATH)
+message(STATUS "CUBITI19: ${CUBITI19}")
 
-# adjust compiler setting for Linux using gcc version 5.0 and higher
-if(CMAKE_SYSTEM_NAME MATCHES Linux AND CMAKE_COMPILER_IS_GNUCXX)
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.0")
-    if(NOT CMAKE_CXX_FLAGS MATCHES _GLIBCXX_USE_CXX11_ABI)
-      set(CMAKE_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 ${CMAKE_CXX_FLAGS}")
-    endif()
-  endif()
-endif()
+# Options
+option(BUILD_DAGMC_EXPORTER  "Include DagMC export capability"  ON)
+option(BUILD_MCNP_IMPORTER   "Include MCNP import capability"   ON)
+option(BUILD_IGEOM           "Include iGeom"                    ON)
+option(BUILD_IGEOM_TESTS     "Include tests for iGeom"          ON)
 
-if(Cubit_DIR)
-    find_library(CUBITI19 NAMES cubiti19 PATHS ${Cubit_DIR})
-else()
-    find_library(CUBITI19 NAMES cubiti19 PATHS ${CMAKE_PREFIX_PATH})
-endif()
+# C++ flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-###############################################################################
-# Options for building the plugin
-###############################################################################
-
-option(BUILD_DAGMC_EXPORTER  "Include DagMC export capability."     ON )
-option(BUILD_MCNP_IMPORTER   "Include MCNP import capability."      ON )
-option(BUILD_IGEOM           "Include iGeom."                       OFF)
-option(BUILD_IGEOM_TESTS     "Include tests for iGeom."             OFF)
-
-###############################################################################
-# Compilation flags
-###############################################################################
-
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
-
-###############################################################################
 # Top-level plugin files
-###############################################################################
+set(PLUGIN_SRC SvalinnPlugin.cpp)
 
-set(PLUGIN_SRC
-    SvalinnPlugin.cpp
-    SvalinnPlugin.hpp)
-
-  
-###############################################################################
 # DAGMC Exporter
-###############################################################################
-if(${BUILD_DAGMC_EXPORTER})
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBUILD_DAGMC_EXPORT" )
+if (BUILD_DAGMC_EXPORTER)
+  set(DAGMC_SRC export_dagmc_cmd/DAGMCExportCommand.cpp)
+  add_definitions(-DBUILD_DAGMC_EXPORT=ON)
 
-    find_package(MOAB REQUIRED)
-    include_directories(${MOAB_INCLUDE_DIRS})
+  # Find MOAB
+  list(APPEND CMAKE_PREFIX_PATH ${MOAB_DIR} ${MOAB_DIR}/lib {MOAB_DIR}/lib/cmake
+                                ${MOAB_DIR}/lib/cmake/MOAB)
+  find_package(MOAB REQUIRED)
+  message(STATUS "MOAB_DIR: ${MOAB_DIR}")
+  message(STATUS "MOAB_INCLUDE_DIRS: ${MOAB_INCLUDE_DIRS}")
+  include_directories(${MOAB_INCLUDE_DIRS})
+  set(MOAB_LIBRARIES)
+  find_library(MOAB_LIBRARIES NAMES MOAB PATHS ${MOAB_DIR}/../.. NO_DEFAULT_PATH)
+  message(STATUS "MOAB_LIBRARIES: ${MOAB_LIBRARIES}")
 
-    # Find the other libraries and directories
-    include_directories("${DAGMC_DIR}/include")
+  # Find DAGMC
+  set(DAGMC_INCLUDE_DIRS ${DAGMC_DIR}/include)
+  message(STATUS "DAGMC_INCLUDE_DIRS: ${DAGMC_INCLUDE_DIRS}")
+  include_directories(${DAGMC_INCLUDE_DIRS})
+  find_library(MAKE_WATERTIGHT_LIBRARIES NAMES makeWatertight PATHS ${DAGMC_DIR}/lib NO_DEFAULT_PATH)
+  message(STATUS "MAKE_WATERTIGHT_LIBRARIES: ${MAKE_WATERTIGHT_LIBRARIES}")
+endif ()
 
-    find_library(MAKE_WATERTIGHT NAMES makeWatertight PATHS "${DAGMC_DIR}/lib" )
+if (BUILD_MCNP_IMPORTER OR BUILD_IGEOM_TESTS)
+  set(BUILD_IGEOM ON)
+endif ()
 
-    set(DAGMC_SRC
-        export_dagmc_cmd/DAGMCExportCommand.cpp
-        export_dagmc_cmd/DAGMCExportCommand.hpp)
-
-      
-endif()
-
-###############################################################################
-# MCNP Importer
-###############################################################################
-if(${BUILD_MCNP_IMPORTER})
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBUILD_MCNP_IMPORT" )
-    set( BUILD_IGEOM ON)
-
-    include_directories("${CMAKE_SOURCE_DIR}/iGeom")
-
-    add_subdirectory(mcnp2cad)
-    include_directories(mcnp2cad)
-
-    set( MCNP2CAD_LIB "mcnp2cad")
-    set(MCNP_SRC
-        import_mcnp_cmd/MCNPImp.cpp
-        import_mcnp_cmd/MCNPImp.hpp)
-
-
-endif()
-
-
-###############################################################################
-# iGeom Tests
-###############################################################################
-
-if(${BUILD_IGEOM_TESTS})
-  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBUILD_IGEOM_TESTS" )
-  set( BUILD_IGEOM ON)
-
-    include_directories("${CMAKE_SOURCE_DIR}/iGeom")
-
-    set(IGEOMTEST_SRC
-      iGeom/tests/iGeom_test.cpp
-      iGeom/tests/iGeom_test.hpp)
-
-endif()
-
-###############################################################################
 # iGeom
-###############################################################################
-
-
-if(${BUILD_IGEOM})
-  SET(IGEOM_SRC
-      iGeom/iGeom.cpp
-      iGeom/iGeom.h
-      iGeom/iGeomError.cc)
-
+if (BUILD_IGEOM)
+  set(IGEOM_SRC iGeom/iGeom.cpp iGeom/iGeomError.cc)
+  include_directories(iGeom)
   add_library(iGeom SHARED ${IGEOM_SRC})
   target_link_libraries(iGeom cubit_geom ${CUBITI19})
+  install(TARGETS iGeom LIBRARY DESTINATION lib)
+  set(IGEOM_LIB iGeom)
+endif ()
 
+# iGeom Tests
+if (BUILD_IGEOM_TESTS)
+  set(IGEOMTEST_SRC iGeom/tests/iGeom_test.cpp)
+  add_definitions(-DBUILD_IGEOM_TESTS=ON)
+endif ()
 
+# MCNP Importer
+if (BUILD_MCNP_IMPORTER)
+  add_subdirectory(mcnp2cad)
+  set(MCNP_SRC import_mcnp_cmd/MCNPImp.cpp)
+  include_directories(mcnp2cad)
+  add_definitions(-DBUILD_MCNP_IMPORT=ON)
+endif ()
 
-endif()
-
-###############################################################################
 # Build commands
-###############################################################################
-
 add_library(svalinn_plugin MODULE ${PLUGIN_SRC} ${DAGMC_SRC} ${MCNP_SRC} ${IGEOMTEST_SRC})
-target_link_libraries(svalinn_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT} ${MOAB_LIBRARIES} ${MCNP2CAD_LIB})
+target_link_libraries(svalinn_plugin cubiti cubit_util cubit_geom ${MAKE_WATERTIGHT_LIBRARIES} ${MOAB_LIBRARIES} mcnp2cad)
+install(TARGETS svalinn_plugin LIBRARY DESTINATION lib)
 
-if(${BUILD_IGEOM})
-    add_dependencies(svalinn_plugin iGeom)
-endif()
-
-if(${BUILD_MCNP_IMPORTER})
-  add_dependencies(svalinn_plugin mcnp2cad)
-  add_dependencies(mcnp2cad iGeom)
-endif()
+# Copy external libraries
+get_filename_component(MOABLIB ${MOAB_LIBRARIES} REALPATH)
+get_filename_component(MWLIB ${MAKE_WATERTIGHT_LIBRARIES} REALPATH)
+install(FILES ${MOABLIB} ${MOAB_LIBRARIES} DESTINATION lib)
+install(FILES ${MWLIB} ${MAKE_WATERTIGHT_LIBRARIES} DESTINATION lib)
