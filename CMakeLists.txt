@@ -43,23 +43,19 @@ if (BUILD_DAGMC_EXPORTER)
   message(STATUS "MOAB_INCLUDE_DIRS: ${MOAB_INCLUDE_DIRS}")
   message(STATUS "MOAB_LIBRARY: ${MOAB_LIBRARY}")
 
-  # Copy external MOAB library
-  # This extra stuff is required to make sure that all symlinks are also copied; e.g. libMOAB.so.0 and libMOAB.so.0.0.0
+  # Copy external MOAB library with appropriate symlinks; e.g. libMOAB.so.0 and libMOAB.so.0.0.0
   get_filename_component(MOAB_LIB_DIR ${MOAB_LIBRARY} DIRECTORY)
   get_filename_component(MOAB_LIB_NAME ${MOAB_LIBRARY} NAME)
   file(GLOB MOAB_LIB_INCL_SYMLINKS "${MOAB_LIB_DIR}/${MOAB_LIB_NAME}*")
   install(FILES ${MOAB_LIB_INCL_SYMLINKS} DESTINATION lib)
 
-  # Find DAGMC
-  set(DAGMC_INCLUDE_DIRS ${DAGMC_ROOT}/include)
-  include_directories(${DAGMC_INCLUDE_DIRS})
-  find_library(MW_LIBRARY NAMES makeWatertight PATHS ${DAGMC_ROOT}/lib NO_DEFAULT_PATH)
-  list(APPEND PLUGIN_LINK_LIBS ${MW_LIBRARY})
-  message(STATUS "DAGMC_INCLUDE_DIRS: ${DAGMC_INCLUDE_DIRS}")
-  message(STATUS "MW_LIBRARY: ${MW_LIBRARY}")
-
-  # Copy external makeWatertight library
-  install(FILES ${MW_LIBRARY} DESTINATION lib)
+  # Build make_watertight
+  file(GLOB MW_SRC_FILES "DAGMC/src/make_watertight/*.cpp")
+  include_directories(DAGMC/src)
+  add_library(makeWatertight SHARED ${MW_SRC_FILES})
+  set_target_properties(makeWatertight PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
+  target_link_libraries(makeWatertight ${MOAB_LIBRARY})
+  install(TARGETS makeWatertight LIBRARY DESTINATION lib)
 endif ()
 
 if (BUILD_MCNP_IMPORTER OR BUILD_IGEOM_TESTS)
@@ -68,9 +64,9 @@ endif ()
 
 # iGeom
 if (BUILD_IGEOM)
-  set(IGEOM_SRC iGeom/iGeom.cpp iGeom/iGeomError.cc)
+  set(IGEOM_SRC_FILES iGeom/iGeom.cpp iGeom/iGeomError.cc)
   include_directories(iGeom)
-  add_library(iGeom SHARED ${IGEOM_SRC})
+  add_library(iGeom SHARED ${IGEOM_SRC_FILES})
   set_target_properties(iGeom PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
   target_link_libraries(iGeom cubit_geom ${CUBITI19})
   install(TARGETS iGeom LIBRARY DESTINATION lib)
@@ -86,9 +82,9 @@ endif ()
 if (BUILD_MCNP_IMPORTER)
   add_definitions(-DHAVE_IGEOM_CONE=ON)
   add_definitions(-DBUILD_MCNP_IMPORT=ON)
-  file(GLOB MCNP2CAD_SRC "mcnp2cad/*.cpp")
+  file(GLOB MCNP2CAD_SRC_FILES "mcnp2cad/*.cpp")
   include_directories(mcnp2cad)
-  add_library(mcnp2cad SHARED ${MCNP2CAD_SRC})
+  add_library(mcnp2cad SHARED ${MCNP2CAD_SRC_FILES})
   set_target_properties(mcnp2cad PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
   target_link_libraries(mcnp2cad armadillo iGeom)
   install(TARGETS mcnp2cad LIBRARY DESTINATION lib)
