@@ -19,7 +19,7 @@ cd ../bld
 make -j4
 make check
 make install
-printf 'export PATH=$PATH:%s/MOAB/install/bin' "$INSTALL_ROUTE">>/root/.bashrc
+printf 'export PATH=$PATH:%s/MOAB/install/bin' "$INSTALL_ROUTE">>$HOME/.bashrc
 export PATH=$PATH:$INSTALL_ROUTE/MOAB/install/bin
-printf 'export LD_LIBRARY_PATH=%s/MOAB/install/lib' "$INSTALL_ROUTE">>/root/.bashrc
+printf 'export LD_LIBRARY_PATH=%s/MOAB/install/lib' "$INSTALL_ROUTE">>$HOME/.bashrc
 export LD_LIBRARY_PATH=$INSTALL_ROUTE/MOAB/install/lib
