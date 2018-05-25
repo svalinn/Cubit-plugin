@@ -11,9 +11,8 @@ mkdir $MOAB_INSTALL_DIR
 git clone https://bitbucket.org/fathomteam/moab
 cd moab
 git checkout Version5.0
-autoreconf -fi
 cd ../bld
-../moab/configure --prefix=$MOAB_INSTALL_DIR --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial --enable-shared
+cmake ../moab -DCMAKE_INSTALL_PREFIX=$INSTALL_ROOT/MOAB/install -DHDF5_ROOT=/usr/lib/x86_64-linux-gnu/hdf5/serial/ -DENABLE_HDF5=ON
 make -j4
 make check
 make install
