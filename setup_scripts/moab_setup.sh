@@ -13,7 +13,9 @@ git clone https://bitbucket.org/fathomteam/moab
 cd moab
 git checkout Version5.0
 cd ../bld
-cmake ../moab -DCMAKE_INSTALL_PREFIX=$MOAB_INSTALL_DIR -DHDF5_ROOT=/usr/lib/x86_64-linux-gnu/hdf5/serial/ -DENABLE_HDF5=ON -DENABLE_BLASLAPACK=OFF
+cmake ../moab -DCMAKE_INSTALL_PREFIX=$MOAB_INSTALL_DIR \
+ -DHDF5_ROOT=/usr/lib/x86_64-linux-gnu/hdf5/serial/ -DENABLE_HDF5=ON \
+ -DENABLE_BLASLAPACK=OFF
 make -j4
 make check
 make install
