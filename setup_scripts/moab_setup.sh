@@ -19,7 +19,7 @@ cmake ../moab -DCMAKE_INSTALL_PREFIX=$MOAB_INSTALL_DIR \
 make -j4
 make check
 make install
-printf 'Consider adding the following lines to .bashrc:\n'
+printf '\nConsider adding the following lines to .bashrc:\n'
 printf 'export PATH=$MOAB_INSTALL_DIR/bin:$PATH\n'
 export PATH=$MOAB_INSTALL_DIR/bin:$PATH
 printf 'export LD_LIBRARY_PATH=$MOAB_INSTALL_DIR/lib:$LD_LIBRARY_PATH\n'
