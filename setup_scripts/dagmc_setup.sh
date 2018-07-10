@@ -1,14 +1,12 @@
 #!/bin/bash
 
 #DAGMC Installation
-INSTALL_ROOT=$HOME
+source install_dir.sh
+mkdir $INSTALL_ROOT
 cd $INSTALL_ROOT
 mkdir dagmc
 cd dagmc
-git clone https://github.com/svalinn/DAGMC
-cd DAGMC
-git checkout develop
-cd ..
+git clone -b develop https://github.com/svalinn/DAGMC
 mkdir bld
 
 DAGMC_INSTALL_DIR=$INSTALL_ROOT/dagmc/install
@@ -18,6 +16,7 @@ cd bld
 cmake ../DAGMC -DCMAKE_INSTALL_PREFIX=$DAGMC_INSTALL_DIR -DMOAB_CMAKE_CONFIG=$MOAB_CONFIG_DIR
 make 
 make install
+run-parts ../install/tests
 
 printf '\nConsider running the following lines and adding them to .bashrc:\n'
 printf "export PATH=$DAGMC_INSTALL_DIR/bin"':$PATH\n'
