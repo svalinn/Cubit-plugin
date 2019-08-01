@@ -21,7 +21,8 @@ message(STATUS "CUBIT_INCLUDE_DIRS: ${CUBIT_INCLUDE_DIRS}")
 message(STATUS "CUBITI19: ${CUBITI19}")
 
 # Setup RPATH
-set(INSTALL_RPATH_DIRS ${CMAKE_INSTALL_PREFIX}/lib ${Cubit_DIR})
+#set(INSTALL_RPATH_DIRS ${CMAKE_INSTALL_PREFIX}/lib ${Cubit_DIR})
+set(INSTALL_RPATH_DIRS ${Cubit_DIR} ${Cubit_DIR}/plugins/svalinn)
 message(STATUS "INSTALL_RPATH_DIRS: ${INSTALL_RPATH_DIRS}")
 
 # Add source files and required libraries for the plugin to these variables based on which build options are enabled
@@ -51,7 +52,6 @@ if (BUILD_DAGMC_EXPORTER)
 
   # Build make_watertight
   set(MW_SRC_FILES "DAGMC/src/make_watertight/Arc.cpp"
-                   "DAGMC/src/make_watertight/check_watertight.cpp"
                    "DAGMC/src/make_watertight/CheckWatertight.cpp"
                    "DAGMC/src/make_watertight/Cleanup.cpp"
                    "DAGMC/src/make_watertight/Gen.cpp"
