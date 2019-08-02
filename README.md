@@ -34,7 +34,7 @@ Trelis can be installed by obtaining the Trelis `.deb` package and installing it
 with the package manager; i.e.
 
 ```
-sudo dpkg -i Trelis-16.5.4-Lin64.deb
+sudo dpkg -i Trelis-16.5.3-Lin64.deb
 ```
 
 This installs Trelis to `/opt/Trelis-16.5`.
