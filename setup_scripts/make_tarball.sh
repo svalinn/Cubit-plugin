@@ -73,10 +73,16 @@ chmod 644 *
 cd ..
 ln -sv svalinn/libsvalinn_plugin.so .
 cd ..
+ln -sv plugins/svalinn/libarmadillo.so.8 .
+ln -sv plugins/svalinn/libarmadillo.so.8.400.0 .
+ln -sv plugins/svalinn/libhdf5_serial.so.100 .
+ln -sv plugins/svalinn/libhdf5_serial.so.100.0.1 .
 ln -sv plugins/svalinn/libiGeom.so .
 ln -sv plugins/svalinn/libmakeWatertight.so .
 ln -sv plugins/svalinn/libmcnp2cad.so .
+ln -sv plugins/svalinn/libMOAB.so .
 ln -sv plugins/svalinn/libMOAB.so.5 .
+ln -sv plugins/svalinn/libMOAB.so.5.1.0 .
 ln -sv plugins/svalinn/libsvalinn_plugin.so .
 
 cd ..
