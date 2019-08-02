@@ -15,18 +15,18 @@ set(CMAKE_CXX_STANDARD 11)
 list(APPEND CMAKE_PREFIX_PATH ${CUBIT_ROOT}/bin)
 find_package(Cubit REQUIRED CONFIG)
 include_directories(${CUBIT_INCLUDE_DIRS})
-find_library(CUBITI19 NAMES cubiti19 PATHS ${Cubit_DIR} NO DEFAULT_PATH)
+link_directories(${Cubit_DIR})
 message(STATUS "Cubit_DIR: ${Cubit_DIR}")
 message(STATUS "CUBIT_INCLUDE_DIRS: ${CUBIT_INCLUDE_DIRS}")
-message(STATUS "CUBITI19: ${CUBITI19}")
 
 # Setup RPATH
 set(INSTALL_RPATH_DIRS ${Cubit_DIR} ${Cubit_DIR}/plugins/svalinn)
 message(STATUS "INSTALL_RPATH_DIRS: ${INSTALL_RPATH_DIRS}")
 
-# Add source files and required libraries for the plugin to these variables based on which build options are enabled
+# Add source files and required libraries for the plugin to these variables
+# based on which build options are enabled
 set(PLUGIN_SRC_FILES SvalinnPlugin.cpp)
-set(PLUGIN_LINK_LIBS)
+set(PLUGIN_LINK_LIBS cubiti19 cubit_geom cubit_util)
 
 # DAGMC exporter
 if (BUILD_DAGMC_EXPORTER)
@@ -43,7 +43,8 @@ if (BUILD_DAGMC_EXPORTER)
   message(STATUS "MOAB_INCLUDE_DIRS: ${MOAB_INCLUDE_DIRS}")
   message(STATUS "MOAB_LIBRARY: ${MOAB_LIBRARY}")
 
-  # Copy external MOAB library with appropriate symlinks; e.g. libMOAB.so.0 and libMOAB.so.0.0.0
+  # Copy external MOAB library with appropriate symlinks; e.g. libMOAB.so.0 and
+  # libMOAB.so.0.0.0
   get_filename_component(MOAB_LIB_DIR ${MOAB_LIBRARY} DIRECTORY)
   get_filename_component(MOAB_LIB_NAME ${MOAB_LIBRARY} NAME)
   file(GLOB MOAB_LIB_INCL_SYMLINKS "${MOAB_LIB_DIR}/${MOAB_LIB_NAME}*")
@@ -53,9 +54,11 @@ if (BUILD_DAGMC_EXPORTER)
   file(GLOB MW_SRC_FILES "DAGMC/src/make_watertight/*.cpp")
   include_directories(DAGMC/src)
   add_library(makeWatertight SHARED ${MW_SRC_FILES})
-  set_target_properties(makeWatertight PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
+  set_target_properties(makeWatertight PROPERTIES INSTALL_RPATH
+                        "${INSTALL_RPATH_DIRS}")
   target_link_libraries(makeWatertight ${MOAB_LIBRARY})
   install(TARGETS makeWatertight LIBRARY DESTINATION lib)
+  list(APPEND PLUGIN_LINK_LIBS makeWatertight)
 endif ()
 
 if (BUILD_MCNP_IMPORTER OR BUILD_IGEOM_TESTS)
@@ -68,8 +71,9 @@ if (BUILD_IGEOM)
   include_directories(iGeom)
   add_library(iGeom SHARED ${IGEOM_SRC_FILES})
   set_target_properties(iGeom PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
-  target_link_libraries(iGeom cubit_geom ${CUBITI19})
+  target_link_libraries(iGeom cubiti19 cubit_geom cubit_util)
   install(TARGETS iGeom LIBRARY DESTINATION lib)
+  list(APPEND PLUGIN_LINK_LIBS iGeom)
 endif ()
 
 # iGeom tests
@@ -85,13 +89,16 @@ if (BUILD_MCNP_IMPORTER)
   file(GLOB MCNP2CAD_SRC_FILES "mcnp2cad/*.cpp")
   include_directories(mcnp2cad)
   add_library(mcnp2cad SHARED ${MCNP2CAD_SRC_FILES})
-  set_target_properties(mcnp2cad PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
+  set_target_properties(mcnp2cad PROPERTIES INSTALL_RPATH
+                        "${INSTALL_RPATH_DIRS}")
   target_link_libraries(mcnp2cad armadillo iGeom)
   install(TARGETS mcnp2cad LIBRARY DESTINATION lib)
+  list(APPEND PLUGIN_LINK_LIBS mcnp2cad)
 endif ()
 
 # Build the plugin
 add_library(svalinn_plugin MODULE ${PLUGIN_SRC_FILES})
-set_target_properties(svalinn_plugin PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
+set_target_properties(svalinn_plugin PROPERTIES INSTALL_RPATH
+                      "${INSTALL_RPATH_DIRS}")
 target_link_libraries(svalinn_plugin ${PLUGIN_LINK_LIBS})
 install(TARGETS svalinn_plugin LIBRARY DESTINATION lib)
