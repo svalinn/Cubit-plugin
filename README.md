@@ -126,7 +126,7 @@ Before building the plugin, some external repositories must first be cloned.
 
 ```
 cd ${HOME}/plugin-build/DAGMC-Trelis
-git clone https://github.com/svalinn/mcnp2cad -b develop
+git clone https://github.com/svalinn/mcnp2cad -b master
 ```
 
 The following commands show how to build the plugin itself.
@@ -158,7 +158,7 @@ mkdir -p pack/bin/plugins/svalinn
 cd pack/bin/plugins/svalinn
 cp -pPv ${HOME}/plugin-build/lib/* .
 cp -pPv ${HOME}/plugin-build/moab/lib/libMOAB.so* .
-cp -pPv ${HOME}/plugin-build/DAGMC/lib/* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/*.so .
 cp -pPv /usr/lib/libarmadillo.so.8* .
 cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 chmod 644 *
@@ -167,6 +167,8 @@ ln -sv svalinn/libsvalinn_plugin.so .
 cd ../..
 tar --sort=name -czvf svalinn-plugin.tgz bin
 mv -v svalinn-plugin.tgz ..
+cd ..
+rm -rf pack
 ```
 
 The Svalinn plugin tarball should now be located at
@@ -179,5 +181,5 @@ To install the plugin, simply run
 
 ```
 cd /opt/Trelis-16.5
-sudo tar -xzvf /path/to/svalinn-plugin.tgz
+sudo tar -xzvf ${HOME}/plugin-build/svalinn-plugin.tgz
 ```
