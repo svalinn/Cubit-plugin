@@ -1,89 +1,158 @@
 Svalinn plugins and command extensions for Trelis
-===================================================
+=================================================
 
 **Beta:** This software is currently under early development.  It has been
 demonstrated to work on a wide range of problems, but the build system is not
 well developed.
 
-Requirements
-============
+Prerequisites
+=============
 
-- Trelis 16.x SDK
-- Armadillo
-- MOAB (and therefore HDF5 & Lapack/blas)
-- DAGMC
+In order to build the plugin, you must have access to Trelis-16.5 and the
+Trelis-16.5 SDK. Additionally, the following system packages must be present on
+your computer:
 
-Build
-======
+* BLAS/LAPACK
+* Armadillo
+* HDF5
 
-If you are building the MCNP importer, you should first clone the mcnp2cad library repo into this repo.
+On Ubuntu, these packages can be obtained by running
+
 ```
-git clone -b modular --single-branch https://github.com/svalinn/mcnp2cad
+sudo apt install libblas-dev liblapack-dev libarmadillo-dev libhdf5-dev
 ```
 
-From here building should work as follows:
+The following packages are not available from the package manager and must be
+built yourself:
+
+* MOAB 5.1.0
+
+Install Trelis
+==============
+
+Trelis can be installed by obtaining the Trelis `.deb` package and installing it
+with the package manager; i.e.
+
 ```
-mkdir bld
+sudo dpkg -i Trelis-16.5.4-Lin64.deb
+```
+
+This installs Trelis to `/opt/Trelis-16.5`.
+
+The following commands show how to install the SDK.
+
+```
+cd /opt/Trelis-16.5
+sudo tar -xzvf /path/to/Trelis-SDK-16.5.3-Lin64.tar.gz
+```
+
+There is currently a bug (or some other unknown issue) which requires a file in
+the Trelis SDK to be modified. The following commands show how to make this
+change.
+
+```
+cd /opt/Trelis-16.5/bin
+sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
+sudo sed -i "s/\"cubit_util\" \"showviz_base\"/\"cubit_util\"/" CubitExport.cmake
+```
+
+Notes on Build Instructions
+===========================
+
+A non-source directory build is recommended. These build instructions assume
+that the plugin build will take place in the `~/plugin-build` directory, and
+they assume that the DAGMC-Trelis repo has been cloned into
+`~/plugin-build/DAGMC-Trelis`.
+
+Build MOAB
+==========
+
+The following commands show how to build the MOAB dependency.
+
+```
+cd ~/plugin-build
+mkdir -pv moab/bld
+cd moab
+git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
+ln -sv moab src
 cd bld
-cmake .. -DCMAKE_PREFIX_PATH=/path/to/Trelis-16.x/bin \
-         -DMOAB_DIR=/path/to/MOAB/lib \
-         -DDAGMC_DIR=/path/to/DAGMC/
-make
+cmake ../src -DBUILD_SHARED_LIBS=ON \
+             -DENABLE_HDF5=ON \
+             -DENABLE_BLASLAPACK=ON \
+             -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_INSTALL_PREFIX=~/plugin-build/moab \
+             -DCMAKE_INSTALL_RPATH=/opt/Trelis-16.5/bin/plugins/svalinn
+make -j`grep -c processor /proc/cpuinfo`
+make install
 ```
 
-If not building DAGMC exporter, replace `-DDAGMC_DIR` portion with `-DBUILD_DAGMC_EXPORTER=OFF`.
+This reslts in the shared MOAB library being built against the system HDF5
+libraries. The MOAB library is now located at
+`~/plugin-build/moab/lib/libMOAB.so.5.1.0`.
 
-If not building MCNP importer, replace `-DMCNP2CAD_DIR` portion with `-DBUILD_MCNP_IMPORTER=OFF`.
+Build the Plugin
+================
 
-If testing iGeom functions, add `-DBUILD_IGEOM_TESTS=ON`.
-
-Install
-=======
-
-(some of these many need to be completed as `sudo`)
-```
-PLUGINDIR=/path/to/Trelis-16.x/bin/plugins/svalinn
-mkdir $PLUGINDIR
-cp libsvalinn_plugin.so $PLUGINDIR
-cp libiGeom.so $PLUGINDIR
-cp libmcnp2cad.so $PLUGINDIR
-cp /path/to/MOAB/lib/libMOAB.so.0 $PLUGINDIR
-cp /path/to/DAGMC/lib/libmakeWatertight.so $PLUGINDIR
-cp install.sh $PLUGINDIR
-cd $PLUGINDIR/../..
-bash plugins/svalinn/install.sh
-```
-
-You may also need to find and "install" a copy of your HDF5 library in a
-fashion similar to the MOAB library above.
-
-# Windows install
-Find the Trelis folder, probably "C:\Program Files\Trelis 16.x\"
-
-Copy MOAB.dll to "path\to\Trelis #\bin\" and svalinn_plugin.dll to "path\to\Trelis #\bin\plugins\".
-
-Ensure that you have a copy of hdf5 installed and in your path.  If you do not, download from https://support.hdfgroup.org/HDF5/release/obtain5.html the distribution built for Windows 64-bit using VS 2013. Copy hdf5.dll into "path\to\Trelis #\bin\". 
-
-Distribution
-============
-
-The simplest way to make a tarball for distribution is the following command
-from the Trelis bin directory on a system with a complete/valid installation:
+Before building the plugin, some external repositories must first be cloned.
 
 ```
-tar czhf ~/tmp/svalinn-plugin.tgz plugins/svalinn
+cd ~/plugin-build/DAGMC-Trelis
+git clone https://github.com/svalinn/DAGMC
+git clone https://github.com/svalinn/mcnp2cad
 ```
 
-This can then be deployed with the following commands from the same directory
-on another system:
+The following commands show how to build the plugin itself.
 
 ```
-tar xzf ~/Downloads/svalinn-plugin.tgz
-bash plugins/svalinn/install.sh
+cd ~/plugin-build
+ln -sv DAGMC-Trelis src
+mkdir -pv bld
+cd bld
+cmake ../src -DCUBIT_ROOT=/opt/Trelis-16.5 \
+             -DMOAB_ROOT=~/plugin-build/moab \
+             -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_INSTALL_PREFIX=~/plugin-build \
+             -DCMAKE_INSTALL_RPATH=/opt/Trelis-16.5:/opt/Trelis-16.5/bin/plugins/svalinn
+make -j`grep -c processor /proc/cpuinfo`
+make install
 ```
 
-Notes & Limitations
-====================
+Create the Tarball
+==================
 
-This does not currently have a wise/intelligent configuration of the rpath in the plugin and thus requires the correct versions of MOAB and HDF5 to be available in the LD_LIBRARY_PATH.  (This may not be enough??)
+The following commands show how to create the tarall for the plugin. These
+commands have only been tested on Ubuntu 18.04.
 
+```
+cd ~/plugin-build
+mkdir -p pack/bin/plugins/svalinn
+cd pack/bin/plugins/svalinn
+cp -pPv ~/plugin-build/lib/* .
+cp -pPv /usr/lib/libarmadillo.so.8* .
+cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
+chmod 644 *
+cd ..
+ln -sv svalinn/libsvalinn_plugin.so .
+cd ..
+ln -sv plugins/svalinn/libiGeom.so .
+ln -sv plugins/svalinn/libmakeWatertight.so .
+ln -sv plugins/svalinn/libmcnp2cad.so .
+ln -sv plugins/svalinn/libMOAB.so.5 .
+ln -sv plugins/svalinn/libsvalinn_plugin.so .
+cd ..
+tar --sort=name -czvf svalinn-plugin.tgz bin
+mv -v svalinn-plugin.tgz ..
+```
+
+The Svalinn pluigin tarball should now be located at
+`~/plugin-build/svalinn-plugin.tgz`.
+
+Install the Plugin
+==================
+
+To install the plugin, simply run
+
+```
+cd /opt/Trelis-16.5
+sudo tar -xzvf /path/to/svalinn-plugin.tgz
+```
