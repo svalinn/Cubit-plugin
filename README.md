@@ -26,6 +26,7 @@ The following packages are not available from the package manager and must be
 built yourself:
 
 * MOAB 5.1.0
+* DAGMC
 
 Install Trelis
 ==============
@@ -60,9 +61,9 @@ Notes on Build Instructions
 ===========================
 
 A non-source directory build is recommended. These build instructions assume
-that the plugin build will take place in the `~/plugin-build` directory, and
-they assume that the DAGMC-Trelis repo has been cloned into
-`~/plugin-build/DAGMC-Trelis`.
+that the plugin build will take place in the `${HOME}/plugin-build` directory,
+and they assume that the DAGMC-Trelis repo has been cloned into
+`${HOME}/plugin-build/DAGMC-Trelis`.
 
 Build MOAB
 ==========
@@ -70,7 +71,7 @@ Build MOAB
 The following commands show how to build the MOAB dependency.
 
 ```
-cd ~/plugin-build
+cd ${HOME}/plugin-build
 mkdir -pv moab/bld
 cd moab
 git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
@@ -80,15 +81,43 @@ cmake ../src -DBUILD_SHARED_LIBS=ON \
              -DENABLE_HDF5=ON \
              -DENABLE_BLASLAPACK=ON \
              -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_INSTALL_PREFIX=~/plugin-build/moab \
+             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build/moab \
              -DCMAKE_INSTALL_RPATH=/opt/Trelis-16.5/bin/plugins/svalinn
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
 
 This reslts in the shared MOAB library being built against the system HDF5
-libraries. The MOAB library is now located at
-`~/plugin-build/moab/lib/libMOAB.so.5.1.0`.
+libraries.
+
+Build DAGMC
+===========
+
+The following commands show how to build the DAGMC dependency.
+
+```
+cd ${HOME}/plugin-build
+mkdir -pv DAGMC/bld
+cd DAGMC
+git clone https://github.com/svalinn/DAGMC -b develop
+ln -sv DAGMC src
+cd bld
+cmake ../src -DMOAB_DIR=${HOME}/plugin-build/moab \
+             -DBUILD_UWUW=OFF \
+             -DBUILD_TALLY=OFF \
+             -DBUILD_BUILD_OBB=OFF \
+             -DBUILD_MAKE_WATERTIGHT=ON \
+             -DBUILD_SHARED_LIBS=ON \
+             -DBUILD_STATIC_LIBS=OFF \
+             -DCMAKE_BUILD_TYPE=Release \
+             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build/DAGMC \
+             -DCMAKE_INSTALL_RPATH=/opt/Trelis-16.5/bin/plugins/svalinn
+make -j`grep -c processor /proc/cpuinfo`
+make install
+```
+
+This reslts in the shared DAGMC library being built against the previously-built
+MOAB library.
 
 Build the Plugin
 ================
@@ -96,22 +125,22 @@ Build the Plugin
 Before building the plugin, some external repositories must first be cloned.
 
 ```
-cd ~/plugin-build/DAGMC-Trelis
-git clone https://github.com/svalinn/DAGMC
-git clone https://github.com/svalinn/mcnp2cad
+cd ${HOME}/plugin-build/DAGMC-Trelis
+git clone https://github.com/svalinn/mcnp2cad -b develop
 ```
 
 The following commands show how to build the plugin itself.
 
 ```
-cd ~/plugin-build
+cd ${HOME}/plugin-build
 ln -sv DAGMC-Trelis src
 mkdir -pv bld
 cd bld
 cmake ../src -DCUBIT_ROOT=/opt/Trelis-16.5 \
-             -DMOAB_ROOT=~/plugin-build/moab \
+             -DMOAB_DIR=${HOME}/plugin-build/moab \
+             -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
              -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_INSTALL_PREFIX=~/plugin-build \
+             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build \
              -DCMAKE_INSTALL_RPATH=/opt/Trelis-16.5:/opt/Trelis-16.5/bin/plugins/svalinn
 make -j`grep -c processor /proc/cpuinfo`
 make install
@@ -124,34 +153,24 @@ The following commands show how to create the tarall for the plugin. These
 commands have only been tested on Ubuntu 18.04.
 
 ```
-cd ~/plugin-build
+cd ${HOME}/plugin-build
 mkdir -p pack/bin/plugins/svalinn
 cd pack/bin/plugins/svalinn
-cp -pPv ~/plugin-build/lib/* .
+cp -pPv ${HOME}/plugin-build/lib/* .
+cp -pPv ${HOME}/plugin-build/moab/lib/libMOAB.so* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/* .
 cp -pPv /usr/lib/libarmadillo.so.8* .
 cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 chmod 644 *
 cd ..
 ln -sv svalinn/libsvalinn_plugin.so .
-cd ..
-ln -sv plugins/svalinn/libarmadillo.so.8 .
-ln -sv plugins/svalinn/libarmadillo.so.8.400.0 .
-ln -sv plugins/svalinn/libhdf5_serial.so.100 .
-ln -sv plugins/svalinn/libhdf5_serial.so.100.0.1 .
-ln -sv plugins/svalinn/libiGeom.so .
-ln -sv plugins/svalinn/libmakeWatertight.so .
-ln -sv plugins/svalinn/libmcnp2cad.so .
-ln -sv plugins/svalinn/libMOAB.so .
-ln -sv plugins/svalinn/libMOAB.so.5 .
-ln -sv plugins/svalinn/libMOAB.so.5.1.0 .
-ln -sv plugins/svalinn/libsvalinn_plugin.so .
-cd ..
+cd ../..
 tar --sort=name -czvf svalinn-plugin.tgz bin
 mv -v svalinn-plugin.tgz ..
 ```
 
-The Svalinn pluigin tarball should now be located at
-`~/plugin-build/svalinn-plugin.tgz`.
+The Svalinn plugin tarball should now be located at
+`${HOME}/plugin-build/svalinn-plugin.tgz`.
 
 Install the Plugin
 ==================
