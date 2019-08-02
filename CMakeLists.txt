@@ -21,7 +21,6 @@ message(STATUS "CUBIT_INCLUDE_DIRS: ${CUBIT_INCLUDE_DIRS}")
 message(STATUS "CUBITI19: ${CUBITI19}")
 
 # Setup RPATH
-#set(INSTALL_RPATH_DIRS ${CMAKE_INSTALL_PREFIX}/lib ${Cubit_DIR})
 set(INSTALL_RPATH_DIRS ${Cubit_DIR} ${Cubit_DIR}/plugins/svalinn)
 message(STATUS "INSTALL_RPATH_DIRS: ${INSTALL_RPATH_DIRS}")
 
@@ -51,12 +50,7 @@ if (BUILD_DAGMC_EXPORTER)
   install(FILES ${MOAB_LIB_INCL_SYMLINKS} DESTINATION lib)
 
   # Build make_watertight
-  set(MW_SRC_FILES "DAGMC/src/make_watertight/Arc.cpp"
-                   "DAGMC/src/make_watertight/CheckWatertight.cpp"
-                   "DAGMC/src/make_watertight/Cleanup.cpp"
-                   "DAGMC/src/make_watertight/Gen.cpp"
-                   "DAGMC/src/make_watertight/MakeWatertight.cpp"
-                   "DAGMC/src/make_watertight/Zip.cpp")
+  file(GLOB MW_SRC_FILES "DAGMC/src/make_watertight/*.cpp")
   include_directories(DAGMC/src)
   add_library(makeWatertight SHARED ${MW_SRC_FILES})
   set_target_properties(makeWatertight PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
