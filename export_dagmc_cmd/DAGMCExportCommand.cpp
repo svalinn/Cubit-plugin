@@ -206,15 +206,15 @@ moab::ErrorCode DAGMCExportCommand::create_tags()
   // get some tag handles
   int negone = -1, zero = 0 /*, negonearr[] = {-1, -1, -1, -1}*/;
   rval = mdbImpl->tag_get_handle(GEOM_DIMENSION_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
-                                 geom_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT, &negone);
+                                 geom_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_ANY, &negone);
   CHK_MB_ERR_RET_MB("Error creating geom_tag",rval);
     
   rval = mdbImpl->tag_get_handle(GLOBAL_ID_TAG_NAME, 1, moab::MB_TYPE_INTEGER,
-                                 id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_CREAT, &zero);
+                                 id_tag, moab::MB_TAG_DENSE | moab::MB_TAG_ANY, &zero);
   CHK_MB_ERR_RET_MB("Error creating id_tag",rval);
   
   rval = mdbImpl->tag_get_handle(NAME_TAG_NAME, NAME_TAG_SIZE, moab::MB_TYPE_OPAQUE,
-                                 name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_CREAT);
+                                 name_tag, moab::MB_TAG_SPARSE | moab::MB_TAG_ANY);
   CHK_MB_ERR_RET_MB("Error creating name_tag",rval);
   
   rval = mdbImpl->tag_get_handle(CATEGORY_TAG_NAME, CATEGORY_TAG_SIZE, moab::MB_TYPE_OPAQUE,
