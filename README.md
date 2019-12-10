@@ -40,7 +40,7 @@ sudo dpkg -i Trelis-16.5.3-Lin64.deb
 
 This installs Trelis to `/opt/Trelis-16.5`.
 
-The following commands show how to install the SDK.
+The Trelis SDK can be installed with these commands:
 
 ```
 cd /opt/Trelis-16.5
@@ -62,8 +62,8 @@ Notes on Build Instructions
 
 A non-source directory build is recommended. These build instructions assume
 that the plugin build will take place in the `${HOME}/plugin-build` directory,
-and they assume that the DAGMC-Trelis repo has been cloned into
-`${HOME}/plugin-build/DAGMC-Trelis`.
+and they assume that the Trelis-plugin repo has been cloned into
+`${HOME}/plugin-build/Trelis-plugin`.
 
 Build MOAB
 ==========
@@ -75,20 +75,22 @@ cd ${HOME}/plugin-build
 mkdir -pv moab/bld
 cd moab
 git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
+cd moab
+autoreconf -fi
+cd ..
 ln -sv moab src
 cd bld
-cmake ../src -DBUILD_SHARED_LIBS=ON \
-             -DENABLE_HDF5=ON \
-             -DENABLE_BLASLAPACK=ON \
-             -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build/moab \
-             -DCMAKE_INSTALL_RPATH=/opt/Trelis-16.5/bin/plugins/svalinn
+../src/configure --disable-blaslapack \
+                 --enable-shared \
+                 --enable-optimize \
+                 --disable-debug \
+                 --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
+                 --prefix=${HOME}/plugin-build/moab
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
 
-This reslts in the shared MOAB library being built against the system HDF5
-libraries.
+This reslts in the MOAB library being built against the system HDF5 libraries.
 
 Build DAGMC
 ===========
@@ -110,22 +112,22 @@ cmake ../src -DMOAB_DIR=${HOME}/plugin-build/moab \
              -DBUILD_SHARED_LIBS=ON \
              -DBUILD_STATIC_LIBS=OFF \
              -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build/DAGMC \
-             -DCMAKE_INSTALL_RPATH=/opt/Trelis-16.5/bin/plugins/svalinn
+             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build/DAGMC
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
 
-This reslts in the shared DAGMC library being built against the previously-built
-MOAB library.
+This reslts in the DAGMC library being built against the previously-built MOAB
+library.
 
 Build the Plugin
 ================
 
-Before building the plugin, some external repositories must first be cloned.
+Before building the plugin, the external mcnp2cad repository must first be
+cloned.
 
 ```
-cd ${HOME}/plugin-build/DAGMC-Trelis
+cd ${HOME}/plugin-build/Trelis-plugin
 git clone https://github.com/svalinn/mcnp2cad -b master
 ```
 
@@ -133,7 +135,7 @@ The following commands show how to build the plugin itself.
 
 ```
 cd ${HOME}/plugin-build
-ln -sv DAGMC-Trelis src
+ln -sv Trelis-plugin src
 mkdir -pv bld
 cd bld
 cmake ../src -DCUBIT_ROOT=/opt/Trelis-16.5 \
@@ -153,15 +155,25 @@ The following commands show how to create the tarall for the plugin. These
 commands have only been tested on Ubuntu 18.04.
 
 ```
+# Set up the directory which will contain the libraries
 cd ${HOME}/plugin-build
 mkdir -p pack/bin/plugins/svalinn
 cd pack/bin/plugins/svalinn
+
+# Copy all needed libraries into current directory
 cp -pPv ${HOME}/plugin-build/lib/* .
 cp -pPv ${HOME}/plugin-build/moab/lib/libMOAB.so* .
-cp -pPv ${HOME}/plugin-build/DAGMC/lib/*.so .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libdagmc.so* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libmakeWatertight.so* .
 cp -pPv /usr/lib/libarmadillo.so.8* .
 cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 chmod 644 *
+
+# Set the RPATH to be the current directory for the DAGMC libraries
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libdagmc.so
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libmakeWatertight.so
+
+# Create the Svalinn plugin tarball
 cd ..
 ln -sv svalinn/libsvalinn_plugin.so .
 cd ../..
