@@ -195,3 +195,51 @@ To install the plugin, simply run
 cd /opt/Trelis-16.5
 sudo tar -xzvf ${HOME}/plugin-build/svalinn-plugin.tgz
 ```
+
+Test the Plugin
+===============
+
+Run `trelis`. If the plugin was installed correctly, after the Trelis GUI
+finishes loading, the following output should appear in the Trelis command line:
+
+```
+Loaded Svalinn plugin.
+-- DAGMC export command available.
+-- iGeom_test command available.
+-- MCNP import command available.
+Journaled Command: undo on
+
+Trelis>
+```
+
+If this output does not appear, then the plugin was not installed correctly.
+
+To view the available command line options for the MCNP importer, type
+`help mcnp` in the Trelis command line. Similarly for the DAGMC exporter, type
+`help dagmc` in the Trelis command line.
+
+Some sample files have been included in the `test_plugin` directory of this
+repository. Navigate to that directory, then run `trelis`. In the Trelis command
+line, type `import mcnp test.i`. This should result in the MCNP geometry and
+material mapping contained within the MCNP input file `test.i` being imported
+into Trelis.
+
+Next, run `export acis test.sat overwrite attributes_on`. This will save the
+geometry in ACIS format to `test.sat`.
+
+Lastly, run
+`export dagmc "test.h5m" faceting_tolerance 1e-3 make_watertight verbose`. This
+will facet the geometry and save it in a format that can be used by DAGMC.
+
+Test the Plugin (Command Line Mode)
+===================================
+
+The plugin can also be run in command line mode, without needing to load the
+Trelis GUI. The file `test.jou` in the `test_plugin` directory contains the five
+commands mentioned in the previous section of this readme. To execute these
+commands in command line mode, run
+`trelis -batch -nographics -nojournal test.jou` from the regular command line.
+
+It is through this command line interface that one would replicate the workflows
+of years past which involved the now-defunct `mcnp2cad` and `dagmc_preproc`
+executables.
