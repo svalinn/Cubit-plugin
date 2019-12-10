@@ -65,6 +65,11 @@ that the plugin build will take place in the `${HOME}/plugin-build` directory,
 and they assume that the Trelis-plugin repo has been cloned into
 `${HOME}/plugin-build/Trelis-plugin`.
 
+**Before building anything, ensure that the `LD_LIBRARY_PATH` environment
+variable is empty**. This variable is not needed to build MOAB, DAGMC, or the
+plugin, and if it is not empty it can only cause problems. Ensure that it
+remains empty when running Trelis as well.
+
 Build MOAB
 ==========
 
