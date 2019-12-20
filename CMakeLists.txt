@@ -42,7 +42,6 @@ set(PLUGIN_LINK_LIBS ${CUBIT_LIBS})
 if (BUILD_DAGMC_EXPORTER)
   message(STATUS "Building DAGMC exporter")
   add_definitions(-DBUILD_DAGMC_EXPORT=ON)
-  list(APPEND PLUGIN_SRC_FILES export_dagmc_cmd/DAGMCExportCommand.cpp)
 
   # Find DAGMC (DAGMCCMakeConfig.cmake already knows where MOAB is, so we don't
   # need to look for it here separately)
@@ -53,6 +52,7 @@ if (BUILD_DAGMC_EXPORTER)
   message(STATUS "DAGMC_LIBRARY_DIRS: ${DAGMC_LIBRARY_DIRS}")
   message(STATUS "DAGMC_INCLUDE_DIRS: ${DAGMC_INCLUDE_DIRS}")
 
+  list(APPEND PLUGIN_SRC_FILES export_dagmc_cmd/DAGMCExportCommand.cpp)
   list(APPEND PLUGIN_LINK_LIBS ${DAGMC_LIBRARIES})
 endif ()
 
@@ -84,7 +84,11 @@ if (BUILD_MCNP_IMPORTER)
   message(STATUS "Building MCNP importer")
   add_definitions(-DHAVE_IGEOM_CONE=ON)
   add_definitions(-DBUILD_MCNP_IMPORT=ON)
-  file(GLOB MCNP2CAD_SRC_FILES "mcnp2cad/*.cpp")
+  set(MCNP2CAD_SRC_FILES mcnp2cad/geometry.cpp
+                         mcnp2cad/GQ_Characterize.cpp
+                         mcnp2cad/mcnp2cad.cpp
+                         mcnp2cad/MCNPInput.cpp
+                         mcnp2cad/volumes.cpp)
   include_directories(mcnp2cad)
   add_library(mcnp2cad SHARED ${MCNP2CAD_SRC_FILES})
   set_target_properties(mcnp2cad PROPERTIES INSTALL_RPATH
