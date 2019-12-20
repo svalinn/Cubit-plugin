@@ -72,7 +72,8 @@ remains empty when running Trelis as well.
 Build MOAB
 ==========
 
-The following commands show how to build the MOAB dependency.
+MOAB must be built with HDF5 enabled. The following commands show how to build
+the MOAB dependency using system HDF5.
 
 ```
 cd ${HOME}/plugin-build
@@ -94,12 +95,11 @@ make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
 
-This reslts in the MOAB library being built against the system HDF5 libraries.
-
 Build DAGMC
 ===========
 
-The following commands show how to build the DAGMC dependency.
+The following commands show how to build the DAGMC dependency. Only the features
+that are needed are built using these commands.
 
 ```
 cd ${HOME}/plugin-build
@@ -135,7 +135,9 @@ cd ${HOME}/plugin-build/Trelis-plugin
 git clone https://github.com/svalinn/mcnp2cad -b master
 ```
 
-The following commands show how to build the plugin itself.
+The following commands show how to build the plugin itself. The `CUBIT_ROOT`
+variable must point to the location of `Trelis`, while the `DAGMC_DIR` variable
+must point to the location of DAGMC.
 
 ```
 cd ${HOME}/plugin-build
