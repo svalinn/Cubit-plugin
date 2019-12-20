@@ -93,7 +93,7 @@ if (BUILD_MCNP_IMPORTER)
   add_library(mcnp2cad SHARED ${MCNP2CAD_SRC_FILES})
   set_target_properties(mcnp2cad PROPERTIES INSTALL_RPATH
                         "${INSTALL_RPATH_DIRS}")
-  target_link_libraries(mcnp2cad ${CUBIT_LIBS} armadillo iGeom)
+  target_link_libraries(mcnp2cad ${CUBIT_LIBS} iGeom)
   install(TARGETS mcnp2cad LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_SRC_FILES import_mcnp_cmd/MCNPImp.cpp)
   list(APPEND PLUGIN_LINK_LIBS mcnp2cad)

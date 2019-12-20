@@ -12,14 +12,13 @@ In order to build the plugin, you must have access to Trelis-16.5 and the
 Trelis-16.5 SDK. Additionally, the following system packages must be present on
 your computer:
 
-* BLAS/LAPACK
-* Armadillo
+* EIGEN3
 * HDF5
 
 On Ubuntu, these packages can be obtained by running
 
 ```
-sudo apt install libblas-dev liblapack-dev libarmadillo-dev libhdf5-dev
+sudo apt install libeigen3-dev libhdf5-dev
 ```
 
 The following packages are not available from the package manager and must be
@@ -168,7 +167,6 @@ cp -pPv ${HOME}/plugin-build/lib/* .
 cp -pPv ${HOME}/plugin-build/moab/lib/libMOAB.so* .
 cp -pPv ${HOME}/plugin-build/DAGMC/lib/libdagmc.so* .
 cp -pPv ${HOME}/plugin-build/DAGMC/lib/libmakeWatertight.so* .
-cp -pPv /usr/lib/libarmadillo.so.8* .
 cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 chmod 644 *
 
