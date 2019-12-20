@@ -30,8 +30,10 @@ message(STATUS "Cubit_DIR: ${Cubit_DIR}")
 message(STATUS "CUBIT_INCLUDE_DIRS: ${CUBIT_INCLUDE_DIRS}")
 
 # Setup RPATH
-set(INSTALL_RPATH_DIRS ${Cubit_DIR} ${Cubit_DIR}/plugins/svalinn)
-message(STATUS "INSTALL_RPATH_DIRS: ${INSTALL_RPATH_DIRS}")
+if (NOT CMAKE_INSTALL_RPATH)
+  set(CMAKE_INSTALL_RPATH ${Cubit_DIR} ${Cubit_DIR}/plugins/svalinn)
+endif ()
+message(STATUS "CMAKE_INSTALL_RPATH: ${CMAKE_INSTALL_RPATH}")
 
 # Add source files and required libraries for the plugin to these variables
 # based on which build options are enabled
@@ -66,7 +68,6 @@ if (BUILD_IGEOM)
   set(IGEOM_SRC_FILES iGeom/iGeom.cpp iGeom/iGeomError.cc)
   include_directories(iGeom)
   add_library(iGeom SHARED ${IGEOM_SRC_FILES})
-  set_target_properties(iGeom PROPERTIES INSTALL_RPATH "${INSTALL_RPATH_DIRS}")
   target_link_libraries(iGeom ${CUBIT_LIBS})
   install(TARGETS iGeom LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_LINK_LIBS iGeom)
@@ -91,8 +92,6 @@ if (BUILD_MCNP_IMPORTER)
                          mcnp2cad/volumes.cpp)
   include_directories(mcnp2cad)
   add_library(mcnp2cad SHARED ${MCNP2CAD_SRC_FILES})
-  set_target_properties(mcnp2cad PROPERTIES INSTALL_RPATH
-                        "${INSTALL_RPATH_DIRS}")
   target_link_libraries(mcnp2cad ${CUBIT_LIBS} iGeom)
   install(TARGETS mcnp2cad LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_SRC_FILES import_mcnp_cmd/MCNPImp.cpp)
@@ -101,9 +100,8 @@ endif ()
 
 # Build the plugin
 message(STATUS "Building Svalinn plugin")
+message(STATUS "PLUGIN_SRC_FILES: ${PLUGIN_SRC_FILES}")
 message(STATUS "PLUGIN_LINK_LIBS: ${PLUGIN_LINK_LIBS}")
 add_library(svalinn_plugin MODULE ${PLUGIN_SRC_FILES})
-set_target_properties(svalinn_plugin PROPERTIES INSTALL_RPATH
-                      "${INSTALL_RPATH_DIRS}")
 target_link_libraries(svalinn_plugin ${PLUGIN_LINK_LIBS})
 install(TARGETS svalinn_plugin LIBRARY DESTINATION lib)
