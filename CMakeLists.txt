@@ -8,6 +8,12 @@ option(BUILD_MCNP_IMPORTER  "Include MCNP import capability"  ON)
 option(BUILD_IGEOM          "Build iGeom library"             ON)
 option(BUILD_IGEOM_TESTS    "Include tests for iGeom"         ON)
 
+# Default to a release build
+if (NOT CMAKE_BUILD_TYPE)
+  message(STATUS "CMAKE_BUILD_TYPE not specified, defaulting to Release")
+  set(CMAKE_BUILD_TYPE Release)
+endif ()
+
 # Use C++11
 set(CMAKE_CXX_STANDARD 11)
 
@@ -90,17 +96,10 @@ endif ()
 # MCNP importer
 if (BUILD_MCNP_IMPORTER)
   message(STATUS "Building MCNP importer")
-  add_definitions(-DHAVE_IGEOM_CONE=ON)
   add_definitions(-DBUILD_MCNP_IMPORT=ON)
-  set(MCNP2CAD_SRC_FILES mcnp2cad/geometry.cpp
-                         mcnp2cad/GQ_Characterize.cpp
-                         mcnp2cad/mcnp2cad.cpp
-                         mcnp2cad/MCNPInput.cpp
-                         mcnp2cad/volumes.cpp)
+  set(BUILD_MCNP2CAD_TESTS OFF CACHE BOOL "")
+  add_subdirectory(mcnp2cad)
   include_directories(mcnp2cad)
-  add_library(mcnp2cad SHARED ${MCNP2CAD_SRC_FILES})
-  target_link_libraries(mcnp2cad ${CUBIT_LIBS} iGeom)
-  install(TARGETS mcnp2cad LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_SRC_FILES   import_mcnp_cmd/MCNPImp.cpp)
   list(APPEND PLUGIN_PUB_HEADERS import_mcnp_cmd/MCNPImp.hpp)
   list(APPEND PLUGIN_LINK_LIBS mcnp2cad)
