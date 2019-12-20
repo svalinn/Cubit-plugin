@@ -43,15 +43,16 @@ if (BUILD_DAGMC_EXPORTER)
   message(STATUS "Building DAGMC exporter")
   add_definitions(-DBUILD_DAGMC_EXPORT=ON)
   list(APPEND PLUGIN_SRC_FILES export_dagmc_cmd/DAGMCExportCommand.cpp)
-  find_library(MOAB_LIBRARY NAMES MOAB PATHS ${MOAB_DIR}/lib)
-  find_library(DAGMC_LIBRARY NAMES dagmc PATHS ${DAGMC_DIR}/lib)
-  find_library(PYNE_LIBRARY NAMES pyne_dagmc PATHS ${DAGMC_DIR}/lib)
-  find_library(MW_LIBRARY NAMES makeWatertight PATHS ${DAGMC_DIR}/lib)
-  include_directories(${MOAB_DIR}/include)
-  include_directories(${DAGMC_DIR}/include)
-  set(DAGMC_LIBRARIES ${MOAB_LIBRARY} ${DAGMC_LIBRARY} ${PYNE_LIBRARY}
-      ${MW_LIBRARY})
+
+  # Find DAGMC (DAGMCCMakeConfig.cmake already knows where MOAB is, so we don't
+  # need to look for it here separately)
+  find_package(DAGMC REQUIRED CONFIG PATHS ${DAGMC_DIR}/lib/cmake)
+  link_directories(${DAGMC_LIBRARY_DIRS})
+  include_directories(${DAGMC_INCLUDE_DIRS})
   message(STATUS "DAGMC_LIBRARIES: ${DAGMC_LIBRARIES}")
+  message(STATUS "DAGMC_LIBRARY_DIRS: ${DAGMC_LIBRARY_DIRS}")
+  message(STATUS "DAGMC_INCLUDE_DIRS: ${DAGMC_INCLUDE_DIRS}")
+
   list(APPEND PLUGIN_LINK_LIBS ${DAGMC_LIBRARIES})
 endif ()
 

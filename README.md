@@ -144,11 +144,9 @@ ln -sv Trelis-plugin src
 mkdir -pv bld
 cd bld
 cmake ../src -DCUBIT_ROOT=/opt/Trelis-16.5 \
-             -DMOAB_DIR=${HOME}/plugin-build/moab \
              -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
              -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build \
-             -DCMAKE_INSTALL_RPATH=/opt/Trelis-16.5:/opt/Trelis-16.5/bin/plugins/svalinn
+             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
