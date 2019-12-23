@@ -43,8 +43,7 @@ message(STATUS "CMAKE_INSTALL_RPATH: ${CMAKE_INSTALL_RPATH}")
 
 # Add source files and required libraries for the plugin to these variables
 # based on which build options are enabled
-set(PLUGIN_SRC_FILES   SvalinnPlugin.cpp)
-set(PLUGIN_PUB_HEADERS SvalinnPlugin.hpp)
+set(PLUGIN_SRC_FILES SvalinnPlugin.cpp)
 set(PLUGIN_LINK_LIBS ${CUBIT_LIBS})
 
 # DAGMC exporter
@@ -61,8 +60,7 @@ if (BUILD_DAGMC_EXPORTER)
   message(STATUS "DAGMC_LIBRARY_DIRS: ${DAGMC_LIBRARY_DIRS}")
   message(STATUS "DAGMC_INCLUDE_DIRS: ${DAGMC_INCLUDE_DIRS}")
 
-  list(APPEND PLUGIN_SRC_FILES   export_dagmc_cmd/DAGMCExportCommand.cpp)
-  list(APPEND PLUGIN_PUB_HEADERS export_dagmc_cmd/DAGMCExportCommand.hpp)
+  list(APPEND PLUGIN_SRC_FILES export_dagmc_cmd/DAGMCExportCommand.cpp)
   list(APPEND PLUGIN_LINK_LIBS ${DAGMC_LIBRARIES})
 endif ()
 
@@ -78,10 +76,6 @@ if (BUILD_IGEOM)
   add_library(iGeom SHARED ${IGEOM_SRC_FILES})
   target_link_libraries(iGeom ${CUBIT_LIBS})
   install(TARGETS iGeom LIBRARY DESTINATION lib)
-  set(IGEOM_PUB_HEADERS iGeom/CATag.hpp
-                        iGeom/iGeomError.h
-                        iGeom/iGeom.h)
-  list(APPEND PLUGIN_PUB_HEADERS ${IGEOM_PUB_HEADERS})
   list(APPEND PLUGIN_LINK_LIBS iGeom)
 endif ()
 
@@ -89,8 +83,7 @@ endif ()
 if (BUILD_IGEOM_TESTS)
   message(STATUS "Building iGeom tests")
   add_definitions(-DBUILD_IGEOM_TESTS=ON)
-  list(APPEND PLUGIN_SRC_FILES   iGeom/tests/iGeom_test.cpp)
-  list(APPEND PLUGIN_PUB_HEADERS iGeom/tests/iGeom_test.hpp)
+  list(APPEND PLUGIN_SRC_FILES iGeom/tests/iGeom_test.cpp)
 endif ()
 
 # MCNP importer
@@ -100,18 +93,14 @@ if (BUILD_MCNP_IMPORTER)
   set(BUILD_MCNP2CAD_TESTS OFF CACHE BOOL "")
   add_subdirectory(mcnp2cad)
   include_directories(mcnp2cad)
-  list(APPEND PLUGIN_SRC_FILES   import_mcnp_cmd/MCNPImp.cpp)
-  list(APPEND PLUGIN_PUB_HEADERS import_mcnp_cmd/MCNPImp.hpp)
+  list(APPEND PLUGIN_SRC_FILES import_mcnp_cmd/MCNPImp.cpp)
   list(APPEND PLUGIN_LINK_LIBS mcnp2cad)
 endif ()
 
 # Build the plugin
 message(STATUS "Building Svalinn plugin")
 message(STATUS "PLUGIN_SRC_FILES: ${PLUGIN_SRC_FILES}")
-message(STATUS "PLUGIN_PUB_HEADERS: ${PLUGIN_PUB_HEADERS}")
 message(STATUS "PLUGIN_LINK_LIBS: ${PLUGIN_LINK_LIBS}")
 add_library(svalinn_plugin MODULE ${PLUGIN_SRC_FILES})
-set_target_properties(svalinn_plugin PROPERTIES PUBLIC_HEADER
-                      "${PLUGIN_PUB_HEADERS}")
 target_link_libraries(svalinn_plugin ${PLUGIN_LINK_LIBS})
 install(TARGETS svalinn_plugin LIBRARY DESTINATION lib)
