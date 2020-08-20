@@ -1458,10 +1458,10 @@ CGMTagManager::CGMTagManager()
 #ifdef CUBIT_17_PLUS
   CubitAttribManager cam = CGMApp::instance()->attrib_manager();
   cam.get_registered_types(tag_types);
-  #else
+#else
   CubitAttribManager* cam = CGMApp::instance()->attrib_manager();
   cam->get_registered_types(tag_types);
-  #endif
+#endif
 
   for (int i = 0; i < tag_types.size(); i++) {
     int this_type = tag_types.get_and_step();
