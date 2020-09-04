@@ -124,12 +124,13 @@ library.
 Build the Plugin
 ================
 
-Before building the plugin, the external mcnp2cad repository must first be
-cloned.
+The plugin depends on another external repository called mcnp2cad. mcnp2cad is
+available in this repo as a git submodule, and it can be obtained with these
+commands:
 
 ```
 cd ${HOME}/plugin-build/Trelis-plugin
-git clone https://github.com/svalinn/mcnp2cad -b master
+git submodule update --init
 ```
 
 The following commands show how to build the plugin itself. The `CUBIT_ROOT`
