@@ -8,6 +8,11 @@ option(BUILD_MCNP_IMPORTER  "Include MCNP import capability"  ON)
 option(BUILD_IGEOM          "Build iGeom library"             ON)
 option(BUILD_IGEOM_TESTS    "Include tests for iGeom"         ON)
 
+# MCNP importer and iGeom tests require iGeom
+if (BUILD_MCNP_IMPORTER OR BUILD_IGEOM_TESTS)
+  set(BUILD_IGEOM ON)
+endif ()
+
 # Default to a release build
 if (NOT CMAKE_BUILD_TYPE)
   message(STATUS "CMAKE_BUILD_TYPE not specified, defaulting to Release")
@@ -62,10 +67,6 @@ if (BUILD_DAGMC_EXPORTER)
 
   list(APPEND PLUGIN_SRC_FILES export_dagmc_cmd/DAGMCExportCommand.cpp)
   list(APPEND PLUGIN_LINK_LIBS ${DAGMC_LIBRARIES})
-endif ()
-
-if (BUILD_MCNP_IMPORTER OR BUILD_IGEOM_TESTS)
-  set(BUILD_IGEOM ON)
 endif ()
 
 # iGeom
