@@ -82,15 +82,13 @@ cd moab
 git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
 cd moab
 autoreconf -fi
-cd ..
-ln -sv moab src
-cd bld
-../src/configure --disable-blaslapack \
-                 --enable-shared \
-                 --enable-optimize \
-                 --disable-debug \
-                 --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-                 --prefix=${HOME}/plugin-build/moab
+cd ../bld
+../moab/configure --disable-blaslapack \
+                  --enable-shared \
+                  --enable-optimize \
+                  --disable-debug \
+                  --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
+                  --prefix=${HOME}/plugin-build/moab
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
@@ -106,22 +104,21 @@ cd ${HOME}/plugin-build
 mkdir -pv DAGMC/bld
 cd DAGMC
 git clone https://github.com/svalinn/DAGMC -b develop
-ln -sv DAGMC src
 cd bld
-cmake ../src -DMOAB_DIR=${HOME}/plugin-build/moab \
-             -DBUILD_UWUW=OFF \
-             -DBUILD_TALLY=OFF \
-             -DBUILD_BUILD_OBB=OFF \
-             -DBUILD_MAKE_WATERTIGHT=ON \
-             -DBUILD_SHARED_LIBS=ON \
-             -DBUILD_STATIC_LIBS=OFF \
-             -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build/DAGMC
+cmake ../DAGMC -DMOAB_DIR=${HOME}/plugin-build/moab \
+               -DBUILD_UWUW=OFF \
+               -DBUILD_TALLY=OFF \
+               -DBUILD_BUILD_OBB=OFF \
+               -DBUILD_MAKE_WATERTIGHT=ON \
+               -DBUILD_SHARED_LIBS=ON \
+               -DBUILD_STATIC_LIBS=OFF \
+               -DCMAKE_BUILD_TYPE=Release \
+               -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build/DAGMC
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
 
-This reslts in the DAGMC library being built against the previously-built MOAB
+This results in the DAGMC library being built against the previously-built MOAB
 library.
 
 Build the Plugin
@@ -141,13 +138,12 @@ must point to the location of DAGMC.
 
 ```
 cd ${HOME}/plugin-build
-ln -sv Trelis-plugin src
 mkdir -pv bld
 cd bld
-cmake ../src -DCUBIT_ROOT=/opt/Trelis-16.5 \
-             -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
-             -DCMAKE_BUILD_TYPE=Release \
-             -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
+cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-16.5 \
+                       -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
+                       -DCMAKE_BUILD_TYPE=Release \
+                       -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
