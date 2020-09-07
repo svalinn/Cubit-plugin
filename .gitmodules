@@ -1,5 +1,3 @@
 [submodule "mcnp2cad"]
 	path = mcnp2cad
 	url = https://github.com/svalinn/mcnp2cad
-	branch = master
-
