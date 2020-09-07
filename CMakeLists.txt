@@ -78,7 +78,6 @@ if (BUILD_IGEOM)
   target_link_libraries(iGeom ${CUBIT_LIBS})
   install(TARGETS iGeom LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_LINK_LIBS iGeom)
-  set(IGEOM_LIB iGeom)
 endif ()
 
 # iGeom tests
