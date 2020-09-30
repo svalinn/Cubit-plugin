@@ -87,6 +87,7 @@ cd ../bld
                   --enable-shared \
                   --enable-optimize \
                   --disable-debug \
+                  --with-eigen3=/usr/include/eigen3 \
                   --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
                   --prefix=${HOME}/plugin-build/moab
 make -j`grep -c processor /proc/cpuinfo`
