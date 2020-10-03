@@ -1,89 +1,248 @@
 Svalinn plugins and command extensions for Trelis
-===================================================
+=================================================
 
 **Beta:** This software is currently under early development.  It has been
 demonstrated to work on a wide range of problems, but the build system is not
 well developed.
 
-Requirements
-============
+Prerequisites
+=============
 
-- Trelis 16.x SDK
-- Armadillo
-- MOAB (and therefore HDF5 & Lapack/blas)
-- DAGMC
+In order to build the plugin, you must have access to Trelis-16.5 and the
+Trelis-16.5 SDK. Additionally, the following system packages must be present on
+your computer:
 
-Build
-======
+* EIGEN3
+* HDF5
 
-If you are building the MCNP importer, you should first clone the mcnp2cad library repo into this repo.
+On Ubuntu, these packages can be obtained by running
+
 ```
-git clone -b modular --single-branch https://github.com/svalinn/mcnp2cad
+sudo apt install libeigen3-dev libhdf5-dev
 ```
 
-From here building should work as follows:
+The following packages are not available from the package manager and must be
+built yourself:
+
+* MOAB 5.1.0
+* DAGMC
+
+Install Trelis
+==============
+
+Trelis can be installed by obtaining the Trelis `.deb` package and installing it
+with the package manager; i.e.
+
 ```
-mkdir bld
+sudo dpkg -i Trelis-16.5.3-Lin64.deb
+```
+
+This installs Trelis to `/opt/Trelis-16.5`.
+
+The Trelis SDK can be installed with these commands:
+
+```
+cd /opt/Trelis-16.5
+sudo tar -xzvf /path/to/Trelis-SDK-16.5.3-Lin64.tar.gz
+```
+
+There is currently a bug (or some other unknown issue) which requires a file in
+the Trelis SDK to be modified. The following commands show how to make this
+change.
+
+```
+cd /opt/Trelis-16.5/bin
+sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
+sudo sed -i "s/\"cubit_util\" \"showviz_base\"/\"cubit_util\"/" CubitExport.cmake
+```
+
+Notes on Build Instructions
+===========================
+
+A non-source directory build is recommended. These build instructions assume
+that the plugin build will take place in the `${HOME}/plugin-build` directory,
+and they assume that the Trelis-plugin repo has been cloned into
+`${HOME}/plugin-build/Trelis-plugin`.
+
+**Before building anything, ensure that the `LD_LIBRARY_PATH` environment
+variable is empty**. This variable is not needed to build MOAB, DAGMC, or the
+plugin, and if it is not empty it can only cause problems. Ensure that it
+remains empty when running Trelis as well.
+
+Build MOAB
+==========
+
+MOAB must be built with HDF5 enabled. The following commands show how to build
+the MOAB dependency using system HDF5.
+
+```
+cd ${HOME}/plugin-build
+mkdir -pv moab/bld
+cd moab
+git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
+cd moab
+autoreconf -fi
+cd ../bld
+../moab/configure --disable-blaslapack \
+                  --enable-shared \
+                  --enable-optimize \
+                  --disable-debug \
+                  --disable-blaslapack \
+                  --with-eigen3=/usr/include/eigen3 \
+                  --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
+                  --prefix=${HOME}/plugin-build/moab
+make -j`grep -c processor /proc/cpuinfo`
+make install
+```
+
+Build DAGMC
+===========
+
+The following commands show how to build the DAGMC dependency. Only the features
+that are needed are built using these commands.
+
+```
+cd ${HOME}/plugin-build
+mkdir -pv DAGMC/bld
+cd DAGMC
+git clone https://github.com/svalinn/DAGMC -b develop
 cd bld
-cmake .. -DCMAKE_PREFIX_PATH=/path/to/Trelis-16.x/bin \
-         -DMOAB_DIR=/path/to/MOAB/lib \
-         -DDAGMC_DIR=/path/to/DAGMC/
-make
+cmake ../DAGMC -DMOAB_DIR=${HOME}/plugin-build/moab \
+               -DBUILD_UWUW=OFF \
+               -DBUILD_TALLY=OFF \
+               -DBUILD_BUILD_OBB=OFF \
+               -DBUILD_MAKE_WATERTIGHT=ON \
+               -DBUILD_SHARED_LIBS=ON \
+               -DBUILD_STATIC_LIBS=OFF \
+               -DCMAKE_BUILD_TYPE=Release \
+               -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build/DAGMC
+make -j`grep -c processor /proc/cpuinfo`
+make install
 ```
 
-If not building DAGMC exporter, replace `-DDAGMC_DIR` portion with `-DBUILD_DAGMC_EXPORTER=OFF`.
+This results in the DAGMC library being built against the previously-built MOAB
+library.
 
-If not building MCNP importer, replace `-DMCNP2CAD_DIR` portion with `-DBUILD_MCNP_IMPORTER=OFF`.
+Build the Plugin
+================
 
-If testing iGeom functions, add `-DBUILD_IGEOM_TESTS=ON`.
-
-Install
-=======
-
-(some of these many need to be completed as `sudo`)
-```
-PLUGINDIR=/path/to/Trelis-16.x/bin/plugins/svalinn
-mkdir $PLUGINDIR
-cp libsvalinn_plugin.so $PLUGINDIR
-cp libiGeom.so $PLUGINDIR
-cp libmcnp2cad.so $PLUGINDIR
-cp /path/to/MOAB/lib/libMOAB.so.0 $PLUGINDIR
-cp /path/to/DAGMC/lib/libmakeWatertight.so $PLUGINDIR
-cp install.sh $PLUGINDIR
-cd $PLUGINDIR/../..
-bash plugins/svalinn/install.sh
-```
-
-You may also need to find and "install" a copy of your HDF5 library in a
-fashion similar to the MOAB library above.
-
-# Windows install
-Find the Trelis folder, probably "C:\Program Files\Trelis 16.x\"
-
-Copy MOAB.dll to "path\to\Trelis #\bin\" and svalinn_plugin.dll to "path\to\Trelis #\bin\plugins\".
-
-Ensure that you have a copy of hdf5 installed and in your path.  If you do not, download from https://support.hdfgroup.org/HDF5/release/obtain5.html the distribution built for Windows 64-bit using VS 2013. Copy hdf5.dll into "path\to\Trelis #\bin\". 
-
-Distribution
-============
-
-The simplest way to make a tarball for distribution is the following command
-from the Trelis bin directory on a system with a complete/valid installation:
+The plugin depends on another external repository called mcnp2cad. mcnp2cad is
+available in this repo as a git submodule, and it can be obtained with these
+commands:
 
 ```
-tar czhf ~/tmp/svalinn-plugin.tgz plugins/svalinn
+cd ${HOME}/plugin-build/Trelis-plugin
+git submodule update --init
 ```
 
-This can then be deployed with the following commands from the same directory
-on another system:
+The following commands show how to build the plugin itself. The `CUBIT_ROOT`
+variable must point to the location of `Trelis`, while the `DAGMC_DIR` variable
+must point to the location of DAGMC.
 
 ```
-tar xzf ~/Downloads/svalinn-plugin.tgz
-bash plugins/svalinn/install.sh
+cd ${HOME}/plugin-build
+mkdir -pv bld
+cd bld
+cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-16.5 \
+                       -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
+                       -DCMAKE_BUILD_TYPE=Release \
+                       -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
+make -j`grep -c processor /proc/cpuinfo`
+make install
 ```
 
-Notes & Limitations
-====================
+Create the Tarball
+==================
 
-This does not currently have a wise/intelligent configuration of the rpath in the plugin and thus requires the correct versions of MOAB and HDF5 to be available in the LD_LIBRARY_PATH.  (This may not be enough??)
+The following commands show how to create the tarall for the plugin. These
+commands have only been tested on Ubuntu 18.04.
 
+```
+# Set up the directory which will contain the libraries
+cd ${HOME}/plugin-build
+mkdir -p pack/bin/plugins/svalinn
+cd pack/bin/plugins/svalinn
+
+# Copy all needed libraries into current directory
+cp -pPv ${HOME}/plugin-build/lib/* .
+cp -pPv ${HOME}/plugin-build/moab/lib/libMOAB.so* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libdagmc.so* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libmakeWatertight.so* .
+cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
+chmod 644 *
+
+# Set the RPATH to be the current directory for the DAGMC libraries
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libMOAB.so
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libdagmc.so
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libmakeWatertight.so
+
+# Create the Svalinn plugin tarball
+cd ..
+ln -sv svalinn/libsvalinn_plugin.so .
+cd ../..
+tar --sort=name -czvf svalinn-plugin.tgz bin
+mv -v svalinn-plugin.tgz ..
+cd ..
+rm -rf pack
+```
+
+The Svalinn plugin tarball should now be located at
+`${HOME}/plugin-build/svalinn-plugin.tgz`.
+
+Install the Plugin
+==================
+
+To install the plugin, simply run
+
+```
+cd /opt/Trelis-16.5
+sudo tar -xzvf ${HOME}/plugin-build/svalinn-plugin.tgz
+```
+
+Test the Plugin
+===============
+
+Run `trelis`. If the plugin was installed correctly, after the Trelis GUI
+finishes loading, the following output should appear in the Trelis command line:
+
+```
+Loaded Svalinn plugin.
+-- DAGMC export command available.
+-- iGeom_test command available.
+-- MCNP import command available.
+Journaled Command: undo on
+
+Trelis>
+```
+
+If this output does not appear, then the plugin was not installed correctly.
+
+To view the available command line options for the MCNP importer, type
+`help mcnp` in the Trelis command line. Similarly for the DAGMC exporter, type
+`help dagmc` in the Trelis command line.
+
+Some sample files have been included in the `test_plugin` directory of this
+repository. Navigate to that directory, then run `trelis`. In the Trelis command
+line, type `import mcnp test.i`. This should result in the MCNP geometry and
+material mapping contained within the MCNP input file `test.i` being imported
+into Trelis.
+
+Next, run `export acis test.sat overwrite attributes_on`. This will save the
+geometry in ACIS format to `test.sat`.
+
+Lastly, run
+`export dagmc "test.h5m" faceting_tolerance 1e-3 make_watertight verbose`. This
+will facet the geometry and save it in a format that can be used by DAGMC.
+
+Test the Plugin (Command Line Mode)
+===================================
+
+The plugin can also be run in command line mode, without needing to load the
+Trelis GUI. The file `test.jou` in the `test_plugin` directory contains the five
+commands mentioned in the previous section of this readme. To execute these
+commands in command line mode, run
+`trelis -batch -nographics -nojournal test.jou` from the regular command line.
+
+It is through this command line interface that one would replicate the workflows
+of years past which involved the now-defunct `mcnp2cad` and `dagmc_preproc`
+executables.
