@@ -25,6 +25,9 @@
 #include "moab/Interface.hpp"
 #include "moab/GeomTopoTool.hpp"
 
+// DAGMC includes
+#include "uwuw_preprocessor.hpp"
+
 #define CHK_MB_ERR_RET(A,B)  if (moab::MB_SUCCESS != (B)) { \
   message << (A) << (B) << std::endl;                                   \
   CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
@@ -45,6 +48,9 @@ DAGMCExportCommand::DAGMCExportCommand() :
   len_tol = 0.0;
   verbose_warnings = false;
   fatal_on_curves = false;
+
+  pyne_mat_lib = "";
+  hdf5_path = "/materials";
 
   CubitMessageHandler *console = CubitInterface::get_cubit_message_handler();
   if (console) {
@@ -70,6 +76,8 @@ std::vector<std::string> DAGMCExportCommand::get_syntax()
       "[length_tolerance <value:label='length_tolerance',help='<length tolerance>'>] "
       "[normal_tolerance <value:label='normal_tolerance',help='<normal tolerance>'>] "
       "[make_watertight]"
+      "[pyne_mat_lib <string:label='pyne_mat_lib',help='<pyne_mat_lib>'>]"
+      "[hdf5_path <string:label='hdf5_path',help='<hdf5_path>'>]"
       "[verbose] [fatal_on_curves]";
 
   std::vector<std::string> syntax_list;
@@ -159,6 +167,24 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = teardown();
   CHK_MB_ERR_RET("Error tearing down export command.",rval);
   
+  // if a PyNE material library is provided then try to process the mats
+  if(pyne_mat_lib != "") {
+    bool fatal_errors = false;
+
+    uwuw_preprocessor* uwuw_preproc = new uwuw_preprocessor(pyne_mat_lib, filename, filename, hdf5_path, verbose_warnings, fatal_errors);
+    // process the materials
+    uwuw_preproc->process_materials();
+
+    // process the tallies
+    uwuw_preproc->process_tallies();
+
+    // write the material data
+    uwuw_preproc->write_uwuw_materials();
+
+    // write the tally data
+    uwuw_preproc->write_uwuw_tallies();
+  }
+
   return result;
 }
 
@@ -191,7 +217,20 @@ moab::ErrorCode DAGMCExportCommand::parse_options(CubitCommandData &data, moab::
   verbose_warnings = data.find_keyword("verbose");
   fatal_on_curves = data.find_keyword("fatal_on_curves");
   make_watertight = data.find_keyword("make_watertight");
-  
+
+  // read parsed command for normal tolerance
+  data.get_string("pyne_mat_lib", pyne_mat_lib);
+  if (pyne_mat_lib != "") {
+    message << "Looking for the PyNE material Lib in " << pyne_mat_lib << std::endl;
+    data.get_string("hdf5_path",hdf5_path);
+    message << "hdf5 path set to " << hdf5_path << std::endl;
+  }
+  else {
+    message
+        << "No Material Library set, material assignments will not be processed"
+        << std::endl;
+  }
+
   if (verbose_warnings && fatal_on_curves)
     message << "This export will fail if curves fail to facet" << std::endl;
 

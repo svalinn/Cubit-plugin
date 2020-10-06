@@ -108,7 +108,7 @@ cd DAGMC
 git clone https://github.com/svalinn/DAGMC -b develop
 cd bld
 cmake ../DAGMC -DMOAB_DIR=${HOME}/plugin-build/moab \
-               -DBUILD_UWUW=OFF \
+               -DBUILD_UWUW=ON \
                -DBUILD_TALLY=OFF \
                -DBUILD_BUILD_OBB=OFF \
                -DBUILD_MAKE_WATERTIGHT=ON \
