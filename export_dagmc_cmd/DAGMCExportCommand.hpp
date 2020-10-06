@@ -70,7 +70,10 @@ private:
   bool verbose_warnings;
   bool fatal_on_curves;
   bool make_watertight;
-  
+  std::string pyne_mat_lib;
+  std::string hdf5_path;
+
+
   int failed_curve_count;
   std::vector<int> failed_curves;
 
