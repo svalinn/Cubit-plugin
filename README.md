@@ -126,15 +126,6 @@ library.
 Build the Plugin
 ================
 
-The plugin depends on another external repository called mcnp2cad. mcnp2cad is
-available in this repo as a git submodule, and it can be obtained with these
-commands:
-
-```
-cd ${HOME}/plugin-build/Trelis-plugin
-git submodule update --init
-```
-
 The following commands show how to build the plugin itself. The `CUBIT_ROOT`
 variable must point to the location of `Trelis`, while the `DAGMC_DIR` variable
 must point to the location of DAGMC.
@@ -149,6 +140,18 @@ cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-16.5 \
                        -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
 make -j`grep -c processor /proc/cpuinfo`
 make install
+```
+
+### Submodules
+
+The plugin depends on another external repository called mcnp2cad. mcnp2cad is
+available in this repo as a git submodule. It is pulled automatically during the
+`cmake` configuration step above. Alternatively, it can be manually updated with
+the following commands:
+
+```
+cd ${HOME}/plugin-build/Trelis-plugin
+git submodule update --init
 ```
 
 Create the Tarball
