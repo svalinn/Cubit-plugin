@@ -174,6 +174,8 @@ cp -pPv ${HOME}/plugin-build/lib/* .
 cp -pPv ${HOME}/plugin-build/moab/lib/libMOAB.so* .
 cp -pPv ${HOME}/plugin-build/DAGMC/lib/libdagmc.so* .
 cp -pPv ${HOME}/plugin-build/DAGMC/lib/libmakeWatertight.so* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libpyne_dagmc.so .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libuwuw.so .
 cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 chmod 644 *
 
@@ -181,6 +183,8 @@ chmod 644 *
 patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libMOAB.so
 patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libdagmc.so
 patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libmakeWatertight.so
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libpyne_dagmc.so
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libuwuw.so
 
 # Create the Svalinn plugin tarball
 cd ..
