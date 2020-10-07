@@ -127,7 +127,7 @@ Build the Plugin
 ================
 
 The following commands show how to build the plugin itself. The `CUBIT_ROOT`
-variable must point to the location of `Trelis`, while the `DAGMC_DIR` variable
+variable must point to the location of Trelis, while the `DAGMC_DIR` variable
 must point to the location of DAGMC.
 
 ```
@@ -145,9 +145,12 @@ make install
 ### Submodules
 
 The plugin depends on another external repository called mcnp2cad. mcnp2cad is
-available in this repo as a git submodule. It is pulled automatically during the
-`cmake` configuration step above. Alternatively, it can be manually updated with
-the following commands:
+available in this repo as a git submodule. It is pulled by default during the
+`cmake` configuration step above.
+
+If a custom version of mcnp2cad is needed, this behavior pulling can be disabled
+by adding `-DUPDATE_SUBMODULES=OFF` to the `cmake` configuration. mcnp2cad can
+then be manually updated with the following commands:
 
 ```
 cd ${HOME}/plugin-build/Trelis-plugin
