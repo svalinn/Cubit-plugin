@@ -90,7 +90,8 @@ cd ../bld
                   --disable-blaslapack \
                   --with-eigen3=/usr/include/eigen3 \
                   --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-                  --prefix=${HOME}/plugin-build/moab
+                  --prefix=${HOME}/plugin-build/moab \
+                  CXXFLAGS=-D_GLIBCXX_USE_CXX11_ABI=0
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
@@ -107,7 +108,8 @@ mkdir -pv DAGMC/bld
 cd DAGMC
 git clone https://github.com/svalinn/DAGMC -b develop
 cd bld
-cmake ../DAGMC -DMOAB_DIR=${HOME}/plugin-build/moab \
+cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
+               -DMOAB_DIR=${HOME}/plugin-build/moab \
                -DBUILD_UWUW=ON \
                -DBUILD_TALLY=OFF \
                -DBUILD_BUILD_OBB=OFF \
