@@ -3,10 +3,11 @@ project(SvalinnCommandPlugin)
 cmake_minimum_required(VERSION 3.0)
 
 # Build options
-option(BUILD_DAGMC_EXPORTER "Include DagMC export capability" ON)
-option(BUILD_MCNP_IMPORTER  "Include MCNP import capability"  ON)
-option(BUILD_IGEOM          "Build iGeom library"             ON)
-option(BUILD_IGEOM_TESTS    "Include tests for iGeom"         ON)
+option(UPDATE_SUBMODULES    "Automatically update git submodules" ON)
+option(BUILD_DAGMC_EXPORTER "Include DagMC export capability"     ON)
+option(BUILD_MCNP_IMPORTER  "Include MCNP import capability"      ON)
+option(BUILD_IGEOM          "Build iGeom library"                 ON)
+option(BUILD_IGEOM_TESTS    "Include tests for iGeom"             ON)
 
 # MCNP importer and iGeom tests require iGeom
 if (BUILD_MCNP_IMPORTER OR BUILD_IGEOM_TESTS)
@@ -89,27 +90,32 @@ endif ()
 
 # MCNP importer
 if (BUILD_MCNP_IMPORTER)
-
-  #===============================================================================
   # Update mcnp2cad submodule as neeeded
-  #===============================================================================
-  find_package(Git)
-  if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
-    message(STATUS "Submodule update")
-    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      RESULT_VARIABLE GIT_SUBMOD_RESULT)
-    if(NOT GIT_SUBMOD_RESULT EQUAL 0)
-      message(FATAL_ERROR "git submodule update --init failed with \
-          ${GIT_SUBMOD_RESULT}, please checkout submodules")
-    endif()
-  endif()
+  if (UPDATE_SUBMODULES)
+    find_package(Git)
+    if (GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+      message(STATUS "Updating mcnp2cad submodule")
+      execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        RESULT_VARIABLE GIT_SUBMOD_RESULT)
+      if (NOT GIT_SUBMOD_RESULT EQUAL 0)
+        message(FATAL_ERROR "git submodule update --init failed with \
+            ${GIT_SUBMOD_RESULT}, please checkout submodules")
+      endif ()
+    endif ()
+  endif ()
 
   message(STATUS "Building MCNP importer")
   add_definitions(-DBUILD_MCNP_IMPORT=ON)
   set(STANDALONE_MCNP2CAD  OFF CACHE BOOL "")
   set(BUILD_MCNP2CAD_TESTS OFF CACHE BOOL "")
-  add_subdirectory(mcnp2cad)
+  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/mcnp2cad/CMakeLists.txt)
+    add_subdirectory(mcnp2cad)
+  else ()
+    message(FATAL_ERROR "mcnp2cad submodule not found.\n"
+                        "Run \"git submodule update --init --recursive\" "
+                        "to pull the mcnp2cad submodule.")
+  endif ()
   include_directories(mcnp2cad)
   list(APPEND PLUGIN_SRC_FILES import_mcnp_cmd/MCNPImp.cpp)
   list(APPEND PLUGIN_LINK_LIBS mcnp2cad)
