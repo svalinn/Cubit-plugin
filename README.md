@@ -106,14 +106,14 @@ git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
 cd moab
 autoreconf -fi
 cd ../bld
-../moab/configure --enable-shared \
+../moab/configure CXXFLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
+                  --enable-shared \
                   --enable-optimize \
                   --disable-debug \
                   --disable-blaslapack \
                   --with-eigen3=/usr/include/eigen3 \
                   --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-                  --prefix=${HOME}/plugin-build/moab \
-                  CXXFLAGS=-D_GLIBCXX_USE_CXX11_ABI=0
+                  --prefix=${HOME}/plugin-build/moab
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
