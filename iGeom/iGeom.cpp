@@ -2,6 +2,7 @@
 #include "CATag.hpp"
 #include "CubitEntity.hpp"
 #include "CubitInterface.hpp"
+#include "CubitVersion.h"
 #include "GeometryQueryTool.hpp"
 #include "Body.hpp"
 #include "RefEntityFactory.hpp"
@@ -1455,7 +1456,7 @@ CGMTagManager::CGMTagManager()
   DLIList<int> tag_types;
   int max_type = 0;
 
-#ifdef CUBIT_17_PLUS
+#if CUBIT_VERSION_MAJOR >= 17
   CubitAttribManager cam = CGMApp::instance()->attrib_manager();
   cam.get_registered_types(tag_types);
 #else

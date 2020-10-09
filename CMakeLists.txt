@@ -1,11 +1,6 @@
 project(SvalinnCommandPlugin)
 
-cmake_minimum_required(VERSION 3.7)
-
-# User must specify the version of Cubit being used
-if (NOT CUBIT_VERSION)
-  message(FATAL_ERROR "CUBIT_VERSION not specified")
-endif ()
+cmake_minimum_required(VERSION 3.0)
 
 # Build options
 option(UPDATE_SUBMODULES    "Automatically update git submodules" ON)
@@ -39,7 +34,7 @@ endif ()
 
 # Find Cubit/Trelis
 if (NOT CUBIT_ROOT)
-  set(CUBIT_ROOT "/opt/Trelis-${CUBIT_VERSION}")
+  message(FATAL_ERROR "CUBIT_ROOT not specified")
 endif ()
 list(APPEND CMAKE_PREFIX_PATH ${CUBIT_ROOT}/bin)
 find_package(Cubit REQUIRED CONFIG)
@@ -85,9 +80,6 @@ if (BUILD_IGEOM)
   include_directories(iGeom)
   add_library(iGeom SHARED ${IGEOM_SRC_FILES})
   target_link_libraries(iGeom ${CUBIT_LIBS})
-  if (CUBIT_VERSION VERSION_GREATER_EQUAL 17.0)
-    target_compile_definitions(iGeom PUBLIC -DCUBIT_17_PLUS)
-  endif ()
   install(TARGETS iGeom LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_LINK_LIBS iGeom)
 endif ()

@@ -152,18 +152,15 @@ make install
 Build the Plugin
 ================
 
-The following commands show how to build the plugin itself. The `CUBIT_VERSION`
-variable, which specifies the version of Trelis, must be included. Only the
-first two numbers in the version should be included; e.g. use "17.1" instead of
-"17.1.0". This indicates to the build system that Trelis is located in
-`/opt/Trelis-17.1` for Trelis 17.1. The `DAGMC_DIR` variable should point to the
-location of the previously-built DAGMC library.
+The following commands show how to build the plugin itself. The `CUBIT_ROOT`
+variable should point to the location of Trelis. The `DAGMC_DIR` variable should
+point to the location of the previously-built DAGMC library.
 
 ```
 cd ${HOME}/plugin-build
 mkdir -pv bld
 cd bld
-cmake ../Trelis-plugin -CUBIT_VERSION=17.1 \
+cmake ../Trelis-plugin -CUBIT_ROOT=/opt/Trelis-17.1 \
                        -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
