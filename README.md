@@ -90,7 +90,8 @@ cd ../bld
                   --disable-blaslapack \
                   --with-eigen3=/usr/include/eigen3 \
                   --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-                  --prefix=${HOME}/plugin-build/moab
+                  --prefix=${HOME}/plugin-build/moab \
+                  CXXFLAGS=-D_GLIBCXX_USE_CXX11_ABI=0
 make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
@@ -107,7 +108,8 @@ mkdir -pv DAGMC/bld
 cd DAGMC
 git clone https://github.com/svalinn/DAGMC -b develop
 cd bld
-cmake ../DAGMC -DMOAB_DIR=${HOME}/plugin-build/moab \
+cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
+               -DMOAB_DIR=${HOME}/plugin-build/moab \
                -DBUILD_UWUW=ON \
                -DBUILD_TALLY=OFF \
                -DBUILD_BUILD_OBB=OFF \
@@ -126,17 +128,8 @@ library.
 Build the Plugin
 ================
 
-The plugin depends on another external repository called mcnp2cad. mcnp2cad is
-available in this repo as a git submodule, and it can be obtained with these
-commands:
-
-```
-cd ${HOME}/plugin-build/Trelis-plugin
-git submodule update --init
-```
-
 The following commands show how to build the plugin itself. The `CUBIT_ROOT`
-variable must point to the location of `Trelis`, while the `DAGMC_DIR` variable
+variable must point to the location of Trelis, while the `DAGMC_DIR` variable
 must point to the location of DAGMC.
 
 ```
@@ -149,6 +142,21 @@ cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-16.5 \
                        -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
 make -j`grep -c processor /proc/cpuinfo`
 make install
+```
+
+### Submodules
+
+The plugin depends on another external repository called mcnp2cad. mcnp2cad is
+available in this repo as a git submodule. It is pulled by default during the
+`cmake` configuration step above.
+
+If a custom version of mcnp2cad is needed, this behavior pulling can be disabled
+by adding `-DUPDATE_SUBMODULES=OFF` to the `cmake` configuration. mcnp2cad can
+then be manually updated with the following commands:
+
+```
+cd ${HOME}/plugin-build/Trelis-plugin
+git submodule update --init
 ```
 
 Create the Tarball
@@ -168,6 +176,8 @@ cp -pPv ${HOME}/plugin-build/lib/* .
 cp -pPv ${HOME}/plugin-build/moab/lib/libMOAB.so* .
 cp -pPv ${HOME}/plugin-build/DAGMC/lib/libdagmc.so* .
 cp -pPv ${HOME}/plugin-build/DAGMC/lib/libmakeWatertight.so* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libpyne_dagmc.so .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libuwuw.so .
 cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 chmod 644 *
 
@@ -175,6 +185,8 @@ chmod 644 *
 patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libMOAB.so
 patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libdagmc.so
 patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libmakeWatertight.so
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libpyne_dagmc.so
+patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libuwuw.so
 
 # Create the Svalinn plugin tarball
 cd ..
