@@ -34,6 +34,9 @@ endif ()
 
 # Find Cubit/Trelis
 
+if (NOT CUBIT_ROOT)
+  message(FATAL_ERROR "CUBIT_ROOT not specified")
+endif ()
 list(APPEND CMAKE_PREFIX_PATH ${CUBIT_ROOT}/bin)
 find_package(Cubit REQUIRED CONFIG)
 include_directories(${CUBIT_INCLUDE_DIRS})

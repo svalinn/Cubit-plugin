@@ -1,15 +1,20 @@
 Svalinn plugins and command extensions for Trelis
 =================================================
 
-**Beta:** This software is currently under early development.  It has been
+**Beta:** This software is currently under early development. It has been
 demonstrated to work on a wide range of problems, but the build system is not
-well developed.
+finalized.
+
+The plugin has been tested and is confirmed to work with Trelis versions 16.5
+and 17.1. These build instructions assume that Trelis 17.1 is being used, but
+other versions can be used by replacing instances of "17.1" with the version
+being used.
 
 Prerequisites
 =============
 
-In order to build the plugin, you must have access to Trelis-16.5 and the
-Trelis-16.5 SDK. Additionally, the following system packages must be present on
+In order to build the plugin, you must have access to Trelis and the Trelis SDK.
+Additionally, the following system packages must be present on
 your computer:
 
 * EIGEN3
@@ -34,21 +39,32 @@ Trelis can be installed by obtaining the Trelis `.deb` package and installing it
 with the package manager; i.e.
 
 ```
-sudo dpkg -i Trelis-16.5.3-Lin64.deb
+sudo dpkg -i Trelis-17.1.0-Lin64.deb
 ```
 
-This installs Trelis to `/opt/Trelis-16.5`.
+This installs Trelis to `/opt/Trelis-17.1`.
 
-The Trelis SDK can be installed with these commands:
+The Trelis 17 SDK can be installed with these commands:
+
+```
+cd /opt
+sudo tar -xzvf /path/to/Trelis-SDK-17.1.0-Lin64.tar.gz
+```
+
+### Note for Trelis 16
+
+The SDK for Trelis 16 should be unpacked from `/opt/Trelis-16.5` instead of
+just `/opt`; i.e.
 
 ```
 cd /opt/Trelis-16.5
-sudo tar -xzvf /path/to/Trelis-SDK-16.5.3-Lin64.tar.gz
+sudo tar -xzvf /path/to/Trelis-SDK-16.5.4-Lin64.tar.gz
 ```
 
-There is currently a bug (or some other unknown issue) which requires a file in
-the Trelis SDK to be modified. The following commands show how to make this
-change.
+There is also a bug (or some other unknown issue) in Trelis 16 which requires a
+file in the Trelis SDK to be modified. The following commands show how to make
+this change. This issue is not present in Trelis 17, so these commands do not
+need to be run for Trelis 17.
 
 ```
 cd /opt/Trelis-16.5/bin
@@ -72,8 +88,15 @@ remains empty when running Trelis as well.
 Build MOAB
 ==========
 
-MOAB must be built with HDF5 enabled. The following commands show how to build
-the MOAB dependency using system HDF5.
+MOAB must be built with HDF5 enabled. On Ubuntu 18.04, HDF5 is located in the
+`/usr/lib/x86_64-linux-gnu/hdf5/serial` directory, but it may be located
+somewhere else on other flavors or versions of Linux. MOAB should be built with
+the Eigen matrix algebra library instead of LAPACK. The
+`_GLIBCXX_USE_CXX11_ABI=0` flag is required for compatibility with Trelis.
+
+The following commands show how to correctly build the MOAB dependency. If HDF5
+is located somewhere other than `/usr/lib/x86_64-linux-gnu/hdf5/serial`, then
+replace the directory with the correct one.
 
 ```
 cd ${HOME}/plugin-build
@@ -84,7 +107,6 @@ cd moab
 autoreconf -fi
 cd ../bld
 ../moab/configure CXXFLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
-                  --disable-blaslapack \
                   --enable-shared \
                   --enable-optimize \
                   --disable-debug \
@@ -99,8 +121,13 @@ make install
 Build DAGMC
 ===========
 
-The following commands show how to build the DAGMC dependency. Only the features
-that are needed are built using these commands.
+The following commands show how to build the DAGMC dependency. The `uwuw` and
+`make_watertight` features should be turned on, while other features should be
+turned off. The `MOAB_DIR` variable should point to the location of the
+previously-built MOAB library. The `_GLIBCXX_USE_CXX11_ABI=0` flag is once again
+required.
+
+The following commands show how to correctly build the DAGMC dependency.
 
 ```
 cd ${HOME}/plugin-build
@@ -122,21 +149,18 @@ make -j`grep -c processor /proc/cpuinfo`
 make install
 ```
 
-This results in the DAGMC library being built against the previously-built MOAB
-library.
-
 Build the Plugin
 ================
 
 The following commands show how to build the plugin itself. The `CUBIT_ROOT`
-variable must point to the location of Trelis, while the `DAGMC_DIR` variable
-must point to the location of DAGMC.
+variable should point to the location of Trelis. The `DAGMC_DIR` variable should
+point to the location of the previously-built DAGMC library.
 
 ```
 cd ${HOME}/plugin-build
 mkdir -pv bld
 cd bld
-cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-16.5 \
+cmake ../Trelis-plugin -CUBIT_ROOT=/opt/Trelis-17.1 \
                        -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
@@ -162,8 +186,9 @@ git submodule update --init
 Create the Tarball
 ==================
 
-The following commands show how to create the tarall for the plugin. These
-commands have only been tested on Ubuntu 18.04.
+The following commands show how to create the tarall for the plugin. Once again,
+the location of HDF5 might be different than what is presented here depending on
+what flavor or version of Linux is being used.
 
 ```
 # Set up the directory which will contain the libraries
@@ -172,34 +197,34 @@ mkdir -p pack/bin/plugins/svalinn
 cd pack/bin/plugins/svalinn
 
 # Copy all needed libraries into current directory
-cp -pPv ${HOME}/plugin-build/lib/* .
+cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 cp -pPv ${HOME}/plugin-build/moab/lib/libMOAB.so* .
 cp -pPv ${HOME}/plugin-build/DAGMC/lib/libdagmc.so* .
 cp -pPv ${HOME}/plugin-build/DAGMC/lib/libmakeWatertight.so* .
-cp -pPv ${HOME}/plugin-build/DAGMC/lib/libpyne_dagmc.so .
-cp -pPv ${HOME}/plugin-build/DAGMC/lib/libuwuw.so .
-cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libpyne_dagmc.so* .
+cp -pPv ${HOME}/plugin-build/DAGMC/lib/libuwuw.so* .
+cp -pPv ${HOME}/plugin-build/lib/* .
 chmod 644 *
 
 # Set the RPATH to be the current directory for the DAGMC libraries
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libMOAB.so
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libdagmc.so
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libmakeWatertight.so
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libpyne_dagmc.so
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libuwuw.so
+patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libMOAB.so
+patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libdagmc.so
+patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libmakeWatertight.so
+patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libpyne_dagmc.so
+patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libuwuw.so
 
 # Create the Svalinn plugin tarball
 cd ..
 ln -sv svalinn/libsvalinn_plugin.so .
 cd ../..
-tar --sort=name -czvf svalinn-plugin.tgz bin
-mv -v svalinn-plugin.tgz ..
+tar --sort=name -czvf svalinn-plugin-17.1.tgz bin
+mv -v svalinn-plugin-17.1.tgz ..
 cd ..
 rm -rf pack
 ```
 
 The Svalinn plugin tarball should now be located at
-`${HOME}/plugin-build/svalinn-plugin.tgz`.
+`${HOME}/plugin-build/svalinn-plugin-17.1.tgz`.
 
 Install the Plugin
 ==================
@@ -207,8 +232,8 @@ Install the Plugin
 To install the plugin, simply run
 
 ```
-cd /opt/Trelis-16.5
-sudo tar -xzvf ${HOME}/plugin-build/svalinn-plugin.tgz
+cd /opt/Trelis-17.1
+sudo tar -xzvf ${HOME}/plugin-build/svalinn-plugin-17.1.tgz
 ```
 
 Test the Plugin

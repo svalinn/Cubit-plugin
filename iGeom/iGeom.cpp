@@ -2,6 +2,7 @@
 #include "CATag.hpp"
 #include "CubitEntity.hpp"
 #include "CubitInterface.hpp"
+#include "CubitVersion.h"
 #include "GeometryQueryTool.hpp"
 #include "Body.hpp"
 #include "RefEntityFactory.hpp"
@@ -1454,8 +1455,15 @@ CGMTagManager::CGMTagManager()
     // get the tag number for CATag
   DLIList<int> tag_types;
   int max_type = 0;
-  CubitAttribManager *cam = CGMApp::instance()->attrib_manager();
+
+#if CUBIT_VERSION_MAJOR >= 17
+  CubitAttribManager cam = CGMApp::instance()->attrib_manager();
+  cam.get_registered_types(tag_types);
+#else
+  CubitAttribManager* cam = CGMApp::instance()->attrib_manager();
   cam->get_registered_types(tag_types);
+#endif
+
   for (int i = 0; i < tag_types.size(); i++) {
     int this_type = tag_types.get_and_step();
     max_type = (max_type < this_type ? this_type : max_type);
