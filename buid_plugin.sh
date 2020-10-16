@@ -54,6 +54,10 @@ cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
 make -j`grep -c processor /proc/cpuinfo`
 make install
 
+
+cd ${PLUGIN_ABS_PATH}/Trelis-plugin
+git submodule update --init
+
 cd ${PLUGIN_ABS_PATH}
 mkdir -pv bld
 cd bld
@@ -64,8 +68,6 @@ cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-17.1 \
 make -j`grep -c processor /proc/cpuinfo`
 make install
 
-cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-git submodule update --init
 
 cd ${PLUGIN_ABS_PATH}
 mkdir -p pack/bin/plugins/svalinn
