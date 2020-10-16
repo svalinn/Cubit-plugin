@@ -57,7 +57,7 @@ make install
 cd ${PLUGIN_ABS_PATH}
 mkdir -pv bld
 cd bld
-cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-16.5 \
+cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-17.1 \
                        -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
