@@ -97,5 +97,5 @@ cd ../..
 tar --sort=name -czvf svalinn-plugin.tgz bin
 mv -v svalinn-plugin.tgz ..
 cd ..
-#rm -rf pack bld DAGMC lib moab
-#rm Trelis-plugin
+rm -rf pack bld DAGMC lib moab
+rm Trelis-plugin
