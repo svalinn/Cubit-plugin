@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sudo apt-get install autogen autoconf libtool libeigen3-dev libhdf5-dev
+sudo apt-get install autogen autoconf libtool libeigen3-dev libhdf5-dev patchelf gfortran
 
 # Setup
 CURRENT=$(pwd)
