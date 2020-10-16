@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo apt-gen install autogen autoconf libtool
+
 # Setup
 CURRENT=$(pwd)
 SCRIPTPATH=`dirname $(realpath $0)`
