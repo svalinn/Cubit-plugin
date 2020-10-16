@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sudo apt-gen install autogen autoconf libtool
+sudo apt-gen install autogen autoconf libtool libeigen3-dev libhdf5-dev
 
 # Setup
 CURRENT=$(pwd)
