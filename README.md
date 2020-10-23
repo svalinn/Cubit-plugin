@@ -160,7 +160,7 @@ point to the location of the previously-built DAGMC library.
 cd ${HOME}/plugin-build
 mkdir -pv bld
 cd bld
-cmake ../Trelis-plugin -CUBIT_ROOT=/opt/Trelis-17.1 \
+cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-17.1 \
                        -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
