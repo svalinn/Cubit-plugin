@@ -93,11 +93,12 @@ cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 chmod 644 *
 
 # Set the RPATH to be the current directory for the DAGMC libraries
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libMOAB.so
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libdagmc.so
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libmakeWatertight.so
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libpyne_dagmc.so
-patchelf --set-rpath /opt/Trelis-16.5/bin/plugins/svalinn libuwuw.so
+patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libMOAB.so
+patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libdagmc.so
+patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libmakeWatertight.so
+patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libpyne_dagmc.so
+#patchelf --set-rpath /opt/Trelis-$1/bin/plugins libsvalinn_plugin.so
+patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libuwuw.so
 
 # Create the Svalinn plugin tarball
 cd ..
