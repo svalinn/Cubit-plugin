@@ -5,6 +5,8 @@ dpkg -i Trelis-$1-Lin64.deb
 
 cd /opt
 tar -xzvf /Trelis-sdk/Trelis-SDK-$1-Lin64.tar.gz
+cd /opt/Trelis-16.5
+tar -xzvf /Trelis-sdk/Trelis-SDK-$1-Lin64.tar.gz
 
 apt-get update -y
 apt-get install -y autogen autoconf libtool libeigen3-dev libhdf5-dev patchelf gfortran git cmake
@@ -49,9 +51,6 @@ cd ${PLUGIN_ABS_PATH}
 mkdir -pv DAGMC/bld
 cd DAGMC
 git clone https://github.com/bam241/DAGMC -b preproc_plugin
-cd DAGMC
-git status
-cd ..
 cd bld
 cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
                -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
@@ -73,13 +72,20 @@ git submodule update --init
 cd ${PLUGIN_ABS_PATH}
 mkdir -pv bld
 cd bld
-cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-17.1 \
+ls /opt/Trelis-${1::4}
+ls /opt/Trelis-*
+ls /opt
+cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-${1::4} \
                        -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
 make -j`grep -c processor /proc/cpuinfo`
 make install
-
+echo " cmake ../Trelis-plugin -DCubit_DIR=/opt/Trelis-${1::4} \
+                       -DCUBIT_ROOT=/opt/Trelis-${1::4} \
+                       -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
+                       -DCMAKE_BUILD_TYPE=Release \
+                       -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH} "
 
 cd ${PLUGIN_ABS_PATH}
 mkdir -p pack/bin/plugins/svalinn
@@ -96,12 +102,11 @@ cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
 chmod 644 *
 
 # Set the RPATH to be the current directory for the DAGMC libraries
-patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libMOAB.so
-patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libdagmc.so
-patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libmakeWatertight.so
-patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libpyne_dagmc.so
-#patchelf --set-rpath /opt/Trelis-$1/bin/plugins libsvalinn_plugin.so
-patchelf --set-rpath /opt/Trelis-${1%.??}/bin/plugins/svalinn libuwuw.so
+patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libMOAB.so
+patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libdagmc.so
+patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libmakeWatertight.so
+patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libpyne_dagmc.so
+patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libuwuw.so
 
 # Create the Svalinn plugin tarball
 cd ..
