@@ -72,6 +72,7 @@ private:
   bool make_watertight;
   std::string pyne_mat_lib;
   std::string hdf5_path;
+  std::string hdf5;
 
 
   int failed_curve_count;

@@ -164,27 +164,34 @@ bool DAGMCExportCommand::execute(CubitCommandData &data)
   rval = mdbImpl->write_file(filename.c_str());
   CHK_MB_ERR_RET("Error writing file: ",rval);
 
-  rval = teardown();
-  CHK_MB_ERR_RET("Error tearing down export command.",rval);
-  
+
   // if a PyNE material library is provided then try to process the mats
   if(pyne_mat_lib != "") {
     bool fatal_errors = false;
 
-    uwuw_preprocessor* uwuw_preproc = new uwuw_preprocessor(pyne_mat_lib, filename, filename, hdf5_path, verbose_warnings, fatal_errors);
+    uwuw_preprocessor* uwuw_preproc = new uwuw_preprocessor(pyne_mat_lib, mdbImpl, filename, hdf5_path, true, fatal_errors);
+    std::cout << __FILE__ << " : " << __LINE__ << std::endl;
     // process the materials
     uwuw_preproc->process_materials();
+    std::cout << __FILE__ << " : " << __LINE__ << std::endl;
 
     // process the tallies
     uwuw_preproc->process_tallies();
+    std::cout << __FILE__ << " : " << __LINE__ << std::endl;
 
     // write the material data
     uwuw_preproc->write_uwuw_materials();
+    std::cout << __FILE__ << " : " << __LINE__ << std::endl;
 
     // write the tally data
     uwuw_preproc->write_uwuw_tallies();
+    std::cout << __FILE__ << " : " << __LINE__ << std::endl;
+
   }
 
+  rval = teardown();
+  CHK_MB_ERR_RET("Error tearing down export command.",rval);
+  
   return result;
 }
 
@@ -222,8 +229,15 @@ moab::ErrorCode DAGMCExportCommand::parse_options(CubitCommandData &data, moab::
   data.get_string("pyne_mat_lib", pyne_mat_lib);
   if (pyne_mat_lib != "") {
     message << "Looking for the PyNE material Lib in " << pyne_mat_lib << std::endl;
-    data.get_string("hdf5_path",hdf5_path);
-    message << "hdf5 path set to " << hdf5_path << std::endl;
+    data.get_string("hdf5_path",hdf5);
+    if (hdf5 != "") {
+      hdf5_path = hdf5;
+    } else {
+      message << "hdf5 path not provided, falling back on default path"
+        << std::endl;
+    }
+
+    message << "hdf5 path set to " << hdf5 << std::endl;
   }
   else {
     message

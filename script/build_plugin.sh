@@ -48,7 +48,10 @@ make install
 cd ${PLUGIN_ABS_PATH}
 mkdir -pv DAGMC/bld
 cd DAGMC
-git clone https://github.com/svalinn/DAGMC -b develop
+git clone https://github.com/bam241/DAGMC -b preproc_plugin
+cd DAGMC
+git status
+cd ..
 cd bld
 cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
                -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
