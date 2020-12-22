@@ -37,7 +37,7 @@ git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
 cd bld
 cmake ../moab -DENABLE_HDF5=ON \
           -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-          -DBUILD_SHARED_LIBS=OFF \
+          -DBUILD_SHARED_LIBS=ON \
           -DENABLE_BLASLAPACK=OFF -DENABLE_FORTRAN=OFF -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
           -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
 
@@ -55,8 +55,9 @@ cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
                -DBUILD_TALLY=OFF \
                -DBUILD_BUILD_OBB=OFF \
                -DBUILD_MAKE_WATERTIGHT=ON \
-               -DBUILD_SHARED_LIBS=OFF \
-               -DBUILD_STATIC_LIBS=ON \
+               -DBUILD_SHARED_LIBS=ON \
+               -DBUILD_STATIC_LIBS=OFF \
+               -DBUILD_EXE=OFF \
                -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                -DCMAKE_BUILD_TYPE=Release \
                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
@@ -91,12 +92,12 @@ cd pack/bin/plugins/svalinn
 
 # Copy all needed libraries into current directory
 cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.a* .
-cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.a* .
-cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.a* .
-cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.a* .
-cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.a* .
-cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.a* .
+cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so .
+cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.so .
+cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so .
+cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so .
+cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so .
+cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so .
 chmod 644 *
 
 # Set the RPATH to be the current directory for the DAGMC libraries
