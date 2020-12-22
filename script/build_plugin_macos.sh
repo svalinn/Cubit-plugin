@@ -26,9 +26,9 @@ CURRENT=$(pwd)
 SCRIPTPATH=`dirname $(dirname $(realpath $0))`
 
 PLUGIN_DIR="plugin-build"
-hdiutil attach SDK/Trelis-17.1.0-Mac64.dmg
+hdiutil attach -quiet -nobrowse -noverify -noautoopen SDK/Trelis-17.1.0-Mac64.dmg
 cp /Volume/Trelis-17.1.0-Mac64/Trelis-17.1.app ${PLUGIN_DIR}/
-
+exit
 
 
 mkdir ${PLUGIN_DIR}
