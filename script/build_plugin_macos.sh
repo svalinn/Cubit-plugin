@@ -3,6 +3,7 @@
 #Getting Macport
 curl https://distfiles.macports.org/MacPorts/MacPorts-2.6.3-10.15-Catalina.pkg --output MacPorts-2.6.3-10.15-Catalina.pkg
 sudo installer -pkg MacPorts-2.6.3-10.15-Catalina.pkg -target /
+rm -rf  MacPorts-2.6.3-10.15-Catalina.pkg
 
 export PATH=/opt/local/bin:/opt/local/sbin:$PATH
 export MANPATH=/opt/local/share/man:$MANPATH
@@ -17,7 +18,8 @@ sudo port install -N libtool eigen3 hdf5 cmake gcc6 wget realpath
 #sudo installer -pkg /Volumes/gfortran-10.2-Catalina/gfortran.pkg -target /
 #hdiutil detach /Volumes/gfortran-10.2-Catalina
 
-
+hdiutil attach SDK/Trelis-17.1.0-Mac64.dmg
+cp /Volume/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
 
 cd 
 
