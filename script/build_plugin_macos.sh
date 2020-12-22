@@ -12,8 +12,8 @@ export LD_LIBRARY_PATH=/opt/local/lib:$LD_LIBRARY_PATH
 sudo port selfupdate
 sudo port install libtool eigen3 hdf5 cmake gcc6 wget realpath
 
-wget https://github.com/fxcoudert/gfortran-for-macOS/releases/download/10.2/gfortran-10.2-Catalina.dmg
-hdiutil attach gfortran-10.2-Catalina.dmg
+#wget https://github.com/fxcoudert/gfortran-for-macOS/releases/download/10.2/gfortran-10.2-Catalina.dmg
+#hdiutil attach gfortran-10.2-Catalina.dmg
 #sudo installer -pkg /Volumes/gfortran-10.2-Catalina/gfortran.pkg -target /
 #hdiutil detach /Volumes/gfortran-10.2-Catalina
 
