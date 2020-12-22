@@ -91,12 +91,12 @@ cd pack/bin/plugins/svalinn
 
 # Copy all needed libraries into current directory
 cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so* .
-cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.so* .
-cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
-cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so .
-cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so .
-cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so.100* .
+cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.a* .
+cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.a* .
+cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.a* .
+cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.a* .
+cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.a* .
+cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.a* .
 chmod 644 *
 
 # Set the RPATH to be the current directory for the DAGMC libraries
