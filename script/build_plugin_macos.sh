@@ -18,8 +18,6 @@ sudo port install -N libtool eigen3 hdf5 cmake gcc6 wget realpath
 #sudo installer -pkg /Volumes/gfortran-10.2-Catalina/gfortran.pkg -target /
 #hdiutil detach /Volumes/gfortran-10.2-Catalina
 
-hdiutil attach SDK/Trelis-17.1.0-Mac64.dmg
-cp /Volume/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
 
 cd 
 
@@ -28,6 +26,10 @@ CURRENT=$(pwd)
 SCRIPTPATH=`dirname $(dirname $(realpath $0))`
 
 PLUGIN_DIR="plugin-build"
+hdiutil attach SDK/Trelis-17.1.0-Mac64.dmg
+cp /Volume/Trelis-17.1.0-Mac64/Trelis-17.1.app ${PLUGIN_DIR}/
+
+
 
 mkdir ${PLUGIN_DIR}
 PLUGIN_ABS_PATH=${CURRENT}/${PLUGIN_DIR}
@@ -72,7 +74,7 @@ make -j
 make install
 
 
-TRELIS_INSTALL_LOC="/Applications/Trelis-17.1.app/Contents"
+TRELIS_INSTALL_LOC="${PLUGIN_DIR}/Trelis-17.1.app/Contents"
 cd $TRELIS_INSTALL_LOC 
 tar -xzf /Users/mouginot/SDK/Trelis-SDK-17.1.0-Mac64.tar .
 cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
