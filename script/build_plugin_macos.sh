@@ -9,8 +9,8 @@ export MANPATH=/opt/local/share/man:$MANPATH
 export LD_LIBRARY_PATH=/opt/local/lib:$LD_LIBRARY_PATH
 
 
-sudo port selfupdate
-sudo port install libtool eigen3 hdf5 cmake gcc6 wget realpath
+sudo port selfupdate -N
+sudo port install -N libtool eigen3 hdf5 cmake gcc6 wget realpath
 
 #wget https://github.com/fxcoudert/gfortran-for-macOS/releases/download/10.2/gfortran-10.2-Catalina.dmg
 #hdiutil attach gfortran-10.2-Catalina.dmg
