@@ -72,7 +72,7 @@ cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
 make -j
 make install
 
-
+cd
 TRELIS_INSTALL_LOC="${PLUGIN_DIR}/Trelis-17.1.app/Contents"
 cd $TRELIS_INSTALL_LOC 
 tar -xzf /Users/mouginot/SDK/Trelis-SDK-17.1.0-Mac64.tar .
