@@ -93,8 +93,8 @@ cd ${PLUGIN_ABS_PATH}/Trelis-plugin
 rm -rf bld
 mkdir -pv bld
 cd bld
-cmake .. -DCubit_DIR=${TRELIS_INSTALL_LOC}/bin/MacOS \
-         -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/bin/MacOS \
+cmake .. -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
+         -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
          -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
          -DCMAKE_BUILD_TYPE=Release \
          -DCMAKE_INSTALL_PREFIX=../../TRELIS_BUILD_TEST
