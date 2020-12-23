@@ -73,7 +73,7 @@ make -j
 make install
 
 cd
-TRELIS_INSTALL_LOC="${PLUGIN_DIR}/Trelis-17.1.app/Contents"
+TRELIS_INSTALL_LOC="~/${PLUGIN_DIR}/Trelis-17.1.app/Contents"
 cd $TRELIS_INSTALL_LOC 
 tar -xzf /Users/mouginot/SDK/Trelis-SDK-17.1.0-Mac64.tar .
 cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
@@ -97,7 +97,7 @@ cmake .. -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
          -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
          -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
          -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_INSTALL_PREFIX=../../TRELIS_BUILD_TEST
+         -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
 make -j
 make install
 
