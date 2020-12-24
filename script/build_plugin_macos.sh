@@ -73,7 +73,7 @@ make -j
 make install
 
 cd
-TRELIS_INSTALL_LOC="~/${PLUGIN_DIR}/Trelis-17.1.app/Contents"
+TRELIS_INSTALL_LOC="${PLUGIN_ABS_PATH}/Trelis-17.1.app/Contents"
 cd $TRELIS_INSTALL_LOC 
 tar -xzf /Users/mouginot/SDK/Trelis-SDK-17.1.0-Mac64.tar .
 cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
