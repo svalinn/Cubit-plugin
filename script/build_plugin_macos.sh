@@ -76,6 +76,7 @@ cd
 TRELIS_INSTALL_LOC="${PLUGIN_ABS_PATH}/Trelis-17.1.app/Contents"
 cd $TRELIS_INSTALL_LOC 
 tar -xzf /Users/mouginot/SDK/Trelis-SDK-17.1.0-Mac64.tar
+mv Trelis-17.1/* ./
 cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
 cp -f bin/* MacOS/
 rm -rf bin Trelis-17.1.app
