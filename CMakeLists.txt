@@ -40,7 +40,7 @@ list(APPEND CMAKE_PREFIX_PATH ${CUBIT_ROOT}/bin)
 find_package(Cubit REQUIRED CONFIG)
 include_directories(${CUBIT_INCLUDE_DIRS})
 link_directories(${Cubit_DIR})
-set(CUBIT_LIBS cubiti19 cubit_geom cubit_util)
+set(CUBIT_LIBS cubiti19 )#cubit_geom cubit_util)
 message(STATUS "Cubit_DIR: ${Cubit_DIR}")
 message(STATUS "CUBIT_INCLUDE_DIRS: ${CUBIT_INCLUDE_DIRS}")
 
