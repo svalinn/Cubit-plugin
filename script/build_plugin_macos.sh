@@ -29,6 +29,7 @@ PLUGIN_DIR="plugin-build"
 mkdir ${PLUGIN_DIR}
 hdiutil attach -quiet -nobrowse -noverify -noautoopen SDK/Trelis-17.1.0-Mac64.dmg
 rm -rf /Applications/Trelis-17.1.app
+rm -rf /Applications/include
 cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
 hdiutil detach /Volumes/Trelis-17.1.0-Mac64
 
@@ -82,7 +83,7 @@ cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
 cp -f bin/* MacOS/
 rm -rf bin Trelis-17.1.app
 ln -s MacOS bin
-ln -s include /Applications/include
+ln -s /Applications/Trelis-17.1.app/Contents/MacOS/include /Applications/include
 #cd bin
 #sudo cp -pv CubitExport-Release.cmake CubitExport-Release.cmake.orig
 #sudo port install gsed
