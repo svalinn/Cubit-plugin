@@ -28,7 +28,8 @@ SCRIPTPATH=`dirname $(dirname $(realpath $0))`
 PLUGIN_DIR="plugin-build"
 mkdir ${PLUGIN_DIR}
 hdiutil attach -quiet -nobrowse -noverify -noautoopen SDK/Trelis-17.1.0-Mac64.dmg
-cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app ${PLUGIN_DIR}/
+rm -rf /Applications/Trelis-17.1.app
+cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
 hdiutil detach /Volumes/Trelis-17.1.0-Mac64
 
 PLUGIN_ABS_PATH=${CURRENT}/${PLUGIN_DIR}
@@ -73,7 +74,7 @@ make -j
 make install
 
 cd
-TRELIS_INSTALL_LOC="${PLUGIN_ABS_PATH}/Trelis-17.1.app/Contents"
+TRELIS_INSTALL_LOC="/Applications/Trelis-17.1.app/Contents"
 cd $TRELIS_INSTALL_LOC 
 tar -xzf /Users/mouginot/SDK/Trelis-SDK-17.1.0-Mac64.tar
 mv Trelis-17.1/* ./
