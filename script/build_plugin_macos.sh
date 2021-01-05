@@ -83,7 +83,7 @@ cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
 cp -f bin/* MacOS/
 rm -rf bin Trelis-17.1.app
 ln -s MacOS bin
-ln -s /Applications/Trelis-17.1.app/Contents/MacOS/include /Applications/include
+ln -s /Applications/Trelis-17.1.app/Contents/include /Applications/include
 #cd bin
 #sudo cp -pv CubitExport-Release.cmake CubitExport-Release.cmake.orig
 #sudo port install gsed
