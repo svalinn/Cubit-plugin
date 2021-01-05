@@ -91,7 +91,8 @@ cd ${PLUGIN_ABS_PATH}/Trelis-plugin
 git submodule update --init
 
 cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-cp script/CubitExport-release.cmake ${TRELIS_INSTALL_LOC}/MacOS/
+cp script/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
+
 rm -rf bld
 mkdir -pv bld
 cd bld
