@@ -34,7 +34,7 @@ function build_moab() {
     make -j`grep -c processor /proc/cpuinfo`
     make install
     cd ../..
-    #rm -rf moab/moab moab/bld
+    rm -rf moab/moab moab/bld
     cd ..
 }
 
@@ -75,7 +75,9 @@ tar -xzvf /Trelis-sdk/Trelis-SDK-$1-Lin64.tar.gz
 function build_plugin(){
     cd Trelis-plugin
     git submodule update --init
+    cd ../
     mkdir -pv bld
+    cd bld
     cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-${1::4} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \

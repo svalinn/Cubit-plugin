@@ -8,12 +8,13 @@ PLUGIN_ABS_PATH=${CURRENT}/${PLUGIN_DIR}
 source ${SCRIPTPATH}/script/linux_share_build.sh
 
 install_prerequise
+setup_Trelis_sdk
+
 setup_folder
 
 build_moab
 build_dagmc
 
-setup_Trelis_sdk
 build_plugin
 build_plugin_pkg
 
