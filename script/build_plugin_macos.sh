@@ -1,26 +1,18 @@
 #!/bin/bash
 
 #Getting Macport
-#curl https://distfiles.macports.org/MacPorts/MacPorts-2.6.3-10.15-Catalina.pkg --output MacPorts-2.6.3-10.15-Catalina.pkg
-#sudo installer -pkg MacPorts-2.6.3-10.15-Catalina.pkg -target /
-#rm -rf  MacPorts-2.6.3-10.15-Catalina.pkg
+curl https://distfiles.macports.org/MacPorts/MacPorts-2.6.3-10.15-Catalina.pkg --output MacPorts-2.6.3-10.15-Catalina.pkg
+sudo installer -pkg MacPorts-2.6.3-10.15-Catalina.pkg -target /
+rm -rf  MacPorts-2.6.3-10.15-Catalina.pkg
 
 export PATH=/opt/local/bin:/opt/local/sbin:$PATH
 export MANPATH=/opt/local/share/man:$MANPATH
 export LD_LIBRARY_PATH=/opt/local/lib:$LD_LIBRARY_PATH
 
-
-#sudo port -N selfupdate
-#sudo port -N install libtool eigen3 hdf5 cmake gcc6 wget realpath
-
-#wget https://github.com/fxcoudert/gfortran-for-macOS/releases/download/10.2/gfortran-10.2-Catalina.dmg
-#hdiutil attach gfortran-10.2-Catalina.dmg
-#sudo installer -pkg /Volumes/gfortran-10.2-Catalina/gfortran.pkg -target /
-#hdiutil detach /Volumes/gfortran-10.2-Catalina
-
+sudo port -N selfupdate
+sudo port -N install libtool eigen3 hdf5 cmake gcc6 wget realpath
 
 cd 
-
 # Setup
 CURRENT=$(pwd)
 SCRIPTPATH=`dirname $(dirname $(realpath $0))`
@@ -84,10 +76,7 @@ cp -f bin/* MacOS/
 rm -rf bin Trelis-17.1.app
 ln -s MacOS bin
 ln -s /Applications/Trelis-17.1.app/Contents/include /Applications/include
-#cd bin
-#sudo cp -pv CubitExport-Release.cmake CubitExport-Release.cmake.orig
-#sudo port install gsed
-#sudo gsed -i "s/\"Trelis-17.1.app\/Contents/\MacOS\"/\"bin\"/" CubitExport-Release.cmake
+
 cd 
 
 cd ${PLUGIN_ABS_PATH}/Trelis-plugin
@@ -108,10 +97,6 @@ make -j
 make install
 
 
-#                       -DCMAKE_BUILD_TYPE=Release \
-
-
-
 cd ${PLUGIN_ABS_PATH}
 mkdir -p pack/MacOS/plugins/svalinn
 cd pack/MacOS/plugins/svalinn
@@ -126,5 +111,5 @@ cd ../..
 tar -czvf svalinn-plugin_mac.tgz MacOS
 mv -v svalinn-plugin_mac.tgz ~/
 cd ..
-# rm -rf pack bld DAGMC lib moab
-# rm Trelis-plugin
+rm -rf ${PLUGIN_ABS_PATH}
+rm -rf Trelis-plugin
