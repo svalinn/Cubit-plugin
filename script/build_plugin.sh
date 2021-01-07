@@ -3,20 +3,20 @@ CURRENT=$(pwd)
 SCRIPTPATH=`dirname $(dirname $(realpath $0))`
 
 PLUGIN_DIR="plugin-build"
-PLUGIN_ABS_PATH=${CURRENT}/${PLUGIN_DIR}
+PLUGIN_ABS_PATH=""
 
 source ${SCRIPTPATH}/script/linux_share_build.sh
 
 install_prerequise
-setup_Trelis_sdk
 
 setup_folder
 
 build_moab
 build_dagmc
 
-build_plugin
-build_plugin_pkg
+setup_Trelis_sdk $1
+build_plugin $1
+build_plugin_pkg $1
 
 
 
