@@ -1,7 +1,7 @@
 #include "iGeom_test.hpp"
 #include "iGeom.h"
 #include <vector>
-#include "CubitInterface.hpp"
+#include "CubitCoreformInterface.hpp"
 
 // CGM includes
 #include "GeometryModifyTool.hpp"
@@ -14,12 +14,12 @@ iGeom_test::iGeom_test()
   radius = 2.0;
   radius2 = 1.0;
 
-  CubitMessageHandler *console = CubitInterface::get_cubit_message_handler();
+  CubitMessageHandler* console = CubitMessage::get_message_handler();
   if (console) {
     std::ostringstream load_message;
     load_message.str("");
     load_message << "-- iGeom_test command available." << std::endl;
-    CubitInterface::get_cubit_message_handler()->print_error(load_message.str().c_str());
+    console->print_error(load_message.str().c_str());
   }
 }
 

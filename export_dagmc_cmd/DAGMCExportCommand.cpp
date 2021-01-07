@@ -1,5 +1,5 @@
 #include "DAGMCExportCommand.hpp"
-#include "CubitInterface.hpp"
+#include "CubitCoreformInterface.hpp"
 
 // CGM includes
 #include "GeometryQueryTool.hpp"
@@ -27,7 +27,7 @@
 
 #define CHK_MB_ERR_RET(A,B)  if (moab::MB_SUCCESS != (B)) { \
   message << (A) << (B) << std::endl;                                   \
-  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); \
+  CubitMessage::get_message_handler()->print_message(message.str().c_str()); \
   return false;                                                         \
   }
 
@@ -46,12 +46,12 @@ DAGMCExportCommand::DAGMCExportCommand() :
   verbose_warnings = false;
   fatal_on_curves = false;
 
-  CubitMessageHandler *console = CubitInterface::get_cubit_message_handler();
+  CubitMessageHandler* console = CubitMessage::get_message_handler();
   if (console) {
     std::ostringstream load_message;
     load_message.str("");
     load_message << "-- DAGMC export command available." << std::endl;
-    CubitInterface::get_cubit_message_handler()->print_error(load_message.str().c_str());
+    console->print_error(load_message.str().c_str());
   }
 }
 
@@ -249,7 +249,7 @@ moab::ErrorCode DAGMCExportCommand::teardown()
   }
   message << "***** End of Faceting Summary Information *****" << std::endl;
  
-  CubitInterface::get_cubit_message_handler()->print_message(message.str().c_str()); 
+  CubitMessage::get_message_handler()->print_message(message.str().c_str()); 
   message.str("");
 
   
