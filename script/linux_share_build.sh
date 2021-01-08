@@ -98,8 +98,8 @@ function build_moab() {
             -DBUILD_SHARED_LIBS=ON \
             -DENABLE_BLASLAPACK=OFF \
             -DENABLE_FORTRAN=OFF \
-            -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
+#            -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
 
     make -j`grep -c processor /proc/cpuinfo`
     make install
@@ -114,8 +114,7 @@ function build_dagmc(){
     cd DAGMC
     git clone https://github.com/bam241/DAGMC -b build_exe
     cd bld
-    cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
-                -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
+    cmake ../DAGMC -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
                 -DBUILD_UWUW=ON \
                 -DBUILD_TALLY=OFF \
                 -DBUILD_BUILD_OBB=OFF \
@@ -126,6 +125,9 @@ function build_dagmc(){
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
+#                -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
+                
+    
     make -j`grep -c processor /proc/cpuinfo`
     make install
     cd ../..
