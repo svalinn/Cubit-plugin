@@ -8,7 +8,6 @@
 
 // CGM includes
 #include "RefEntity.hpp"
-extern std::ofstream record;
 
 class MCNPImp: public CubitCommand
 {
