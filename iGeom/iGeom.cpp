@@ -1454,8 +1454,8 @@ CGMTagManager::CGMTagManager()
     // get the tag number for CATag
   DLIList<int> tag_types;
   int max_type = 0;
-  CubitAttribManager *cam = CGMApp::instance()->attrib_manager();
-  cam->get_registered_types(tag_types);
+  CubitAttribManager cam = CGMApp::instance()->attrib_manager();
+  cam.get_registered_types(tag_types);
   for (int i = 0; i < tag_types.size(); i++) {
     int this_type = tag_types.get_and_step();
     max_type = (max_type < this_type ? this_type : max_type);
