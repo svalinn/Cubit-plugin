@@ -8,6 +8,7 @@
 
 // CGM includes
 #include "RefEntity.hpp"
+class CubitCommandData;
 
 class MCNPImp: public CubitCommand
 {
