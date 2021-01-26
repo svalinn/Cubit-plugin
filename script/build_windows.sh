@@ -5,3 +5,14 @@ cmake ../moab -DENABLE_BLASLAPACK=OFF -DENABLE_FORTRAN=OFF -DENABLE_IMESH=OFF -D
 cmake --build . --config Release
 
 cmake --install .
+
+
+# add \"\" in the cmakeMOAB.config 
+# copy MOAB.lib into MOAB.a ...
+
+ cmake ../dagmc -G"Visual Studio 16 2019" -DBUILD_EXE=OFF -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON -DBUILD_TALLY=OFF -DBUILD_BUILD_OBB=OFF -DBUILD_UWUW=ON -DBUILD_MAKE_WATERTIGHT=ON -DBUILD_TESTS=OFF -DMOAB_DIR=../moab_install -DCMAKE_PREFIX_PATH=../eigen-3.3.8/cmake  -DCMAKE_INSTALL_PREFIX=../dagmc_install/ -DCMAKE_EXE_LINKER_FLAGS="" -DCMAKE_MODULE_LINKER_FLAGS="" -DCMAKE_SHARED_LINKER_FLAGS="" -DCMAKE_STATIC_LINKER_FLAGS="" -DCMAKE_BUILD_TYPE=Release
+ cmake --build . --config Release
+cmake --install . --config Release
+
+
+ cmake ../Trelis-plugin/ -G"Visual Studio 16 2019" -DCubit_DIR="C:/Program Files/Trelis 17.1/bin" -DDAGMC_DIR="../dagmc_install" -DEIGEN3_DIR=../eigen-3.3.8 -DCMAKE_BUILD_TYPE=Release
