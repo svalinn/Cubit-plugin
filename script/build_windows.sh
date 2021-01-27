@@ -29,3 +29,13 @@ rm -rf *
 cmake ../Trelis-plugin/ -G"Visual Studio 16 2019" -DCubit_DIR="C:/Program Files/Trelis 17.1/bin" -DCUBIT_ROOT="C:/Program Files/Trelis 17.1/bin" -DDAGMC_DIR="../dagmc_install" -DEIGEN3_DIR=C:/Users/mouginot/Desktop/eigen-3.3.8 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../plugin_install  -DCMAKE_EXE_LINKER_FLAGS="" -DCMAKE_MODULE_LINKER_FLAGS="" -DCMAKE_SHARED_LINKER_FLAGS="" -DCMAKE_STATIC_LINKER_FLAGS="" 
 cmake --build . --config Release
 cmake --install . --config Release
+
+
+cd /c/Program\ Files/Trelis\ 17.1/bin/plugins/
+cp /c/Users/mouginot/Desktop/moab_install/lib/MOAB.* ./
+cp /c/Users/mouginot/Desktop/dagmc_install/lib/*.lib ./
+cp /c/Users/mouginot/Desktop/plugin_install/bin/* ./
+cp /c/Users/mouginot/Desktop/plugin_install/lib/* ./
+cp ../../../HDF_Group/HDF5/1.8.21/bin/hdf5.dll ./
+cp ../../../HDF_Group/HDF5/1.8.21/bin/hdf5.lib ./
+
