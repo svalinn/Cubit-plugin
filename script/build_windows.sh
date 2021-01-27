@@ -9,7 +9,7 @@ cmake ../moab -DENABLE_BLASLAPACK=OFF -DENABLE_FORTRAN=OFF -DENABLE_IMESH=OFF -D
  
 cmake --build . --config Release
 cmake --install . --config Release
-cp -rf /c/Users/mouginot/Desktop/moab_install/bin/* /c/Users/mouginot/Desktop/moab_build/lib
+cp -rf /c/Users/mouginot/Desktop/moab_install/bin/* /c/Users/mouginot/Desktop/moab_install/lib
 
 # add \"\" in the cmakeMOAB.config 
 # copy MOAB.lib into MOAB.a ...
