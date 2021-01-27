@@ -27,7 +27,7 @@ cd /c/Users/mouginot/Desktop/plugin_build
 ln -s ../Trelis-plugin
 mkdir plugin_build plugin_install
 cd plugin_build
-cmake ../Trelis-plugin/ -G"Visual Studio 16 2019" -DCubit_DIR="C:/Program Files/Trelis 17.1/bin" -DCUBIT_ROOT="C:/Program Files/Trelis 17.1/bin" -DDAGMC_DIR="../dagmc_install" -DEIGEN3_DIR=C:/Users/mouginot/Desktop/eigen-3.3.8 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../plugin_install  -DCMAKE_EXE_LINKER_FLAGS="" -DCMAKE_MODULE_LINKER_FLAGS="" -DCMAKE_SHARED_LINKER_FLAGS="" -DCMAKE_STATIC_LINKER_FLAGS="" 
+cmake ../Trelis-plugin/ -G"Visual Studio 16 2019" -DCubit_DIR="C:/Program Files/Trelis 17.1/bin" -DCUBIT_ROOT="C:/Program Files/Trelis 17.1/bin" -DDAGMC_DIR="../dagmc_install" -DEIGEN3_DIR=C:/Users/mouginot/Desktop/eigen-3.3.8 -DCMAKE_PREFIX_PATH="C:/Users/mouginot/Desktop/eigen-3.3.8/cmake"   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../plugin_install  -DCMAKE_EXE_LINKER_FLAGS="" -DCMAKE_MODULE_LINKER_FLAGS="" -DCMAKE_SHARED_LINKER_FLAGS="" -DCMAKE_STATIC_LINKER_FLAGS="" 
 cmake --build . --config Release
 cmake --install . --config Release
 
