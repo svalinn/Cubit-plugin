@@ -23,6 +23,11 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
 
+if(MSVC)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
+    set(BUILD_SHARED_LIBS TRUE)
+endif()
+
 
 # Use C++11
 set(CMAKE_CXX_STANDARD 11)
@@ -40,7 +45,7 @@ set(CMAKE_CXX_STANDARD 11)
 if (NOT CUBIT_ROOT)
   message(FATAL_ERROR "CUBIT_ROOT not specified")
 endif ()
-list(APPEND CMAKE_PREFIX_PATH ${CUBIT_ROOT}/bin)
+list(APPEND CMAKE_PREFIX_PATH ${CUBIT_ROOT}/bin) 
 find_package(Cubit REQUIRED CONFIG)
 include_directories(${CUBIT_INCLUDE_DIRS})
 link_directories(${Cubit_DIR})
