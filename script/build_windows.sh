@@ -1,4 +1,6 @@
 #!/bin/bash
+cd /c/Users/mouginot/Desktop/moab
+git pull
 
 cd /c/Users/mouginot/Desktop/moab_build
 rm -rf *
@@ -12,6 +14,8 @@ cmake --install .
 
 # add \"\" in the cmakeMOAB.config 
 # copy MOAB.lib into MOAB.a ...
+cd /c/Users/mouginot/Desktop/dagmc
+git pull
 cd /c/Users/mouginot/Desktop/dagmc_build
 rm -rf *
 rm -rf ../dagmc_install/*
