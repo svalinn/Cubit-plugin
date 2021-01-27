@@ -1,6 +1,7 @@
 #!/bin/bash
 cd /c/Users/mouginot/Desktop
 mkdir plugin_build
+cd plugin_build
 
 git clone https://bitbucket.org/bam241/moab -b windows
 mkdir moab_build moab_install
