@@ -24,9 +24,9 @@ cmake --build . --config Release
 cmake --install . --config Release
 
 cd /c/Users/mouginot/Desktop/plugin_build
-ln -s ../Trelis-plugin
+cp -r ../Trelis-plugin ./
 cd Trelis-plugin
-git submodule update --init
+#git submodule update --init
 cd ..
 mkdir plugin_build plugin_install
 cd plugin_build
