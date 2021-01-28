@@ -44,8 +44,7 @@ cp ../../plugin_install/bin/* ./
 cp ../../plugin_install/lib/* ./
 cd /c/Users/mouginot/Desktop/plugin_build
 tar -cvf svalin_plugin_windows.tar  bin
-ziptool.exe svalin_plugin_windows.zip add_dir bin
 
-mv svalin_plugin_windows.* ../
+mv svalin_plugin_windows.tar ../
 cd ..
 rm -rf plugin_build
