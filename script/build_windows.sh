@@ -43,4 +43,4 @@ cp ../dagmc_install/lib/*.lib ./
 cp ../plugin_install/bin/* ./
 cp ../plugin_install/lib/* ./
 cd ..
-rm dagmc* moab* plugin* 
+rm -rf dagmc* moab* plugin* 
