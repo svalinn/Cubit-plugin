@@ -36,8 +36,8 @@ cmake --build . --config Release
 cmake --install . --config Release
 
 cd /c/Users/mouginot/Desktop/plugin_build
-mkdir -p bin/plugin
-cd bin/plugin 
+mkdir -p bin/plugins
+cd bin/plugins
 cp ../../moab_install/bin/MOAB.dll ./
 cp ../../dagmc_install/lib/*.lib ./
 cp ../../plugin_install/bin/* ./
