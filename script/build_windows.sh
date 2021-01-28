@@ -44,6 +44,8 @@ cp ../plugin_install/bin/* ./
 cp ../plugin_install/lib/* ./
 cd /c/Users/mouginot/Desktop/plugin_build
 ziptool.exe svalin_plugin_windows.zip add_dir bin
+ziptool.exe svalin_plugin_windows.zip add_dir bin/plugin
+ziptool.exe svalin_plugin_windows.zip add_file bin/plugin/*
 mv svalin_plugin_windows.zip ../
 cd ..
 rm -rf plugin_build
