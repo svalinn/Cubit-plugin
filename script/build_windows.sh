@@ -36,11 +36,12 @@ cmake --build . --config Release
 cmake --install . --config Release
 
 cd /c/Users/mouginot/Desktop/plugin_build
-mkdir package
-cd package 
+mkdir -p bin/plugin
+cd bin/plugin 
 cp ../moab_install/lib/MOAB.dll ./
 cp ../dagmc_install/lib/*.lib ./
 cp ../plugin_install/bin/* ./
 cp ../plugin_install/lib/* ./
-cd ..
+cd /c/Users/mouginot/Desktop/plugin_build
+ziptool.exe svlain_plugin_windows.zip add_dir bin
 rm -rf dagmc* moab* plugin* 
