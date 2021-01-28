@@ -43,5 +43,7 @@ cp ../dagmc_install/lib/*.lib ./
 cp ../plugin_install/bin/* ./
 cp ../plugin_install/lib/* ./
 cd /c/Users/mouginot/Desktop/plugin_build
-ziptool.exe svlain_plugin_windows.zip add_dir bin
-rm -rf dagmc* moab* plugin* 
+ziptool.exe svalin_plugin_windows.zip add_dir bin
+mv svalin_plugin_windows.zip ../
+cd ..
+rm -rf plugin_build
