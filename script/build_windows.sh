@@ -38,13 +38,14 @@ cmake --install . --config Release
 cd /c/Users/mouginot/Desktop/plugin_build
 mkdir -p bin/plugin
 cd bin/plugin 
-cp ../../moab_install/lib/MOAB.dll ./
+cp ../../moab_install/bin/MOAB.dll ./
 cp ../../dagmc_install/lib/*.lib ./
 cp ../../plugin_install/bin/* ./
 cp ../../plugin_install/lib/* ./
 cd /c/Users/mouginot/Desktop/plugin_build
 tar -cvf svalin_plugin_windows.tar  bin
+ziptool.exe svalin_plugin_windows.zip add_dir bin
 
-mv svalin_plugin_windows.tar ../
+mv svalin_plugin_windows.* ../
 cd ..
 rm -rf plugin_build
