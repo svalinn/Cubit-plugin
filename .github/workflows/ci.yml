@@ -92,8 +92,6 @@ jobs:
 
       - name: Trelis setup
         shell: bash
-        with: 
-          TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
         env:
           TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
         run: |
