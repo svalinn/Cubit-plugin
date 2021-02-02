@@ -38,9 +38,8 @@ jobs:
         name: Apt dependencies
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/script/linux_share_build.sh
-          install_prerequise
-          setup_folder
+          sudo apt-get update -y
+          sudo apt-get install -y g++ libtool libeigen3-dev libhdf5-dev patchelf git cmake
 
       -
         name: Build MOAB
