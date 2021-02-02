@@ -96,7 +96,7 @@ jobs:
           TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
         run: |
           cd ${PLUGIN_ABS_PATH}
-          curl -L $TRELIS_DEB_URL --output trelis.deb
+          curl -L ${TRELIS_DEB_URL} --output trelis.deb
           sudo dpkg -i trelis.deb
 
       -
