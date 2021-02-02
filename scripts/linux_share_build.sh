@@ -64,7 +64,7 @@ function build_dagmc(){
 }
 
 function setup_Trelis_sdk() {
-    cd /Trelis-sdk 
+    cd $PKG_PATH 
     dpkg -i Trelis-$1-Lin64.deb
 
     cd /opt
