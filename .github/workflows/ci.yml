@@ -39,6 +39,7 @@ jobs:
         shell: bash
         run: |
           source $GITHUB_WORKSPACE/script/linux_share_build.sh
+          ls $GITHUB_WORKSPACE/script/linux_share_build.sh
           sudo install_prerequise
           setup_folder
 
