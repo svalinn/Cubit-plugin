@@ -44,7 +44,9 @@ jobs:
       -
         name: Build MOAB
         shell: bash
-        run: build_moab
+        run: |
+          source $GITHUB_WORKSPACE/script/linux_share_build.sh
+          build_moab
 
       -
         name: build DAGMC
