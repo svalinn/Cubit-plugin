@@ -92,11 +92,14 @@ jobs:
 
       - name: Trelis setup
         shell: bash
+        with:
+          TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
         env:
           TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
         run: |
           cd ${PLUGIN_ABS_PATH}
-          curl -L ${TRELIS_DEB_URL} --output trelis.deb
+          echo "$TRELIS_DEB_URL"
+          curl -L "$TRELIS_DEB_URL" --output trelis.deb
           sudo dpkg -i trelis.deb
 
       -
