@@ -51,22 +51,30 @@ jobs:
       -
         name: build DAGMC
         shell: bash
-        run: build_dagmc
+        run: |
+          source $GITHUB_WORKSPACE/script/linux_share_build.sh
+          build_dagmc
 
       -
         name: Trelis setup
         shell: bash
-        run: setup_Trelis_sdk 17.1.0
+        run: |
+          source $GITHUB_WORKSPACE/script/linux_share_build.sh
+          setup_Trelis_sdk 17.1.0
 
       -
         name: build plugin
         shell: bash
-        run: build_plugin 17.1.0
+        run: |
+          source $GITHUB_WORKSPACE/script/linux_share_build.sh
+          build_plugin 17.1.0
 
       -
         name: prepare pkg
         shell: bash
-        run: build_plugin_pkg 17.1.0
+        run: |
+          source $GITHUB_WORKSPACE/script/linux_share_build.sh
+          build_plugin_pkg 17.1.0
 
   finish:
     needs: main
