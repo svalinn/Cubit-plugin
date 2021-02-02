@@ -94,8 +94,9 @@ jobs:
         name: Trelis setup
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/script/linux_share_build.sh
-          setup_Trelis_sdk 17.1.0
+          cd ${PLUGIN_ABS_PATH}
+          curl -L ${{ secrets.TRELIS_DEB_URL }} --output trelis.deb
+          sudo dpkg -i trelis.deb
 
       -
         name: build plugin
