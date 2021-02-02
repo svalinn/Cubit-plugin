@@ -97,7 +97,7 @@ jobs:
         run: |
           cd ${PLUGIN_ABS_PATH}
           echo "$TRELIS_DEB_URL"
-          curl -L "$TRELIS_DEB_URL" --output trelis.deb
+          wget $TRELIS_DEB_URL -o  trelis.deb
           sudo dpkg -i trelis.deb
 
       -
