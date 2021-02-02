@@ -90,12 +90,15 @@ jobs:
           cd ../..
           rm -rf DAGMC/DAGMC DAGCM/bld
 
-      -
-        name: Trelis setup
+      - name: Trelis setup
         shell: bash
+        with: 
+          TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
+        env:
+          TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
         run: |
           cd ${PLUGIN_ABS_PATH}
-          curl -L ${{ secrets.TRELIS_DEB_URL }} --output trelis.deb
+          curl -L $TRELIS_DEB_URL --output trelis.deb
           sudo dpkg -i trelis.deb
 
       -
