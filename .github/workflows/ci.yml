@@ -93,12 +93,16 @@ jobs:
         shell: bash
         env:   
           TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
+          TRELIS_SDK_URL: ${{ secrets.TRELIS_SDK_URL }}
         run: |
           cd ${PLUGIN_ABS_PATH}
           echo "$TRELIS_DEB_URL"
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.deb --output trelis.deb
-          ls -al trelis.deb
           sudo dpkg -i trelis.deb
+          cd /opt
+          curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.gz --output trelis_sdk.tar.gz
+          tar -zxvf trelis_sdk.tar.gz
+
 
       -
         name: build plugin
