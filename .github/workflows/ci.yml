@@ -145,6 +145,7 @@ jobs:
           cd ../..
           tar --sort=name -czvf svalinn-plugin_linux_$1.tgz bin
           pwd
+          ls
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
