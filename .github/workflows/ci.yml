@@ -144,20 +144,11 @@ jobs:
           ln -sv svalinn/libsvalinn_plugin.so .
           cd ../..
           tar --sort=name -czvf svalinn-plugin_linux_$1.tgz bin
+          pwd
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_linux
-          path: ${PLUGIN_ABS_PATH}/pack/svalinn-plugin_linux_17.1.0.tgz   
+          path: ${PLUGIN_ABS_PATH}/pack/svalinn-plugin_linux_17.1.0.tgz
 
-
-  finish:
-    needs: main
-    runs-on: ubuntu-latest
-    steps:
-    - name: Coveralls Finished
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.github_token }}
-        parallel-finished: true
