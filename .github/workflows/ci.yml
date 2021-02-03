@@ -101,7 +101,7 @@ jobs:
           sudo dpkg -i trelis.deb
           cd /opt
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.gz --output trelis_sdk.tar.gz
-          tar -zxvf trelis_sdk.tar.gz
+          sudo tar -zxvf trelis_sdk.tar.gz
 
 
       -
