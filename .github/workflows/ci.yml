@@ -143,9 +143,8 @@ jobs:
           cd ..
           ln -sv svalinn/libsvalinn_plugin.so .
           cd ../..
-          tar --sort=name -czvf svalinn-plugin_linux_$1.tgz bin
-          pwd
-          ls
+          tar --sort=name -czvf svalinn-plugin_linux_17.1.0.tgz bin
+
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
