@@ -108,7 +108,7 @@ jobs:
           cd ../
           mkdir -pv bld
           cd bld
-          cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-${1::4} \
+          cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-17.1 \
                                 -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                                 -DCMAKE_BUILD_TYPE=Release \
                                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
@@ -133,11 +133,11 @@ jobs:
           chmod 644 *
 
           # Set the RPATH to be the current directory for the DAGMC libraries
-          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libMOAB.so
-          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libdagmc.so
-          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libmakeWatertight.so
-          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libpyne_dagmc.so
-          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libuwuw.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libMOAB.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libdagmc.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libmakeWatertight.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libpyne_dagmc.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libuwuw.so
 
           # Create the Svalinn plugin tarball
           cd ..
