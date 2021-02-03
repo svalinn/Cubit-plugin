@@ -150,5 +150,5 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_linux
-          path: ${PLUGIN_ABS_PATH}/pack/svalinn-plugin_linux_17.1.0.tgz
+          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_17.1.0.tgz
 
