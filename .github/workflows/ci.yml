@@ -97,7 +97,7 @@ jobs:
         run: |
           cd ${PLUGIN_ABS_PATH}
           echo "$TRELIS_DEB_URL"
-          wget $TRELIS_DEB_URL -o  trelis.deb
+          wget https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.deb -o  trelis.deb
           sudo dpkg -i trelis.deb
 
       -
