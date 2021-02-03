@@ -14,7 +14,6 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
 
 jobs:
   main:
@@ -92,6 +91,8 @@ jobs:
 
       - name: Trelis setup
         shell: bash
+        env:   
+          TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
         run: |
           cd ${PLUGIN_ABS_PATH}
           echo "$TRELIS_DEB_URL"
