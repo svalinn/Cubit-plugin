@@ -22,11 +22,9 @@ jobs:
 
 
     steps:
-      -
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-      -
-        name: Environment Variables
+      - name: Environment Variables
         run: |
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=" >> $GITHUB_ENV
@@ -34,15 +32,13 @@ jobs:
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
           source $GITHUB_WORKSPACE/script/linux_share_build.sh
 
-      -
-        name: Apt dependencies
+      - name: Apt dependencies
         shell: bash
         run: |
           sudo apt-get update -y
           sudo apt-get install -y g++ libtool libeigen3-dev libhdf5-dev patchelf git cmake
 
-      -
-        name: Build MOAB
+      - name: Build MOAB
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}
@@ -63,8 +59,7 @@ jobs:
           cd ../..
           rm -rf moab/moab moab/bld
 
-      -
-        name: build DAGMC
+      - name: build DAGMC
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}
@@ -104,19 +99,58 @@ jobs:
           sudo tar -zxvf trelis_sdk.tar.gz
 
 
-      -
-        name: build plugin
+      - name: build plugin
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/script/linux_share_build.sh
-          build_plugin 17.1.0
+          cd ${PLUGIN_ABS_PATH}
+          cd Trelis-plugin
+          git submodule update --init
+          cd ../
+          mkdir -pv bld
+          cd bld
+          cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-${1::4} \
+                                -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
+                                -DCMAKE_BUILD_TYPE=Release \
+                                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
+          make -j`grep -c processor /proc/cpuinfo`
+          make install
 
-      -
-        name: prepare pkg
+      - name: prepare pkg
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/script/linux_share_build.sh
-          build_plugin_pkg 17.1.0
+          cd ${PLUGIN_ABS_PATH}
+          mkdir -p pack/bin/plugins/svalinn
+          cd pack/bin/plugins/svalinn
+
+          # Copy all needed libraries into current directory
+          cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
+          cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so* .
+          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.so* .
+          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
+          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
+          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
+          cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
+          chmod 644 *
+
+          # Set the RPATH to be the current directory for the DAGMC libraries
+          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libMOAB.so
+          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libdagmc.so
+          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libmakeWatertight.so
+          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libpyne_dagmc.so
+          patchelf --set-rpath /opt/Trelis-${1::4}/bin/plugins/svalinn libuwuw.so
+
+          # Create the Svalinn plugin tarball
+          cd ..
+          ln -sv svalinn/libsvalinn_plugin.so .
+          cd ../..
+          tar --sort=name -czvf svalinn-plugin_linux_$1.tgz bin
+
+      - name: 'Upload package'
+        uses: actions/upload-artifact@v2
+        with:
+          name: svalinn-plugin_linux
+          path: ${PLUGIN_ABS_PATH}/pack/svalinn-plugin_linux_17.1.0.tgz   
+
 
   finish:
     needs: main
