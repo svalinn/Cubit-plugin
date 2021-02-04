@@ -44,7 +44,7 @@ jobs:
           TRELIS_INSTALL_LOC: "/Applications/Trelis-17.1.app/Contents"
         run: |
           cd ${PLUGIN_ABS_PATH}
-          wget https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg --output trelis.dmg
+          wget --show-progress https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg -O trelis.dmg
           hdiutil attach -quiet -nobrowse -noverify -noautoopen trelis.dmg
           cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
           hdiutil detach /Volumes/Trelis-17.1.0-Mac64
