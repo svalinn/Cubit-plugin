@@ -34,7 +34,7 @@ jobs:
       - name: Brew dependencies
         shell: bash
         run: |
-          brew install libtool eigen hdf5 cmake gcc@6 
+          brew install eigen hdf5 gcc@6 
 
       - name: Trelis setup
         shell: bash
@@ -44,7 +44,8 @@ jobs:
           TRELIS_INSTALL_LOC: "/Applications/Trelis-17.1.app/Contents"
         run: |
           cd ${PLUGIN_ABS_PATH}
-          wget --show-progress https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg -O trelis.dmg
+          wget --show-progress https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg -O trelis.d
+          mv trelis.d trelis.dmg
           hdiutil attach -quiet -nobrowse -noverify -noautoopen trelis.dmg
           cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
           hdiutil detach /Volumes/Trelis-17.1.0-Mac64
