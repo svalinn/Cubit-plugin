@@ -44,7 +44,7 @@ jobs:
           TRELIS_INSTALL_LOC: "/Applications/Trelis-17.1.app/Contents"
         run: |
           cd ${PLUGIN_ABS_PATH}
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg --output trelis.dmg
+          wget https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg --output trelis.dmg
           hdiutil attach -quiet -nobrowse -noverify -noautoopen trelis.dmg
           cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
           hdiutil detach /Volumes/Trelis-17.1.0-Mac64
@@ -58,7 +58,7 @@ jobs:
           rm -rf bin Trelis-17.1.app
           ln -s MacOS bin
           ln -s /Applications/Trelis-17.1.app/Contents/include /Applications/include
-          echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENV
+          echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENVgit com  -
       - name: Build MOAB
         shell: bash
         run: |
