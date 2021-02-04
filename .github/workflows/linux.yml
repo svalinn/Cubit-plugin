@@ -86,8 +86,8 @@ jobs:
       - name: Trelis setup
         shell: bash
         env:   
-          TRELIS_DEB_URL: ${{ secrets.TRELIS_DEB_URL }}
-          TRELIS_SDK_URL: ${{ secrets.TRELIS_SDK_URL }}
+          TRELIS_DEB_URL: ${{ secrets.LINUX_TRELIS_17 }}
+          TRELIS_SDK_URL: ${{ secrets.LINUX_TRELIS_SDK_17 }}
         run: |
           cd ${PLUGIN_ABS_PATH}
           echo "$TRELIS_DEB_URL"
