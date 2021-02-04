@@ -47,8 +47,8 @@ jobs:
           wget --show-progress https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg -O trelis.d
           mv trelis.d trelis.dmg
 
-          
-          # hdiutil attach -quiet -nobrowse -noverify -noautoopen trelis.dmg
+
+          hdiutil attach -quiet -nobrowse -noverify -noautoopen trelis.dmg
           # cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
           # hdiutil detach /Volumes/Trelis-17.1.0-Mac64
           # rm -rf trelis.dmg
