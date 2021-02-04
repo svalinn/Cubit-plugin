@@ -34,7 +34,7 @@ jobs:
       - name: Macport dependencies
         shell: bash
         run: |
-          brew install libtool eigen hdf5 cmake gcc@6git com   
+          brew install libtool eigen hdf5 cmake gcc@6 
 
       - name: Build MOAB
         shell: bash
