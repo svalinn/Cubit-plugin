@@ -69,21 +69,18 @@ jobs:
           git clone https://github.com/bam241/DAGMC -b build_exe
           cd bld
           cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
-                      -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
-                      -DBUILD_UWUW=ON \
-                      -DBUILD_TALLY=OFF \
-                      -DBUILD_BUILD_OBB=OFF \
-                      -DBUILD_MAKE_WATERTIGHT=ON \
-                      -DBUILD_SHARED_LIBS=ON \
-                      -DBUILD_STATIC_LIBS=OFF \
-                      -DBUILD_EXE=OFF \
-                      -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-                      -DCMAKE_BUILD_TYPE=Release \
-                      -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-          make -j`grep -c processor /proc/cpuinfo`
+                        -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
+                        -DBUILD_UWUW=ON \
+                        -DBUILD_TALLY=OFF \
+                        -DBUILD_BUILD_OBB=OFF \
+                        -DBUILD_MAKE_WATERTIGHT=ON \
+                        -DBUILD_SHARED_LIBS=OFF \
+                        -DBUILD_STATIC_LIBS=ON \
+                        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+                        -DCMAKE_BUILD_TYPE=Release \
+                        -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
+          make -j
           make install
-          cd ../..
-          rm -rf DAGMC/DAGMC DAGCM/bld
 
       - name: Trelis setup
         shell: bash
