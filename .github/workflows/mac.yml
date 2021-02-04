@@ -46,20 +46,22 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           wget --show-progress https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg -O trelis.d
           mv trelis.d trelis.dmg
-          hdiutil attach -quiet -nobrowse -noverify -noautoopen trelis.dmg
-          cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
-          hdiutil detach /Volumes/Trelis-17.1.0-Mac64
-          rm -rf trelis.dmg
-          cd $TRELIS_INSTALL_LOC
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.gz --output trelis_sdk.tar.gz
-          tar -xzf trelis_sdk.tar.gz
-          mv Trelis-17.1/* ./
-          cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
-          cp -f bin/* MacOS/
-          rm -rf bin Trelis-17.1.app
-          ln -s MacOS bin
-          ln -s /Applications/Trelis-17.1.app/Contents/include /Applications/include
-          echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENVgit com  -
+
+          
+          # hdiutil attach -quiet -nobrowse -noverify -noautoopen trelis.dmg
+          # cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
+          # hdiutil detach /Volumes/Trelis-17.1.0-Mac64
+          # rm -rf trelis.dmg
+          # cd $TRELIS_INSTALL_LOC
+          # curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.gz --output trelis_sdk.tar.gz
+          # tar -xzf trelis_sdk.tar.gz
+          # mv Trelis-17.1/* ./
+          # cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
+          # cp -f bin/* MacOS/
+          # rm -rf bin Trelis-17.1.app
+          # ln -s MacOS bin
+          # ln -s /Applications/Trelis-17.1.app/Contents/include /Applications/include
+          # echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENV
       - name: Build MOAB
         shell: bash
         run: |
