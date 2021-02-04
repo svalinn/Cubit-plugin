@@ -34,13 +34,7 @@ jobs:
       - name: Macport dependencies
         shell: bash
         run: |
-          curl https://distfiles.macports.org/MacPorts/MacPorts-2.6.3-10.15-Catalina.pkg --output MacPorts-2.6.3-10.15-Catalina.pkg
-          sudo installer -pkg MacPorts-2.6.3-10.15-Catalina.pkg -target /
-          rm -rf  MacPorts-2.6.3-10.15-Catalina.pkg
-          echo "PATH=/opt/local/bin:/opt/local/sbin:$PATH" >> $GITHUB_ENV
-          echo "MANPATH=/opt/local/share/man:$MANPATH" >> $GITHUB_ENV
-          sudo port -N selfupdate
-          sudo port -N install libtool eigen3 hdf5 cmake gcc6 wget realpath
+          brew install libtool eigen3 hdf5 cmake gcc6 wget realpath
 
       - name: Build MOAB
         shell: bash
