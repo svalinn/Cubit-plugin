@@ -88,13 +88,13 @@ jobs:
         run: |
           cd ${PLUGIN_ABS_PATH}
           echo "$TRELIS_DEB_URL"
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg --output trelis.dmg
+          curl -L https://uwmadison.box.com/shared/static/${MAC_TRELIS_17}.dmg --output trelis.dmg
           hdiutil attach -quiet -nobrowse -noverify -noautoopen trelis.dmg
           cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
           hdiutil detach /Volumes/Trelis-17.1.0-Mac64
           rm -rf trelis.dmg
           cd $TRELIS_INSTALL_LOC
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.gz --output trelis_sdk.tar.gz
+          curl -L https://uwmadison.box.com/shared/static/${MAC_TRELIS_SDK_17}.gz --output trelis_sdk.tar.gz
           tar -xzf trelis_sdk.tar.gz
           mv Trelis-17.1/* ./
           cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
