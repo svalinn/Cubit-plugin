@@ -143,10 +143,6 @@ jobs:
           ln -sv svalinn/libsvalinn_plugin.so .
           cd ../..
           tar -czvf svalinn-plugin_mac_17.1.tgz MacOS
-          cd ..
-          rm -rf ${PLUGIN_ABS_PATH}
-          rm -rf Trelis-plugin
-
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
