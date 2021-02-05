@@ -56,8 +56,8 @@ jobs:
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.gz --output trelis_sdk.tar.gz
           tar -xzf trelis_sdk.tar.gz
           mv Trelis-17.1/* ./
-          cp -f Trelis-17.1.app/Contents/MacOS/* MacOS/
-          cp -f bin/* MacOS/
+          mv Trelis-17.1.app/Contents/MacOS/* MacOS/
+          mv bin/* MacOS/
           rm -rf bin Trelis-17.1.app
           ln -s MacOS bin
           ln -s /Applications/Trelis-17.1.app/Contents/include /Applications/include
