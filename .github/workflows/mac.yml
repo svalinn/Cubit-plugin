@@ -132,7 +132,6 @@ jobs:
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}
-          echo ${PLUGIN_ABS_PATH}
           mkdir -p pack/MacOS/plugins/svalinn
           cd pack/MacOS/plugins/svalinn
 
@@ -144,12 +143,11 @@ jobs:
           ln -sv svalinn/libsvalinn_plugin.so .
           cd ../..
           tar -czvf svalinn-plugin_mac_17.1.tgz MacOS
-          pwd
-          ls /home/runner/work/Trelis-plugin/pack/
+
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_mac
-          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_mac_17.1.tgz
+          path: /Users/runner/work/Trelis-plugin/pack/svalinn-plugin_mac_17.1.tgz
 
