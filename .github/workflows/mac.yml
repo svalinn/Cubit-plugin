@@ -134,7 +134,7 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           mkdir -p pack/bin/plugins/svalinn
           cd pack/bin/plugins/svalinn
-          ls ${PLUGIN_ABS_PATH}/moab
+          ls ${PLUGIN_ABS_PATH}/moab/lib
           # Copy all needed libraries into current directory
           cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
           cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so* .
