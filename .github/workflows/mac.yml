@@ -132,36 +132,25 @@ jobs:
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}
-          mkdir -p pack/bin/plugins/svalinn
-          cd pack/bin/plugins/svalinn
-          ls ${PLUGIN_ABS_PATH}/moab/lib
+          mkdir -p pack/MacOS/plugins/svalinn
+          cd pack/MacOS/plugins/svalinn
+
           # Copy all needed libraries into current directory
           cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-          cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
-          cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
-          chmod 644 *
-
-          # Set the RPATH to be the current directory for the DAGMC libraries
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libMOAB.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libdagmc.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libmakeWatertight.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libpyne_dagmc.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libuwuw.so
 
           # Create the Svalinn plugin tarball
           cd ..
           ln -sv svalinn/libsvalinn_plugin.so .
           cd ../..
-          tar --sort=name -czvf svalinn-plugin_linux_17.1.0.tgz bin
+          tar -czvf svalinn-plugin_mac_17.1.tgz MacOS
+          cd ..
+          rm -rf ${PLUGIN_ABS_PATH}
+          rm -rf Trelis-plugin
 
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_linux
-          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_17.1.0.tgz
+          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_mac_17.1.tgz
 
