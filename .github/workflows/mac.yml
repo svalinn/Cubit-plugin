@@ -49,7 +49,7 @@ jobs:
           ls
           hdiutil attach trelis_eula.dmg.cdr
           ls /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app
-          mv -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
+          mv /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
           hdiutil detach /Volumes/Trelis-17.1.0-Mac64
           rm -rf trelis.dmg
           cd $TRELIS_INSTALL_LOC
