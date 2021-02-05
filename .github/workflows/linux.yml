@@ -1,4 +1,4 @@
-name: CI
+name: Linux
 
 on:
   # allows us to run workflows manually
