@@ -46,7 +46,7 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.dmg --output trelis.dmg
           hdiutil convert trelis.dmg -format UDTO -o treslis_eula.dmg
-          hdiutil attach -plist -nobrowse -readonly -noverify -noautoopen -mountrandom treslis_eula.dmg
+          hdiutil attach -plist -nobrowse -readonly -noverify -noautoopen -mountrandom treslis_eula.dmg.cdr
           ls /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app
           cp -rf /Volumes/Trelis-17.1.0-Mac64/Trelis-17.1.app /Applications/
           hdiutil detach /Volumes/Trelis-17.1.0-Mac64
