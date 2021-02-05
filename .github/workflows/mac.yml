@@ -1,4 +1,4 @@
-name: CI
+name: MACOS
 
 on:
   # allows us to run workflows manually
