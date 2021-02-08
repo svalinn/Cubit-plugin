@@ -47,4 +47,4 @@ tar -cvf svalin_plugin_windows.tar  bin
 
 mv svalin_plugin_windows.tar ../
 cd ..
-rm -rf plugin_build
+#rm -rf plugin_build
