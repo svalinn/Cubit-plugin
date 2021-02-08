@@ -93,6 +93,8 @@ jobs:
           echo "$TRELIS_DEB_URL"
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.deb --output trelis.deb
           sudo dpkg -i trelis.deb
+          sudo apt-get -f -y install 
+
           cd /opt
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.gz --output trelis_sdk.tar.gz
           sudo tar -zxvf trelis_sdk.tar.gz
