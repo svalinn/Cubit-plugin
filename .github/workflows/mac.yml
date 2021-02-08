@@ -20,7 +20,6 @@ jobs:
     runs-on: macos-10.15
     name: 'Trelis Svalinn Plugin 17.1 Build for Macos'
 
-
     steps:
       - uses: actions/checkout@v2
 
@@ -35,6 +34,49 @@ jobs:
         shell: bash
         run: |
           brew install eigen hdf5 gcc@6 
+   
+      - name: Build MOAB
+        shell: bash
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          mkdir -pv moab/bld
+          cd moab
+          git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
+          cd bld
+          cmake ../moab -DENABLE_HDF5=ON \
+                    -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
+                    -DBUILD_SHARED_LIBS=OFF \
+                    -DENABLE_BLASLAPACK=OFF -DENABLE_FORTRAN=OFF \
+                    -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
+                    -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
+          make -j
+          make install
+          cd ../..
+          rm -rf moab/moab moab/bld
+
+      - name: Build DAGMC
+        shell: bash
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          mkdir -pv DAGMC/bld
+          cd DAGMC
+          git clone https://github.com/bam241/DAGMC -b build_exe
+          cd bld
+          cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
+                        -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
+                        -DBUILD_UWUW=ON \
+                        -DBUILD_TALLY=OFF \
+                        -DBUILD_BUILD_OBB=OFF \
+                        -DBUILD_MAKE_WATERTIGHT=ON \
+                        -DBUILD_SHARED_LIBS=OFF \
+                        -DBUILD_STATIC_LIBS=ON \
+                        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+                        -DCMAKE_BUILD_TYPE=Release \
+                        -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
+          make -j
+          make install
+          cd ../..
+          rm -rf DAGMC/DAGMC DAGCM/bld
 
       - name: Trelis setup
         shell: bash
@@ -62,53 +104,8 @@ jobs:
           ln -s MacOS bin
           ln -s /Applications/Trelis-17.1.app/Contents/include /Applications/include
           echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENV
-      - name: Build MOAB
-        shell: bash
-        run: |
-          cd ${PLUGIN_ABS_PATH}
-          mkdir -pv moab/bld
-          cd moab
-          git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
-          cd bld
-          cmake ../moab -DENABLE_HDF5=ON \
-                    -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-                    -DBUILD_SHARED_LIBS=OFF \
-                    -DENABLE_BLASLAPACK=OFF -DENABLE_FORTRAN=OFF \
-                    -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
-                    -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
-          make -j
-          make install
-          cd ../..
-          rm -rf moab/moab moab/bld
-
-      - name: build DAGMC
-        shell: bash
-        run: |
-          cd ${PLUGIN_ABS_PATH}
-          mkdir -pv DAGMC/bld
-          cd DAGMC
-          git clone https://github.com/bam241/DAGMC -b build_exe
-          cd bld
-          cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
-                        -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
-                        -DBUILD_UWUW=ON \
-                        -DBUILD_TALLY=OFF \
-                        -DBUILD_BUILD_OBB=OFF \
-                        -DBUILD_MAKE_WATERTIGHT=ON \
-                        -DBUILD_SHARED_LIBS=OFF \
-                        -DBUILD_STATIC_LIBS=ON \
-                        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-                        -DCMAKE_BUILD_TYPE=Release \
-                        -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-          make -j
-          make install
-          cd ../..
-          rm -rf DAGMC/DAGMC DAGCM/bld
-
-
-
-
-      - name: build plugin
+       
+      - name: Build plugin
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}/Trelis-plugin
@@ -128,7 +125,7 @@ jobs:
           make -j
           make install
 
-      - name: prepare pkg
+      - name: Prepare package
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}
@@ -144,8 +141,7 @@ jobs:
           cd ../..
           tar -czvf svalinn-plugin_mac_17.1.tgz MacOS
 
-
-      - name: 'Upload package'
+      - name: Upload package
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_mac
