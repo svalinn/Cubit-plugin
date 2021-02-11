@@ -2,7 +2,7 @@
 
 
 
-function install_prerequise() {
+function install_prerequisites() {
     TZ=America/Chicago
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
     apt-get update -y
