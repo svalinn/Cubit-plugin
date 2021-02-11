@@ -72,8 +72,6 @@ function setup_Trelis_sdk() {
 
     cd /opt
     tar -xzvf /Trelis-sdk/Trelis-SDK-$1-Lin64.tar.gz
-    cd /opt/Trelis-16.5
-    tar -xzvf /Trelis-sdk/Trelis-SDK-$1-Lin64.tar.gz
 }
 
 function build_plugin(){
