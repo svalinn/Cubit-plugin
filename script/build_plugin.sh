@@ -7,7 +7,7 @@ PLUGIN_ABS_PATH=""
 
 source ${SCRIPTPATH}/script/linux_share_build.sh
 
-install_prerequise
+install_prerequisites
 
 setup_folder
 
