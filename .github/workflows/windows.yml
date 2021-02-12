@@ -36,13 +36,19 @@ jobs:
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
 
-      - name: Conda dependencies
+      # - name: Conda dependencies
+      #   shell:  bash -l {0}
+      #   run: |
+      #     conda install eigen
+      #     choco install visualstudio2019buildtools
+
+      - name: HDF5 install
         shell:  bash -l {0}
         run: |
-          conda install eigen
-          conda install -c conda-forge hdf5-static hdf5
-          choco install visualstudio2019buildtools
-
+          wget hdf5-1.8.21-Std-win7_64-vs14.zip
+          unzip hdf5-1.8.21-Std-win7_64-vs14.zip
+          cd hdf
+          msiexec.exe /i HDF5-1.8.21-win64.msi /qn
 
       - name: Build MOAB
         shell: bash -l {0}
