@@ -40,7 +40,7 @@ jobs:
         shell:  bash -l {0}
         run: |
           conda install eigen
-          conda install -c conda-forge hdf5=1.8.21
+          conda install -c conda-forge hdf5-static hdf5
           choco install visualstudio2019buildtools
 
 
