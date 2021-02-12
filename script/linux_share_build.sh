@@ -6,7 +6,7 @@ function install_prerequisites() {
     TZ=America/Chicago
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
     apt-get update -y
-    apt-get install -y g++ libtool libeigen3-dev libhdf5-dev patchelf git cmake
+    apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
 }
 
 function setup_folder() {
