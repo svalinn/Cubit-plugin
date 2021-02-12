@@ -147,51 +147,59 @@ jobs:
           cp -r Trelis\ 17.1/* ./
 
 
-      # - name: build plugin
-      #   shell: bash
-      #   run: |
-      #     cd ${PLUGIN_ABS_PATH}
-      #     cd Trelis-plugin
-      #     git submodule update --init
-      #     cd ../
-      #     mkdir -pv bld
-      #     cd bld
-      #     cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-17.1 \
-      #                           -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
-      #                           -DCMAKE_BUILD_TYPE=Release \
-      #                           -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
-      #     make -j`grep -c processor /proc/cpuinfo`
-      #     make install
+      - name: build plugin
+        shell: bash
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          cd Trelis-plugin
+          rm -rf mcnp2cad
+          git clone  https://github.com/bam241/mcnp2cad -b windows
+          cd ../../
+          mkdir plugin_build plugin_install
+          cd plugin_build
+          cmake ../Trelis-plugin/ \
+                -G"Visual Studio 16 2019" \
+                -DCubit_DIR="../Trelis 17.1/bin" \
+                -DCUBIT_ROOT="../Trelis 17.1/bin" \
+                -DDAGMC_DIR="../dagmc_install" \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=../plugin_install  \
+                -DCMAKE_EXE_LINKER_FLAGS="" \
+                -DCMAKE_MODULE_LINKER_FLAGS="" \
+                -DCMAKE_SHARED_LINKER_FLAGS="" \
+                -DCMAKE_STATIC_LINKER_FLAGS="" 
+          cmake --build . --config Release
+          cmake --install . --config Release
 
-      # - name: prepare pkg
-      #   shell: bash
-      #   run: |
-      #     cd ${PLUGIN_ABS_PATH}
-      #     mkdir -p pack/bin/plugins/svalinn
-      #     cd pack/bin/plugins/svalinn
+      - name: prepare pkg
+        shell: bash
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          mkdir -p pack/bin/plugins/svalinn
+          cd pack/bin/plugins/svalinn
 
-      #     # Copy all needed libraries into current directory
-      #     cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-      #     cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so* .
-      #     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.so* .
-      #     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
-      #     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
-      #     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
-      #     cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
-      #     chmod 644 *
+          # Copy all needed libraries into current directory
+          cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
+          cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so* .
+          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.so* .
+          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
+          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
+          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
+          cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
+          chmod 644 *
 
-      #     # Set the RPATH to be the current directory for the DAGMC libraries
-      #     patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libMOAB.so
-      #     patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libdagmc.so
-      #     patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libmakeWatertight.so
-      #     patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libpyne_dagmc.so
-      #     patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libuwuw.so
+          # Set the RPATH to be the current directory for the DAGMC libraries
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libMOAB.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libdagmc.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libmakeWatertight.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libpyne_dagmc.so
+          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libuwuw.so
 
-      #     # Create the Svalinn plugin tarball
-      #     cd ..
-      #     ln -sv svalinn/libsvalinn_plugin.so .
-      #     cd ../..
-      #     tar --sort=name -czvf svalinn-plugin_linux_17.1.0.tgz bin
+          # Create the Svalinn plugin tarball
+          cd ..
+          ln -sv svalinn/libsvalinn_plugin.so .
+          cd ../..
+          tar --sort=name -czvf svalinn-plugin_linux_17.1.0.tgz bin
 
 
       # - name: 'Upload package'
