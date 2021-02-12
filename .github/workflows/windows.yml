@@ -41,22 +41,6 @@ jobs:
         run: |
           conda install curl eigen
 
-      - name: Trelis download
-        shell: bash
-        env:   
-          TRELIS_DEB_URL: ${{ secrets.WIN_TRELIS_17 }}
-          TRELIS_SDK_URL: ${{ secrets.WIN_TRELIS_SDK_17 }}
-        run: |
-          cd ${PLUGIN_ABS_PATH}
-          mkdir Trelis
-          cd Trelis
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.tar --output Trelis-17.1.0-Win64.exe.tar
-          tar -xvf Trelis-17.1.0-Win64.exe.tar
-          7z x Trelis-17.1.0-Win64.exe
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.zip --output trelis_sdk.zip
-          7z x trelis_sdk.zip
-          ls
-          cp -r Trelis\ 17.1/* ./
           
 
 
@@ -130,6 +114,7 @@ jobs:
           cmake --build . --config Release
           cmake --install . --config Release
 
+
       - name: Trelis download
         shell: bash
         env:   
@@ -139,11 +124,12 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           mkdir Trelis
           cd Trelis
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.tar --output trelis.tar
-          tar -xvf trelis.tar
+          curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.tar --output Trelis-17.1.0-Win64.exe.tar
+          tar -xvf Trelis-17.1.0-Win64.exe.tar
           7z x Trelis-17.1.0-Win64.exe
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.zip --output trelis_sdk.zip
           7z x trelis_sdk.zip
+          ls
           cp -r Trelis\ 17.1/* ./
 
 
