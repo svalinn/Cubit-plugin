@@ -41,9 +41,6 @@ jobs:
         run: |
           conda install curl eigen
 
-          
-
-
       - name: HDF5 download
         shell:  bash -l {0}
         run: |
@@ -114,7 +111,6 @@ jobs:
           cmake --build . --config Release
           cmake --install . --config Release
 
-
       - name: Trelis download
         shell: bash
         env:   
@@ -137,6 +133,7 @@ jobs:
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}
+          ls
           cd Trelis-plugin
           rm -rf mcnp2cad
           git clone  https://github.com/bam241/mcnp2cad -b windows
