@@ -48,7 +48,7 @@ jobs:
           curl -L https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.21/bin/hdf5-1.8.21-Std-win7_64-vs14.zip --output hdf5-1.8.21-Std-win7_64-vs14.zip
           unzip hdf5-1.8.21-Std-win7_64-vs14.zip
           cd hdf
-          msiexec.exe /i HDF5-1.8.21-win64.msi /qn
+          msiexec.exe /i HDF5-1.8.21-win64.msi /passive /norestart
 
       - name: Build MOAB
         shell: bash -l {0}
