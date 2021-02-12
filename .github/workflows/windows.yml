@@ -27,7 +27,9 @@ jobs:
         with:
           auto-activate-base: true
           activate-environment: ""
-
+      - name: Conda info
+        shell: bash -l {0}
+        run: conda info
       - name: Environment Variables
         run: |
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
