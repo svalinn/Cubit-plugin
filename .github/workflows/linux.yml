@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y g++ libtool libeigen3-dev libhdf5-dev patchelf git cmake
+          sudo apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
 
       - name: Build MOAB
         shell: bash
