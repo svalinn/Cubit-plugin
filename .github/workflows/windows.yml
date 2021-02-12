@@ -36,6 +36,11 @@ jobs:
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
 
+      - name: Conda dependencies
+        shell:  bash -l {0}
+        run: |
+          conda install curl eigen
+          
       - name: Trelis download
         shell: bash
         env:   
@@ -53,10 +58,6 @@ jobs:
           cp -r Trelis\ 17.1/* ./
           
 
-      - name: Conda dependencies
-        shell:  bash -l {0}
-        run: |
-          conda install curl eigen
 
       - name: HDF5 download
         shell:  bash -l {0}
