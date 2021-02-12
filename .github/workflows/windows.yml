@@ -133,7 +133,7 @@ jobs:
         shell: bash -l {0}
         run: |
           cd ${PLUGIN_ABS_PATH}
-          ls
+          cp -r D:\a\Trelis-plugin\Trelis-plugin ./
           cd Trelis-plugin
           rm -rf mcnp2cad
           git clone  https://github.com/bam241/mcnp2cad -b windows
