@@ -40,11 +40,8 @@ jobs:
         shell:  bash -l {0}
         run: |
           conda install eigen hdf5
+          choco install visualstudio2019buildtools
 
-      - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v1.0.2
-        with:
-          vs-version: '[16.4,16.5)'
 
 #       - name: Build MOAB
 #         shell: bash -l {0}
