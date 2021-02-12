@@ -23,13 +23,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        
       - uses: conda-incubator/setup-miniconda@v2
         with:
           auto-activate-base: true
           activate-environment: ""
-      - name: Conda info
-        shell: bash -l {0}
-        run: conda info
+
       - name: Environment Variables
         run: |
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
@@ -38,7 +37,7 @@ jobs:
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
 
       - name: Conda dependencies
-        shell: bash
+        shell:  bash -l {0}
         run: |
           conda install eigen hdf5
 
