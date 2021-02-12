@@ -60,7 +60,7 @@ jobs:
                 -DBUILD_SHARED_LIBS=ON \
                 -G"Visual Studio 16 2019"  \
                 -DCMAKE_INSTALL_PREFIX=../moab_install/ \
-                -DCMAKE_EXE_LINKER_FLAGS="" \
+                -DCMAKE_EXE_LINKER_FLAGS="-DH5_BUILT_AS_DYNAMIC_LIB" \
                 -DCMAKE_MODULE_LINKER_FLAGS="" \
                 -DCMAKE_SHARED_LINKER_FLAGS="" \
                 -DCMAKE_STATIC_LINKER_FLAGS="" \
