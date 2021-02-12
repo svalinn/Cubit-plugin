@@ -39,7 +39,7 @@ jobs:
       - name: Conda dependencies
         shell:  bash -l {0}
         run: |
-          conda install eigen hdf5-static
+          conda install eigen hdf5
           choco install visualstudio2019buildtools
 
 
@@ -56,6 +56,7 @@ jobs:
                 -DENABLE_IMESH=OFF \
                 -DENABLE_TESTING=OFF \
                 -DENABLE_HDF5=ON \
+                -DH5_BUILT_AS_DYNAMIC_LIB \
                 -DBUILD_SHARED_LIBS=ON \
                 -G"Visual Studio 16 2019"  \
                 -DCMAKE_INSTALL_PREFIX=../moab_install/ \
