@@ -39,7 +39,7 @@ jobs:
       - name: Conda dependencies
         shell:  bash -l {0}
         run: |
-          conda install eigen hdf5
+          conda install eigen hdf5-static
           choco install visualstudio2019buildtools
 
 
