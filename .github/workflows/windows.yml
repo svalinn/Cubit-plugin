@@ -50,7 +50,7 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           mkdir Trelis
           cd Trelis
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.tar --output Trelis-17.1.0-Win64.exe.tar
+          curl -L https://uwmadison.box.com/shared/static/xxin6necc3mkgg2zxm2ac9cfxf8kb8m9.tar --output Trelis-17.1.0-Win64.exe.tar
           tar -xvf Trelis-17.1.0-Win64.exe.tar
           7z x Trelis-17.1.0-Win64.exe
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.zip --output trelis_sdk.zip
