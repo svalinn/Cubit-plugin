@@ -56,7 +56,7 @@ jobs:
                 -DENABLE_IMESH=OFF \
                 -DENABLE_TESTING=OFF \
                 -DENABLE_HDF5=ON \
-                -DH5_BUILT_AS_DYNAMIC_LIB \
+                -DH5_BUILT_AS_DYNAMIC_LIB=ON \
                 -DBUILD_SHARED_LIBS=ON \
                 -G"Visual Studio 16 2019"  \
                 -DCMAKE_INSTALL_PREFIX=../moab_install/ \
