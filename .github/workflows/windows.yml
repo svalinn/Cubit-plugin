@@ -55,6 +55,7 @@ jobs:
           7z x Trelis-17.1.0-Win64.exe
           curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.zip --output trelis_sdk.zip
           7z x trelis_sdk.zip
+          ls
           cp -r Trelis\ 17.1/* ./
           
 
