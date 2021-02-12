@@ -42,11 +42,14 @@ jobs:
           conda install curl eigen
       #     choco install visualstudio2019buildtools
 
-      - name: HDF5 install
+      - name: HDF5 download
         shell:  bash -l {0}
         run: |
           curl -L https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.21/bin/hdf5-1.8.21-Std-win7_64-vs14.zip --output hdf5-1.8.21-Std-win7_64-vs14.zip
           unzip hdf5-1.8.21-Std-win7_64-vs14.zip
+      - name: HDF5 download
+        shell:  cmd
+        run: |
           cd hdf
           msiexec.exe /i HDF5-1.8.21-win64.msi /passive /norestart
 
