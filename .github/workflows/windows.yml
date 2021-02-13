@@ -175,6 +175,6 @@ jobs:
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
         with:
-          name: svalinn-plugin_linux
+          name: svalinn-plugin_Windows_17.1.0
           path: C:/Users/runneradmin/svalin_plugin_windows_17.1.0.tar
 
