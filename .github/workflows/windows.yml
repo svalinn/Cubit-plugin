@@ -168,12 +168,12 @@ jobs:
           cp ../../plugin_install/bin/* ./
           cp ../../plugin_install/lib/* ./
           cd ${PLUGIN_ABS_PATH}
-          tar -cvf svalin_plugin_windows.tar  bin
+          tar -cvf svalin_plugin_windows_17.1.0.tar  bin
 
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_linux
-          path: /c/Users/runneradmin/ssvalin_plugin_windows_17.1.0.tar
+          path: /c/Users/runneradmin/svalin_plugin_windows_17.1.0.tar
 
