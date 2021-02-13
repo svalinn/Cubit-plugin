@@ -144,6 +144,7 @@ jobs:
                 -G"Visual Studio 16 2019" \
                 -DCubit_DIR="../Trelis/bin" \
                 -DCUBIT_ROOT="../Trelis/bin" \
+                -DUPDATE_SUBMODULES=OFF \
                 -DDAGMC_DIR="../dagmc_install" \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=../plugin_install  \
@@ -160,36 +161,20 @@ jobs:
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}
-          mkdir -p pack/bin/plugins/svalinn
-          cd pack/bin/plugins/svalinn
+          mkdir -p bin/plugins
 
-          # Copy all needed libraries into current directory
-          cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-          cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
-          cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
-          chmod 644 *
-
-          # Set the RPATH to be the current directory for the DAGMC libraries
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libMOAB.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libdagmc.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libmakeWatertight.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libpyne_dagmc.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libuwuw.so
-
-          # Create the Svalinn plugin tarball
-          cd ..
-          ln -sv svalinn/libsvalinn_plugin.so .
-          cd ../..
-          tar --sort=name -czvf svalinn-plugin_linux_17.1.0.tgz bin
+          cp ../../moab_install/bin/MOAB.dll ./
+          cp ../../dagmc_install/lib/*.lib ./
+          cp ../../plugin_install/bin/* ./
+          cp ../../plugin_install/lib/* ./
+          cd ${PLUGIN_ABS_PATH}
+          tar -cvf svalin_plugin_windows.tar  bin
+          pwd
 
 
-      # - name: 'Upload package'
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: svalinn-plugin_linux
-      #     path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_17.1.0.tgz
+      - name: 'Upload package'
+        uses: actions/upload-artifact@v2
+        with:
+          name: svalinn-plugin_linux
+          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_17.1.0.tgz
 
