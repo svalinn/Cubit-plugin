@@ -162,7 +162,7 @@ jobs:
         run: |
           cd ${PLUGIN_ABS_PATH}
           mkdir -p bin/plugins
-
+          cd bin/plugins
           cp ../../moab_install/bin/MOAB.dll ./
           cp ../../dagmc_install/lib/*.lib ./
           cp ../../plugin_install/bin/* ./
