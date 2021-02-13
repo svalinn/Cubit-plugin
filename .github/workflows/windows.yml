@@ -142,8 +142,8 @@ jobs:
           cd plugin_build
           cmake ../Trelis-plugin/ \
                 -G"Visual Studio 16 2019" \
-                -DCubit_DIR="../Trelis 17.1/bin" \
-                -DCUBIT_ROOT="../Trelis 17.1/bin" \
+                -DCubit_DIR="../Trelis/bin" \
+                -DCUBIT_ROOT="../Trelis/bin" \
                 -DDAGMC_DIR="../dagmc_install" \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=../plugin_install  \
