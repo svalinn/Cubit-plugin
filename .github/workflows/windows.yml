@@ -137,7 +137,7 @@ jobs:
           cd Trelis-plugin
           rm -rf mcnp2cad
           git clone  https://github.com/bam241/mcnp2cad -b windows
-          cd ../../
+          cd ../
           mkdir plugin_build plugin_install
           cd plugin_build
           cmake ../Trelis-plugin/ \
