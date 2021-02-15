@@ -1,5 +1,5 @@
 #!/bin/bash
-
+PROC=$((`grep -c processor /proc/cpuinfo`))
 
 
 function install_prerequisites() {
@@ -35,7 +35,7 @@ function build_moab() {
             -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
 
-    make -j`grep -c processor /proc/cpuinfo`
+    make -j$PROC
     make install
     cd ../..
     rm -rf moab/moab moab/bld
@@ -46,7 +46,7 @@ function build_dagmc(){
     cd ${PLUGIN_ABS_PATH}
     mkdir -pv DAGMC/bld
     cd DAGMC
-    git clone https://github.com/bam241/DAGMC -b build_exe
+    git clone https://github.com/svalinn/DAGMC -b develop
     cd bld
     cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
                 -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
@@ -60,7 +60,7 @@ function build_dagmc(){
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-    make -j`grep -c processor /proc/cpuinfo`
+    make -j$PROC
     make install
     cd ../..
     rm -rf DAGMC/DAGMC DAGCM/bld
@@ -85,7 +85,7 @@ function build_plugin(){
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
                            -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
-    make -j`grep -c processor /proc/cpuinfo`
+    make -j$PROC
     make install
 }
 
