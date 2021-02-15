@@ -25,7 +25,7 @@ function setup_Trelis_sdk() {
         TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
         TRELIS_PKG="Coreform-Cubit-2020.2-Lin64.deb"
         TRELIS_SDK_PKG="Coreform-Cubit-2020.2-Lin64-SDK.tar.gz"
-    elif [ "$1" = "17.1" ]; then
+    elif [ "$1" = "17.1.0" ]; then
         TRELIS_PATH="/opt/Trelis-17.1"
         TRELIS_PKG="Trelis-17.1.0-Lin64.deb"
         TRELIS_SDK_PKG="Trelis-SDK-17.1.0-Lin64.tar.gz"    
@@ -38,13 +38,6 @@ function setup_Trelis_sdk() {
     apt-get -f -y install 
     cd /opt
     tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
-    if [ "$1" = "2020.2" ]; then
-        cd $TRELIS_PATH/bin
-        cp -pv CubitExport.cmake CubitExport.cmake.orig
-        sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-        cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-        sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
-    fi
 }
 
 
