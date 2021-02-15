@@ -1,7 +1,11 @@
 #include "iGeom_test.hpp"
-#include "iGeom.h"
+
 #include <vector>
-#include "CubitCoreformInterface.hpp"
+
+#include "CubitVersionCompatibility.hpp"
+#include CUBIT_INTERFACE_HEADER
+
+#include "iGeom.h"
 
 // CGM includes
 #include "GeometryModifyTool.hpp"
@@ -14,7 +18,7 @@ iGeom_test::iGeom_test()
   radius = 2.0;
   radius2 = 1.0;
 
-  CubitMessageHandler* console = CubitMessage::get_message_handler();
+  CubitMessageHandler* console = MSG_HANDLER;
   if (console) {
     std::ostringstream load_message;
     load_message.str("");

@@ -44,6 +44,7 @@ message(STATUS "CMAKE_INSTALL_RPATH: ${CMAKE_INSTALL_RPATH}")
 # Add source files and required libraries for the plugin to these variables
 # based on which build options are enabled
 set(PLUGIN_SRC_FILES SvalinnPlugin.cpp)
+
 set(PLUGIN_LINK_LIBS ${CUBIT_LIBS})
 
 # DAGMC exporter
@@ -71,6 +72,8 @@ if (BUILD_IGEOM)
   include_directories(iGeom)
   add_library(iGeom SHARED ${IGEOM_SRC_FILES})
   target_link_libraries(iGeom ${CUBIT_LIBS})
+   target_include_directories(iGeom PUBLIC
+              $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
   install(TARGETS iGeom LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_LINK_LIBS iGeom)
 endif ()
@@ -120,5 +123,6 @@ message(STATUS "Building Svalinn plugin")
 message(STATUS "PLUGIN_SRC_FILES: ${PLUGIN_SRC_FILES}")
 message(STATUS "PLUGIN_LINK_LIBS: ${PLUGIN_LINK_LIBS}")
 add_library(svalinn_plugin MODULE ${PLUGIN_SRC_FILES})
+target_include_directories(svalinn_plugin PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_link_libraries(svalinn_plugin PUBLIC ${PLUGIN_LINK_LIBS})
 install(TARGETS svalinn_plugin LIBRARY DESTINATION lib)

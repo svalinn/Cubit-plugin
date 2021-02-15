@@ -1,5 +1,8 @@
 #include "MCNPImp.hpp"
-#include "CubitCoreformInterface.hpp"
+
+#include "CubitVersionCompatibility.hpp"
+#include CUBIT_INTERFACE_HEADER
+
 #include "CubitMessage.hpp"
 #include "options.hpp"
 #include "mcnp2cad.hpp"
@@ -25,8 +28,7 @@ MCNPImp::MCNPImp()
   Gopt.override_tolerance = false;
   Gopt.input_file = "";
 
-
-  CubitMessageHandler* console = CubitMessage::get_message_handler();
+  CubitMessageHandler* console = MSG_HANDLER;
   if (console) {
     std::ostringstream load_message;
     load_message.str("");
