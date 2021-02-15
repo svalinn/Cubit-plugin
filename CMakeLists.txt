@@ -53,7 +53,6 @@ message(STATUS "CMAKE_INSTALL_RPATH: ${CMAKE_INSTALL_RPATH}")
 # Add source files and required libraries for the plugin to these variables
 # based on which build options are enabled
 set(PLUGIN_SRC_FILES SvalinnPlugin.cpp)
-
 set(PLUGIN_LINK_LIBS ${CUBIT_LIBS})
 
 # DAGMC exporter
