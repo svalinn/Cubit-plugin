@@ -32,7 +32,7 @@ if (CMAKE_SYSTEM_NAME MATCHES Linux AND CMAKE_COMPILER_IS_GNUCXX)
   endif ()
 endif ()
 
- # Find Cubit/Trelis
+# Find Cubit/Trelis
 if (NOT CUBIT_ROOT)
   message(FATAL_ERROR "CUBIT_ROOT not specified")
 endif ()
