@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 function install_prerequisites() {
     TZ=America/Chicago
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -63,7 +61,7 @@ function build_dagmc(){
     make -j`grep -c processor /proc/cpuinfo`
     make install
     cd ../..
-    rm -rf DAGMC/DAGMC DAGCM/bld
+    rm -rf DAGMC/DAGMC DAGMC/bld
 }
 
 function setup_Trelis_sdk() {
