@@ -13,8 +13,6 @@ function setup_folder() {
     mkdir ${PLUGIN_DIR}
     echo "Building the Trelis plugin in ${CURRENT}\\${PLUGIN_DIR}"
 
-    unset LD_LIBRARY_PATH
-
     cd ${PLUGIN_DIR}
     PLUGIN_ABS_PATH=$(pwd)
     ln -s $SCRIPTPATH/ ./

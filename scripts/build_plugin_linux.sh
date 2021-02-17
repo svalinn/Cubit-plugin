@@ -7,6 +7,9 @@ SCRIPTPATH=`dirname $(dirname $(realpath $0))`
 PLUGIN_DIR="plugin-build"
 PLUGIN_ABS_PATH=""
 
+#need to clear the LD_LIBRARY_PATH to avoid lib conflict
+unset LD_LIBRARY_PATH
+
 source ${SCRIPTPATH}/script/linux_share_build.sh
 
 install_prerequisites
