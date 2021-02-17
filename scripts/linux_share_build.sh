@@ -1,10 +1,11 @@
 #!/bin/bash
+PROC=$((`grep -c processor /proc/cpuinfo`))
 
-function install_prerequise() {
+function install_prerequisites() {
     TZ=America/Chicago
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
     apt-get update -y
-    apt-get install -y g++ libtool libeigen3-dev libhdf5-dev patchelf git cmake
+    apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
 }
 
 
@@ -25,6 +26,7 @@ function setup_Trelis_sdk() {
         TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
         TRELIS_PKG="Coreform-Cubit-2020.2-Lin64.deb"
         TRELIS_SDK_PKG="Coreform-Cubit-2020.2-Lin64-SDK.tar.gz"
+        CMAKE_ADDITIONAL_FLAG="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     elif [ "$1" = "17.1.0" ]; then
         TRELIS_PATH="/opt/Trelis-17.1"
         TRELIS_PKG="Trelis-17.1.0-Lin64.deb"
@@ -51,8 +53,9 @@ function build_plugin(){
     cmake ../Trelis-plugin -DCUBIT_ROOT=${TRELIS_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
+                            $CMAKE_ADDITIONAL_FLAG \
                            -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
-    make -j`grep -c processor /proc/cpuinfo`
+    make -j$PROC
     make install
 }
 
@@ -98,8 +101,8 @@ function build_moab() {
             -DBUILD_SHARED_LIBS=ON \
             -DENABLE_BLASLAPACK=OFF \
             -DENABLE_FORTRAN=OFF \
+            $CMAKE_ADDITIONAL_FLAG \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
-#            -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
 
     make -j`grep -c processor /proc/cpuinfo`
     make install
@@ -124,8 +127,8 @@ function build_dagmc(){
                 -DBUILD_EXE=OFF \
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                 -DCMAKE_BUILD_TYPE=Release \
+                $CMAKE_ADDITIONAL_FLAG \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-#                -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
                 
     
     make -j`grep -c processor /proc/cpuinfo`
