@@ -19,6 +19,6 @@ Linux (tested on Ubuntu 18.04 and 20.04):
     - arguments: Trelis/CUbit version to build the plugin for (only supported yet `17.1.0`)
 - `build_plugin_docker_ubuntu.sh`: build the plugin in a docker container 
     - arguments: Arguments have to be provided in order
-        - docker image (tested on `ubuntu:18.04` and `ubuntu:20.04`)
-        - local path to the folder containing the Trelis/Cubit install deb and SDK
-        - version of CUbit Trelis to build the plugin for (only supported yet `17.1.0`)
+        #1 docker image (tested on `ubuntu:18.04` and `ubuntu:20.04`)
+        #2 local path to the folder containing the Trelis/Cubit install deb and SDK
+        #3 version of CUbit Trelis to build the plugin for (only supported yet `17.1.0`)
