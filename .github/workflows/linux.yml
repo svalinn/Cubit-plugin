@@ -22,12 +22,12 @@ jobs:
       matrix:
         cubit: [17_1_0, 2020_0]
         os: [ubuntu-18.04, ubuntu-20.04]
-        
+
         include:
           - cubit: 17.1.0
             os: ubuntu-18.04
-            URL: ${{ secrets.LINUX_CUBIT_17_1_0 }}
-            URL_SDK: ${{ secrets.LINUX_CUBIT_SDK_17_1_0 }}
+            URL: LINUX_CUBIT_17_1_0
+            URL_SDK: LINUX_CUBIT_SDK_17_1_0
             
           - cubit: 2020.0
             os: ubuntu-20.04
@@ -112,8 +112,8 @@ jobs:
       - name: Trelis setup
         shell: bash
         env:   
-          CUBIT_DEB_URL: ${{ matrix.URL }}
-          CUBIT_SDK_URL: ${{ matrix.URL_SDK }}
+          CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
+          CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
           if [ "${{ matrix.cubit }}" = "2020_2" ]; then
             sudo apt-get -y install libglew2.1 libglu1-mesa libopengl0 ocl-icd-libopencl1 libcxsparse3 libopenblas0 libegl1
