@@ -26,11 +26,11 @@ function setup_Trelis_sdk() {
         TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
         TRELIS_PKG="Coreform-Cubit-2020.2-Lin64.deb"
         TRELIS_SDK_PKG="Coreform-Cubit-2020.2-Lin64-SDK.tar.gz"
-        CMAKE_ADDITIONAL_FLAG="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     elif [ "$1" = "17.1.0" ]; then
         TRELIS_PATH="/opt/Trelis-17.1"
         TRELIS_PKG="Trelis-17.1.0-Lin64.deb"
-        TRELIS_SDK_PKG="Trelis-SDK-17.1.0-Lin64.tar.gz"    
+        TRELIS_SDK_PKG="Trelis-SDK-17.1.0-Lin64.tar.gz"
+        CMAKE_ADDITIONAL_FLAG="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
         echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
     fi
