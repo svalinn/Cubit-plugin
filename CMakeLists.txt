@@ -131,9 +131,6 @@ message(STATUS "Building Svalinn plugin")
 message(STATUS "PLUGIN_SRC_FILES: ${PLUGIN_SRC_FILES}")
 message(STATUS "PLUGIN_LINK_LIBS: ${PLUGIN_LINK_LIBS}")
 add_library(svalinn_plugin MODULE ${PLUGIN_SRC_FILES})
-<<<<<<< HEAD
 target_include_directories(svalinn_plugin PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
-=======
->>>>>>> auto_build
 target_link_libraries(svalinn_plugin ${PLUGIN_LINK_LIBS})
 install(TARGETS svalinn_plugin LIBRARY DESTINATION lib)
