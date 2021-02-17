@@ -22,16 +22,17 @@ jobs:
       matrix:
         cubit: [17_1_0, 2020_0]
         os: [ubuntu-18.04, ubuntu-20.04]
-      include:
-        - cubit: 17.1.0
-          os: ubuntu-18.04
-          URL: ${{ secrets.LINUX_CUBIT_17_1_0 }}
-          URL_SDK: ${{ secrets.LINUX_CUBIT_SDK_17_1_0 }}
-          
-        - cubit: 2020.0
-          os: ubuntu-20.04
-          URL: ${{ secrets.LINUX_CUBIT_2020_2 }}
-          URL_SDK: ${{ secrets.LINUX_CUBIT_SDK_2020_2 }}
+        
+        include:
+          - cubit: 17.1.0
+            os: ubuntu-18.04
+            URL: ${{ secrets.LINUX_CUBIT_17_1_0 }}
+            URL_SDK: ${{ secrets.LINUX_CUBIT_SDK_17_1_0 }}
+            
+          - cubit: 2020.0
+            os: ubuntu-20.04
+            URL: ${{ secrets.LINUX_CUBIT_2020_2 }}
+            URL_SDK: ${{ secrets.LINUX_CUBIT_SDK_2020_2 }}
 
     name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build'
 
