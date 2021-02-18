@@ -21,9 +21,10 @@ jobs:
     strategy:
       matrix:
         cubit: [17_1_0, 2020_0]
+        os: [ubuntu-18.04, ubuntu-20.04]
 
         include:
-          - cubit: 17.1.0
+          - cubit: 17_1_0
             os: ubuntu-18.04
             URL: LINUX_CUBIT_17_1_0
             URL_SDK: LINUX_CUBIT_SDK_17_1_0
@@ -46,7 +47,7 @@ jobs:
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
             echo "CUBIT_PATH=\"/opt/Trelis-17.1\"" >> $GITHUB_ENV
-            echo "CMAKE_ADDITIONAL_FLAG=\" -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0\"" >> $GITHUB_ENV
+            echo "CMAKE_ADDITIONAL_FLAG=\"-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0\"" >> $GITHUB_ENV
           else
             echo "CUBIT_PATH=\"/opt/Coreform-Cubit-2020.2\"" >> $GITHUB_ENV
             echo "CMAKE_ADDITIONAL_FLAG=\"\"" >> $GITHUB_ENV
