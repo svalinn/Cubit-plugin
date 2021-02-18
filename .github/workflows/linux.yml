@@ -31,8 +31,8 @@ jobs:
             
           - cubit: 2020.0
             os: ubuntu-20.04
-            URL: ${{ secrets.LINUX_CUBIT_2020_2 }}
-            URL_SDK: ${{ secrets.LINUX_CUBIT_SDK_2020_2 }}
+            URL: LINUX_CUBIT_2020_2
+            URL_SDK: LINUX_CUBIT_SDK_2020_2
 
     name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build'
 
