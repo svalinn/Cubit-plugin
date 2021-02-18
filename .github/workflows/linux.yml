@@ -43,7 +43,7 @@ jobs:
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
-            echo "CUBIT_PATH=\"/opt/Trelis-17.1\"" >> $GITHUB_ENV
+            echo "CUBIT_PATH=/opt/Trelis-17.1" >> $GITHUB_ENV
             echo "CMAKE_ADDITIONAL_FLAG=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
           else
             echo "CUBIT_PATH=\"/opt/Coreform-Cubit-2020.2\"" >> $GITHUB_ENV
