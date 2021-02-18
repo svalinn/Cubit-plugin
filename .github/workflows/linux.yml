@@ -48,12 +48,12 @@ jobs:
           else
             echo "CUBIT_PATH=\"/opt/Coreform-Cubit-2020.2\"" >> $GITHUB_ENV
           fi
-          echo $CUBIT_PATH
 
 
       - name: Apt dependencies
         shell: bash
         run: |
+          echo $CUBIT_PATH
           sudo apt-get update -y
           sudo apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
        
