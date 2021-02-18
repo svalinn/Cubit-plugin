@@ -53,7 +53,6 @@ jobs:
       - name: Apt dependencies
         shell: bash
         run: |
-          echo $CUBIT_PATH
           sudo apt-get update -y
           sudo apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
        
@@ -140,11 +139,10 @@ jobs:
           cd ../
           mkdir -pv bld
           cd bld
-          cmake ../Trelis-plugin \
+          cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
                 -DCUBIT_ROOT=${CUBIT_PATH} \
                 -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                 -DCMAKE_BUILD_TYPE=Release \
-                $CMAKE_ADDITIONAL_FLAG \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
           make -j`grep -c processor /proc/cpuinfo`
           make install
