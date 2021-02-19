@@ -9,6 +9,8 @@
 
 //Stores all of the options selected
 struct program_option_struct Gopt;
+std::ofstream record;
+
 
 MCNPImp::MCNPImp()
 {

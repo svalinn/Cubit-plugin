@@ -2,6 +2,9 @@ project(SvalinnCommandPlugin)
 
 cmake_minimum_required(VERSION 3.0)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+
+
 # Build options
 option(UPDATE_SUBMODULES    "Automatically update git submodules" ON)
 option(BUILD_DAGMC_EXPORTER "Include DagMC export capability"     ON)
@@ -20,23 +23,29 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
 
+if(MSVC)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
+    set(BUILD_SHARED_LIBS TRUE)
+endif()
+
+
 # Use C++11
 set(CMAKE_CXX_STANDARD 11)
 
-# Adjust compiler setting for Linux using gcc version 5.0 and higher
-if (CMAKE_SYSTEM_NAME MATCHES Linux AND CMAKE_COMPILER_IS_GNUCXX)
-  if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.0")
-    if (NOT CMAKE_CXX_FLAGS MATCHES _GLIBCXX_USE_CXX11_ABI)
-      set(CMAKE_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 ${CMAKE_CXX_FLAGS}")
-    endif ()
-  endif ()
-endif ()
+# # Adjust compiler setting for Linux using gcc version 5.0 and higher
+# if (CMAKE_SYSTEM_NAME MATCHES Linux AND CMAKE_COMPILER_IS_GNUCXX)
+#   if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.0")
+#     if (NOT CMAKE_CXX_FLAGS MATCHES _GLIBCXX_USE_CXX11_ABI)
+#       set(CMAKE_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 ${CMAKE_CXX_FLAGS}")
+#     endif ()
+#   endif ()
+# endif ()
 
 # Find Cubit/Trelis
 if (NOT CUBIT_ROOT)
   message(FATAL_ERROR "CUBIT_ROOT not specified")
 endif ()
-list(APPEND CMAKE_PREFIX_PATH ${CUBIT_ROOT}/bin)
+list(APPEND CMAKE_PREFIX_PATH ${CUBIT_ROOT}/bin) 
 find_package(Cubit REQUIRED CONFIG)
 include_directories(${CUBIT_INCLUDE_DIRS})
 link_directories(${Cubit_DIR})
