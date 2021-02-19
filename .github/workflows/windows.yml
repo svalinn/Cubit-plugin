@@ -22,15 +22,13 @@ jobs:
       matrix:
         include:
           - cubit: 17_1_0
-            URL: WINDOWS_CUBIT_17_1_0
-            URL_SDK: WINDOWS_CUBIT_SDK_17_1_0
+            URL: WIN_TRELIS_17
+            URL_SDK: WIN_TRELIS_SDK_17
             
           - cubit: 2020_2
-            URL: WINDOWS_CUBIT_2020_2
-            URL_SDK: WINDOWS_CUBIT_SDK_2020_2
-    name: 'Trelis Svalinn Plugin 17.1 Build'
-
-
+            URL: WIN_CUBIT_2020_2
+            URL_SDK: WIN_CUBIT_SDK_2020_2
+    name: 'Trelis Svalinn Plugin ${{ matrix.cubit }} Build'
     steps:
         
       - uses: conda-incubator/setup-miniconda@v2
