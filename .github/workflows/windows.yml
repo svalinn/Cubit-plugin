@@ -19,15 +19,15 @@ jobs:
   main:
     runs-on: windows-2019
     strategy:
-    matrix:
-      include:
-        - cubit: 17_1_0
-          URL: WINDOWS_CUBIT_17_1_0
-          URL_SDK: WINDOWS_CUBIT_SDK_17_1_0
-          
-        - cubit: 2020_2
-          URL: WINDOWS_CUBIT_2020_2
-          URL_SDK: WINDOWS_CUBIT_SDK_2020_2
+      matrix:
+        include:
+          - cubit: 17_1_0
+            URL: WINDOWS_CUBIT_17_1_0
+            URL_SDK: WINDOWS_CUBIT_SDK_17_1_0
+            
+          - cubit: 2020_2
+            URL: WINDOWS_CUBIT_2020_2
+            URL_SDK: WINDOWS_CUBIT_SDK_2020_2
     name: 'Trelis Svalinn Plugin 17.1 Build'
 
 
