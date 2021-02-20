@@ -84,7 +84,7 @@ jobs:
             cd ${PLUGIN_ABS_PATH}/Trelis-plugin
             sudo cp scripts/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
           elif [ "${{ matrix.cubit }}" = "2020_2" ]; then
-            cd ${CUBIT_PATH}/bin
+            cd ${TRELIS_INSTALL_LOC}/bin
             sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
             sudo sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
             sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
