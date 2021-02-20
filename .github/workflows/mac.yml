@@ -93,7 +93,7 @@ jobs:
             sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
             sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
             sudo gsed -i "s/Trelis-17.1.app/${{ matrix.CUBIT_BASE_NAME }}.app/" CubitUtilConfig.cmake
-
+            grep "Trelis-17.1.app" *.cmake
           fi
    
       - name: Build MOAB
