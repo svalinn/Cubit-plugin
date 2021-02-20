@@ -38,7 +38,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   find_package(HDF5 REQUIRED)
   include_directories(${HDF5_INCLUDE_DIRS})
   list(APPEND PLUGIN_LINK_LIBS ${HDF5_LIBRARIES})
-endif
+endif()
 
 # Find Cubit/Trelis
 if (NOT CUBIT_ROOT)
