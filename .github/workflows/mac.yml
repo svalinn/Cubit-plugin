@@ -131,7 +131,7 @@ jobs:
           git submodule update --init
 
           cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-          cp script/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
+          cp scripts/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
 
           rm -rf bld
           mkdir -pv bld
