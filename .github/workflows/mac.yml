@@ -89,7 +89,7 @@ jobs:
             cd ${TRELIS_INSTALL_LOC}/bin
             sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
             sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-            sed -i "s/Trelis-17.1.app/${{ matrix.CUBIT_BASE_NAME }}.app/" CubitExport.cmake
+            sudo gsed -i "s/Trelis-17.1.app/${{ matrix.CUBIT_BASE_NAME }}.app/" CubitExport.cmake
             sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
             sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
           fi
