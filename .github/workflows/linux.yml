@@ -31,7 +31,7 @@ jobs:
             URL: LINUX_CUBIT_2020_2
             URL_SDK: LINUX_CUBIT_SDK_2020_2
 
-    name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build'
+    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Linux'
 
 
     steps:

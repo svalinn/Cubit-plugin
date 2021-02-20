@@ -28,7 +28,7 @@ jobs:
           - cubit: 2020_2
             URL: WIN_CUBIT_2020_2
             URL_SDK: WIN_CUBIT_SDK_2020_2
-    name: 'Trelis Svalinn Plugin ${{ matrix.cubit }} Build'
+    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Windows'
     steps:
         
       - uses: conda-incubator/setup-miniconda@v2

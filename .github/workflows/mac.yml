@@ -31,7 +31,7 @@ jobs:
             URL_SDK: MAC_CUBIT_SDK_2020_2
             CUBIT_BASE_NAME: Coreform-Cubit-2020.2
 
-    name: 'Trelis Svalinn Plugin ${{ matrix.cubit }} Build for Macos'
+    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Macos'
 
     steps:
       - uses: actions/checkout@v2
@@ -64,7 +64,7 @@ jobs:
             hdiutil detach /Volumes/Trelis-17.1.0-Mac64
             rm -rf trelis.dmg
             
-          elif [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+          elif [ "${{ matrix.cubit }}" = "2020_2" ]; then
             curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output cubit.pkg
             sudo installer -pkg cubit.pkg -target /
             rm -rf cubit.pkg
