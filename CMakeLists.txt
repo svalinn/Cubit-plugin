@@ -34,6 +34,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 # HDF5 for mac
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  MESSAGE("IN DARWIN -- FOR HDF5")
   SET(HDF5_USE_STATIC_LIBRARIES ON)
   find_package(HDF5 REQUIRED)
   include_directories(${HDF5_INCLUDE_DIRS})
