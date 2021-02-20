@@ -127,11 +127,11 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           mkdir Trelis
           cd Trelis
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.tar --output Trelis-Win64.exe.tar
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.tar --output Trelis-Win64.exe.tar
           tar -xvf Trelis-Win64.exe.tar
           mv Trelis*.exe Trelis.exe
           7z x Trelis.exe
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.zip --output trelis_sdk.zip
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.zip --output trelis_sdk.zip
           7z x trelis_sdk.zip
           ls
           cp -r Trelis*/* ./
