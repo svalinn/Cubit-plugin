@@ -47,7 +47,7 @@ jobs:
       - name: Brew dependencies
         shell: bash
         run: |
-          brew install eigen hdf5 gcc@6 
+          brew install eigen hdf5 gcc@6 gsed
 
       - name: Trelis setup
         shell: bash
@@ -86,9 +86,9 @@ jobs:
           elif [ "${{ matrix.cubit }}" = "2020_2" ]; then
             cd ${TRELIS_INSTALL_LOC}/bin
             sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
-            sudo sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+            sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
             sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-            sudo sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+            sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
           fi
    
       - name: Build MOAB
