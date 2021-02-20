@@ -32,14 +32,13 @@ endif()
 # Use C++11
 set(CMAKE_CXX_STANDARD 11)
 
-# # Adjust compiler setting for Linux using gcc version 5.0 and higher
-# if (CMAKE_SYSTEM_NAME MATCHES Linux AND CMAKE_COMPILER_IS_GNUCXX)
-#   if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.0")
-#     if (NOT CMAKE_CXX_FLAGS MATCHES _GLIBCXX_USE_CXX11_ABI)
-#       set(CMAKE_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 ${CMAKE_CXX_FLAGS}")
-#     endif ()
-#   endif ()
-# endif ()
+# HDF5 for mac
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  SET(HDF5_USE_STATIC_LIBRARIES ON)
+  find_package(HDF5 REQUIRED)
+  include_directories(${HDF5_INCLUDE_DIRS})
+  list(APPEND PLUGIN_LINK_LIBS ${HDF5_LIBRARIES})
+endif
 
 # Find Cubit/Trelis
 if (NOT CUBIT_ROOT)
