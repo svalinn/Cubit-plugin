@@ -144,7 +144,7 @@ jobs:
             cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
             sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
           fi
--
+
       - uses: actions/checkout@v2
 
       - name: build plugin
