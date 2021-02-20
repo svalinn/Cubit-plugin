@@ -78,7 +78,7 @@ jobs:
           mv bin/* MacOS/
           rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
           ln -s MacOS bin
-          ln -s ${{ TRELIS_INSTALL_LOC }}/include /Applications/include
+          ln -s ${TRELIS_INSTALL_LOC}/include /Applications/include
    
       - name: Build MOAB
         shell: bash
