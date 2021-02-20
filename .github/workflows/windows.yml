@@ -136,11 +136,15 @@ jobs:
           ls
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
             cp -r Trelis*/* ./
-
           else
             cp -r Coreform*/* ./
+            cd ${CUBIT_PATH}/bin
+            cp -pv CubitExport.cmake CubitExport.cmake.orig
+            sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+            cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+            sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
           fi
-
+-
       - uses: actions/checkout@v2
 
       - name: build plugin
