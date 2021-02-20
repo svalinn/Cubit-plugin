@@ -79,6 +79,17 @@ jobs:
           sudo rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
           sudo ln -s MacOS bin
           sudo ln -s ${TRELIS_INSTALL_LOC}/include /Applications/include
+
+          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+            cd ${PLUGIN_ABS_PATH}/Trelis-plugin
+            sudo cp scripts/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
+          elif [ "${{ matrix.cubit }}" = "2020_2" ]; then
+            cd ${CUBIT_PATH}/bin
+            sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
+            sudo sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+            sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+            sudo sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+          fi
    
       - name: Build MOAB
         shell: bash
@@ -131,7 +142,8 @@ jobs:
           git submodule update --init
 
           cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-          cp scripts/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
+
+
 
           rm -rf bld
           mkdir -pv bld
