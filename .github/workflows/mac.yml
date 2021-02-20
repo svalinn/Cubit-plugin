@@ -71,7 +71,7 @@ jobs:
 
           fi
           cd $TRELIS_INSTALL_LOC
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
+          sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
           tar -xzf trelis_sdk.tar.gz
           mv ${{ matrix.CUBIT_BASE_NAME }}/* ./
           mv ${{ matrix.CUBIT_BASE_NAME }}.app/Contents/MacOS/* MacOS/
