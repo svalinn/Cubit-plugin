@@ -134,7 +134,12 @@ jobs:
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.zip --output trelis_sdk.zip
           7z x trelis_sdk.zip
           ls
-          cp -r Trelis*/* ./
+          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+            cp -r Trelis*/* ./
+
+          else
+            cp -r Coreform*/* ./
+          fi
 
       - uses: actions/checkout@v2
 
