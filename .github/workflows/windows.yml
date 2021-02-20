@@ -129,7 +129,7 @@ jobs:
           cd Trelis
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.tar --output Trelis-Win64.exe.tar
           tar -xvf Trelis-Win64.exe.tar
-          mv Trelis*.exe Trelis.exe
+          mv *.exe Trelis.exe
           7z x Trelis.exe
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.zip --output trelis_sdk.zip
           7z x trelis_sdk.zip
