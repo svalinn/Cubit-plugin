@@ -42,6 +42,7 @@ jobs:
           echo "PLUGIN_ABS_PATH=" >> $GITHUB_ENV
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
+          echo "TRELIS_INSTALL_LOC=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
 
       - name: Brew dependencies
         shell: bash
@@ -53,7 +54,6 @@ jobs:
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
-          TRELIS_INSTALL_LOC: "/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents"
         run: |
           cd ${PLUGIN_ABS_PATH}
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
@@ -79,7 +79,6 @@ jobs:
           rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
           ln -s MacOS bin
           ln -s ${{ TRELIS_INSTALL_LOC }}/include /Applications/include
-          echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENV
    
       - name: Build MOAB
         shell: bash
