@@ -47,6 +47,39 @@ jobs:
         shell: bash
         run: |
           brew install eigen hdf5 gcc@6 
+
+      - name: Trelis setup
+        shell: bash
+        env:   
+          CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
+          CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
+          TRELIS_INSTALL_LOC: "/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents"
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.dmg --output trelis.dmg
+            hdiutil convert trelis.dmg -format UDTO -o trelis_eula.dmg
+            hdiutil attach trelis_eula.dmg.cdr
+            mv /Volumes/Trelis-17.1.0-Mac64/*.app /Applications/
+            hdiutil detach /Volumes/Trelis-17.1.0-Mac64
+            rm -rf trelis.dmg
+            
+          elif [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output cubit.pkg
+            sudo installer -pkg cubit.pkg -target /
+            rm -rf cubit.pkg
+
+          fi
+          cd $TRELIS_INSTALL_LOC
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
+          tar -xzf trelis_sdk.tar.gz
+          mv ${{ matrix.CUBIT_BASE_NAME }}/* ./
+          mv ${{ matrix.CUBIT_BASE_NAME }}.app/Contents/MacOS/* MacOS/
+          mv bin/* MacOS/
+          rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
+          ln -s MacOS bin
+          ln -s ${{ TRELIS_INSTALL_LOC }}/include /Applications/include
+          echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENV
    
       - name: Build MOAB
         shell: bash
@@ -90,39 +123,6 @@ jobs:
           make install
           cd ../..
           rm -rf DAGMC/DAGMC DAGCM/bld
-
-      - name: Trelis setup
-        shell: bash
-        env:   
-          CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
-          CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
-          TRELIS_INSTALL_LOC: "/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents"
-        run: |
-          cd ${PLUGIN_ABS_PATH}
-          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
-            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.dmg --output trelis.dmg
-            hdiutil convert trelis.dmg -format UDTO -o trelis_eula.dmg
-            hdiutil attach trelis_eula.dmg.cdr
-            mv /Volumes/Trelis-17.1.0-Mac64/*.app /Applications/
-            hdiutil detach /Volumes/Trelis-17.1.0-Mac64
-            rm -rf trelis.dmg
-            
-          elif [ "${{ matrix.cubit }}" = "17_1_0" ]; then
-            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output cubit.pkg
-            sudo installer -pkg cubit.pkg -target /
-            rm -rf cubit.pkg
-
-          fi
-          cd $TRELIS_INSTALL_LOC
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
-          tar -xzf trelis_sdk.tar.gz
-          mv ${{ matrix.CUBIT_BASE_NAME }}/* ./
-          mv ${{ matrix.CUBIT_BASE_NAME }}.app/Contents/MacOS/* MacOS/
-          mv bin/* MacOS/
-          rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
-          ln -s MacOS bin
-          ln -s ${{ TRELIS_INSTALL_LOC }}/include /Applications/include
-          echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENV
 
        
       - name: Build plugin
