@@ -24,12 +24,12 @@ jobs:
           - cubit: 17_1_0
             URL: MAC_CUBIT_17_1_0
             URL_SDK: MAC_CUBIT_SDK_17_1_0
-            CUBIT_FOLDER: Trelis-17.1.app
+            CUBIT_BASE_NAME: Trelis-17.1
             
           - cubit: 2020_2
             URL: MAC_CUBIT_2020_2
             URL_SDK: MAC_CUBIT_SDK_2020_2
-            CUBIT_FOLDER: Trelis-17.1.app
+            CUBIT_BASE_NAME: Coreform-Cubit-2020.2
 
     name: 'Trelis Svalinn Plugin ${{ matrix.cubit }} Build for Macos'
 
@@ -96,7 +96,7 @@ jobs:
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
-          TRELIS_INSTALL_LOC: "/Applications/${{ matrix.CUBIT_FOLDER }}/Contents"
+          TRELIS_INSTALL_LOC: "/Applications/${{ matrix.CUBIT_FOLDER }}.app/Contents"
         run: |
           cd ${PLUGIN_ABS_PATH}
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
@@ -107,17 +107,24 @@ jobs:
             mv /Volumes/Trelis-17.1.0-Mac64/*.app /Applications/
             hdiutil detach /Volumes/Trelis-17.1.0-Mac64
             rm -rf trelis.dmg
-            cd $TRELIS_INSTALL_LOC
-            curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
-            tar -xzf trelis_sdk.tar.gz
-            mv Trelis-17.1/* ./
-            mv Trelis-17.1.app/Contents/MacOS/* MacOS/
-            mv bin/* MacOS/
-            rm -rf bin Trelis-17.1.app
-            ln -s MacOS bin
-            ln -s /Applications/Trelis-17.1.app/Contents/include /Applications/include
-            echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENV
+            
+          elif [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output cubit.pkg
+            sudo installer -pkg cubit.pkg -target /
+            rm -rf cubit.pkg
+
           fi
+          cd $TRELIS_INSTALL_LOC
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
+          tar -xzf trelis_sdk.tar.gz
+          mv ${{ matrix.URL_SDK }}/* ./
+          mv ${{ matrix.URL_SDK }}.app/Contents/MacOS/* MacOS/
+          mv bin/* MacOS/
+          rm -rf bin ${{ matrix.URL_SDK }}.app
+          ln -s MacOS bin
+          ln -s ${{ TRELIS_INSTALL_LOC }}/include /Applications/include
+          echo "TRELIS_INSTALL_LOC=$TRELIS_INSTALL_LOC" >> $GITHUB_ENV
+
        
       - name: Build plugin
         shell: bash
