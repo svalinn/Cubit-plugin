@@ -72,13 +72,13 @@ jobs:
           fi
           cd $TRELIS_INSTALL_LOC
           sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
-          tar -xzf trelis_sdk.tar.gz
-          mv ${{ matrix.CUBIT_BASE_NAME }}/* ./
-          mv ${{ matrix.CUBIT_BASE_NAME }}.app/Contents/MacOS/* MacOS/
-          mv bin/* MacOS/
-          rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
-          ln -s MacOS bin
-          ln -s ${TRELIS_INSTALL_LOC}/include /Applications/include
+          sudo tar -xzf trelis_sdk.tar.gz
+          sudo mv ${{ matrix.CUBIT_BASE_NAME }}/* ./
+          sudo mv ${{ matrix.CUBIT_BASE_NAME }}.app/Contents/MacOS/* MacOS/
+          sudo mv bin/* MacOS/
+          sudo rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
+          sudo ln -s MacOS bin
+          sudo ln -s ${TRELIS_INSTALL_LOC}/include /Applications/include
    
       - name: Build MOAB
         shell: bash
