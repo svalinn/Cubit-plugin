@@ -138,7 +138,7 @@ jobs:
             cp -r Trelis*/* ./
           else
             cp -r Coreform*/* ./
-            cd Trelis/bin
+            cd bin
             cp -pv CubitExport.cmake CubitExport.cmake.orig
             sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
             cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
