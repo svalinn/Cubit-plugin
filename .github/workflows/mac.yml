@@ -173,11 +173,11 @@ jobs:
           cd ..
           ln -sv svalinn/libsvalinn_plugin.so .
           cd ../..
-          tar -czvf svalinn-plugin_mac_17.1.tgz MacOS
+          tar -czvf svalinn-plugin_mac_cubit_${{ matrix.cubit }}.tgz MacOS
 
       - name: Upload package
         uses: actions/upload-artifact@v2
         with:
-          name: svalinn-plugin_mac
-          path: /Users/runner/work/Trelis-plugin/pack/svalinn-plugin_mac_17.1.tgz
+          name: svalinn-plugin_mac_${{ matrix.cubit }}
+          path: /Users/runner/work/Trelis-plugin/pack/svalinn-plugin_mac_cubit_${{ matrix.cubit }}.tgz
 
