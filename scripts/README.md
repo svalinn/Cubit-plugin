@@ -1,7 +1,7 @@
 SVALINN PLUGIN SCRIPTS
 ======================
 
-This folder contains scripts to build the Svalinn plugin for multiple platform.
+This folder contains scripts to build the Svalinn plugin on multiple platforms.
 
 Linux (tested on Ubuntu 18.04 and 20.04):
 -----------------------------------------
@@ -13,12 +13,12 @@ Linux (tested on Ubuntu 18.04 and 20.04):
     - `build_dagmc()`: build and install DAGMC
     - `setup_Trelis_sdk()`: install Trelis/CUbit and the corresponding SDK
     - `build_plugin()`: build the plugin
-    - `build_plugin_pkg()`:  build a tarball containing the plugin
+    - `build_plugin_pkg()`: build a tarball containing the plugin
 
 - `build_plugin_linux.sh`: build the plugin on a linux computer (relies on apt-get to install required dependencies)
-    - arguments: Trelis/CUbit version to build the plugin for (only supported yet `17.1.0`)
+    - arguments: Trelis/Cubit version to build the plugin for (only supported yet `17.1.0`)
 - `build_plugin_docker_ubuntu.sh`: build the plugin in a docker container 
     - arguments: Arguments have to be provided in order
         - 1 docker image (tested on `ubuntu:18.04` and `ubuntu:20.04`)
         - 2 local path to the folder containing the Trelis/Cubit install deb and SDK
-        - 3 version of CUbit Trelis to build the plugin for (only supported yet `17.1.0`)
+        - 3 version of Cubit Trelis to build the plugin for (only tested with `17.1.0`)
