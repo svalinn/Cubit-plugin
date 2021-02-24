@@ -143,9 +143,9 @@ jobs:
         shell: bash
         run: |
           cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-          git submodule update --init
+          rm -rf mcnp2cad
+          git clone  https://github.com/bam241/mcnp2cad -b mac_build
 
-          cd ${PLUGIN_ABS_PATH}/Trelis-plugin
           mkdir -pv bld
           cd bld
           cmake .. $CMAKE_ADDITIONAL_FLAG \
