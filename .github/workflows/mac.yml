@@ -58,6 +58,8 @@ jobs:
           mkdir -pv bld
           cd bld
           pwd
+          ls ../
+          ls ../Trelis-plugin
           cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
                   -DUPDATE_SUBMODULES=OFF \ 
                   -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
