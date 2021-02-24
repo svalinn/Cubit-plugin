@@ -61,7 +61,6 @@ jobs:
           ls ../
           ls ../Trelis-plugin
           cmake ../Trelis-plugin \
-                  -DUPDATE_SUBMODULES=OFF \ 
                   -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
                   -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
                   -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
