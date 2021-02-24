@@ -21,6 +21,54 @@ function setup_folder() {
 }
 
 
+function build_moab() {
+    cd ${PLUGIN_ABS_PATH}
+    mkdir -pv moab/bld
+    cd moab
+    git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
+    cd bld
+    cmake ../moab -DENABLE_HDF5=ON \
+            -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
+            -DBUILD_SHARED_LIBS=ON \
+            -DENABLE_BLASLAPACK=OFF \
+            -DENABLE_FORTRAN=OFF \
+            $CMAKE_ADDITIONAL_FLAG \
+            -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
+
+    make -j`grep -c processor /proc/cpuinfo`
+    make install
+    cd ../..
+    rm -rf moab/moab moab/bld
+}
+
+
+function build_dagmc(){
+    cd ${PLUGIN_ABS_PATH}
+    mkdir -pv DAGMC/bld
+    cd DAGMC
+    git clone https://github.com/bam241/DAGMC -b build_exe
+    cd bld
+    cmake ../DAGMC -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
+                -DBUILD_UWUW=ON \
+                -DBUILD_TALLY=OFF \
+                -DBUILD_BUILD_OBB=OFF \
+                -DBUILD_MAKE_WATERTIGHT=ON \
+                -DBUILD_SHARED_LIBS=ON \
+                -DBUILD_STATIC_LIBS=OFF \
+                -DBUILD_EXE=OFF \
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+                -DCMAKE_BUILD_TYPE=Release \
+                $CMAKE_ADDITIONAL_FLAG \
+                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
+                
+    
+    make -j`grep -c processor /proc/cpuinfo`
+    make install
+    cd ../..
+    rm -rf DAGMC/DAGMC DAGCM/bld
+}
+
+
 function setup_Trelis_sdk() {
     if [ "$1" = "2020.2" ]; then
         TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
@@ -87,52 +135,4 @@ function build_plugin_pkg(){
     ln -sv svalinn/libsvalinn_plugin.so .
     cd ../..
     tar --sort=name -czvf svalinn-plugin_linux_$1.tgz bin
-}
-
-
-function build_moab() {
-    cd ${PLUGIN_ABS_PATH}
-    mkdir -pv moab/bld
-    cd moab
-    git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
-    cd bld
-    cmake ../moab -DENABLE_HDF5=ON \
-            -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-            -DBUILD_SHARED_LIBS=ON \
-            -DENABLE_BLASLAPACK=OFF \
-            -DENABLE_FORTRAN=OFF \
-            $CMAKE_ADDITIONAL_FLAG \
-            -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
-
-    make -j`grep -c processor /proc/cpuinfo`
-    make install
-    cd ../..
-    rm -rf moab/moab moab/bld
-}
-
-
-function build_dagmc(){
-    cd ${PLUGIN_ABS_PATH}
-    mkdir -pv DAGMC/bld
-    cd DAGMC
-    git clone https://github.com/bam241/DAGMC -b build_exe
-    cd bld
-    cmake ../DAGMC -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
-                -DBUILD_UWUW=ON \
-                -DBUILD_TALLY=OFF \
-                -DBUILD_BUILD_OBB=OFF \
-                -DBUILD_MAKE_WATERTIGHT=ON \
-                -DBUILD_SHARED_LIBS=ON \
-                -DBUILD_STATIC_LIBS=OFF \
-                -DBUILD_EXE=OFF \
-                -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-                -DCMAKE_BUILD_TYPE=Release \
-                $CMAKE_ADDITIONAL_FLAG \
-                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-                
-    
-    make -j`grep -c processor /proc/cpuinfo`
-    make install
-    cd ../..
-    rm -rf DAGMC/DAGMC DAGCM/bld
 }
