@@ -47,11 +47,33 @@ jobs:
             echo "CMAKE_ADDITIONAL_FLAG=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
           fi
 
+      - name: Build plugin
+        shell: bash
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          cd Trelis-plugin
+          rm -rf mcnp2cad
+          git clone  https://github.com/bam241/mcnp2cad -b mac_build
+          cd ../
+          mkdir -pv bld
+          cd bld
+          cmake ./Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
+                  -DUPDATE_SUBMODULES=OFF \ 
+                  -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
+                  -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
+                  -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
+                  -DCMAKE_BUILD_TYPE=Release \
+                  -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
+          make -j
+          make install
+
+
       - name: Brew dependencies
         shell: bash
         run: |
           brew install eigen hdf5@1.10 gcc@6 gsed
           brew link hdf5@1.10
+
 
       - name: Trelis setup
         shell: bash
@@ -140,24 +162,7 @@ jobs:
           cd ../..
           rm -rf DAGMC/DAGMC DAGCM/bld
 
-      - name: Build plugin
-        shell: bash
-        run: |
-          cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-          rm -rf mcnp2cad
-          git clone  https://github.com/bam241/mcnp2cad -b mac_build
-          cd ../
-          mkdir -pv bld
-          cd bld
-          cmake ./Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
-                  -DUPDATE_SUBMODULES=OFF \ 
-                  -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
-                  -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
-                  -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
-                  -DCMAKE_BUILD_TYPE=Release \
-                  -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
-          make -j
-          make install
+
 
       - name: Prepare package
         shell: bash
