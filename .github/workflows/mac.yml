@@ -51,8 +51,8 @@ jobs:
       - name: Brew dependencies
         shell: bash
         run: |
-          brew install eigen hdf5@1.10 gcc@6 gsed
-          brew link hdf5@1.10
+          brew install eigen hdf5 gcc@6 gsed
+          brew link hdf5
 
 
       - name: Trelis setup
@@ -124,7 +124,7 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           mkdir -pv DAGMC/bld
           cd DAGMC
-          git clone https://github.com/svalinn/DAGMC -b develop
+          git clone https://github.com/bam241/DAGMC -b hdf5_12.1
           cd bld
           cmake ../DAGMC $CMAKE_ADDITIONAL_FLAG  \
                         -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
