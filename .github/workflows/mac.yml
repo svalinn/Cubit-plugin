@@ -60,7 +60,7 @@ jobs:
           pwd
           ls ../
           ls ../Trelis-plugin
-          cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
+          cmake ../Trelis-plugin \
                   -DUPDATE_SUBMODULES=OFF \ 
                   -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
                   -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
