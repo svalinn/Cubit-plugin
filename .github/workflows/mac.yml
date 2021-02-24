@@ -50,7 +50,7 @@ jobs:
       - name: Brew dependencies
         shell: bash
         run: |
-          brew install eigen hdf5 gcc@6 gsed
+          brew install eigen hdf5@1.10 gcc@6 gsed
 
       - name: Trelis setup
         shell: bash
