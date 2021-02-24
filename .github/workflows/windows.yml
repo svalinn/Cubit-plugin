@@ -1,0 +1,198 @@
+name: Windows
+
+on:
+  # allows us to run workflows manually
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - develop
+      - master
+  push:
+    branches:
+      - develop
+      - master
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  main:
+    runs-on: windows-2019
+    strategy:
+      matrix:
+        include:
+          - cubit: 17_1_0
+            URL: WIN_TRELIS_17
+            URL_SDK: WIN_TRELIS_SDK_17
+            
+          - cubit: 2020_2
+            URL: WIN_CUBIT_2020_2
+            URL_SDK: WIN_CUBIT_SDK_2020_2
+    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Windows'
+    steps:
+        
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: true
+          activate-environment: ""
+
+      - name: Environment Variables
+        run: |
+          echo "CURRENT=$(pwd)" >> $GITHUB_ENV
+          echo "PLUGIN_ABS_PATH=" >> $GITHUB_ENV
+          echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+          echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
+
+      - name: Conda dependencies
+        shell:  bash -l {0}
+        run: |
+          conda install curl eigen
+
+      - name: HDF5 download
+        shell:  bash -l {0}
+        run: |
+          curl -L https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.21/bin/hdf5-1.8.21-Std-win7_64-vs14.zip --output hdf5-1.8.21-Std-win7_64-vs14.zip
+          unzip hdf5-1.8.21-Std-win7_64-vs14.zip
+      - name: HDF5 install
+        shell:  cmd
+        run: |
+          cd hdf
+          msiexec.exe /i HDF5-1.8.21-win64.msi /passive /norestart
+
+      - name: Build MOAB
+        shell: bash -l {0}
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          git clone https://bitbucket.org/bam241/moab -b windows_2
+          mkdir moab_build moab_install
+          cd moab_build
+          cmake ../moab \
+                -DENABLE_BLASLAPACK=OFF \
+                -DENABLE_FORTRAN=OFF \
+                -DENABLE_IMESH=OFF \
+                -DENABLE_TESTING=OFF \
+                -DENABLE_HDF5=ON \
+                -DBUILD_SHARED_LIBS=ON \
+                -G"Visual Studio 16 2019"  \
+                -DCMAKE_INSTALL_PREFIX=../moab_install/ \
+                -DHDF5_ROOT="C:/Program Files/HDF_Group/HDF5/1.8.21" \
+                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
+                -DCMAKE_EXE_LINKER_FLAGS="" \
+                -DCMAKE_MODULE_LINKER_FLAGS="" \
+                -DCMAKE_SHARED_LINKER_FLAGS="" \
+                -DCMAKE_STATIC_LINKER_FLAGS="" \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_C_COMPILER="C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.27.29110/bin/Hostx64/x64/cl.exe" \
+                -DCMAKE_CXX_COMPILER="C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.27.29110/bin/Hostx64/x64/cl.exe"
+          cmake --build . --config Release
+          cmake --install . --config Release
+
+
+      - name: build DAGMC
+        shell: bash -l {0}
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          mkdir dagmc_build dagmc_install
+          git clone https://github.com/bam241/dagmc -b windows
+
+          cd dagmc_build
+          cmake ../dagmc \
+                -G"Visual Studio 16 2019" \
+                -DBUILD_EXE=OFF \
+                -DBUILD_SHARED_LIBS=ON \
+                -DBUILD_STATIC_LIBS=OFF \
+                -DBUILD_TALLY=OFF \
+                -DBUILD_BUILD_OBB=OFF \
+                -DBUILD_UWUW=ON \
+                -DBUILD_MAKE_WATERTIGHT=ON \
+                -DBUILD_TESTS=OFF \
+                -DMOAB_DIR=../moab_install \
+                -DHDF5_ROOT="C:/Program Files/HDF_Group/HDF5/1.8.21" \
+                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
+                -DCMAKE_INSTALL_PREFIX=../dagmc_install/ \
+                -DCMAKE_EXE_LINKER_FLAGS="" \
+                -DCMAKE_MODULE_LINKER_FLAGS="" \
+                -DCMAKE_SHARED_LINKER_FLAGS="" \
+                -DCMAKE_STATIC_LINKER_FLAGS="" \
+                -DCMAKE_BUILD_TYPE=Release
+          cmake --build . --config Release
+          cmake --install . --config Release
+
+      - name: Trelis download
+        shell: bash -l {0}
+        env:   
+          CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
+          CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          mkdir Trelis
+          cd Trelis
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.tar --output Trelis-Win64.exe.tar
+          tar -xvf Trelis-Win64.exe.tar
+          mv *.exe Trelis.exe
+          7z x Trelis.exe
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.zip --output trelis_sdk.zip
+          7z x trelis_sdk.zip
+          ls
+          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+            cp -r Trelis*/* ./
+          else
+            cp -r Coreform*/* ./
+            cd bin
+            cp -pv CubitExport.cmake CubitExport.cmake.orig
+            sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+            cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+            sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+          fi
+
+      - uses: actions/checkout@v2
+
+      - name: build plugin
+        shell: bash -l {0}
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          cp -r /d/a/Trelis-plugin/Trelis-plugin ./
+          cd Trelis-plugin
+          rm -rf mcnp2cad
+          git clone  https://github.com/bam241/mcnp2cad -b windows
+          cd ../
+          mkdir plugin_build plugin_install
+          cd plugin_build
+          cmake ../Trelis-plugin/ \
+                -G"Visual Studio 16 2019" \
+                -DCubit_DIR="../Trelis/bin" \
+                -DCUBIT_ROOT="../Trelis/bin" \
+                -DUPDATE_SUBMODULES=OFF \
+                -DDAGMC_DIR="../dagmc_install" \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=../plugin_install  \
+                -DHDF5_ROOT="C:/Program Files/HDF_Group/HDF5/1.8.21" \
+                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
+                -DCMAKE_EXE_LINKER_FLAGS="" \
+                -DCMAKE_MODULE_LINKER_FLAGS="" \
+                -DCMAKE_SHARED_LINKER_FLAGS="" \
+                -DCMAKE_STATIC_LINKER_FLAGS="" 
+          cmake --build . --config Release
+          cmake --install . --config Release
+
+      - name: prepare pkg
+        shell: bash
+        run: |
+          cd ${PLUGIN_ABS_PATH}
+          mkdir -p bin/plugins
+          cd bin/plugins
+          cp ../../moab_install/bin/MOAB.dll ./
+          cp ../../dagmc_install/lib/*.lib ./
+          cp ../../plugin_install/bin/* ./
+          cp ../../plugin_install/lib/* ./
+          cd ${PLUGIN_ABS_PATH}
+          tar -cvf svalin_plugin_windows_${{ matrix.cubit }}.tar  bin
+
+
+
+      - name: 'Upload package'
+        uses: actions/upload-artifact@v2
+        with:
+          name: svalinn-plugin_Windows_${{ matrix.cubit }}
+          path: C:/Users/runneradmin/svalin_plugin_windows_${{ matrix.cubit }}.tar
+
