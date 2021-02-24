@@ -1,8 +1,11 @@
 #include "SvalinnPlugin.hpp"
+
 #include <sstream>
 
+#include "CubitVersionCompatibility.hpp"
+#include CUBIT_INTERFACE_HEADER
+
 #include "CubitMessageHandler.hpp"
-#include "CubitInterface.hpp"
 
 //Not including this when you aren't building the DAGMC export means you don't need to have MakeWatertight.hpp
 #ifdef BUILD_DAGMC_EXPORT
@@ -20,12 +23,12 @@
 SvalinnPlugin::SvalinnPlugin()
 {
 
-  CubitMessageHandler *console = CubitInterface::get_cubit_message_handler();
+  CubitMessageHandler* console = MSG_HANDLER;
   if (console) {
     std::ostringstream load_message;
     load_message.str("");
     load_message << "Loaded Svalinn plugin." << std::endl;
-    CubitInterface::get_cubit_message_handler()->print_error(load_message.str().c_str());
+    console->print_error(load_message.str().c_str());
   }
 
 }

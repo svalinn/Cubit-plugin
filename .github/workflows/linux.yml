@@ -17,8 +17,21 @@ env:
 
 jobs:
   main:
-    runs-on: ubuntu-18.04
-    name: 'Trelis Svalinn Plugin 17.1 Build for Linux'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - cubit: 17_1_0
+            os: ubuntu-18.04
+            URL: LINUX_CUBIT_17_1_0
+            URL_SDK: LINUX_CUBIT_SDK_17_1_0
+            
+          - cubit: 2020_2
+            os: ubuntu-20.04
+            URL: LINUX_CUBIT_2020_2
+            URL_SDK: LINUX_CUBIT_SDK_2020_2
+
+    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Linux'
 
 
     steps:
@@ -27,16 +40,22 @@ jobs:
       - name: Environment Variables
         run: |
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
-          echo "PLUGIN_ABS_PATH=" >> $GITHUB_ENV
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
+          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+            echo "CUBIT_PATH=/opt/Trelis-17.1" >> $GITHUB_ENV
+            echo "CMAKE_ADDITIONAL_FLAG=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
+          else
+            echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
+          fi
+
 
       - name: Apt dependencies
         shell: bash
         run: |
           sudo apt-get update -y
           sudo apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
-
+       
       - name: Build MOAB
         shell: bash
         run: |
@@ -45,13 +64,13 @@ jobs:
           cd moab
           git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
           cd bld
-          cmake ../moab -DENABLE_HDF5=ON \
-                  -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-                  -DBUILD_SHARED_LIBS=ON \
-                  -DENABLE_BLASLAPACK=OFF \
-                  -DENABLE_FORTRAN=OFF \
-                  -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
-                  -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
+          cmake ../moab $CMAKE_ADDITIONAL_FLAG \
+                -DENABLE_HDF5=ON \
+                -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
+                -DBUILD_SHARED_LIBS=ON \
+                -DENABLE_BLASLAPACK=OFF \
+                -DENABLE_FORTRAN=OFF \
+                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
 
           make -j`grep -c processor /proc/cpuinfo`
           make install
@@ -66,18 +85,18 @@ jobs:
           cd DAGMC
           git clone https://github.com/bam241/DAGMC -b build_exe
           cd bld
-          cmake ../DAGMC -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
-                      -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
-                      -DBUILD_UWUW=ON \
-                      -DBUILD_TALLY=OFF \
-                      -DBUILD_BUILD_OBB=OFF \
-                      -DBUILD_MAKE_WATERTIGHT=ON \
-                      -DBUILD_SHARED_LIBS=ON \
-                      -DBUILD_STATIC_LIBS=OFF \
-                      -DBUILD_EXE=OFF \
-                      -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-                      -DCMAKE_BUILD_TYPE=Release \
-                      -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
+          cmake ../DAGMC $CMAKE_ADDITIONAL_FLAG \
+                -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
+                -DBUILD_UWUW=ON \
+                -DBUILD_TALLY=OFF \
+                -DBUILD_BUILD_OBB=OFF \
+                -DBUILD_MAKE_WATERTIGHT=ON \
+                -DBUILD_SHARED_LIBS=ON \
+                -DBUILD_STATIC_LIBS=OFF \
+                -DBUILD_EXE=OFF \
+                -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
           make -j`grep -c processor /proc/cpuinfo`
           make install
           cd ../..
@@ -86,16 +105,29 @@ jobs:
       - name: Trelis setup
         shell: bash
         env:   
-          TRELIS_DEB_URL: ${{ secrets.LINUX_TRELIS_17 }}
-          TRELIS_SDK_URL: ${{ secrets.LINUX_TRELIS_SDK_17 }}
+          CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
+          CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
+          if [ "${{ matrix.cubit }}" = "2020_2" ]; then
+            sudo apt-get -y install libglew2.1 libglu1-mesa libopengl0 ocl-icd-libopencl1 libcxsparse3 libopenblas0 libegl1
+          fi
+
           cd ${PLUGIN_ABS_PATH}
-          echo "$TRELIS_DEB_URL"
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_DEB_URL}.deb --output trelis.deb
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.deb --output trelis.deb
           sudo dpkg -i trelis.deb
+
+
           cd /opt
-          curl -L https://uwmadison.box.com/shared/static/${TRELIS_SDK_URL}.gz --output trelis_sdk.tar.gz
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
           sudo tar -zxvf trelis_sdk.tar.gz
+ 
+          if [ "${{ matrix.cubit }}" = "2020_2" ]; then
+            cd ${CUBIT_PATH}/bin
+            sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
+            sudo sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+            sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+            sudo sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+          fi
 
 
       - name: build plugin
@@ -107,10 +139,11 @@ jobs:
           cd ../
           mkdir -pv bld
           cd bld
-          cmake ../Trelis-plugin -DCUBIT_ROOT=/opt/Trelis-17.1 \
-                                -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
-                                -DCMAKE_BUILD_TYPE=Release \
-                                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
+          cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
+                -DCUBIT_ROOT=${CUBIT_PATH} \
+                -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
           make -j`grep -c processor /proc/cpuinfo`
           make install
 
@@ -132,22 +165,22 @@ jobs:
           chmod 644 *
 
           # Set the RPATH to be the current directory for the DAGMC libraries
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libMOAB.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libdagmc.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libmakeWatertight.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libpyne_dagmc.so
-          patchelf --set-rpath /opt/Trelis-17.1/bin/plugins/svalinn libuwuw.so
+          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libMOAB.so
+          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libdagmc.so
+          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libmakeWatertight.so
+          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libpyne_dagmc.so
+          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libuwuw.so
 
           # Create the Svalinn plugin tarball
           cd ..
           ln -sv svalinn/libsvalinn_plugin.so .
           cd ../..
-          tar --sort=name -czvf svalinn-plugin_linux_17.1.0.tgz bin
+          tar --sort=name -czvf svalinn-plugin_linux_cubit_${{ matrix.cubit }}.tgz bin
 
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
         with:
-          name: svalinn-plugin_linux
-          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_17.1.0.tgz
+          name: svalinn-plugin_linux_${{ matrix.cubit }}
+          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_cubit_${{ matrix.cubit }}.tgz
 
