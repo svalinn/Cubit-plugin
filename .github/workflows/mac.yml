@@ -149,6 +149,7 @@ jobs:
           mkdir -pv bld
           cd bld
           cmake .. $CMAKE_ADDITIONAL_FLAG \
+                  -DUPDATE_SUBMODULES=OFF \ 
                   -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
                   -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
                   -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
