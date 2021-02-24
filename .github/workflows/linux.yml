@@ -18,7 +18,7 @@ env:
 jobs:
   main:
     runs-on: ubuntu-18.04
-    name: 'Trelis Svalinn Plugin 17.1 Build'
+    name: 'Trelis Svalinn Plugin 17.1 Build for Linux'
 
 
     steps:
