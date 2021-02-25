@@ -103,7 +103,7 @@ cd pack/MacOS/plugins/svalinn
 
 # Copy all needed libraries into current directory
 cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-cp /Users/mouginot/szlib/libsz.2.dylib .
+cp /usr/local/opt/szip/lib/libsz.2.dylib .
 install_name_tool -change /usr/local/opt/szip/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
 
 # Create the Svalinn plugin tarball
