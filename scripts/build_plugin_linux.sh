@@ -1,20 +1,22 @@
 #!/bin/bash
 set -ex
 
-CURRENT=$(pwd)
-SCRIPTPATH=`dirname $(dirname $(realpath $0))`
-
-PLUGIN_DIR="plugin-build"
-PLUGIN_ABS_PATH=""
 #need to clear the LD_LIBRARY_PATH to avoid lib conflict
 unset LD_LIBRARY_PATH
-FOLDER_PKG="/trelis-sdk"
+
+CURRENT=$(pwd)
+SCRIPTPATH=`dirname $(dirname $(realpath $0))`
+FOLDER_PKG="${2}"
+
+PLUGIN_DIR="plugin-build"
+
+PLUGIN_ABS_PATH=""
 TRELIS_PATH=""
 TRELIS_PKG=""
 TRELIS_SDK_PKG=""   
 CMAKE_ADDITIONAL_FLAG="" 
 
-source ${SCRIPTPATH}/script/linux_share_build.sh
+source ${SCRIPTPATH}/scripts/linux_share_build.sh
 
 install_prerequisites
 

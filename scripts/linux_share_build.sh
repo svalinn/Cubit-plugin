@@ -82,12 +82,21 @@ function setup_Trelis_sdk() {
     else
         echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
     fi
+    if [ "$1" = "2020.2" ]; then
+        apt-get -y install libxt6 libglew2.1 libglu1-mesa libopengl0 ocl-icd-libopencl1 libcxsparse3 libopenblas0 libegl1 libboost-thread1.71.0 liblapack3
+    fi
 
     cd ${FOLDER_PKG} 
     dpkg -i ${TRELIS_PKG}
-    apt-get -f -y install 
     cd /opt
     tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
+    if [ "$1" = "2020.2" ]; then
+        cd ${TRELIS_PATH}/bin
+        cp -pv CubitExport.cmake CubitExport.cmake.orig
+        sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+        cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+        sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+    fi
 }
 
 
