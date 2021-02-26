@@ -44,11 +44,10 @@ jobs:
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
             echo "CUBIT_PATH=/opt/Trelis-17.1" >> $GITHUB_ENV
-            echo "CMAKE_ADDITIONAL_FLAG=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
+            echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
           else
             echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
           fi
-
 
       - name: Apt dependencies
         shell: bash
@@ -64,7 +63,7 @@ jobs:
           cd moab
           git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
           cd bld
-          cmake ../moab $CMAKE_ADDITIONAL_FLAG \
+          cmake ../moab $CMAKE_ADDITIONAL_FLAGS \
                 -DENABLE_HDF5=ON \
                 -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
                 -DBUILD_SHARED_LIBS=ON \
@@ -85,7 +84,7 @@ jobs:
           cd DAGMC
           git clone https://github.com/svalinn/DAGMC -b develop
           cd bld
-          cmake ../DAGMC $CMAKE_ADDITIONAL_FLAG \
+          cmake ../DAGMC $CMAKE_ADDITIONAL_FLAGS \
                 -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
                 -DBUILD_UWUW=ON \
                 -DBUILD_TALLY=OFF \
@@ -116,7 +115,6 @@ jobs:
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.deb --output trelis.deb
           sudo dpkg -i trelis.deb
 
-
           cd /opt
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
           sudo tar -zxvf trelis_sdk.tar.gz
@@ -129,7 +127,6 @@ jobs:
             sudo sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
           fi
 
-
       - name: build plugin
         shell: bash
         run: |
@@ -139,7 +136,7 @@ jobs:
           cd ../
           mkdir -pv bld
           cd bld
-          cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
+          cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAGS \
                 -DCUBIT_ROOT=${CUBIT_PATH} \
                 -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                 -DCMAKE_BUILD_TYPE=Release \
@@ -177,10 +174,8 @@ jobs:
           cd ../..
           tar --sort=name -czvf svalinn-plugin_linux_cubit_${{ matrix.cubit }}.tgz bin
 
-
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_linux_${{ matrix.cubit }}
           path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_cubit_${{ matrix.cubit }}.tgz
-
