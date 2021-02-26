@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-#need to clear the LD_LIBRARY_PATH to avoid lib conflict
+# need to clear the LD_LIBRARY_PATH to avoid lib conflict
 unset LD_LIBRARY_PATH
 
 CURRENT=$(pwd)
@@ -14,7 +14,7 @@ PLUGIN_ABS_PATH=""
 TRELIS_PATH=""
 TRELIS_PKG=""
 TRELIS_SDK_PKG=""   
-CMAKE_ADDITIONAL_FLAG="" 
+CMAKE_ADDITIONAL_FLAGS="" 
 
 source ${SCRIPTPATH}/scripts/linux_share_build.sh
 

@@ -32,7 +32,7 @@ function build_moab() {
             -DBUILD_SHARED_LIBS=ON \
             -DENABLE_BLASLAPACK=OFF \
             -DENABLE_FORTRAN=OFF \
-            $CMAKE_ADDITIONAL_FLAG \
+            $CMAKE_ADDITIONAL_FLAGS \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
 
     make -j`grep -c processor /proc/cpuinfo`
@@ -58,7 +58,7 @@ function build_dagmc(){
                 -DBUILD_EXE=OFF \
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                 -DCMAKE_BUILD_TYPE=Release \
-                $CMAKE_ADDITIONAL_FLAG \
+                $CMAKE_ADDITIONAL_FLAGS \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
                 
     
@@ -78,7 +78,7 @@ function setup_Trelis_sdk() {
         TRELIS_PATH="/opt/Trelis-17.1"
         TRELIS_PKG="Trelis-17.1.0-Lin64.deb"
         TRELIS_SDK_PKG="Trelis-SDK-17.1.0-Lin64.tar.gz"
-        CMAKE_ADDITIONAL_FLAG="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
+        CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
         echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
     fi
@@ -110,7 +110,7 @@ function build_plugin(){
     cmake ../Trelis-plugin -DCUBIT_ROOT=${TRELIS_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
-                            $CMAKE_ADDITIONAL_FLAG \
+                            $CMAKE_ADDITIONAL_FLAGS \
                            -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
     make -j$PROC
     make install
