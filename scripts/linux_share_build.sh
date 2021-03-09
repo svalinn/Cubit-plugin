@@ -3,7 +3,6 @@ PROC=$((`grep -c processor /proc/cpuinfo`))
 
 function install_prerequisites() {
     TZ=America/Chicago
-    echo $SUDO
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
     $SUDO apt-get update -y

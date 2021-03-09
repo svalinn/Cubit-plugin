@@ -78,13 +78,13 @@ jobs:
         shell: bash
         run: |
           source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          build_moab()
+          build_moab
 
       - name: build DAGMC
         shell: bash
         run: |
           source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          build_dagmc()
+          build_dagmc
 
       - name: Trelis setup
         shell: bash
@@ -93,7 +93,7 @@ jobs:
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
           source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          setup_Trelis_sdk()
+          setup_Trelis_sdk
 
       - name: build plugin
         shell: bash
