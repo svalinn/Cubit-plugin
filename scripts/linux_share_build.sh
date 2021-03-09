@@ -9,7 +9,7 @@ function install_prerequisites() {
 }
 
 
-function setup_folder() {
+function setup() {
     unset LD_LIBRARY_PATH
     
     echo "Building the Trelis plugin in ${CURRENT}\\${PLUGIN_DIR}"
@@ -18,6 +18,35 @@ function setup_folder() {
     cd ${PLUGIN_DIR}
     PLUGIN_ABS_PATH=$(pwd)
     ln -s ${SCRIPTPATH}/ ./
+
+    # upload the variable in GithubAction
+    if [ "$GHA" = "ON" ]; then
+        echo "PLUGIN_ABS_PATH=$PLUGIN_ABS_PATH" >> $GITHUB_ENV
+    fi
+}
+
+function setup_var() {
+    # Setup the variables
+    if [ "$1" = "2020.2" ]; then
+        TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
+        TRELIS_PKG="Coreform-Cubit-2020.2-Lin64.deb"
+        TRELIS_SDK_PKG="Coreform-Cubit-2020.2-Lin64-SDK.tar.gz"
+    elif [ "$1" = "17.1.0" ]; then
+        TRELIS_PATH="/opt/Trelis-17.1"
+        TRELIS_PKG="Trelis-17.1.0-Lin64.deb"
+        TRELIS_SDK_PKG="Trelis-SDK-17.1.0-Lin64.tar.gz"
+        CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
+    else
+        echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
+    fi
+
+    # upload the variable in GithubAction
+    if [ "$GHA" = "ON" ]; then
+        echo "TRELIS_PATH=$TRELIS_PATH" >> $GITHUB_ENV
+        echo "TRELIS_PKG=$TRELIS_PKG" >> $GITHUB_ENV
+        echo "TRELIS_SDK_PKG=$TRELIS_SDK_PKG" >> $GITHUB_ENV
+        echo "CMAKE_ADDITIONAL_FLAGS=$CMAKE_ADDITIONAL_FLAGS" >> $GITHUB_ENV
+    fi
 }
 
 
@@ -70,26 +99,12 @@ function build_dagmc(){
 
 
 function setup_Trelis_sdk() {
-    if [ "$1" = "2020.2" ]; then
-        TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
-        TRELIS_PKG="Coreform-Cubit-2020.2-Lin64.deb"
-        TRELIS_SDK_PKG="Coreform-Cubit-2020.2-Lin64-SDK.tar.gz"
-    elif [ "$1" = "17.1.0" ]; then
-        TRELIS_PATH="/opt/Trelis-17.1"
-        TRELIS_PKG="Trelis-17.1.0-Lin64.deb"
-        TRELIS_SDK_PKG="Trelis-SDK-17.1.0-Lin64.tar.gz"
-        CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
-    else
-        echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
-    fi
-    if [ "$1" = "2020.2" ]; then
-        apt-get -y install libxt6 libglew2.1 libglu1-mesa libopengl0 ocl-icd-libopencl1 libcxsparse3 libopenblas0 libegl1 libboost-thread1.71.0 liblapack3
-    fi
 
-    cd ${FOLDER_PKG} 
-    dpkg -i ${TRELIS_PKG}
+    cd ${FOLDER_PKG}
+    apt install -y ./${TRELIS_PKG}
     cd /opt
     tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
+    # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "$1" = "2020.2" ]; then
         cd ${TRELIS_PATH}/bin
         cp -pv CubitExport.cmake CubitExport.cmake.orig
