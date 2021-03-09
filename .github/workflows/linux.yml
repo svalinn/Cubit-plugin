@@ -50,14 +50,14 @@ jobs:
           else
             echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
           fi
+          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
+          setup_var ${{ matrix.cubit }}
 
       - name: Downloading packages
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          setup_var ${{ matrix.cubit }}
           mkdir -p $FOLDER_PKG
           cd $FOLDER_PKG
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.deb --output ${TRELIS_PKG}
