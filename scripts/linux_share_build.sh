@@ -4,7 +4,7 @@ PROC=$((`grep -c processor /proc/cpuinfo`))
 function install_prerequisites() {
     TZ=America/Chicago
     echo $SUDO
-    $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+    $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && $SUDO echo $TZ > /etc/timezone
     $SUDO apt-get update -y
     $SUDO apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
 }
