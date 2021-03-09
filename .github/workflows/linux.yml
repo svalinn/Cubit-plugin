@@ -51,8 +51,9 @@ jobs:
             echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
           fi
           source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          setup_var ${{ matrix.cubit }}
+          GHA=ON setup_var ${{ matrix.cubit }}
 
+ 
       - name: Downloading packages
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
