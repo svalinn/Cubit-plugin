@@ -161,5 +161,5 @@ function build_plugin_pkg(){
     cd ..
     ln -sv svalinn/libsvalinn_plugin.so .
     cd ../..
-    tar --sort=name -czvf svalinn-plugin_linux_$1.tgz bin
+    tar --sort=name -czvf svalinn-plugin_linux_cubit_$1.tgz bin
 }
