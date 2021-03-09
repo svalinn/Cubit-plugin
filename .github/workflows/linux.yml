@@ -60,6 +60,7 @@ jobs:
         run: |
           mkdir -p $FOLDER_PKG
           cd $FOLDER_PKG
+          echo ${TRELIS_PKG}
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.deb --output ${TRELIS_PKG}
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
 
