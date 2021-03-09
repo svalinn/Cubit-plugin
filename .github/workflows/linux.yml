@@ -93,53 +93,19 @@ jobs:
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
           source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          setup_Trelis_sdk
+          setup_Trelis_sdk ${{ matrix.cubit }}
 
       - name: build plugin
         shell: bash
         run: |
-          cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-          git submodule update --init
-          cd ../
-          mkdir -pv bld
-          cd bld
-          cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAGS \
-                -DCUBIT_ROOT=${CUBIT_PATH} \
-                -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
-          make -j`grep -c processor /proc/cpuinfo`
-          make install
+          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
+          build_plugin 
 
       - name: prepare pkg
         shell: bash
         run: |
-          cd ${PLUGIN_ABS_PATH}
-          mkdir -p pack/bin/plugins/svalinn
-          cd pack/bin/plugins/svalinn
-
-          # Copy all needed libraries into current directory
-          cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-          cp -pPv ${PLUGIN_ABS_PATH}/moab/lib/libMOAB.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libdagmc.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
-          cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
-          cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
-          chmod 644 *
-
-          # Set the RPATH to be the current directory for the DAGMC libraries
-          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libMOAB.so
-          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libdagmc.so
-          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libmakeWatertight.so
-          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libpyne_dagmc.so
-          patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libuwuw.so
-
-          # Create the Svalinn plugin tarball
-          cd ..
-          ln -sv svalinn/libsvalinn_plugin.so .
-          cd ../..
-          tar --sort=name -czvf svalinn-plugin_linux_cubit_${{ matrix.cubit }}.tgz bin
+          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
+          build_plugin_pkg ${{ matrix.cubit }}
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
