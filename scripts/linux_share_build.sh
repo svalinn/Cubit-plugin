@@ -106,14 +106,14 @@ function setup_Trelis_sdk() {
     cd ${FOLDER_PKG}
     $SUDO apt install -y ./${TRELIS_PKG}
     cd /opt
-    tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
+    $SUDO tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "$1" = "2020.2" ]; then
         cd ${TRELIS_PATH}/bin
-        cp -pv CubitExport.cmake CubitExport.cmake.orig
-        sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-        cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-        sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+        $SUDO cp -pv CubitExport.cmake CubitExport.cmake.orig
+        $SUDO sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+        $SUDO cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+        $SUDO sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
     fi
 }
 
