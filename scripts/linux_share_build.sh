@@ -3,6 +3,7 @@ PROC=$((`grep -c processor /proc/cpuinfo`))
 
 function install_prerequisites() {
     TZ=America/Chicago
+    echo $SUDO
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
     $SUDO apt-get update -y
     $SUDO apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
@@ -22,7 +23,6 @@ function setup() {
     # upload the variable in GithubAction
     if [ "$GHA" = "ON" ]; then
         echo "PLUGIN_ABS_PATH=$PLUGIN_ABS_PATH" >> $GITHUB_ENV
-        echo "SUDO=sudo " >> $GITHUB_ENV
     fi
 }
 
@@ -44,7 +44,7 @@ function setup_var() {
 
     # upload the variable in GithubAction
     if [ "$GHA" = "ON" ]; then
-        echo  "TRELIS_PATH" $TRELIS_PATH
+        echo "TRELIS_PATH" $TRELIS_PATH
         echo "TRELIS_PATH=$TRELIS_PATH" >> $GITHUB_ENV
         echo "TRELIS_PKG=$TRELIS_PKG" >> $GITHUB_ENV
         echo "TRELIS_SDK_PKG=$TRELIS_SDK_PKG" >> $GITHUB_ENV
