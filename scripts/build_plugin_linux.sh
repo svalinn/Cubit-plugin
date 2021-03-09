@@ -20,8 +20,8 @@ source ${SCRIPTPATH}/scripts/linux_share_build.sh
 
 install_prerequisites
 
-setup_folder
-
+setup 
+setup_var $1
 
 build_moab
 build_dagmc
@@ -30,8 +30,6 @@ build_dagmc
 setup_Trelis_sdk $1
 build_plugin $1
 build_plugin_pkg $1
-
-
 
 mv -v svalinn-plugin_linux_$1.tgz ${FOLDER_PKG}
 cd ..
