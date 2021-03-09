@@ -147,7 +147,7 @@ function build_plugin_pkg(){
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
-    cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
+#    cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
     chmod 644 *
 
     # Set the RPATH to be the current directory for the DAGMC libraries
