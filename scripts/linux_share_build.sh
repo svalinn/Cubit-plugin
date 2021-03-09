@@ -39,6 +39,7 @@ function setup_var() {
     else
         echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
     fi
+    echo  "GHA" $GHA
 
     # upload the variable in GithubAction
     if [ "$GHA" = "ON" ]; then
