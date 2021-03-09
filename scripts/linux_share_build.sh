@@ -4,8 +4,8 @@ PROC=$((`grep -c processor /proc/cpuinfo`))
 function install_prerequisites() {
     TZ=America/Chicago
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-    apt-get update -y
-    apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
+    $SUDO apt-get update -y
+    $SUDO apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
 }
 
 
@@ -22,6 +22,7 @@ function setup() {
     # upload the variable in GithubAction
     if [ "$GHA" = "ON" ]; then
         echo "PLUGIN_ABS_PATH=$PLUGIN_ABS_PATH" >> $GITHUB_ENV
+        echo "SUDO=sudo " >> $GITHUB_ENV
     fi
 }
 
