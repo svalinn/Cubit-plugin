@@ -70,7 +70,7 @@ jobs:
         shell: bash
         run: |
           source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          sudo install_prerequisites()
+          sudo install_prerequisites
 
        
       - name: Build MOAB
