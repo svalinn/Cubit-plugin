@@ -52,7 +52,7 @@ jobs:
           else
             echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
           fi
-          echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> "$HOME/.bash_profile"
+          echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> $GITHUB_ENV
       
       - name: Initial setup
         shell: bash
