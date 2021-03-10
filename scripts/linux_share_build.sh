@@ -6,7 +6,7 @@ function install_prerequisites() {
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
     $SUDO apt-get update -y
-    $SUDO apt-get install -y g++ libeigen3-dev libhdf5-dev patchelf git cmake
+    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl
 }
 
 
@@ -52,22 +52,39 @@ function setup_var() {
     fi
 }
 
+function build_hdf5() {
+    cd ${PLUGIN_ABS_PATH}
+    mkdir -p hdf5/bld
+    cd hdf5
+    git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0
+    cd bld
+    cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
+    make -j$PROC
+    make install
+
+}
+
 
 function build_moab() {
     cd ${PLUGIN_ABS_PATH}
     mkdir -pv moab/bld
     cd moab
     git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
+    cd moab
+    # patching MOAB CMakeLists.txt to use default find(HDF5)
+    sed -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
+    cd ..
+    #end of patch
     cd bld
     cmake ../moab -DENABLE_HDF5=ON \
-            -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
+            -DHDF5_ROOT=/usr/local/HDF_Group/HDF5/1.12.0 \
             -DBUILD_SHARED_LIBS=ON \
             -DENABLE_BLASLAPACK=OFF \
             -DENABLE_FORTRAN=OFF \
             $CMAKE_ADDITIONAL_FLAGS \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
 
-    make -j`grep -c processor /proc/cpuinfo`
+    make -j$PROC
     make install
     cd ../..
     rm -rf moab/moab moab/bld
@@ -94,7 +111,7 @@ function build_dagmc(){
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
                 
     
-    make -j`grep -c processor /proc/cpuinfo`
+    make -j$PROC
     make install
     cd ../..
     rm -rf DAGMC/DAGMC DAGCM/bld
@@ -147,7 +164,7 @@ function build_plugin_pkg(){
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
-    #cp -pPv /usr/lib/x86_64-linux-gnu/libhdf5_serial.so* .
+    cp -pPv /usr/local/HDF_Group/HDF5/1.12.0/liblibhdf5_serial.so* .
     chmod 644 *
 
     # Set the RPATH to be the current directory for the DAGMC libraries

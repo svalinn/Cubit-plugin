@@ -73,7 +73,12 @@ jobs:
           source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
           install_prerequisites
 
-       
+       - name: Build HDF5
+        shell: bash
+        run: |
+          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
+          build_hdf5
+
       - name: Build MOAB
         shell: bash
         run: |

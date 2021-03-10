@@ -23,6 +23,8 @@ install_prerequisites
 setup 
 setup_var $1
 
+build_hdf5
+
 build_moab
 build_dagmc
 
