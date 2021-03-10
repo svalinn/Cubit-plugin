@@ -111,7 +111,7 @@ function build_dagmc(){
     make -j$PROC
     make install
     cd ../..
-    rm -rf DAGMC/DAGMC DAGCM/bld
+    rm -rf DAGMC/DAGMC DAGMC/bld
 }
 
 
