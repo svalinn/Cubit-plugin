@@ -19,11 +19,6 @@ function setup() {
     cd ${PLUGIN_DIR}
     PLUGIN_ABS_PATH=$(pwd)
     ln -s ${SCRIPTPATH}/ ./
-
-    # upload the variable in GithubAction
-    if [ "$GHA" = "ON" ]; then
-        echo "PLUGIN_ABS_PATH=$PLUGIN_ABS_PATH" >> $GITHUB_ENV
-    fi
 }
 
 function setup_var() {
@@ -41,13 +36,6 @@ function setup_var() {
         echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
     fi
 
-    # upload the variable in GithubAction
-    if [ "$GHA" = "ON" ]; then
-        echo "TRELIS_PATH=$TRELIS_PATH" >> $GITHUB_ENV
-        echo "TRELIS_PKG=$TRELIS_PKG" >> $GITHUB_ENV
-        echo "TRELIS_SDK_PKG=$TRELIS_SDK_PKG" >> $GITHUB_ENV
-        echo "CMAKE_ADDITIONAL_FLAGS=$CMAKE_ADDITIONAL_FLAGS" >> $GITHUB_ENV
-    fi
 }
 
 function build_hdf5() {
