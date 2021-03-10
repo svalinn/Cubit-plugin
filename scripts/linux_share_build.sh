@@ -32,7 +32,7 @@ function setup_var() {
         TRELIS_SDK_PKG="Trelis-SDK-17.1.0-Lin64.tar.gz"
         CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
-        echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
+        echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
         return 1
         
     fi
