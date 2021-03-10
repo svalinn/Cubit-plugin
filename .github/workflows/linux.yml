@@ -38,6 +38,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Environment Variables
+        shell: bash
         run: |
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
@@ -51,11 +52,17 @@ jobs:
           else
             echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
           fi
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          GHA=ON setup_var ${{ matrix.cubit }}
+          echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> "$HOME/.bash_profile"
+      
+      - name: Initial setup
+        shell: bash
+        run: |
+          install_prerequisites
+          setup_var ${{ matrix.cubit }}
 
  
       - name: Downloading packages
+        shell: bash
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
@@ -67,28 +74,21 @@ jobs:
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
 
 
-      - name: Apt dependencies
-        shell: bash
-        run: |
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
-          install_prerequisites
+
 
       - name: Build HDF5
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
           build_hdf5
 
       - name: Build MOAB
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
           build_moab
 
       - name: build DAGMC
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
           build_dagmc
 
       - name: Trelis setup
@@ -97,19 +97,16 @@ jobs:
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
           setup_Trelis_sdk ${{ matrix.cubit }}
 
       - name: build plugin
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
           build_plugin 
 
       - name: prepare pkg
         shell: bash
         run: |
-          source $GITHUB_WORKSPACE/scripts/linux_share_build.sh
           build_plugin_pkg ${{ matrix.cubit }}
 
       - name: 'Upload package'
