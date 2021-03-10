@@ -43,7 +43,6 @@ function setup_var() {
 
     # upload the variable in GithubAction
     if [ "$GHA" = "ON" ]; then
-        echo "TRELIS_PATH" $TRELIS_PATH
         echo "TRELIS_PATH=$TRELIS_PATH" >> $GITHUB_ENV
         echo "TRELIS_PKG=$TRELIS_PKG" >> $GITHUB_ENV
         echo "TRELIS_SDK_PKG=$TRELIS_SDK_PKG" >> $GITHUB_ENV

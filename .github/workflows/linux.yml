@@ -59,6 +59,7 @@ jobs:
         run: |
           install_prerequisites
           setup_var ${{ matrix.cubit }}
+          echo TRELIS_PATH $TRELIS_PATH
 
  
       - name: Downloading packages
