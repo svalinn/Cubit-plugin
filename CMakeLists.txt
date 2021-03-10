@@ -72,7 +72,7 @@ if (BUILD_IGEOM)
   add_library(iGeom SHARED ${IGEOM_SRC_FILES})
   target_link_libraries(iGeom ${CUBIT_LIBS})
    target_include_directories(iGeom PUBLIC
-              $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+                              $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
   install(TARGETS iGeom LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_LINK_LIBS iGeom)
 endif ()
