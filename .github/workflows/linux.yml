@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Environment Variables
-        shell: bash
+        shell: bash -l {0}
         run: |
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
@@ -52,17 +52,17 @@ jobs:
           else
             echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
           fi
-          echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> $GITHUB_ENV
+          echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> $HOME/.bash_profile
       
       - name: Initial setup
-        shell: bash
+        shell: bash -l {0}
         run: |
           install_prerequisites
           setup_var ${{ matrix.cubit }}
 
  
       - name: Downloading packages
-        shell: bash
+        shell: bash -l {0}
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
@@ -77,22 +77,22 @@ jobs:
 
 
       - name: Build HDF5
-        shell: bash
+        shell: bash -l {0}
         run: |
           build_hdf5
 
       - name: Build MOAB
-        shell: bash
+        shell: bash -l {0}
         run: |
           build_moab
 
       - name: build DAGMC
-        shell: bash
+        shell: bash -l {0}
         run: |
           build_dagmc
 
       - name: Trelis setup
-        shell: bash
+        shell: bash -l {0}
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
@@ -100,12 +100,12 @@ jobs:
           setup_Trelis_sdk ${{ matrix.cubit }}
 
       - name: build plugin
-        shell: bash
+        shell: bash -l {0}
         run: |
           build_plugin 
 
       - name: prepare pkg
-        shell: bash
+        shell: bash -l {0}
         run: |
           build_plugin_pkg ${{ matrix.cubit }}
 
