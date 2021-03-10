@@ -9,7 +9,6 @@ function install_prerequisites() {
     $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl
 }
 
-
 function setup() {
     unset LD_LIBRARY_PATH
     
@@ -74,7 +73,6 @@ function build_moab() {
     rm -rf moab/moab moab/bld
 }
 
-
 function build_dagmc(){
     cd ${PLUGIN_ABS_PATH}
     mkdir -pv DAGMC/bld
@@ -93,14 +91,12 @@ function build_dagmc(){
                 -DCMAKE_BUILD_TYPE=Release \
                 $CMAKE_ADDITIONAL_FLAGS \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-                
     
     make -j$PROC
     make install
     cd ../..
     rm -rf DAGMC/DAGMC DAGMC/bld
 }
-
 
 function setup_Trelis_sdk() {
 
@@ -118,7 +114,6 @@ function setup_Trelis_sdk() {
     fi
 }
 
-
 function build_plugin(){
     cd ${PLUGIN_ABS_PATH}
     cd Trelis-plugin
@@ -134,7 +129,6 @@ function build_plugin(){
     make -j$PROC
     make install
 }
-
 
 function build_plugin_pkg(){
     cd ${PLUGIN_ABS_PATH}
