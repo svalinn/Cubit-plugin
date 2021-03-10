@@ -33,6 +33,8 @@ function setup_var() {
         CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
         echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
+        return 1
+        
     fi
 
 }
