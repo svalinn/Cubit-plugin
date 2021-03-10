@@ -33,7 +33,7 @@ setup_Trelis_sdk $1
 build_plugin $1
 build_plugin_pkg $1
 
-mv -v svalinn-plugin_linux_$1.tgz ${FOLDER_PKG}
+mv -v svalinn-plugin_linux_cubit_$1.tgz ${FOLDER_PKG}
 cd ..
 rm -rf pack bld DAGMC lib moab
 rm Trelis-plugin
