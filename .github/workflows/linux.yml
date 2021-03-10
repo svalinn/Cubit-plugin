@@ -43,7 +43,6 @@ jobs:
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
-          echo "GHA=ON" >> $GITHUB_ENV
           echo "FOLDER_PKG=$GITHUB_WORKSPACE/../pkg" >> $GITHUB_ENV
           echo "SUDO=sudo " >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
@@ -59,8 +58,10 @@ jobs:
         run: |
           install_prerequisites
           setup_var ${{ matrix.cubit }}
-          echo TRELIS_PATH $TRELIS_PATH
-
+          echo "TRELIS_PATH=$TRELIS_PATH" >> $GITHUB_ENV
+          echo "TRELIS_PKG=$TRELIS_PKG" >> $GITHUB_ENV
+          echo "TRELIS_SDK_PKG=$TRELIS_SDK_PKG" >> $GITHUB_ENV
+          echo "CMAKE_ADDITIONAL_FLAGS=$CMAKE_ADDITIONAL_FLAGS" >> $GITHUB_ENV
  
       - name: Downloading packages
         shell: bash -l {0}
