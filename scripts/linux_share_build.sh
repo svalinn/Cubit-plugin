@@ -40,7 +40,6 @@ function setup_var() {
     else
         echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
     fi
-    echo  "GHA" $GHA
 
     # upload the variable in GithubAction
     if [ "$GHA" = "ON" ]; then
@@ -60,10 +59,8 @@ function build_hdf5() {
     cd bld
     cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
     make -j$PROC
-    make install
-
+    $SUDO make install
 }
-
 
 function build_moab() {
     cd ${PLUGIN_ABS_PATH}
