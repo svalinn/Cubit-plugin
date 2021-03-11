@@ -32,7 +32,7 @@ function setup_var() {
         TRELIS_SDK_PKG="Trelis-SDK-17.1.0-Lin64.tar.gz"
         CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
-        echo "unknown Trelis/Cubit version, use: \"17.1\" or \"2020.2\""
+        echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
         return 1
         
     fi
@@ -103,7 +103,7 @@ function build_dagmc(){
 function setup_Trelis_sdk() {
 
     cd ${FOLDER_PKG}
-    $SUDO apt install -y ./${TRELIS_PKG}
+    $SUDO apt-get install -y ./${TRELIS_PKG}
     cd /opt
     $SUDO tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
