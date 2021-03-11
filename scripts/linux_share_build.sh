@@ -103,7 +103,7 @@ function build_dagmc(){
 function setup_Trelis_sdk() {
 
     cd ${FOLDER_PKG}
-    $SUDO apt install -y ./${TRELIS_PKG}
+    $SUDO apt-get install -y ./${TRELIS_PKG}
     cd /opt
     $SUDO tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
