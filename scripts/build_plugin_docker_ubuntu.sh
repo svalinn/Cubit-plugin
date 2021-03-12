@@ -7,4 +7,4 @@
 # $3 path to local pkg folder containing both trelis/cubit install package and sdk
 
 SCRIPTPATH=`dirname $(dirname $(realpath $0))`
-docker run -v "$SCRIPTPATH:/Trelis-plugin" -v "$3:/trelis-sdk" -it $1 bash -c "/Trelis-plugin/scripts/build_plugin_linux.sh $2 /trelis-sdk; bash"
+docker run -v "$SCRIPTPATH:/Trelis-plugin" -v "$3:/trelis-sdk" -it $1 bash -c "/Trelis-plugin/scripts/build_plugin_linux.sh $2 /trelis-sdk $4 $5; bash"
