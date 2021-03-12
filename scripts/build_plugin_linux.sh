@@ -12,8 +12,8 @@ PLUGIN_DIR="plugin-build"
 
 PLUGIN_ABS_PATH=""
 TRELIS_PATH=""
-TRELIS_PKG=""
-TRELIS_SDK_PKG=""   
+TRELIS_PKG="$3"
+TRELIS_SDK_PKG="$4"   
 CMAKE_ADDITIONAL_FLAGS="" 
 
 source ${SCRIPTPATH}/scripts/linux_share_build.sh

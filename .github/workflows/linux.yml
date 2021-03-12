@@ -47,8 +47,12 @@ jobs:
           echo "SUDO=sudo " >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             echo "CUBIT_PATH=/opt/Trelis-17.1" >> $GITHUB_ENV
+            echo "TRELIS_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
+            echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
             echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
           else
+            echo "TRELIS_PKG=Coreform-Cubit-2020.2-Ubuntu20.deb" >> $GITHUB_ENV
+            echo "TRELIS_SDK_PKG=Coreform-Cubit-2020.2-Lin64-SDK.tar.gz" >> $GITHUB_ENV
             echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
           fi
           echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> $HOME/.bash_profile
