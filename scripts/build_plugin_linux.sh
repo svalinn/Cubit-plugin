@@ -6,7 +6,7 @@ unset LD_LIBRARY_PATH
 
 CURRENT=$(pwd)
 SCRIPTPATH=`dirname $(dirname $(realpath $0))`
-FOLDER_PKG="${2}"
+FOLDER_PKG="$2"
 
 PLUGIN_DIR="plugin-build"
 
@@ -14,7 +14,9 @@ PLUGIN_ABS_PATH=""
 TRELIS_PATH=""
 TRELIS_PKG="$3"
 TRELIS_SDK_PKG="$4"   
-CMAKE_ADDITIONAL_FLAGS="" 
+CMAKE_ADDITIONAL_FLAGS=""
+UBUNTU_VERSION=""
+HDF5_PATH=""
 
 source ${SCRIPTPATH}/scripts/linux_share_build.sh
 

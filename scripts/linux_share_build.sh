@@ -6,7 +6,8 @@ function install_prerequisites() {
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
     $SUDO apt-get update -y
-    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl
+    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release
+    UBUNTU_VERSION=$(lsb_release -rs |cut -d"." -f1)
 }
 
 function setup() {
@@ -36,14 +37,21 @@ function setup_var() {
 }
 
 function build_hdf5() {
-    cd ${PLUGIN_ABS_PATH}
-    mkdir -p hdf5/bld
-    cd hdf5
-    git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0
-    cd bld
-    cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
-    make -j$PROC
-    $SUDO make install
+    # if ubuntu 18.04 or lower rely of apt-get hdf5
+    if [[ $UBUNTU_VERSION < 20 ]]; then
+        $SUDO apt-get install -y libhdf5-serial-dev
+        HDF5_PATH="/usr/lib/x86_64-linux-gnu/hdf5/serial"
+    else
+        cd ${PLUGIN_ABS_PATH}
+        mkdir -p hdf5/bld
+        cd hdf5
+        git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0
+        cd bld
+        cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
+        make -j$PROC
+        $SUDO make install
+        HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
+    fi
 }
 
 function build_moab() {
@@ -58,7 +66,7 @@ function build_moab() {
     #end of patch
     cd bld
     cmake ../moab -DENABLE_HDF5=ON \
-            -DHDF5_ROOT=/usr/local/HDF_Group/HDF5/1.12.0 \
+            -DHDF5_ROOT=$HDF5_PATH \
             -DBUILD_SHARED_LIBS=ON \
             -DENABLE_BLASLAPACK=OFF \
             -DENABLE_FORTRAN=OFF \
@@ -140,7 +148,7 @@ function build_plugin_pkg(){
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libmakeWatertight.so* .
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libpyne_dagmc.so* .
     cp -pPv ${PLUGIN_ABS_PATH}/DAGMC/lib/libuwuw.so* .
-    cp -pPv /usr/local/HDF_Group/HDF5/1.12.0/lib/libhdf5.so* .
+    cp -vL $HDF5_PATH/lib/libhdf5.so* .
     chmod 644 *
 
     # Set the RPATH to be the current directory for the DAGMC libraries
