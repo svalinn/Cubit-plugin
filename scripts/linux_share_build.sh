@@ -31,7 +31,6 @@ function setup_var() {
     else
         echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
         return 1
-        
     fi
 
 }
