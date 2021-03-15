@@ -58,7 +58,6 @@ jobs:
             echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
             echo "UBUNTU_VERSION=20" >> $GITHUB_ENV
             echo "HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0" >> $GITHUB_ENV
-
           fi
           echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> $HOME/.bash_profile
       
