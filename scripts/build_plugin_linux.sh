@@ -1,20 +1,31 @@
 #!/bin/bash
 set -ex
 
-CURRENT=$(pwd)
-SCRIPTPATH=`dirname $(dirname $(realpath $0))`
-
-PLUGIN_DIR="plugin-build"
-PLUGIN_ABS_PATH=""
-
-#need to clear the LD_LIBRARY_PATH to avoid lib conflict
+# need to clear the LD_LIBRARY_PATH to avoid lib conflict
 unset LD_LIBRARY_PATH
 
-source ${SCRIPTPATH}/script/linux_share_build.sh
+CURRENT=$(pwd)
+SCRIPTPATH=`dirname $(dirname $(realpath $0))`
+FOLDER_PKG="$2"
+
+PLUGIN_DIR="plugin-build"
+
+PLUGIN_ABS_PATH=""
+TRELIS_PATH=""
+TRELIS_PKG="$3"
+TRELIS_SDK_PKG="$4"   
+CMAKE_ADDITIONAL_FLAGS=""
+UBUNTU_VERSION=""
+HDF5_PATH=""
+
+source ${SCRIPTPATH}/scripts/linux_share_build.sh
 
 install_prerequisites
 
-setup_folder
+setup 
+setup_var $1
+
+build_hdf5
 
 build_moab
 build_dagmc
@@ -24,9 +35,7 @@ setup_Trelis_sdk $1
 build_plugin $1
 build_plugin_pkg $1
 
-
-
-mv -v svalinn-plugin_linux_$1.tgz /Trelis-sdk
+mv -v svalinn-plugin_linux_cubit_$1.tgz ${FOLDER_PKG}
 cd ..
 rm -rf pack bld DAGMC lib moab
 rm Trelis-plugin

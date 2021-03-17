@@ -1,7 +1,10 @@
 #include "iGeom.h"
+
+#include "CubitVersionCompatibility.hpp"
+#include CUBIT_INTERFACE_HEADER
+
 #include "CATag.hpp"
 #include "CubitEntity.hpp"
-#include "CubitInterface.hpp"
 #include "CubitVersion.h"
 #include "GeometryQueryTool.hpp"
 #include "Body.hpp"
@@ -150,7 +153,7 @@ void iGeom_createBrick(iGeom_Instance instance,
     error_message.str("");
     error_message << "Dimensions must be >= 0, or y & z must both be zero."
                   << std::endl;
-    CubitInterface::get_cubit_message_handler()->print_error(error_message.str().c_str());
+    MSG_HANDLER->print_error(error_message.str().c_str());
   }
   else {
 
@@ -606,7 +609,7 @@ void iGeom_intersectEnts(iGeom_Instance instance,
   }
 
   if (0 == new_body_list.size()) {
-    CubitInterface::get_cubit_message_handler()->print_error("Intersect Failed");
+    MSG_HANDLER->print_error("Intersect Failed");
     return;
   }
   else {

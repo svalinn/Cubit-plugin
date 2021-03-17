@@ -23,15 +23,6 @@ endif ()
 # Use C++11
 set(CMAKE_CXX_STANDARD 11)
 
-# Adjust compiler setting for Linux using gcc version 5.0 and higher
-if (CMAKE_SYSTEM_NAME MATCHES Linux AND CMAKE_COMPILER_IS_GNUCXX)
-  if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.0")
-    if (NOT CMAKE_CXX_FLAGS MATCHES _GLIBCXX_USE_CXX11_ABI)
-      set(CMAKE_CXX_FLAGS "-D_GLIBCXX_USE_CXX11_ABI=0 ${CMAKE_CXX_FLAGS}")
-    endif ()
-  endif ()
-endif ()
-
 # Find Cubit/Trelis
 if (NOT CUBIT_ROOT)
   message(FATAL_ERROR "CUBIT_ROOT not specified")
@@ -80,6 +71,8 @@ if (BUILD_IGEOM)
   include_directories(iGeom)
   add_library(iGeom SHARED ${IGEOM_SRC_FILES})
   target_link_libraries(iGeom ${CUBIT_LIBS})
+   target_include_directories(iGeom PUBLIC
+                              $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
   install(TARGETS iGeom LIBRARY DESTINATION lib)
   list(APPEND PLUGIN_LINK_LIBS iGeom)
 endif ()
@@ -129,5 +122,6 @@ message(STATUS "Building Svalinn plugin")
 message(STATUS "PLUGIN_SRC_FILES: ${PLUGIN_SRC_FILES}")
 message(STATUS "PLUGIN_LINK_LIBS: ${PLUGIN_LINK_LIBS}")
 add_library(svalinn_plugin MODULE ${PLUGIN_SRC_FILES})
+target_include_directories(svalinn_plugin PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_link_libraries(svalinn_plugin ${PLUGIN_LINK_LIBS})
 install(TARGETS svalinn_plugin LIBRARY DESTINATION lib)
