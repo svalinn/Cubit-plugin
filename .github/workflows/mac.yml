@@ -51,8 +51,8 @@ jobs:
       - name: Brew dependencies
         shell: bash
         run: |
-          brew install eigen hdf5 gcc@6 gsed
-          brew link hdf5
+          install_prerequisites
+
 
 
       - name: Trelis setup
@@ -64,122 +64,33 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
             curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.dmg --output trelis.dmg
-            hdiutil convert trelis.dmg -format UDTO -o trelis_eula.dmg
-            hdiutil attach trelis_eula.dmg.cdr
-            mv /Volumes/Trelis-17.1.0-Mac64/*.app /Applications/
-            hdiutil detach /Volumes/Trelis-17.1.0-Mac64
-            rm -rf trelis.dmg
-            
           elif [ "${{ matrix.cubit }}" = "2020_2" ]; then
             curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output cubit.pkg
-            sudo installer -pkg cubit.pkg -target /
-            rm -rf cubit.pkg
 
           fi
-          cd $TRELIS_INSTALL_LOC
           sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
-          sudo tar -xzf trelis_sdk.tar.gz
-          sudo mv ${{ matrix.CUBIT_BASE_NAME }}/* ./
-          sudo mv ${{ matrix.CUBIT_BASE_NAME }}.app/Contents/MacOS/* MacOS/
-          sudo mv bin/* MacOS/
-          sudo rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
-          sudo ln -s MacOS bin
-          sudo ln -s ${TRELIS_INSTALL_LOC}/include /Applications/include
 
-          cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-          sudo cp scripts/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
-          if [ "${{ matrix.cubit }}" = "2020_2" ]; then
-            cd ${TRELIS_INSTALL_LOC}/bin
-            sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
-            sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-            sudo gsed -i "s/Trelis-17.1.app/${{ matrix.CUBIT_BASE_NAME }}.app/" CubitExport.cmake
-            sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-            sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
-            sudo gsed -i "s/Trelis-17.1.app/${{ matrix.CUBIT_BASE_NAME }}.app/" CubitGeomConfig.cmake
-          fi
    
       - name: Build MOAB
-        shell: bash
+        shell: bash -l {0}
         run: |
-          cd ${PLUGIN_ABS_PATH}
-          mkdir -pv moab/bld
-          cd moab
-          git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
-          cd bld
-          cmake ../moab  $CMAKE_ADDITIONAL_FLAG \
-                    -DENABLE_HDF5=ON \
-                    -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-                    -DBUILD_SHARED_LIBS=OFF \
-                    -DENABLE_BLASLAPACK=OFF \
-                    -DENABLE_FORTRAN=OFF \
-                    -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
-          make -j
-          make install
-          cd ../..
-          rm -rf moab/moab moab/bld
+          build_moab
 
       - name: Build DAGMC
-        shell: bash
+        shell: bash -l {0}
         run: |
-          cd ${PLUGIN_ABS_PATH}
-          mkdir -pv DAGMC/bld
-          cd DAGMC
-          git clone https://github.com/bam241/DAGMC -b hdf5_12.1
-          cd bld
-          cmake ../DAGMC $CMAKE_ADDITIONAL_FLAG  \
-                        -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
-                        -DBUILD_UWUW=ON \
-                        -DBUILD_TALLY=OFF \
-                        -DBUILD_BUILD_OBB=OFF \
-                        -DBUILD_MAKE_WATERTIGHT=ON \
-                        -DBUILD_SHARED_LIBS=OFF \
-                        -DBUILD_STATIC_LIBS=ON \
-                        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-                        -DCMAKE_BUILD_TYPE=Release \
-                        -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-          make -j
-          make install
-          cd ../..
-          rm -rf DAGMC/DAGMC DAGCM/bld
-
+          build_dagmc
 
       - name: Build plugin
-        shell: bash
+        shell: bash -l {0}
         run: |
-          cd ${PLUGIN_ABS_PATH}
-          cd Trelis-plugin
-          rm -rf mcnp2cad
-          git clone  https://github.com/bam241/mcnp2cad -b mac_build
-          cd ../
-          mkdir -pv bld
-          cd bld
-          cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
-                  -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
-                  -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
-                  -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
-                  -DCMAKE_BUILD_TYPE=Release \
-                  -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
-          make -j
-          make install
-
+          build_plugin 
           
       - name: Prepare package
-        shell: bash
+        shell: bash -l {0}
         run: |
-          cd ${PLUGIN_ABS_PATH}
-          mkdir -p pack/MacOS/plugins/svalinn
-          cd pack/MacOS/plugins/svalinn
+          build_plugin_pkg ${{ matrix.cubit }}
 
-          # Copy all needed libraries into current directory
-          cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-          cp /usr/local/opt/szip/lib/libsz.2.dylib .
-          install_name_tool -change /usr/local/opt/szip/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
-
-          # Create the Svalinn plugin tarball
-          cd ..
-          ln -sv svalinn/libsvalinn_plugin.so .
-          cd ../..
-          tar -czvf svalinn-plugin_mac_cubit_${{ matrix.cubit }}.tgz MacOS
 
       - name: Upload package
         uses: actions/upload-artifact@v2

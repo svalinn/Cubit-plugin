@@ -84,8 +84,6 @@ jobs:
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
 
 
-
-
       - name: Build HDF5
         shell: bash -l {0}
         run: |
