@@ -1,5 +1,4 @@
 #!/bin/bash
-PROC=$((`grep -c processor /proc/cpuinfo`))
 
 function install_brew() {
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -47,7 +46,7 @@ function build_hdf5() {
         git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0
         cd bld
         cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
-        make -j$PROC
+        make
         $SUDO make install
         HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
     fi
@@ -72,7 +71,7 @@ function build_moab() {
             $CMAKE_ADDITIONAL_FLAGS \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
 
-    make -j$PROC
+    make
     make install
     cd ../..
     rm -rf moab/moab moab/bld
@@ -97,7 +96,7 @@ function build_dagmc(){
                 $CMAKE_ADDITIONAL_FLAGS \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
     
-    make -j$PROC
+    make
     make install
     cd ../..
     rm -rf DAGMC/DAGMC DAGMC/bld
