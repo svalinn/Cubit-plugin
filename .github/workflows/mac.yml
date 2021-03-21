@@ -39,36 +39,43 @@ jobs:
       - name: Environment Variables
         run: |
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
-          echo "PLUGIN_ABS_PATH=" >> $GITHUB_ENV
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
-          echo "TRELIS_INSTALL_LOC=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
+          echo "FOLDER_PKG=$GITHUB_WORKSPACE/../pkg" >> $GITHUB_ENV
+          echo "CUBIT_PATH=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
             echo "CMAKE_ADDITIONAL_FLAG=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
+            echo "TRELIS_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
+            echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
+          else
+            echo "TRELIS_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
+            echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
           fi
+          echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> $HOME/.bash_profile
 
 
       - name: Brew dependencies
-        shell: bash
+        shell: bash -l {0}
         run: |
           install_prerequisites
 
 
 
       - name: Trelis setup
-        shell: bash
+        shell: bash -l {0}
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
-          cd ${PLUGIN_ABS_PATH}
+          mkdir -p $FOLDER_PKG
+          cd ${FOLDER_PKG}
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
-            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.dmg --output trelis.dmg
+            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.dmg --output ${TRELIS_PKG}
           elif [ "${{ matrix.cubit }}" = "2020_2" ]; then
-            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output cubit.pkg
-
+            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output ${TRELIS_PKG}
           fi
-          sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output trelis_sdk.tar.gz
+          sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
+          
 
    
       - name: Build MOAB

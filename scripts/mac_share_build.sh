@@ -2,7 +2,7 @@
 PROC=$((`grep -c processor /proc/cpuinfo`))
 
 function install_brew() {
-    #check homebrew webage
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 }
 
 function install_prerequisites() {
@@ -106,7 +106,7 @@ function build_dagmc(){
 function setup_Trelis {
 
     cd ${PLUGIN_ABS_PATH}
-    if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+    if [ "${1}" = "17_1_0" ]; then
 
     hdiutil convert trelis.dmg -format UDTO -o ${TRELIS_PKG}
     hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
@@ -114,7 +114,7 @@ function setup_Trelis {
     hdiutil detach /Volumes/Cubit
     rm -rf trelis.dmg
     
-    elif [ "${{ matrix.cubit }}" = "2020_2" ]; then
+    elif [ "${1}" = "2020_2" ]; then
     sudo installer -pkg ${TRELIS_PKG} -target /
     rm -rf cubit.pkg
 
@@ -125,24 +125,30 @@ function setup_Trelis {
 function setup_trelis_sdk() {
    
     cd $TRELIS_INSTALL_LOC
-    sudo tar -xzf ${TRELIS_PKG}
-    sudo mv ${{ matrix.CUBIT_BASE_NAME }}/* ./
-    sudo mv ${{ matrix.CUBIT_BASE_NAME }}.app/Contents/MacOS/* MacOS/
+    if [ "${1}" = "2020.2" ]; then
+        CUBIT_BASE_NAME="Coreform-Cubit-2020.2"
+    elif [ "${1}" = "17.1.0" ]; then
+        CUBIT_BASE_NAME="Trelis-17.1"
+    fi
+
+    sudo tar -xzf ${TRELIS_SDK_PKG}
+    sudo mv ${CUBIT_BASE_NAME}/* ./
+    sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
     sudo mv bin/* MacOS/
-    sudo rm -rf bin ${{ matrix.CUBIT_BASE_NAME }}.app
+    sudo rm -rf bin ${CUBIT_BASE_NAME}.app
     sudo ln -s MacOS bin
     sudo ln -s ${TRELIS_INSTALL_LOC}/include /Applications/include
 
     cd ${PLUGIN_ABS_PATH}/Trelis-plugin
     sudo cp scripts/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
-    if [ "${1}" = "2020_2" ]; then
-    cd ${TRELIS_INSTALL_LOC}/bin
-    sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
-    sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-    sudo gsed -i "s/Trelis-17.1.app/${{ matrix.CUBIT_BASE_NAME }}.app/" CubitExport.cmake
-    sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-    sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
-    sudo gsed -i "s/Trelis-17.1.app/${{ matrix.CUBIT_BASE_NAME }}.app/" CubitGeomConfig.cmake
+    if [ "${1}" = "2020.2" ]; then
+        cd ${TRELIS_INSTALL_LOC}/bin
+        sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
+        sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+        sudo gsed -i "s/Trelis-17.1.app/${CUBIT_BASE_NAME}.app/" CubitExport.cmake
+        sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+        sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+        sudo gsed -i "s/Trelis-17.1.app/${CUBIT_BASE_NAME}.app/" CubitGeomConfig.cmake
     fi
 
 }
