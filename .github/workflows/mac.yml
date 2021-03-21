@@ -57,7 +57,7 @@ jobs:
       - name: Brew dependencies
         shell: bash -l {0}
         run: |
-          source $HOME/.bash_profile
+          source $GITHUB_WORKSPACE/scripts/mac_share_build.sh
           install_prerequisites
 
 
