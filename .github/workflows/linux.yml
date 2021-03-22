@@ -99,12 +99,12 @@ jobs:
         run: |
           linux_setup_Trelis_sdk ${{ matrix.cubit }}
 
-      - name: build plugin
+      - name: Build plugin
         shell: bash -l {0}
         run: |
           build_plugin 
 
-      - name: prepare pkg
+      - name: Prepare package
         shell: bash -l {0}
         run: |
           linux_build_plugin_pkg ${{ matrix.cubit }}

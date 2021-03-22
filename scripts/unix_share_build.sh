@@ -127,8 +127,8 @@ function build_dagmc(){
                 -DCMAKE_BUILD_TYPE=Release \
                 $CMAKE_ADDITIONAL_FLAGS \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-    
-    make -j$PROC
+                
+    make
     make install
     cd ../..
     rm -rf DAGMC/DAGMC DAGMC/bld
@@ -185,7 +185,7 @@ function linux_setup_Trelis_sdk() {
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${TRELIS_PKG}
     cd /opt
-    $SUDO tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
+    $SUDO tar -xzf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "$1" = "2020.2" ]; then
         cd ${CUBIT_PATH}/bin
