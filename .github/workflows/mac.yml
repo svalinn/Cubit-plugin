@@ -58,6 +58,7 @@ jobs:
       - name: Brew dependencies
         shell: bash --init-file $HOME/.profile
         run: |
+          source $HOME/.profile
           install_prerequisites
 
 
@@ -68,6 +69,7 @@ jobs:
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
+          source $HOME/.profile
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
           if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
@@ -82,21 +84,25 @@ jobs:
       - name: Build MOAB
         shell: bash -l {0}
         run: |
+          source $HOME/.profile
           build_moab
 
       - name: Build DAGMC
         shell: bash -l {0}
         run: |
+          source $HOME/.profile
           build_dagmc
 
       - name: Build plugin
         shell: bash -l {0}
         run: |
+          source $HOME/.profile
           build_plugin 
           
       - name: Prepare package
         shell: bash -l {0}
         run: |
+          source $HOME/.profile
           build_plugin_pkg ${{ matrix.cubit }}
 
 
