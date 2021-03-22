@@ -114,6 +114,7 @@ function setup_Trelis {
         hdiutil detach /Volumes/Cubit
         rm -rf trelis.dmg
     elif [ "${1}" = "2020.2" ]; then
+        ls ${FOLDER_PKG}/${TRELIS_PKG}
         sudo installer -pkg ${FOLDER_PKG}/${TRELIS_PKG} -target /
         rm -rf cubit.pkg
     fi
