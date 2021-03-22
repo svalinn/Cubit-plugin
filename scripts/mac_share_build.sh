@@ -140,7 +140,7 @@ function setup_trelis_sdk() {
     sudo ln -s MacOS bin
     sudo ln -s ${TRELIS_PATH}/include /Applications/include
 
-    sudo cp ${PLUGIN_ABS_PATH}/scripts/*.cmake ${CUBIT_PATH}/MacOS/
+    sudo cp ${GITHUB_WORKSPACE}/scripts/*.cmake ${CUBIT_PATH}/MacOS/
     if [ "${1}" = "2020.2" ]; then
         cd ${CUBIT_PATH}/bin
         sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
