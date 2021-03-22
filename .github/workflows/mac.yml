@@ -52,14 +52,14 @@ jobs:
             echo "TRELIS_PKG=Coreform-Cubit-2020.2-Mac64.pkg" >> $GITHUB_ENV
             echo "TRELIS_SDK_PKG=TCoreform-Cubit-2020.2-Mac64-SDK.tar.gz" >> $GITHUB_ENV
           fi
-          echo "source $GITHUB_WORKSPACE/scripts/mac_share_build.sh" >> $HOME/.profile
+          echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.profile
 
 
       - name: Brew dependencies
         shell: bash -l {0}
         run: |
           source $HOME/.profile
-          install_prerequisites
+          mac_install_prerequisites
 
 
 
@@ -79,17 +79,12 @@ jobs:
           fi
           sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
           
-      - name: Trelis setup
-        shell: bash -l {0}
-        run: |
-          source $HOME/.profile
-          setup_Trelis ${{ matrix.cubit }}
 
-      - name: Trelis SDK setup
+      - name: Trelis install
         shell: bash -l {0}
         run: |
           source $HOME/.profile
-          setup_trelis_sdk ${{ matrix.cubit }}
+          mac_setup_trelis_sdk ${{ matrix.cubit }}
 
 
 
@@ -115,7 +110,7 @@ jobs:
         shell: bash -l {0}
         run: |
           source $HOME/.profile
-          build_plugin_pkg ${{ matrix.cubit }}
+          mac_build_plugin_pkg ${{ matrix.cubit }}
 
 
       - name: Upload package

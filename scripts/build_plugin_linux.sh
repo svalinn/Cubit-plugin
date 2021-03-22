@@ -11,27 +11,29 @@ FOLDER_PKG="$2"
 PLUGIN_DIR="plugin-build"
 
 PLUGIN_ABS_PATH=""
-TRELIS_PATH=""
-TRELIS_PKG="$3"
-TRELIS_SDK_PKG="$4"   
+CUBIT_PATH=""
+CUBIT_PKG="$3"
+CUBIT_SDK_PKG="$4"   
 CMAKE_ADDITIONAL_FLAGS=""
 UBUNTU_VERSION=""
 HDF5_PATH=""
+BUILD_SHARED_LIBS=""
 
-source ${SCRIPTPATH}/scripts/linux_share_build.sh
+
+source ${SCRIPTPATH}/scripts/unix_share_build.sh
 
 install_prerequisites
 
 setup 
-setup_var $1
+linux_setup_var $1
 
 build_hdf5
 
 build_moab
 build_dagmc
 
-# $1 is the version of Trelis/Cubit one are trying to compile against i.e. 17.1.0
-setup_Trelis_sdk $1
+# $1 is the version of CUBIT/Cubit one are trying to compile against i.e. 17.1.0
+linux_setup_Trelis_sdk $1
 build_plugin $1
 build_plugin_pkg $1
 

@@ -1,7 +1,17 @@
 #!/bin/bash
 PROC=$((`grep -c processor /proc/cpuinfo`))
 
-function install_prerequisites() {
+
+function mac_install_brew() {
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+}
+
+function mac_install_prerequisites() {
+    brew install eigen hdf5 gcc@6 gsed
+    brew link hdf5
+}
+
+function linux_install_prerequisites() {
     TZ=America/Chicago
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
@@ -21,17 +31,38 @@ function setup() {
     ln -s ${SCRIPTPATH}/ ./
 }
 
-function setup_var() {
+
+
+function mac_setup_var() {
     # Setup the variables
     if [ "$1" = "2020.2" ]; then
-        TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
+        CUBIT_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
     elif [ "$1" = "17.1.0" ]; then
-        TRELIS_PATH="/opt/Trelis-17.1"
+        CUBIT_PATH="/Applications/Trelis-17.1.app/Contents"
         CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
         echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
         return 1
     fi
+
+    BUILD_SHARED_LIBS="OFF"
+    BUILD_STATIC_LIBS="ON"
+}
+
+function linux_setup_var() {
+    # Setup the variables
+    if [ "$1" = "2020.2" ]; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2020.2"
+    elif [ "$1" = "17.1.0" ]; then
+        CUBIT_PATH="/opt/Trelis-17.1"
+        CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
+    else
+        echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
+        return 1
+    fi
+
+    BUILD_SHARED_LIBS="ON"
+    BUILD_STATIC_LIBS="OFF"
 
 }
 
@@ -66,7 +97,7 @@ function build_moab() {
     cd bld
     cmake ../moab -DENABLE_HDF5=ON \
             -DHDF5_ROOT=$HDF5_PATH \
-            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
             -DENABLE_BLASLAPACK=OFF \
             -DENABLE_FORTRAN=OFF \
             $CMAKE_ADDITIONAL_FLAGS \
@@ -89,8 +120,8 @@ function build_dagmc(){
                 -DBUILD_TALLY=OFF \
                 -DBUILD_BUILD_OBB=OFF \
                 -DBUILD_MAKE_WATERTIGHT=ON \
-                -DBUILD_SHARED_LIBS=ON \
-                -DBUILD_STATIC_LIBS=OFF \
+                -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
+                -DBUILD_STATIC_LIBS=${BUILD_STATIC_LIBS}} \
                 -DBUILD_EXE=OFF \
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                 -DCMAKE_BUILD_TYPE=Release \
@@ -103,7 +134,53 @@ function build_dagmc(){
     rm -rf DAGMC/DAGMC DAGMC/bld
 }
 
-function setup_Trelis_sdk() {
+function mac_setup_trelis_sdk() {
+    cd ${FOLDER_PKG}
+    ls 
+    echo $TRELIS_PKG
+    if [ "${1}" = "17.1.0" ]; then
+        hdiutil convert ${FOLDER_PKG}/${TRELIS_PKG} -format UDTO -o trelis_eula.dmg.cdr
+        hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
+        mv /Volumes/Cubit/*.app /Applications/
+        hdiutil detach /Volumes/Cubit
+        rm -rf trelis.dmg
+    elif [ "${1}" = "2020.2" ]; then
+        ls ${FOLDER_PKG}/${TRELIS_PKG}
+        sudo installer -pkg ${FOLDER_PKG}/${TRELIS_PKG} -target /
+        rm -rf cubit.pkg
+    fi
+
+    cd ${CUBIT_PATH}
+    if [ "${1}" = "2020.2" ]; then
+        CUBIT_BASE_NAME="Coreform-Cubit-2020.2"
+    elif [ "${1}" = "17.1.0" ]; then
+        CUBIT_BASE_NAME="Trelis-17.1"
+    fi
+    ls -al
+    sudo tar -xzf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
+    echo "ARG 1: ${1}"
+    echo "CUBIT_BASE_NAME: ${CUBIT_BASE_NAME}"
+    sudo mv ${CUBIT_BASE_NAME}/* ./
+    sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
+    sudo mv bin/* MacOS/
+    sudo rm -rf bin ${CUBIT_BASE_NAME}.app
+    sudo ln -s MacOS bin
+    sudo ln -s ${CUBIT_PATH}/include /Applications/include
+
+    sudo cp ${GITHUB_WORKSPACE}/scripts/*.cmake ${CUBIT_PATH}/MacOS/
+    if [ "${1}" = "2020.2" ]; then
+        cd ${CUBIT_PATH}/bin
+        sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
+        sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+        sudo gsed -i "s/Trelis-17.1.app/${CUBIT_BASE_NAME}.app/" CubitExport.cmake
+        sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+        sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+        sudo gsed -i "s/Trelis-17.1.app/${CUBIT_BASE_NAME}.app/" CubitGeomConfig.cmake
+    fi
+
+}
+
+function linux_setup_Trelis_sdk() {
 
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${TRELIS_PKG}
@@ -111,7 +188,7 @@ function setup_Trelis_sdk() {
     $SUDO tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "$1" = "2020.2" ]; then
-        cd ${TRELIS_PATH}/bin
+        cd ${CUBIT_PATH}/bin
         $SUDO cp -pv CubitExport.cmake CubitExport.cmake.orig
         $SUDO sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
         $SUDO cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
@@ -126,7 +203,7 @@ function build_plugin(){
     cd ../
     mkdir -pv bld
     cd bld
-    cmake ../Trelis-plugin -DCUBIT_ROOT=${TRELIS_PATH} \
+    cmake ../Trelis-plugin -DCUBIT_ROOT=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
                             $CMAKE_ADDITIONAL_FLAGS \
@@ -135,7 +212,7 @@ function build_plugin(){
     make install
 }
 
-function build_plugin_pkg(){
+function linux_build_plugin_pkg(){
     cd ${PLUGIN_ABS_PATH}
     mkdir -p pack/bin/plugins/svalinn
     cd pack/bin/plugins/svalinn
@@ -151,11 +228,11 @@ function build_plugin_pkg(){
     chmod 644 *
 
     # Set the RPATH to be the current directory for the DAGMC libraries
-    patchelf --set-rpath ${TRELIS_PATH}/bin/plugins/svalinn libMOAB.so
-    patchelf --set-rpath ${TRELIS_PATH}/bin/plugins/svalinn libdagmc.so
-    patchelf --set-rpath ${TRELIS_PATH}/bin/plugins/svalinn libmakeWatertight.so
-    patchelf --set-rpath ${TRELIS_PATH}/bin/plugins/svalinn libpyne_dagmc.so
-    patchelf --set-rpath ${TRELIS_PATH}/bin/plugins/svalinn libuwuw.so
+    patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libMOAB.so
+    patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libdagmc.so
+    patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libmakeWatertight.so
+    patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libpyne_dagmc.so
+    patchelf --set-rpath ${CUBIT_PATH}/bin/plugins/svalinn libuwuw.so
 
     # Create the Svalinn plugin tarball
     cd ..
@@ -163,4 +240,22 @@ function build_plugin_pkg(){
     cd ../..
     tar --sort=name -czvf svalinn-plugin_linux_cubit_$1.tgz bin
     chmod 666 svalinn-plugin_linux_cubit_$1.tgz
+}
+
+function mac_build_plugin_pkg(){
+    cd ${PLUGIN_ABS_PATH}
+    mkdir -p pack/MacOS/plugins/svalinn
+    cd pack/MacOS/plugins/svalinn
+
+    # Copy all needed libraries into current directory
+    cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
+    cp /usr/local/opt/szip/lib/libsz.2.dylib .
+    install_name_tool -change /usr/local/opt/szip/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
+
+    # Create the Svalinn plugin tarball
+    cd ..
+    ln -sv svalinn/libsvalinn_plugin.so .
+    cd ../..
+    tar -czvf svalinn-plugin_mac_cubit_${1}.tgz MacOS
+    chmod 666 svalinn-plugin_mac_cubit_$1.tgz
 }

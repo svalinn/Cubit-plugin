@@ -59,17 +59,12 @@ jobs:
             echo "UBUNTU_VERSION=20" >> $GITHUB_ENV
             echo "HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0" >> $GITHUB_ENV
           fi
-          echo "source $GITHUB_WORKSPACE/scripts/linux_share_build.sh" >> $HOME/.bash_profile
+          echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
       
       - name: Initial setup
         shell: bash -l {0}
         run: |
-          install_prerequisites
-          setup_var ${{ matrix.cubit }}
-          echo "TRELIS_PATH=$TRELIS_PATH" >> $GITHUB_ENV
-          echo "TRELIS_PKG=$TRELIS_PKG" >> $GITHUB_ENV
-          echo "TRELIS_SDK_PKG=$TRELIS_SDK_PKG" >> $GITHUB_ENV
-          echo "CMAKE_ADDITIONAL_FLAGS=$CMAKE_ADDITIONAL_FLAGS" >> $GITHUB_ENV
+          linux_install_prerequisites
  
       - name: Downloading packages
         shell: bash -l {0}
@@ -102,7 +97,7 @@ jobs:
       - name: Trelis setup
         shell: bash -l {0}
         run: |
-          setup_Trelis_sdk ${{ matrix.cubit }}
+          linux_setup_Trelis_sdk ${{ matrix.cubit }}
 
       - name: build plugin
         shell: bash -l {0}
@@ -112,7 +107,7 @@ jobs:
       - name: prepare pkg
         shell: bash -l {0}
         run: |
-          build_plugin_pkg ${{ matrix.cubit }}
+          linux_build_plugin_pkg ${{ matrix.cubit }}
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
