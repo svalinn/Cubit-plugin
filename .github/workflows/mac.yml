@@ -21,12 +21,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - cubit: 17_1_0
+          - cubit: 17.1.0
             URL: MAC_CUBIT_17_1_0
             URL_SDK: MAC_CUBIT_SDK_17_1_0
             CUBIT_BASE_NAME: Trelis-17.1
             
-          - cubit: 2020_2
+          - cubit: 2020.2
             URL: MAC_CUBIT_2020_2
             URL_SDK: MAC_CUBIT_SDK_2020_2
             CUBIT_BASE_NAME: Coreform-Cubit-2020.2
@@ -44,7 +44,7 @@ jobs:
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
           echo "FOLDER_PKG=$GITHUB_WORKSPACE/../pkg" >> $GITHUB_ENV
           echo "CUBIT_PATH=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
-          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+          if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             echo "CMAKE_ADDITIONAL_FLAG=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
             echo "TRELIS_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
             echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
@@ -72,9 +72,9 @@ jobs:
           source $HOME/.profile
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
-          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+          if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.dmg --output ${TRELIS_PKG}
-          elif [ "${{ matrix.cubit }}" = "2020_2" ]; then
+          elif [ "${{ matrix.cubit }}" = "2020.2" ]; then
             curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output ${TRELIS_PKG}
           fi
           sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
