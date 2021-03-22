@@ -140,9 +140,9 @@ function setup_trelis_sdk() {
     sudo ln -s MacOS bin
     sudo ln -s ${TRELIS_PATH}/include /Applications/include
 
-    sudo cp ${PLUGIN_ABS_PATH}/scripts/*.cmake ${TRELIS_PATH}/MacOS/
+    sudo cp ${PLUGIN_ABS_PATH}/scripts/*.cmake ${CUBIT_PATH}/MacOS/
     if [ "${1}" = "2020.2" ]; then
-        cd ${TRELIS_PATH}/bin
+        cd ${CUBIT_PATH}/bin
         sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
         sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
         sudo gsed -i "s/Trelis-17.1.app/${CUBIT_BASE_NAME}.app/" CubitExport.cmake
@@ -162,8 +162,8 @@ function build_plugin(){
     mkdir -pv bld
     cd bld
     cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
-            -DCubit_DIR=${TRELIS_PATH}/MacOS \
-            -DCUBIT_ROOT=${TRELIS_PATH}/MacOS \
+            -DCubit_DIR=${CUBIT_PATH}/MacOS \
+            -DCUBIT_ROOT=${CUBIT_PATH}/MacOS \
             -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
