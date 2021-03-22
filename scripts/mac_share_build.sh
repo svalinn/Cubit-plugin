@@ -106,7 +106,7 @@ function setup_Trelis {
 
     cd ${FOLDER_PKG}
     if [ "${1}" = "17.1.0" ]; then
-        hdiutil convert trelis.dmg -format UDTO -o ${TRELIS_PKG}
+        hdiutil convert ${TRELIS_PKG} -format UDTO -o trelis_eula.dmg.cdr
         hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
         mv /Volumes/Cubit/*.app /Applications/
         hdiutil detach /Volumes/Cubit
