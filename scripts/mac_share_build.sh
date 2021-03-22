@@ -105,13 +105,13 @@ function build_dagmc(){
 function setup_Trelis {
 
     cd ${PLUGIN_ABS_PATH}
-    if [ "${1}" = "17_1_0" ]; then
+    if [ "${1}" = "17.1.0" ]; then
         hdiutil convert trelis.dmg -format UDTO -o ${TRELIS_PKG}
         hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
         mv /Volumes/Cubit/*.app /Applications/
         hdiutil detach /Volumes/Cubit
         rm -rf trelis.dmg
-    elif [ "${1}" = "2020_2" ]; then
+    elif [ "${1}" = "2020.2" ]; then
         sudo installer -pkg ${TRELIS_PKG} -target /
         rm -rf cubit.pkg
     fi
