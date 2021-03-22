@@ -97,6 +97,8 @@ jobs:
         shell: bash -l {0}
         run: |
           source $HOME/.profile
+          setup_Trelis
+          setup_trelis_sdk
           build_plugin 
           
       - name: Prepare package
