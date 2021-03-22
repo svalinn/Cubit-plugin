@@ -105,6 +105,8 @@ function build_dagmc(){
 function setup_Trelis {
 
     cd ${FOLDER_PKG}
+    ls 
+    echo $TRELIS_PKG
     if [ "${1}" = "17.1.0" ]; then
         hdiutil convert ${TRELIS_PKG} -format UDTO -o trelis_eula.dmg.cdr
         hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
