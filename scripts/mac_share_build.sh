@@ -130,7 +130,7 @@ function setup_trelis_sdk() {
         CUBIT_BASE_NAME="Trelis-17.1"
     fi
     ls -al
-    sudo tar -xzf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
+    sudo tar -xzvf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
     echo "ARG 1: ${1}"
     echo "CUBIT_BASE_NAME: ${CUBIT_BASE_NAME}"
     sudo mv ${CUBIT_BASE_NAME}/* ./
