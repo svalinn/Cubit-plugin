@@ -123,7 +123,7 @@ function setup_Trelis {
 
 function setup_trelis_sdk() {
    
-    cd $FOLDER_PKG
+    cd ${TRELIS_PATH}
     if [ "${1}" = "2020.2" ]; then
         CUBIT_BASE_NAME="Coreform-Cubit-2020.2"
     elif [ "${1}" = "17.1.0" ]; then
@@ -131,6 +131,7 @@ function setup_trelis_sdk() {
     fi
     ls -al
     sudo tar -xzf ${TRELIS_SDK_PKG}
+    echo "ARG 1: ${1}"
     sudo mv ${CUBIT_BASE_NAME}/* ./
     sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
     sudo mv bin/* MacOS/
