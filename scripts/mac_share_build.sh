@@ -106,17 +106,14 @@ function setup_Trelis {
 
     cd ${PLUGIN_ABS_PATH}
     if [ "${1}" = "17_1_0" ]; then
-
-    hdiutil convert trelis.dmg -format UDTO -o ${TRELIS_PKG}
-    hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
-    mv /Volumes/Cubit/*.app /Applications/
-    hdiutil detach /Volumes/Cubit
-    rm -rf trelis.dmg
-    
+        hdiutil convert trelis.dmg -format UDTO -o ${TRELIS_PKG}
+        hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
+        mv /Volumes/Cubit/*.app /Applications/
+        hdiutil detach /Volumes/Cubit
+        rm -rf trelis.dmg
     elif [ "${1}" = "2020_2" ]; then
-    sudo installer -pkg ${TRELIS_PKG} -target /
-    rm -rf cubit.pkg
-
+        sudo installer -pkg ${TRELIS_PKG} -target /
+        rm -rf cubit.pkg
     fi
 
 }
@@ -132,6 +129,7 @@ function setup_trelis_sdk() {
     ls -al
     sudo tar -xzf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
     echo "ARG 1: ${1}"
+    echo "CUBIT_BASE_NAME: ${CUBIT_BASE_NAME}"
     sudo mv ${CUBIT_BASE_NAME}/* ./
     sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
     sudo mv bin/* MacOS/
