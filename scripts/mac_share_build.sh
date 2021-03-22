@@ -23,9 +23,9 @@ function setup() {
 function setup_var() {
     # Setup the variables
     if [ "$1" = "2020.2" ]; then
-        TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
+        TRELIS_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
     elif [ "$1" = "17.1.0" ]; then
-        TRELIS_PATH="/opt/Trelis-17.1"
+        TRELIS_PATH="/Applications/Trelis-17.1.app/Contents"
         CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
         echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
@@ -123,7 +123,7 @@ function setup_Trelis {
 
 function setup_trelis_sdk() {
    
-    cd $TRELIS_INSTALL_LOC
+    cd $TRELIS_PATH
     if [ "${1}" = "2020.2" ]; then
         CUBIT_BASE_NAME="Coreform-Cubit-2020.2"
     elif [ "${1}" = "17.1.0" ]; then
@@ -136,12 +136,12 @@ function setup_trelis_sdk() {
     sudo mv bin/* MacOS/
     sudo rm -rf bin ${CUBIT_BASE_NAME}.app
     sudo ln -s MacOS bin
-    sudo ln -s ${TRELIS_INSTALL_LOC}/include /Applications/include
+    sudo ln -s ${TRELIS_PATH}/include /Applications/include
 
     cd ${PLUGIN_ABS_PATH}/Trelis-plugin
-    sudo cp scripts/*.cmake ${TRELIS_INSTALL_LOC}/MacOS/
+    sudo cp scripts/*.cmake ${TRELIS_PATH}/MacOS/
     if [ "${1}" = "2020.2" ]; then
-        cd ${TRELIS_INSTALL_LOC}/bin
+        cd ${TRELIS_PATH}/bin
         sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
         sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
         sudo gsed -i "s/Trelis-17.1.app/${CUBIT_BASE_NAME}.app/" CubitExport.cmake
@@ -161,8 +161,8 @@ function build_plugin(){
     mkdir -pv bld
     cd bld
     cmake ../Trelis-plugin $CMAKE_ADDITIONAL_FLAG \
-            -DCubit_DIR=${TRELIS_INSTALL_LOC}/MacOS \
-            -DCUBIT_ROOT=${TRELIS_INSTALL_LOC}/MacOS \
+            -DCubit_DIR=${TRELIS_PATH}/MacOS \
+            -DCUBIT_ROOT=${TRELIS_PATH}/MacOS \
             -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}
