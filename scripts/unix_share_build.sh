@@ -1,6 +1,4 @@
 #!/bin/bash
-PROC=$((`grep -c processor /proc/cpuinfo`))
-
 
 function mac_install_brew() {
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -78,7 +76,7 @@ function build_hdf5() {
         git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0
         cd bld
         cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
-        make -j$PROC
+        make
         $SUDO make install
         HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
     fi
@@ -102,8 +100,7 @@ function build_moab() {
             -DENABLE_FORTRAN=OFF \
             $CMAKE_ADDITIONAL_FLAGS \
             -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
-
-    make -j$PROC
+    make
     make install
     cd ../..
     rm -rf moab/moab moab/bld
@@ -127,7 +124,7 @@ function build_dagmc(){
                 -DCMAKE_BUILD_TYPE=Release \
                 $CMAKE_ADDITIONAL_FLAGS \
                 -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/DAGMC
-                
+
     make
     make install
     cd ../..
@@ -136,8 +133,6 @@ function build_dagmc(){
 
 function mac_setup_trelis_sdk() {
     cd ${FOLDER_PKG}
-    ls 
-    echo $TRELIS_PKG
     if [ "${1}" = "17.1.0" ]; then
         hdiutil convert ${FOLDER_PKG}/${TRELIS_PKG} -format UDTO -o trelis_eula.dmg.cdr
         hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
@@ -145,7 +140,6 @@ function mac_setup_trelis_sdk() {
         hdiutil detach /Volumes/Cubit
         rm -rf trelis.dmg
     elif [ "${1}" = "2020.2" ]; then
-        ls ${FOLDER_PKG}/${TRELIS_PKG}
         sudo installer -pkg ${FOLDER_PKG}/${TRELIS_PKG} -target /
         rm -rf cubit.pkg
     fi
@@ -156,10 +150,7 @@ function mac_setup_trelis_sdk() {
     elif [ "${1}" = "17.1.0" ]; then
         CUBIT_BASE_NAME="Trelis-17.1"
     fi
-    ls -al
     sudo tar -xzf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
-    echo "ARG 1: ${1}"
-    echo "CUBIT_BASE_NAME: ${CUBIT_BASE_NAME}"
     sudo mv ${CUBIT_BASE_NAME}/* ./
     sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
     sudo mv bin/* MacOS/
