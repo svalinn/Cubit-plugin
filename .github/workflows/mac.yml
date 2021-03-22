@@ -79,8 +79,13 @@ jobs:
           fi
           sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
           
+      - name: Trelis setup
+        shell: bash -l {0}
+        run: |
+          source $HOME/.profile
+          setup_Trelis
+          setup_trelis_sdk
 
-   
       - name: Build MOAB
         shell: bash -l {0}
         run: |
@@ -97,8 +102,6 @@ jobs:
         shell: bash -l {0}
         run: |
           source $HOME/.profile
-          setup_Trelis
-          setup_trelis_sdk
           build_plugin 
           
       - name: Prepare package

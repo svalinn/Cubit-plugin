@@ -129,7 +129,7 @@ function setup_trelis_sdk() {
     elif [ "${1}" = "17.1.0" ]; then
         CUBIT_BASE_NAME="Trelis-17.1"
     fi
-
+    ls -al
     sudo tar -xzf ${TRELIS_SDK_PKG}
     sudo mv ${CUBIT_BASE_NAME}/* ./
     sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
