@@ -63,7 +63,7 @@ jobs:
 
 
 
-      - name: Trelis setup
+      - name: Trelis Download
         shell: bash -l {0}
         env:   
           CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
@@ -84,7 +84,14 @@ jobs:
         run: |
           source $HOME/.profile
           setup_Trelis ${{ matrix.cubit }}
+
+      - name: Trelis SDK setup
+        shell: bash -l {0}
+        run: |
+          source $HOME/.profile
           setup_trelis_sdk ${{ matrix.cubit }}
+
+
 
       - name: Build MOAB
         shell: bash -l {0}
