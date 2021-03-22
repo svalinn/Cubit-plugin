@@ -108,13 +108,13 @@ function setup_Trelis {
     ls 
     echo $TRELIS_PKG
     if [ "${1}" = "17.1.0" ]; then
-        hdiutil convert ${TRELIS_PKG} -format UDTO -o trelis_eula.dmg.cdr
+        hdiutil convert ${FOLDER_PKG}/${TRELIS_PKG} -format UDTO -o trelis_eula.dmg.cdr
         hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
         mv /Volumes/Cubit/*.app /Applications/
         hdiutil detach /Volumes/Cubit
         rm -rf trelis.dmg
     elif [ "${1}" = "2020.2" ]; then
-        sudo installer -pkg ${TRELIS_PKG} -target /
+        sudo installer -pkg ${FOLDER_PKG}/${TRELIS_PKG} -target /
         rm -rf cubit.pkg
     fi
 
