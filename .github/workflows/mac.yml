@@ -56,7 +56,7 @@ jobs:
 
 
       - name: Brew dependencies
-        shell: bash --init-file $HOME/.profile
+        shell: bash -l {0}
         run: |
           source $HOME/.profile
           install_prerequisites
