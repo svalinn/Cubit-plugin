@@ -52,7 +52,7 @@ jobs:
             echo "TRELIS_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
             echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
           fi
-          echo "source $GITHUB_WORKSPACE/scripts/mac_share_build.sh" >> $HOME/.bash_profile
+          echo "source $GITHUB_WORKSPACE/scripts/mac_share_build.sh" >> $HOME/.profile
 
 
       - name: Brew dependencies
