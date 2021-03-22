@@ -23,9 +23,9 @@ function setup() {
 function setup_var() {
     # Setup the variables
     if [ "$1" = "2020.2" ]; then
-        TRELIS_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
+        CUBIT_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
     elif [ "$1" = "17.1.0" ]; then
-        TRELIS_PATH="/Applications/Trelis-17.1.app/Contents"
+        CUBIT_PATH="/Applications/Trelis-17.1.app/Contents"
         CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
         echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
@@ -138,7 +138,7 @@ function setup_trelis_sdk() {
     sudo mv bin/* MacOS/
     sudo rm -rf bin ${CUBIT_BASE_NAME}.app
     sudo ln -s MacOS bin
-    sudo ln -s ${TRELIS_PATH}/include /Applications/include
+    sudo ln -s ${CUBIT_PATH}/include /Applications/include
 
     sudo cp ${GITHUB_WORKSPACE}/scripts/*.cmake ${CUBIT_PATH}/MacOS/
     if [ "${1}" = "2020.2" ]; then
