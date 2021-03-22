@@ -186,5 +186,5 @@ function build_plugin_pkg(){
     ln -sv svalinn/libsvalinn_plugin.so .
     cd ../..
     tar -czvf svalinn-plugin_mac_cubit_${1}.tgz MacOS
-    chmod 666 svalinn-plugin_linux_cubit_$1.tgz
+    chmod 666 svalinn-plugin_mac_cubit_$1.tgz
 }
