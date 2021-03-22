@@ -46,11 +46,11 @@ jobs:
           echo "CUBIT_PATH=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             echo "CMAKE_ADDITIONAL_FLAG=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
-            echo "TTrelis-17.1.0-Mac64.dmg" >> $GITHUB_ENV
-            echo "Trelis-SDK-17.1.0-Mac64.tar.gz" >> $GITHUB_ENV
+            echo "TRELIS_PKG=Trelis-17.1.0-Mac64.dmg" >> $GITHUB_ENV
+            echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Mac64.tar.gz" >> $GITHUB_ENV
           else
-            echo "Coreform-Cubit-2020.2-Mac64.pkg" >> $GITHUB_ENV
-            echo "Coreform-Cubit-2020.2-Mac64-SDK.tar.gz" >> $GITHUB_ENV
+            echo "TRELIS_PKG=Coreform-Cubit-2020.2-Mac64.pkg" >> $GITHUB_ENV
+            echo "TRELIS_SDK_PKG=TCoreform-Cubit-2020.2-Mac64-SDK.tar.gz" >> $GITHUB_ENV
           fi
           echo "source $GITHUB_WORKSPACE/scripts/mac_share_build.sh" >> $HOME/.profile
 
