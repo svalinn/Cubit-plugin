@@ -123,7 +123,7 @@ function setup_Trelis {
 
 function setup_trelis_sdk() {
    
-    cd $TRELIS_PATH
+    cd $FOLDER_PKG
     if [ "${1}" = "2020.2" ]; then
         CUBIT_BASE_NAME="Coreform-Cubit-2020.2"
     elif [ "${1}" = "17.1.0" ]; then
