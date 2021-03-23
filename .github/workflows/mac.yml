@@ -23,14 +23,14 @@ jobs:
         include:
           - cubit: 17.1.0
             os: macos-10.15
-            URL: MAC_CUBIT_17_1_0.dmg
-            URL_SDK: MAC_CUBIT_SDK_17_1_0.gz
+            URL: MAC_CUBIT_17_1_0
+            URL_SDK: MAC_CUBIT_SDK_17_1_0
             CUBIT_BASE_NAME: Trelis-17.1
             
           - cubit: 2020.2
             os: macos-10.15
-            URL: MAC_CUBIT_2020_2.pkg
-            URL_SDK: MAC_CUBIT_SDK_2020_2.gz
+            URL: MAC_CUBIT_2020_2
+            URL_SDK: MAC_CUBIT_SDK_2020_2
             CUBIT_BASE_NAME: Coreform-Cubit-2020.2
 
     name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Macos'
@@ -50,9 +50,11 @@ jobs:
             echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
             echo "TRELIS_PKG=Trelis-17.1.0-Mac64.dmg" >> $GITHUB_ENV
             echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Mac64.tar.gz" >> $GITHUB_ENV
+            echo "CUBIT_PKG_URL_EXT=.dmg" >> $GITHUB_ENV
           else
             echo "TRELIS_PKG=Coreform-Cubit-2020.2-Mac64.pkg" >> $GITHUB_ENV
             echo "TRELIS_SDK_PKG=TCoreform-Cubit-2020.2-Mac64-SDK.tar.gz" >> $GITHUB_ENV
+            echo "CUBIT_PKG_URL_EXT=.pkg" >> $GITHUB_ENV
           fi
           echo "BUILD_SHARED_LIBS=OFF" >> $GITHUB_ENV
           echo "BUILD_STATIC_LIBS=ON" >> $GITHUB_ENV
@@ -77,8 +79,8 @@ jobs:
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
           echo ${TRELIS_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL} --output ${TRELIS_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL} --output ${TRELIS_SDK_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.${CUBIT_PKG_URL_EXT} --output ${TRELIS_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
           
 
 

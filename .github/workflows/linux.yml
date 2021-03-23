@@ -23,14 +23,14 @@ jobs:
         include:
           - cubit: 17.1.0
             os: ubuntu-18.04
-            URL: LINUX_CUBIT_17_1_0.deb
-            URL_SDK: LINUX_CUBIT_SDK_17_1_0.gz
+            URL: LINUX_CUBIT_17_1_0
+            URL_SDK: LINUX_CUBIT_SDK_17_1_0
             CUBIT_BASE_NAME: Trelis-17.1
             
           - cubit: 2020.2
             os: ubuntu-20.04
-            URL: LINUX_CUBIT_2020_2.deb
-            URL_SDK: LINUX_CUBIT_SDK_2020_2.gz
+            URL: LINUX_CUBIT_2020_2
+            URL_SDK: LINUX_CUBIT_SDK_2020_2
             CUBIT_BASE_NAME: Coreform-Cubit-2020.2
 
     name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Linux'
@@ -80,8 +80,8 @@ jobs:
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
           echo ${TRELIS_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL} --output ${TRELIS_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL} --output ${TRELIS_SDK_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.deb --output ${TRELIS_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
 
 
       - name: Build HDF5
