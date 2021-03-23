@@ -61,8 +61,10 @@ jobs:
           fi
           echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
           echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
-          echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
           echo "SUDO=sudo " >> $GITHUB_ENV
+
+          echo "" >> ${HOME}/.bash_profile
+          echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
       
       - name: Initial setup
         shell: bash -l {0}

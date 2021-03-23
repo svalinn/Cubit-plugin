@@ -56,6 +56,7 @@ jobs:
           fi
           echo "BUILD_SHARED_LIBS=OFF" >> $GITHUB_ENV
           echo "BUILD_STATIC_LIBS=ON" >> $GITHUB_ENV
+
           echo "" >> ${HOME}/.bash_profile
           echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
 
@@ -63,8 +64,6 @@ jobs:
       - name: Initial setup
         shell: bash -l {0}
         run: |
-          tail $HOME/.bash_profile
-          ls -l $GITHUB_WORKSPACE/scripts
           mac_install_prerequisites
 
 
