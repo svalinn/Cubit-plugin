@@ -17,18 +17,20 @@ env:
 
 jobs:
   main:
-    runs-on: macos-10.15
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - cubit: 17.1.0
-            URL: MAC_CUBIT_17_1_0
-            URL_SDK: MAC_CUBIT_SDK_17_1_0
+            os: macos-10.15
+            URL: MAC_CUBIT_17_1_0.dmg
+            URL_SDK: MAC_CUBIT_SDK_17_1_0.gz
             CUBIT_BASE_NAME: Trelis-17.1
             
           - cubit: 2020.2
-            URL: MAC_CUBIT_2020_2
-            URL_SDK: MAC_CUBIT_SDK_2020_2
+            os: macos-10.15
+            URL: MAC_CUBIT_2020_2.pkg
+            URL_SDK: MAC_CUBIT_SDK_2020_2.gz
             CUBIT_BASE_NAME: Coreform-Cubit-2020.2
 
     name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Macos'
@@ -54,13 +56,12 @@ jobs:
           fi
           echo "BUILD_SHARED_LIBS=OFF" >> $GITHUB_ENV
           echo "BUILD_STATIC_LIBS=ON" >> $GITHUB_ENV
-          echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.profile
+          echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
 
 
       - name: Initial setup
         shell: bash -l {0}
         run: |
-          source $HOME/.profile
           mac_install_prerequisites
 
 
@@ -68,49 +69,40 @@ jobs:
       - name: Downloading packages
         shell: bash -l {0}
         env:   
-          CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
+          CUBIT_PKG_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
-          source $HOME/.profile
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
-          if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
-            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.dmg --output ${TRELIS_PKG}
-          elif [ "${{ matrix.cubit }}" = "2020.2" ]; then
-            curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.pkg --output ${TRELIS_PKG}
-          fi
-          sudo curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
+          echo ${TRELIS_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL} --output ${TRELIS_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL} --output ${TRELIS_SDK_PKG}
           
 
 
       - name: Build MOAB
         shell: bash -l {0}
         run: |
-          source $HOME/.profile
           build_moab
 
       - name: Build DAGMC
         shell: bash -l {0}
         run: |
-          source $HOME/.profile
           build_dagmc
 
-      - name: Trelis steup
+      - name: Trelis setup
         shell: bash -l {0}
         run: |
-          source $HOME/.profile
           mac_setup_cubit_sdk ${{ matrix.cubit }}
 
       - name: Build plugin
         shell: bash -l {0}
         run: |
-          source $HOME/.profile
           build_plugin 
           
       - name: Prepare package
         shell: bash -l {0}
         run: |
-          source $HOME/.profile
           mac_build_plugin_pkg ${{ matrix.cubit }}
 
 
