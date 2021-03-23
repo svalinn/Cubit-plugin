@@ -62,6 +62,7 @@ jobs:
       - name: Initial setup
         shell: bash -l {0}
         run: |
+          tail $HOME/.bash_profile
           ls -l $GITHUB_WORKSPACE/scripts
           mac_install_prerequisites
 
