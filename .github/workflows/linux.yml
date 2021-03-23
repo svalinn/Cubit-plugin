@@ -97,7 +97,7 @@ jobs:
       - name: Trelis setup
         shell: bash -l {0}
         run: |
-          linux_setup_Trelis_sdk ${{ matrix.cubit }}
+          linux_setup_cubit_sdk ${{ matrix.cubit }}
 
       - name: Build plugin
         shell: bash -l {0}

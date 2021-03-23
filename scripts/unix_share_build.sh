@@ -131,7 +131,7 @@ function build_dagmc(){
     rm -rf DAGMC/DAGMC DAGMC/bld
 }
 
-function mac_setup_trelis_sdk() {
+function mac_setup_cubit_sdk() {
     cd ${FOLDER_PKG}
     if [ "${1}" = "17.1.0" ]; then
         hdiutil convert ${FOLDER_PKG}/${TRELIS_PKG} -format UDTO -o trelis_eula.dmg.cdr
@@ -171,7 +171,7 @@ function mac_setup_trelis_sdk() {
 
 }
 
-function linux_setup_Trelis_sdk() {
+function linux_setup_cubit_sdk() {
 
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${TRELIS_PKG}

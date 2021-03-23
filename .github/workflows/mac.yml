@@ -99,7 +99,7 @@ jobs:
         shell: bash -l {0}
         run: |
           source $HOME/.profile
-          mac_setup_trelis_sdk ${{ matrix.cubit }}
+          mac_setup_cubit_sdk ${{ matrix.cubit }}
 
       - name: Build plugin
         shell: bash -l {0}
