@@ -25,11 +25,13 @@ jobs:
             os: ubuntu-18.04
             URL: LINUX_CUBIT_17_1_0
             URL_SDK: LINUX_CUBIT_SDK_17_1_0
+            CUBIT_BASE_NAME: Trelis-17.1
             
           - cubit: 2020.2
             os: ubuntu-20.04
             URL: LINUX_CUBIT_2020_2
             URL_SDK: LINUX_CUBIT_SDK_2020_2
+            CUBIT_BASE_NAME: Coreform-Cubit-2020.2
 
     name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Linux'
 
@@ -44,21 +46,24 @@ jobs:
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
           echo "FOLDER_PKG=$GITHUB_WORKSPACE/../pkg" >> $GITHUB_ENV
-          echo "SUDO=sudo " >> $GITHUB_ENV
+          echo "CUBIT_PATH=/opt/${{ matrix.CUBIT_BASE_NAME }}" >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
-            echo "CUBIT_PATH=/opt/Trelis-17.1" >> $GITHUB_ENV
+            echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
             echo "TRELIS_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
             echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
-            echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
             echo "UBUNTU_VERSION=18" >> $GITHUB_ENV
             echo "HDF5_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial" >> $GITHUB_ENV
           else
             echo "TRELIS_PKG=Coreform-Cubit-2020.2-Ubuntu20.deb" >> $GITHUB_ENV
             echo "TRELIS_SDK_PKG=Coreform-Cubit-2020.2-Lin64-SDK.tar.gz" >> $GITHUB_ENV
-            echo "CUBIT_PATH=/opt/Coreform-Cubit-2020.2" >> $GITHUB_ENV
             echo "UBUNTU_VERSION=20" >> $GITHUB_ENV
             echo "HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0" >> $GITHUB_ENV
           fi
+          echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
+          echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
+          echo "SUDO=sudo " >> $GITHUB_ENV
+
+          echo "" >> ${HOME}/.bash_profile
           echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
       
       - name: Initial setup
@@ -69,13 +74,13 @@ jobs:
       - name: Downloading packages
         shell: bash -l {0}
         env:   
-          CUBIT_DEB_URL: ${{ secrets[matrix.URL] }}
+          CUBIT_PKG_URL: ${{ secrets[matrix.URL] }}
           CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
           mkdir -p $FOLDER_PKG
-          cd $FOLDER_PKG
+          cd ${FOLDER_PKG}
           echo ${TRELIS_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_DEB_URL}.deb --output ${TRELIS_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.deb --output ${TRELIS_PKG}
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
 
 
@@ -89,7 +94,7 @@ jobs:
         run: |
           build_moab
 
-      - name: build DAGMC
+      - name: Build DAGMC
         shell: bash -l {0}
         run: |
           build_dagmc
@@ -109,7 +114,7 @@ jobs:
         run: |
           linux_build_plugin_pkg ${{ matrix.cubit }}
 
-      - name: 'Upload package'
+      - name: Upload package
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_linux_${{ matrix.cubit }}

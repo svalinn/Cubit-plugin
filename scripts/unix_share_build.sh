@@ -120,7 +120,7 @@ function build_dagmc(){
                 -DBUILD_BUILD_OBB=OFF \
                 -DBUILD_MAKE_WATERTIGHT=ON \
                 -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
-                -DBUILD_STATIC_LIBS=${BUILD_STATIC_LIBS}} \
+                -DBUILD_STATIC_LIBS=${BUILD_STATIC_LIBS} \
                 -DBUILD_EXE=OFF \
                 -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
                 -DCMAKE_BUILD_TYPE=Release \
