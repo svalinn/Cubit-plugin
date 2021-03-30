@@ -80,8 +80,8 @@ jobs:
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
           echo ${CUBIT_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.deb --output ${TRELIS_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.deb --output ${CUBIT_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${CUBIT_SDK_PKG}
 
 
       - name: Build HDF5
