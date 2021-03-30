@@ -52,8 +52,8 @@ jobs:
             echo "CUBIT_SDK_PKG=Trelis-SDK-17.1.0-Mac64.tar.gz" >> $GITHUB_ENV
             echo "CUBIT_PKG_URL_EXT=dmg" >> $GITHUB_ENV
           else
-            echo "TRELIS_PKG=Coreform-Cubit-2020.2-Mac64.pkg" >> $GITHUB_ENV
-            echo "TRELIS_SDK_PKG=TCoreform-Cubit-2020.2-Mac64-SDK.tar.gz" >> $GITHUB_ENV
+            echo "CUBIT_PKG=Coreform-Cubit-2020.2-Mac64.pkg" >> $GITHUB_ENV
+            echo "CUBIT_SDK_PKG=TCoreform-Cubit-2020.2-Mac64-SDK.tar.gz" >> $GITHUB_ENV
             echo "CUBIT_PKG_URL_EXT=pkg" >> $GITHUB_ENV
           fi
           echo "BUILD_SHARED_LIBS=OFF" >> $GITHUB_ENV
@@ -78,9 +78,9 @@ jobs:
         run: |
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
-          echo ${TRELIS_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.${CUBIT_PKG_URL_EXT} --output ${TRELIS_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
+          echo ${CUBIT_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.${CUBIT_PKG_URL_EXT} --output ${CUBIT_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${CUBIT_SDK_PKG}
           
 
 
