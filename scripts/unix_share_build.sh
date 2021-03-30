@@ -136,13 +136,13 @@ function build_dagmc(){
 function mac_setup_cubit_sdk() {
     cd ${FOLDER_PKG}
     if [ "${1}" = "17.1.0" ]; then
-        hdiutil convert ${FOLDER_PKG}/${TRELIS_PKG} -format UDTO -o trelis_eula.dmg.cdr
+        hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
         hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
         mv /Volumes/Cubit/*.app /Applications/
         hdiutil detach /Volumes/Cubit
         rm -rf trelis.dmg
     elif [ "${1}" = "2020.2" ]; then
-        sudo installer -pkg ${FOLDER_PKG}/${TRELIS_PKG} -target /
+        sudo installer -pkg ${CUBIT_PKG} -target /
         rm -rf cubit.pkg
     fi
 
@@ -152,7 +152,7 @@ function mac_setup_cubit_sdk() {
     elif [ "${1}" = "17.1.0" ]; then
         CUBIT_BASE_NAME="Trelis-17.1"
     fi
-    sudo tar -xzf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
+    sudo tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
     sudo mv ${CUBIT_BASE_NAME}/* ./
     sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
     sudo mv bin/* MacOS/
@@ -176,9 +176,9 @@ function mac_setup_cubit_sdk() {
 function linux_setup_cubit_sdk() {
 
     cd ${FOLDER_PKG}
-    $SUDO apt-get install -y ./${TRELIS_PKG}
+    $SUDO apt-get install -y ./${CUBIT_PKG}
     cd /opt
-    $SUDO tar -xzf ${FOLDER_PKG}/${TRELIS_SDK_PKG}
+    $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "$1" = "2020.2" ]; then
         cd ${CUBIT_PATH}/bin
