@@ -111,9 +111,7 @@ function build_dagmc(){
     mkdir -pv DAGMC/bld
     cd DAGMC
     git clone https://github.com/svalinn/DAGMC -b develop
-    cd DAGMC
-    git submodule update --init
-    cd ../bld
+    cd bld
     cmake ../DAGMC -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
                 -DBUILD_UWUW=ON \
                 -DBUILD_TALLY=OFF \
