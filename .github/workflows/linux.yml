@@ -49,13 +49,13 @@ jobs:
           echo "CUBIT_PATH=/opt/${{ matrix.CUBIT_BASE_NAME }}" >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
-            echo "TRELIS_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
-            echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
+            echo "CUBIT_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
+            echo "CUBIT_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
             echo "UBUNTU_VERSION=18" >> $GITHUB_ENV
             echo "HDF5_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial" >> $GITHUB_ENV
           else
-            echo "TRELIS_PKG=Coreform-Cubit-2020.2-Ubuntu20.deb" >> $GITHUB_ENV
-            echo "TRELIS_SDK_PKG=Coreform-Cubit-2020.2-Lin64-SDK.tar.gz" >> $GITHUB_ENV
+            echo "CUBIT_PKG=Coreform-Cubit-2020.2-Ubuntu20.deb" >> $GITHUB_ENV
+            echo "CUBIT_SDK_PKG=Coreform-Cubit-2020.2-Lin64-SDK.tar.gz" >> $GITHUB_ENV
             echo "UBUNTU_VERSION=20" >> $GITHUB_ENV
             echo "HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0" >> $GITHUB_ENV
           fi
@@ -79,7 +79,7 @@ jobs:
         run: |
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
-          echo ${TRELIS_PKG}
+          echo ${CUBIT_PKG}
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.deb --output ${TRELIS_PKG}
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${TRELIS_SDK_PKG}
 
