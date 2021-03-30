@@ -48,8 +48,8 @@ jobs:
           echo "CUBIT_PATH=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
-            echo "TRELIS_PKG=Trelis-17.1.0-Mac64.dmg" >> $GITHUB_ENV
-            echo "TRELIS_SDK_PKG=Trelis-SDK-17.1.0-Mac64.tar.gz" >> $GITHUB_ENV
+            echo "CUBIT_PKG=Trelis-17.1.0-Mac64.dmg" >> $GITHUB_ENV
+            echo "CUBIT_SDK_PKG=Trelis-SDK-17.1.0-Mac64.tar.gz" >> $GITHUB_ENV
             echo "CUBIT_PKG_URL_EXT=.dmg" >> $GITHUB_ENV
           else
             echo "TRELIS_PKG=Coreform-Cubit-2020.2-Mac64.pkg" >> $GITHUB_ENV
@@ -115,4 +115,3 @@ jobs:
         with:
           name: svalinn-plugin_mac_${{ matrix.cubit }}
           path: /Users/runner/work/Trelis-plugin/pack/svalinn-plugin_mac_cubit_${{ matrix.cubit }}.tgz
-
