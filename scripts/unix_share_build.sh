@@ -158,8 +158,8 @@ function mac_setup_cubit_sdk() {
     sudo ln -s MacOS bin
     sudo ln -s ${CUBIT_PATH}/include /Applications/include
 
-    sudo patch ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake CubitGeomConfig.cmake.diff
-    sudo patch ${CUBIT_PATH}/MacOS/CubitExport-release.cmake CubitExport-release.cmake.diff
+    sudo patch ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${GITHUB_WORKSPACE}/scripts/mac_os_cmake_patch/CubitGeomConfig.cmake.diff
+    sudo patch ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${GITHUB_WORKSPACE}/scripts/mac_os_cmake_patch/CubitGeomConfig.cmake.diff
 
     if [ "${1}" = "2020.2" ]; then
         cd ${CUBIT_PATH}/bin
