@@ -33,8 +33,13 @@ function setup() {
 
 function mac_setup_var() {
     # Setup the variables
+<<<<<<< HEAD
     if [ "$1" = "2021.4" ]; then
         CUBIT_PATH="/Applications/Coreform-Cubit-2021.4/Contents"
+=======
+    if [ "$1" = "2021.3" ]; then
+        CUBIT_PATH="/Applications/Coreform-Cubit-2021.3/Contents"
+>>>>>>> 162cc6818b19af1eb00b728e9f673eb5a5e856b2
     elif [ "$1" = "2020.2" ]; then
         CUBIT_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
     elif [ "$1" = "17.1.0" ]; then
@@ -51,8 +56,13 @@ function mac_setup_var() {
 
 function linux_setup_var() {
     # Setup the variables
+<<<<<<< HEAD
     if [ "$1" = "2021.4" ]; then
         CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
+=======
+    if [ "$1" = "2021.3" ]; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2021.3"
+>>>>>>> 162cc6818b19af1eb00b728e9f673eb5a5e856b2
     elif [ "$1" = "2020.2" ]; then
         CUBIT_PATH="/opt/Coreform-Cubit-2020.2"
     elif [ "$1" = "17.1.0" ]; then
