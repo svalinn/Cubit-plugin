@@ -14,7 +14,7 @@ function linux_install_prerequisites() {
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
     $SUDO apt-get update -y
-    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release
+    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python
     UBUNTU_VERSION=$(lsb_release -rs |cut -d"." -f1)
 }
 
