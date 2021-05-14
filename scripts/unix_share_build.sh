@@ -33,15 +33,15 @@ function setup() {
 
 function mac_setup_var() {
     # Setup the variables
-    if [ "$1" = "2021.3" ]; then
-        CUBIT_PATH="/Applications/Coreform-Cubit-2021.3/Contents"
+    if [ "$1" = "2021.4" ]; then
+        CUBIT_PATH="/Applications/Coreform-Cubit-2021.4/Contents"
     elif [ "$1" = "2020.2" ]; then
         CUBIT_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
     elif [ "$1" = "17.1.0" ]; then
         CUBIT_PATH="/Applications/Trelis-17.1.app/Contents"
         CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
-        echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
+        echo "unknown Trelis/Cubit version, use: \"17.1.0\" , \"2020.2\" or \"2021.4\""
         return 1
     fi
 
@@ -51,15 +51,15 @@ function mac_setup_var() {
 
 function linux_setup_var() {
     # Setup the variables
-    if [ "$1" = "2021.3" ]; then
-        CUBIT_PATH="/opt/Coreform-Cubit-2021.3"
+    if [ "$1" = "2021.4" ]; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
     elif [ "$1" = "2020.2" ]; then
         CUBIT_PATH="/opt/Coreform-Cubit-2020.2"
     elif [ "$1" = "17.1.0" ]; then
         CUBIT_PATH="/opt/Trelis-17.1"
         CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     else
-        echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
+        echo "unknown Trelis/Cubit version, use: \"17.1.0\", \"2020.2\" or \"2021.4\""
         return 1
     fi
 
@@ -149,7 +149,9 @@ function mac_setup_cubit_sdk() {
     fi
 
     cd ${CUBIT_PATH}
-    if [ "${1}" = "2020.2" ]; then
+    if [ "${1}" = "2021.4" ]; then
+        CUBIT_BASE_NAME="Coreform-Cubit-2021.4"
+    elif [ "${1}" = "2020.2" ]; then
         CUBIT_BASE_NAME="Coreform-Cubit-2020.2"
     elif [ "${1}" = "17.1.0" ]; then
         CUBIT_BASE_NAME="Trelis-17.1"

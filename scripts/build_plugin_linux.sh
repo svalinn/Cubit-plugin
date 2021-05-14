@@ -22,7 +22,7 @@ BUILD_SHARED_LIBS=""
 
 source ${SCRIPTPATH}/scripts/unix_share_build.sh
 
-install_prerequisites
+linux_install_prerequisites
 
 setup 
 linux_setup_var $1
