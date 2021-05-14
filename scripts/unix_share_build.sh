@@ -33,7 +33,9 @@ function setup() {
 
 function mac_setup_var() {
     # Setup the variables
-    if [ "$1" = "2020.2" ]; then
+    if [ "$1" = "2021.3" ]; then
+        CUBIT_PATH="/Applications/Coreform-Cubit-2021.3/Contents"
+    elif [ "$1" = "2020.2" ]; then
         CUBIT_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
     elif [ "$1" = "17.1.0" ]; then
         CUBIT_PATH="/Applications/Trelis-17.1.app/Contents"
@@ -49,7 +51,9 @@ function mac_setup_var() {
 
 function linux_setup_var() {
     # Setup the variables
-    if [ "$1" = "2020.2" ]; then
+    if [ "$1" = "2021.3" ]; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2021.3"
+    elif [ "$1" = "2020.2" ]; then
         CUBIT_PATH="/opt/Coreform-Cubit-2020.2"
     elif [ "$1" = "17.1.0" ]; then
         CUBIT_PATH="/opt/Trelis-17.1"
