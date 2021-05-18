@@ -143,7 +143,7 @@ function mac_setup_cubit_sdk() {
         mv /Volumes/Cubit/*.app /Applications/
         hdiutil detach /Volumes/Cubit
         rm -rf trelis.dmg
-    elif [ "${1}" = "2020.2" ]; then
+    else
         sudo installer -pkg ${CUBIT_PKG} -target /
         rm -rf cubit.pkg
     fi
@@ -167,7 +167,7 @@ function mac_setup_cubit_sdk() {
     sudo patch ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${GITHUB_WORKSPACE}/scripts/mac_os_cmake_patch/CubitExport-release.cmake.diff
     sudo patch ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${GITHUB_WORKSPACE}/scripts/mac_os_cmake_patch/CubitGeomConfig.cmake.diff
 
-    if [ "${1}" = "2020.2" ]; then
+    if [ "${1}" = "2020.2" ] || [ "${1}" = "2021.4" ]; then
         cd ${CUBIT_PATH}/bin
         sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
         sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
@@ -184,9 +184,10 @@ function linux_setup_cubit_sdk() {
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${CUBIT_PKG}
     cd /opt
-    $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
+    
+    # $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
-    if [ "$1" = "2020.2" ]; then
+    if [ "$1" = "2020.2" ] || [ "${1}" = "2021.4"  ]; then
         cd ${CUBIT_PATH}/bin
         $SUDO cp -pv CubitExport.cmake CubitExport.cmake.orig
         $SUDO sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
