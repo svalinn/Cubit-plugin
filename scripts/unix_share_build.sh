@@ -1,4 +1,6 @@
 #!/bin/bash
+set -ue
+
 
 function mac_install_brew() {
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -9,13 +11,21 @@ function mac_install_prerequisites() {
     brew link hdf5
 }
 
-function linux_install_prerequisites() {
+function ubuntu_version() {
+    apt-get update
+    apt-get install lsb-core
+    export UBUNTU_VERSION=$(lsb_release -rs |cut -d"." -f1)
+    echo "Ubuntu Version: " $UBUNTU_VERSION
+}
+
+function install_prerequisites() {
     TZ=America/Chicago
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
     $SUDO apt-get update -y
     $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release
-    UBUNTU_VERSION=$(lsb_release -rs |cut -d"." -f1)
+    $SUDO ln -s /usr/bin/python3 /usr/bin/python
+    ubuntu_version
 }
 
 function setup() {
@@ -49,11 +59,17 @@ function mac_setup_var() {
 
 function linux_setup_var() {
     # Setup the variables
-    if [ "$1" = "2020.2" ]; then
-        CUBIT_PATH="/opt/Coreform-Cubit-2020.2"
-    elif [ "$1" = "17.1.0" ]; then
-        CUBIT_PATH="/opt/Trelis-17.1"
-        CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
+    CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
+
+    if [ "$1" == "2020.2" ]; then
+        TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
+        CMAKE_ADDITIONAL_FLAGS=""
+    elif [ "$1" == "17.1.0" ]; then
+        TRELIS_PATH="/opt/Trelis-17.1"
+    elif [ "$1" == "2021.3" ] ; then
+        TRELIS_PATH="/opt/Coreform-Cubit-2021.3"
+    elif [ "$1" == "2021.4" ] ; then
+        TRELIS_PATH="/opt/Coreform-Cubit-2021.4"
     else
         echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
         return 1
@@ -66,7 +82,8 @@ function linux_setup_var() {
 
 function build_hdf5() {
     # if ubuntu 18.04 or lower rely of apt-get hdf5
-    if [[ $UBUNTU_VERSION < 20 ]]; then
+    ubuntu_version
+    if [ $UBUNTU_VERSION -le 20 ]; then
         $SUDO apt-get install -y libhdf5-serial-dev
         HDF5_PATH="/usr/lib/x86_64-linux-gnu/hdf5/serial"
     else
@@ -180,6 +197,10 @@ function mac_setup_cubit_sdk() {
 
 function linux_setup_cubit_sdk() {
 
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
+	return
+    fi
+    
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${CUBIT_PKG}
     cd /opt
