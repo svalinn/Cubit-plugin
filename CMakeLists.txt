@@ -46,6 +46,14 @@ message(STATUS "CMAKE_INSTALL_RPATH: ${CMAKE_INSTALL_RPATH}")
 set(PLUGIN_SRC_FILES SvalinnPlugin.cpp)
 set(PLUGIN_LINK_LIBS ${CUBIT_LIBS})
 
+# HDF5 for mac
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  SET(HDF5_USE_STATIC_LIBRARIES ON)
+  find_package(HDF5 REQUIRED)
+  include_directories(${HDF5_INCLUDE_DIRS})
+  list(APPEND PLUGIN_LINK_LIBS ${HDF5_LIBRARIES})
+endif()
+
 # DAGMC exporter
 if (BUILD_DAGMC_EXPORTER)
   message(STATUS "Building DAGMC exporter")

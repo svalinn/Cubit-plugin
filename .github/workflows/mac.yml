@@ -1,4 +1,4 @@
-name: Linux
+name: MACOS
 
 on:
   # allows us to run workflows manually
@@ -22,19 +22,18 @@ jobs:
       matrix:
         include:
           - cubit: 17.1.0
-            os: ubuntu-18.04
-            URL: LINUX_CUBIT_17_1_0
-            URL_SDK: LINUX_CUBIT_SDK_17_1_0
+            os: macos-10.15
+            URL: MAC_CUBIT_17_1_0
+            URL_SDK: MAC_CUBIT_SDK_17_1_0
             CUBIT_BASE_NAME: Trelis-17.1
             
           - cubit: 2020.2
-            os: ubuntu-20.04
-            URL: LINUX_CUBIT_2020_2
-            URL_SDK: LINUX_CUBIT_SDK_2020_2
+            os: macos-10.15
+            URL: MAC_CUBIT_2020_2
+            URL_SDK: MAC_CUBIT_SDK_2020_2
             CUBIT_BASE_NAME: Coreform-Cubit-2020.2
 
-    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Linux'
-
+    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Macos'
 
     steps:
       - uses: actions/checkout@v2
@@ -46,31 +45,31 @@ jobs:
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
           echo "FOLDER_PKG=$GITHUB_WORKSPACE/../pkg" >> $GITHUB_ENV
-          echo "CUBIT_PATH=/opt/${{ matrix.CUBIT_BASE_NAME }}" >> $GITHUB_ENV
+          echo "CUBIT_PATH=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
-            echo "CUBIT_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV
-            echo "CUBIT_SDK_PKG=Trelis-SDK-17.1.0-Lin64.tar.gz" >> $GITHUB_ENV
-            echo "UBUNTU_VERSION=18" >> $GITHUB_ENV
-            echo "HDF5_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial" >> $GITHUB_ENV
+            echo "CUBIT_PKG=Trelis-17.1.0-Mac64.dmg" >> $GITHUB_ENV
+            echo "CUBIT_SDK_PKG=Trelis-SDK-17.1.0-Mac64.tar.gz" >> $GITHUB_ENV
+            echo "CUBIT_PKG_URL_EXT=dmg" >> $GITHUB_ENV
           else
-            echo "CUBIT_PKG=Coreform-Cubit-2020.2-Ubuntu20.deb" >> $GITHUB_ENV
-            echo "CUBIT_SDK_PKG=Coreform-Cubit-2020.2-Lin64-SDK.tar.gz" >> $GITHUB_ENV
-            echo "UBUNTU_VERSION=20" >> $GITHUB_ENV
-            echo "HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0" >> $GITHUB_ENV
+            echo "CUBIT_PKG=Coreform-Cubit-2020.2-Mac64.pkg" >> $GITHUB_ENV
+            echo "CUBIT_SDK_PKG=TCoreform-Cubit-2020.2-Mac64-SDK.tar.gz" >> $GITHUB_ENV
+            echo "CUBIT_PKG_URL_EXT=pkg" >> $GITHUB_ENV
           fi
-          echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
-          echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
-          echo "SUDO=sudo " >> $GITHUB_ENV
+          echo "BUILD_SHARED_LIBS=OFF" >> $GITHUB_ENV
+          echo "BUILD_STATIC_LIBS=ON" >> $GITHUB_ENV
 
           echo "" >> ${HOME}/.bash_profile
           echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
-      
+
+
       - name: Initial setup
         shell: bash -l {0}
         run: |
-          linux_install_prerequisites
- 
+          mac_install_prerequisites
+
+
+
       - name: Downloading packages
         shell: bash -l {0}
         env:   
@@ -80,14 +79,10 @@ jobs:
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
           echo ${CUBIT_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.deb --output ${CUBIT_PKG}
+          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.${CUBIT_PKG_URL_EXT} --output ${CUBIT_PKG}
           curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${CUBIT_SDK_PKG}
+          
 
-
-      - name: Build HDF5
-        shell: bash -l {0}
-        run: |
-          build_hdf5
 
       - name: Build MOAB
         shell: bash -l {0}
@@ -102,20 +97,21 @@ jobs:
       - name: Trelis setup
         shell: bash -l {0}
         run: |
-          linux_setup_cubit_sdk ${{ matrix.cubit }}
+          mac_setup_cubit_sdk ${{ matrix.cubit }}
 
       - name: Build plugin
         shell: bash -l {0}
         run: |
           build_plugin 
-
+          
       - name: Prepare package
         shell: bash -l {0}
         run: |
-          linux_build_plugin_pkg ${{ matrix.cubit }}
+          mac_build_plugin_pkg ${{ matrix.cubit }}
+
 
       - name: Upload package
         uses: actions/upload-artifact@v2
         with:
-          name: svalinn-plugin_linux_${{ matrix.cubit }}
-          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_cubit_${{ matrix.cubit }}.tgz
+          name: svalinn-plugin_mac_${{ matrix.cubit }}
+          path: /Users/runner/work/Trelis-plugin/pack/svalinn-plugin_mac_cubit_${{ matrix.cubit }}.tgz
