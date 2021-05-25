@@ -35,6 +35,7 @@ function mac_setup_var() {
     # Setup the variables
     if [ "$1" = "2021.4" ]; then
         CUBIT_PATH="/Applications/Coreform-Cubit-2021.4/Contents"
+        CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     elif [ "$1" = "2020.2" ]; then
         CUBIT_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
     elif [ "$1" = "17.1.0" ]; then
@@ -53,6 +54,7 @@ function linux_setup_var() {
     # Setup the variables
     if [ "$1" = "2021.4" ]; then
         CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
+        CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
     elif [ "$1" = "2020.2" ]; then
         CUBIT_PATH="/opt/Coreform-Cubit-2020.2"
     elif [ "$1" = "17.1.0" ]; then
@@ -138,7 +140,9 @@ function build_dagmc(){
 function mac_setup_cubit_sdk() {
     cd ${FOLDER_PKG}
     if [ "${1}" = "17.1.0" ]; then
+        # converts the dmg into a mountable image
         hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
+        # mount the image locally
         hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
         mv /Volumes/Cubit/*.app /Applications/
         hdiutil detach /Volumes/Cubit
