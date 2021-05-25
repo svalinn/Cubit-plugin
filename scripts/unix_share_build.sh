@@ -158,17 +158,20 @@ function mac_setup_cubit_sdk() {
     sudo ln -s MacOS bin
     sudo ln -s ${CUBIT_PATH}/include /Applications/include
 
+
+    # fixing the path to Contents/Include
     sudo cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
     sudo gsed -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
 
     sudo cp -pv ${CUBIT_PATH}/MacOS/CCubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
     sudo gsed -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
 
+
+    # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "${1}" = "2020.2" ]; then
         cd ${CUBIT_PATH}/bin
         sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
         sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-        sudo gsed -i "s/Trelis-17.1.app/${CUBIT_BASE_NAME}.app/" CubitExport.cmake
         sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
         sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
     fi
