@@ -43,7 +43,7 @@ function linux_install_prerequisites() {
 function setup() {
     unset LD_LIBRARY_PATH
     
-    echo "Building the Trelis plugin in ${CURRENT}\\${PLUGIN_DIR}"
+    echo "Building the Cubit plugin in ${CURRENT}\\${PLUGIN_DIR}"
     cd ${CURRENT}
     mkdir ${PLUGIN_DIR}
     cd ${PLUGIN_DIR}
@@ -218,7 +218,7 @@ function linux_setup_cubit() {
 
 function build_plugin(){
     cd ${PLUGIN_ABS_PATH}
-    cd Trelis-plugin
+    cd Cubit-plugin
     git submodule update --init
     cd ../
     mkdir -pv bld

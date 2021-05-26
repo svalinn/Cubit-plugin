@@ -44,4 +44,4 @@ linux_build_plugin_pkg $1
 mv -v svalinn-plugin_linux_cubit_$1.tgz ${FOLDER_PKG}
 cd ..
 rm -rf pack bld DAGMC lib moab
-rm Trelis-plugin
+rm Cubit-plugin

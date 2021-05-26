@@ -285,7 +285,7 @@ void iGeom_createTorus(iGeom_Instance instance,
     profile_edges.insert(curve);
 
     // make surf from the curves
-    // This fails in Trelis
+    // This fails in Cubit
     RefFace *surf = GeometryModifyTool::instance()->make_RefFace(
         BEST_FIT_SURFACE_TYPE, profile_edges, true);
 
@@ -901,7 +901,7 @@ void iGeom_sectionEnt(iGeom_Instance instance,
   RefEntity* this_ent = reinterpret_cast<RefEntity*>(geom_entity);
 
   // For some reason the dynamic_cast can be in the if statement, but if it gets
-  // assigned a pointer, Trelis crashes.
+  // assigned a pointer, Cubit crashes.
   if (NULL == dynamic_cast<Body*>(this_ent)) {
     return;
   }

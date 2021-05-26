@@ -23,7 +23,7 @@ endif ()
 # Use C++11
 set(CMAKE_CXX_STANDARD 11)
 
-# Find Cubit/Trelis
+# Find Cubit
 if (NOT CUBIT_ROOT)
   message(FATAL_ERROR "CUBIT_ROOT not specified")
 endif ()

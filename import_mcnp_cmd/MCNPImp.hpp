@@ -24,7 +24,7 @@ public:
   // Analogous to the main function.
   bool execute(CubitCommandData &data);
 
-  // Takes the data from Trelis and sets global variables for mcnp2cad options.
+  // Takes the data from Cubit and sets global variables for mcnp2cad options.
   void parse_options(CubitCommandData &data);
 
 };
