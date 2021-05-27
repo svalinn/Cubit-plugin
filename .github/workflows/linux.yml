@@ -80,10 +80,10 @@ jobs:
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
           echo "COREFORM_BASE_URL ${COREFORM_BASE_URL}"
-          echo "matrix.URL ${matrix.URL}"
-          curl -L ${COREFORM_BASE_URL}/${matrix.URL} --output ${CUBIT_PKG}
+          echo "matrix.URL ${{ matrix.URL }}"
+          curl -L ${COREFORM_BASE_URL}/${{ matrix.URL }} --output ${CUBIT_PKG}
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
-            curl -L ${COREFORM_BASE_URL}/${matrix.URL_SDK} --output ${CUBIT_SDK_PKG}
+            curl -L ${COREFORM_BASE_URL}/${{ matrix.URL_SDK }} --output ${CUBIT_SDK_PKG}
           fi
 
 
