@@ -73,7 +73,7 @@ function setup_var() {
 function build_hdf5() {
     # if ubuntu 18.04 or lower rely of apt-get hdf5
     ubuntu_version
-    if [ $UBUNTU_VERSION -le 20 ]; then
+    if [ $UBUNTU_VERSION -lt 20 ]; then
         $SUDO apt-get install -y libhdf5-serial-dev
         HDF5_PATH="/usr/lib/x86_64-linux-gnu/hdf5/serial"
     else
