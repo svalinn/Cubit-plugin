@@ -73,7 +73,6 @@ function linux_build_hdf5() {
     ubuntu_version
     if [ $UBUNTU_VERSION -lt 20 ]; then
         $SUDO apt-get install -y libhdf5-serial-dev
-        HDF5_PATH="/usr/lib/x86_64-linux-gnu/hdf5/serial"
     else
         cd ${PLUGIN_ABS_PATH}
         mkdir -p hdf5/bld
@@ -83,7 +82,6 @@ function linux_build_hdf5() {
         cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
         make
         $SUDO make install
-        HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
     fi
 }
 
@@ -230,6 +228,15 @@ function build_plugin(){
 }
 
 function linux_build_plugin_pkg(){
+
+    # if ubuntu 18.04 or lower rely of apt-get hdf5
+    ubuntu_version
+    if [ $UBUNTU_VERSION -lt 20 ]; then
+        HDF5_PATH="/usr/lib/x86_64-linux-gnu/hdf5/serial"
+    else
+        HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
+    fi
+
     cd ${PLUGIN_ABS_PATH}
     mkdir -p pack/bin/plugins/svalinn
     cd pack/bin/plugins/svalinn
