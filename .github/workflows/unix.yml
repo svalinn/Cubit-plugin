@@ -38,14 +38,16 @@ jobs:
       - name: Environment Variables
         shell: bash -l {0}
         run: |
+          COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases
           if [ "${{ matrix.cubit }}" == "17.1.0" ]; then
             BASE=Trelis-17.1.0
             BASESDK=Trelis-SDK-17.1.0
             CUBIT_BASE_NAME=Trelis-17.1
+            HDF5_PATH="/usr/lib/x86_64-linux-gnu/hdf5/serial"
           elif [ "${{ matrix.cubit }}" == "2021.4" ]; then
             BASE=Coreform-Cubit-2021.4%2B15017_05893177
             CUBIT_BASE_NAME=Coreform-Cubit-2021.4
-
+            HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
           fi
 
           if [[ "${{ matrix.os }}" == "ubuntu"*  ]]; then
@@ -57,8 +59,8 @@ jobs:
             echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
             echo "system=linux" >> $GITHUB_ENV
             echo "CUBIT_PATH=/opt/${CUBIT_BASE_NAME}" >> $GITHUB_ENV
-            echo "COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/" >> $GITHUB_ENV
-
+            echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/Linux/" >> $GITHUB_ENV
+            echo "HDF5_PATH=${HDF5_PATH}" >> $GITHUB_ENV
           elif [[ "${{ matrix.os }}" == "mac"*  ]]; then
             SUFFIX=Mac64
             EXT=dmg
@@ -66,9 +68,8 @@ jobs:
             echo "BUILD_SHARED_LIBS=OFF" >> $GITHUB_ENV
             echo "BUILD_STATIC_LIBS=ON" >> $GITHUB_ENV
             echo "system=mac" >> $GITHUB_ENV
-            echo "CUBIT_PATH=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
-            echo "COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/MacOS/" >> $GITHUB_ENV
-
+            echo "CUBIT_PATH=/Applications/${{CUBIT_BASE_NAME}.app/Contents" >> $GITHUB_ENV
+            echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/MacOS/" >> $GITHUB_ENV
           fi
 
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV

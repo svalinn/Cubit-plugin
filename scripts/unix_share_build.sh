@@ -102,6 +102,7 @@ function build_moab() {
     #end of patch
     cd bld
     cmake ../moab -DENABLE_HDF5=ON \
+            -DHDF5_ROOT=$HDF5_PATH \
             -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
             -DENABLE_BLASLAPACK=OFF \
             -DENABLE_FORTRAN=OFF \
@@ -157,11 +158,7 @@ function mac_setup_cubit_sdk() {
     fi
 
     cd ${CUBIT_PATH}
-    if [ "${1}" == "2020.2" ]; then
-        CUBIT_BASE_NAME="Coreform-Cubit-2020.2"
-    elif [ "${1}" == "17.1.0" ]; then
-        CUBIT_BASE_NAME="Trelis-17.1"
-    fi
+
     sudo tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
     sudo mv ${CUBIT_BASE_NAME}/* ./
     sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
@@ -231,9 +228,7 @@ function linux_build_plugin_pkg(){
     # if ubuntu 18.04 or lower rely of apt-get hdf5
     ubuntu_version
     if [ $UBUNTU_VERSION -lt 20 ]; then
-        HDF5_PATH="/usr/lib/x86_64-linux-gnu/hdf5/serial"
     else
-        HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
     fi
 
     cd ${PLUGIN_ABS_PATH}
