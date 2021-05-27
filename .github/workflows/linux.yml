@@ -14,6 +14,7 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  COREFORM_BASE_URL: https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/
 
 jobs:
   main:
@@ -23,15 +24,15 @@ jobs:
         include:
           - cubit: 17.1.0
             os: ubuntu-18.04
-            URL: LINUX_CUBIT_17_1_0
-            URL_SDK: LINUX_CUBIT_SDK_17_1_0
+            URL: Trelis-17.1.0-Lin64.deb
+            URL_SDK: Trelis-SDK-17.1.0-Lin64.tar.gz
             CUBIT_BASE_NAME: Trelis-17.1
             
-          - cubit: 2020.2
+          - cubit: 2021.4
             os: ubuntu-20.04
-            URL: LINUX_CUBIT_2020_2
-            URL_SDK: LINUX_CUBIT_SDK_2020_2
-            CUBIT_BASE_NAME: Coreform-Cubit-2020.2
+            URL: Coreform-Cubit-2021.4%2B15017_05893177-Lin64.deb
+            URL_SDK: LINUX_CUBIT_SDK_2021_4
+            CUBIT_BASE_NAME: Coreform-Cubit-2021.2
 
     name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Linux'
 
@@ -74,15 +75,13 @@ jobs:
  
       - name: Downloading packages
         shell: bash -l {0}
-        env:   
-          CUBIT_PKG_URL: ${{ secrets[matrix.URL] }}
-          CUBIT_SDK_URL: ${{ secrets[matrix.URL_SDK] }}
         run: |
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
-          echo ${CUBIT_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_PKG_URL}.deb --output ${CUBIT_PKG}
-          curl -L https://uwmadison.box.com/shared/static/${CUBIT_SDK_URL}.gz --output ${CUBIT_SDK_PKG}
+          curl -L ${COREFORM_BASE_URL}/${matrix.URL} --output ${CUBIT_PKG}
+          if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
+            curl -L ${COREFORM_BASE_URL}/${matrix.URL_SDK} --output ${CUBIT_SDK_PKG}
+          fi
 
 
       - name: Build HDF5
