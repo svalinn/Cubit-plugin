@@ -23,8 +23,9 @@ function linux_install_prerequisites() {
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
     $SUDO apt-get update -y
-    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release
-    $SUDO ln -s /usr/bin/python3 /usr/bin/python
+    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3
+    $SUDO update-alternatives --install /usr/bin/python python /usr/bin/python3 10; \
+    $SUDO update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 10; \
     ubuntu_version
 }
 
@@ -41,23 +42,7 @@ function setup() {
 
 
 
-function mac_setup_var() {
-    # Setup the variables
-    if [ "$1" = "2020.2" ]; then
-        CUBIT_PATH="/Applications/Coreform-Cubit-2020.2/Contents"
-    elif [ "$1" = "17.1.0" ]; then
-        CUBIT_PATH="/Applications/Trelis-17.1.app/Contents"
-        CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
-    else
-        echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
-        return 1
-    fi
-
-    BUILD_SHARED_LIBS="OFF"
-    BUILD_STATIC_LIBS="ON"
-}
-
-function linux_setup_var() {
+function setup_var() {
     # Setup the variables
     CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
 
@@ -75,9 +60,16 @@ function linux_setup_var() {
         return 1
     fi
 
-    BUILD_SHARED_LIBS="ON"
-    BUILD_STATIC_LIBS="OFF"
-
+    if [ "OS" == "MAC" ]; then
+        BUILD_SHARED_LIBS="OFF"
+        BUILD_STATIC_LIBS="ON"
+    elif [ "OS" == "UBUNTU"]; then
+        BUILD_SHARED_LIBS="ON"
+        BUILD_STATIC_LIBS="OFF"
+    else
+        echo "OS ENV variable needs to be defined to either UBUNTU or MAC"
+        return 1
+    fi
 }
 
 function build_hdf5() {

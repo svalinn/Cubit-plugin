@@ -19,7 +19,7 @@ UBUNTU_VERSION=""
 HDF5_PATH=""
 BUILD_SHARED_LIBS=""
 SUDO=""
-
+OS="UBUNTU"
 
 source ${SCRIPTPATH}/scripts/unix_share_build.sh
 
@@ -28,7 +28,7 @@ if [ -f /.dockerenv ]; then
 fi
 
 setup 
-linux_setup_var $1
+setup_var $1
 
 build_hdf5
 
