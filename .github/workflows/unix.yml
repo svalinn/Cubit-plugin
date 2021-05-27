@@ -22,16 +22,15 @@ jobs:
       matrix:
         include:
           - cubit: 17.1.0
-            os: ubuntu-18.04
-            URL: Trelis-17.1.0-Lin64.deb
-            URL_SDK: Trelis-SDK-17.1.0-Lin64.tar.gz
+            os: [ubuntu-18.04, macos-10.15]
+            URL: Trelis-17.1.0-Lin64
+            URL_SDK: Trelis-SDK-17.1.0
             CUBIT_BASE_NAME: Trelis-17.1
             
           - cubit: 2021.4
-            os: ubuntu-20.04
-            URL: Coreform-Cubit-2021.4%2B15017_05893177-Lin64.deb
-            URL_SDK: LINUX_CUBIT_SDK_2021_4
-            CUBIT_BASE_NAME: Coreform-Cubit-2021.2
+            os: [ubuntu-20.04, macos-10.15]
+            URL: Coreform-Cubit-2021.4%2B15017_05893177
+            CUBIT_BASE_NAME: Coreform-Cubit-2021.4
 
     name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Linux'
 
