@@ -57,6 +57,8 @@ jobs:
             echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
             echo "system=linux" >> $GITHUB_ENV
             echo "CUBIT_PATH=/opt/${CUBIT_BASE_NAME}" >> $GITHUB_ENV
+            echo "COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/" >> $GITHUB_ENV
+
           elif [[ "${{ matrix.os }}" == "mac"*  ]]; then
             SUFFIX=Mac64
             EXT=dmg
@@ -65,6 +67,8 @@ jobs:
             echo "BUILD_STATIC_LIBS=ON" >> $GITHUB_ENV
             echo "system=mac" >> $GITHUB_ENV
             echo "CUBIT_PATH=/Applications/${{ matrix.CUBIT_BASE_NAME }}.app/Contents" >> $GITHUB_ENV
+            echo "COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/MacOS/" >> $GITHUB_ENV
+
           fi
 
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
@@ -88,8 +92,6 @@ jobs:
  
       - name: Downloading packages
         shell: bash -l {0}
-        env: 
-          COREFORM_BASE_URL: https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/
         run: |
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}

@@ -102,7 +102,6 @@ function build_moab() {
     #end of patch
     cd bld
     cmake ../moab -DENABLE_HDF5=ON \
-            -DHDF5_ROOT=$HDF5_PATH \
             -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
             -DENABLE_BLASLAPACK=OFF \
             -DENABLE_FORTRAN=OFF \
