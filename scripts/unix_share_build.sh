@@ -7,8 +7,7 @@ function mac_install_brew() {
 }
 
 function mac_install_prerequisites() {
-    brew install eigen hdf5 gcc@6 gsed
-    brew link hdf5
+    brew install eigen gcc@6 gsed
 }
 
 function ubuntu_version() {
@@ -24,7 +23,6 @@ function linux_install_prerequisites() {
     $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3  lsb-core
     $SUDO update-alternatives --install /usr/bin/python python /usr/bin/python3 10; \
     $SUDO update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 10; \
-    ubuntu_version
 }
 
 function setup() {
@@ -70,7 +68,7 @@ function setup_var() {
     fi
 }
 
-function build_hdf5() {
+function linux_build_hdf5() {
     # if ubuntu 18.04 or lower rely of apt-get hdf5
     ubuntu_version
     if [ $UBUNTU_VERSION -lt 20 ]; then
@@ -87,6 +85,11 @@ function build_hdf5() {
         $SUDO make install
         HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
     fi
+}
+
+function mac_build_hdf5() {
+    brew install hdf5
+    brew link hdf5
 }
 
 function build_moab() {
@@ -139,22 +142,27 @@ function build_dagmc(){
 }
 
 function mac_setup_cubit_sdk() {
+    
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
+	    return
+    fi
+
     cd ${FOLDER_PKG}
-    if [ "${1}" = "17.1.0" ]; then
+    if [ "${1}" == "17.1.0" ]; then
         hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
         hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
         mv /Volumes/Cubit/*.app /Applications/
         hdiutil detach /Volumes/Cubit
         rm -rf trelis.dmg
-    elif [ "${1}" = "2020.2" ]; then
+    elif [ "${1}" == "2020.2" ]; then
         sudo installer -pkg ${CUBIT_PKG} -target /
         rm -rf cubit.pkg
     fi
 
     cd ${CUBIT_PATH}
-    if [ "${1}" = "2020.2" ]; then
+    if [ "${1}" == "2020.2" ]; then
         CUBIT_BASE_NAME="Coreform-Cubit-2020.2"
-    elif [ "${1}" = "17.1.0" ]; then
+    elif [ "${1}" == "17.1.0" ]; then
         CUBIT_BASE_NAME="Trelis-17.1"
     fi
     sudo tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
@@ -188,7 +196,7 @@ function mac_setup_cubit_sdk() {
 function linux_setup_cubit_sdk() {
 
     if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
-	return
+	    return
     fi
     
     cd ${FOLDER_PKG}
