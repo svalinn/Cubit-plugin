@@ -20,6 +20,7 @@ HDF5_PATH=""
 BUILD_SHARED_LIBS=""
 SUDO=""
 OS="UBUNTU"
+SED="sed"
 
 source ${SCRIPTPATH}/scripts/unix_share_build.sh
 

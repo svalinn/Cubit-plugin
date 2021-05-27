@@ -47,6 +47,7 @@ jobs:
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
           echo "FOLDER_PKG=$GITHUB_WORKSPACE/../pkg" >> $GITHUB_ENV
           echo "CUBIT_PATH=/opt/${{ matrix.CUBIT_BASE_NAME }}" >> $GITHUB_ENV
+          echo "SED=sed" >> $GITHUB_ENV
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
             echo "CUBIT_PKG=Trelis-17.1.0-Lin64.deb" >> $GITHUB_ENV

@@ -94,7 +94,7 @@ function build_moab() {
     git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
     cd moab
     # patching MOAB CMakeLists.txt to use default find(HDF5)
-    sed -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
+    $SED -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
     cd ..
     #end of patch
     cd bld
@@ -166,19 +166,19 @@ function mac_setup_cubit_sdk() {
 
     # fixing the path to Contents/Include
     sudo cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-    sudo gsed -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+    sudo $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
 
     sudo cp -pv ${CUBIT_PATH}/MacOS/CCubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
-    sudo gsed -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
+    sudo $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
 
 
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "${1}" = "2020.2" ]; then
         cd ${CUBIT_PATH}/bin
         sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
-        sudo gsed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+        sudo $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
         sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-        sudo gsed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+        sudo $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
     fi
 
 }
@@ -197,9 +197,9 @@ function linux_setup_cubit_sdk() {
     if [ "$1" = "2020.2" ]; then
         cd ${CUBIT_PATH}/bin
         $SUDO cp -pv CubitExport.cmake CubitExport.cmake.orig
-        $SUDO sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+        $SUDO $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
         $SUDO cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-        $SUDO sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+        $SUDO $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
     fi
 }
 
