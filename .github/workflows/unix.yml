@@ -45,10 +45,10 @@ jobs:
             BASE=Coreform-Cubit-2021.4%2B15017_05893177
           fi
 
-          if [ "${{ matrix.os }}" == *"ubuntu"*  ]; then
+          if [ "${{ matrix.os }}" == "ubuntu"*  ]; then
               SUFFIX=Lin64
               EXT=tar.gz
-          elif [ "${{ matrix.os }}" == *"mac"*  ]; then
+          elif [ "${{ matrix.os }}" == "mac"*  ]; then
               SUFFIX=Mac64
               EXT=dmg
           fi
