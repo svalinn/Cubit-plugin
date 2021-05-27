@@ -141,9 +141,7 @@ function build_dagmc(){
 
 function mac_setup_cubit_sdk() {
     
-    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
-	    return
-    fi
+
 
     cd ${FOLDER_PKG}
     if [ "${1}" == "17.1.0" ]; then
@@ -156,7 +154,9 @@ function mac_setup_cubit_sdk() {
         sudo installer -pkg ${CUBIT_PKG} -target /
         rm -rf cubit.pkg
     fi
-
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
+	    return
+    fi
     cd ${CUBIT_PATH}
 
     sudo tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
