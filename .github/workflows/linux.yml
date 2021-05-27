@@ -14,7 +14,6 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  COREFORM_BASE_URL: https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/
 
 jobs:
   main:
@@ -75,6 +74,8 @@ jobs:
  
       - name: Downloading packages
         shell: bash -l {0}
+        env: 
+          COREFORM_BASE_URL: https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/
         run: |
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
