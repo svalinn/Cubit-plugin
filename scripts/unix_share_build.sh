@@ -96,7 +96,7 @@ function build_moab() {
     git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
     cd moab
     # patching MOAB CMakeLists.txt to use default find(HDF5)
-    sed -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
+    #sed -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
     cd ..
     #end of patch
     cd bld
