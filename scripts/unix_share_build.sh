@@ -12,8 +12,6 @@ function mac_install_prerequisites() {
 }
 
 function ubuntu_version() {
-    apt-get update
-    apt-get install lsb-core
     export UBUNTU_VERSION=$(lsb_release -rs |cut -d"." -f1)
     echo "Ubuntu Version: " $UBUNTU_VERSION
 }
@@ -23,7 +21,7 @@ function linux_install_prerequisites() {
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
     $SUDO apt-get update -y
-    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3
+    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3  lsb-core
     $SUDO update-alternatives --install /usr/bin/python python /usr/bin/python3 10; \
     $SUDO update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 10; \
     ubuntu_version
