@@ -43,11 +43,11 @@ jobs:
             BASE=Trelis-17.1.0
             BASESDK=Trelis-SDK-17.1.0
             CUBIT_BASE_NAME=Trelis-17.1
-            HDF5_PATH="/usr/lib/x86_64-linux-gnu/hdf5/serial"
+            HDF5_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial
           elif [ "${{ matrix.cubit }}" == "2021.4" ]; then
             BASE=Coreform-Cubit-2021.4%2B15017_05893177
             CUBIT_BASE_NAME=Coreform-Cubit-2021.4
-            HDF5_PATH="/usr/local/HDF_Group/HDF5/1.12.0"
+            HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 
           if [[ "${{ matrix.os }}" == "ubuntu"*  ]]; then
