@@ -50,7 +50,7 @@ jobs:
 
           if [[ "${{ matrix.os }}" == "ubuntu"*  ]]; then
             SUFFIX=Lin64
-            EXT=tar.gz
+            EXT=deb
             echo "SED=sed" >> $GITHUB_ENV
             echo "SUDO=sudo " >> $GITHUB_ENV
             echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
