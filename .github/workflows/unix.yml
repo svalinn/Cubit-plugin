@@ -1,4 +1,4 @@
-name: Linux
+name: Unix
 
 on:
   # allows us to run workflows manually
@@ -20,19 +20,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        cubit: [17.1.0, 2021.4]
+        os: [ubuntu-20.04, macos-10.15]
         include:
           - cubit: 17.1.0
-            os: [ubuntu-18.04, macos-10.15]
-            URL: Trelis-17.1.0-Lin64
-            URL_SDK: Trelis-SDK-17.1.0
-            CUBIT_BASE_NAME: Trelis-17.1
-            
-          - cubit: 2021.4
-            os: [ubuntu-20.04, macos-10.15]
-            URL: Coreform-Cubit-2021.4%2B15017_05893177
-            CUBIT_BASE_NAME: Coreform-Cubit-2021.4
+            os: ubuntu-18.04
+        exclude:
+          - cubit: 17.1.0
+            os: ubuntu-20.04      
 
-    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Linux'
+    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
 
 
     steps:
@@ -41,6 +38,23 @@ jobs:
       - name: Environment Variables
         shell: bash -l {0}
         run: |
+          if [ "${{ matrix.cubit }}" == "17.1.0" ]; then
+            BASE=Trelis-17.1.0
+            BASESDK=Trelis-SDK-17.1.0
+          elif [ "${{ matrix.cubit }}" == "2021.4" ]; then
+            BASE=Coreform-Cubit-2021.4%2B15017_05893177
+          fi
+
+          if [ "${{ matrix.os }}" == *"ubuntu"*  ]; then
+              SUFFIX=Lin64
+              EXT=tar.gz
+          elif [ "${{ matrix.os }}" == *"mac"*  ]; then
+              SUFFIX=Mac64
+              EXT=dmg
+          fi
+
+          echo ${BASE}-${SUFIX}.${EXT}
+
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
@@ -66,56 +80,4 @@ jobs:
           echo "" >> ${HOME}/.bash_profile
           echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
       
-      - name: Initial setup
-        shell: bash -l {0}
-        run: |
-          linux_install_prerequisites
- 
-      - name: Downloading packages
-        shell: bash -l {0}
-        env: 
-          COREFORM_BASE_URL: https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/
-        run: |
-          mkdir -p $FOLDER_PKG
-          cd ${FOLDER_PKG}
-          curl -L ${COREFORM_BASE_URL}${{ matrix.URL }} --output ${CUBIT_PKG}
-          if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
-            curl -L ${COREFORM_BASE_URL}${{ matrix.URL_SDK }} --output ${CUBIT_SDK_PKG}
-          fi
-
-
-      - name: Build HDF5
-        shell: bash -l {0}
-        run: |
-          build_hdf5
-
-      - name: Build MOAB
-        shell: bash -l {0}
-        run: |
-          build_moab
-
-      - name: Build DAGMC
-        shell: bash -l {0}
-        run: |
-          build_dagmc
-
-      - name: Trelis setup
-        shell: bash -l {0}
-        run: |
-          linux_setup_cubit_sdk ${{ matrix.cubit }}
-
-      - name: Build plugin
-        shell: bash -l {0}
-        run: |
-          build_plugin 
-
-      - name: Prepare package
-        shell: bash -l {0}
-        run: |
-          linux_build_plugin_pkg ${{ matrix.cubit }}
-
-      - name: Upload package
-        uses: actions/upload-artifact@v2
-        with:
-          name: svalinn-plugin_linux_${{ matrix.cubit }}
-          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_linux_cubit_${{ matrix.cubit }}.tgz
+      
