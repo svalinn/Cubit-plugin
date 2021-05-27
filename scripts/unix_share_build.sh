@@ -1,6 +1,4 @@
 #!/bin/bash
-set -ex
-
 
 function mac_install_brew() {
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
