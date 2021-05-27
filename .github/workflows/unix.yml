@@ -38,6 +38,7 @@ jobs:
       - name: Environment Variables
         shell: bash -l {0}
         run: |
+          COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases
           if [ "${{ matrix.cubit }}" == "17.1.0" ]; then
             BASE=Trelis-17.1.0
             BASESDK=Trelis-SDK-17.1.0
@@ -67,7 +68,7 @@ jobs:
             echo "BUILD_SHARED_LIBS=OFF" >> $GITHUB_ENV
             echo "BUILD_STATIC_LIBS=ON" >> $GITHUB_ENV
             echo "system=mac" >> $GITHUB_ENV
-            echo "CUBIT_PATH=/Applications/${{CUBIT_BASE_NAME}.app/Contents" >> $GITHUB_ENV
+            echo "CUBIT_PATH=/Applications/${CUBIT_BASE_NAME}.app/Contents" >> $GITHUB_ENV
             echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/MacOS/" >> $GITHUB_ENV
           fi
 
