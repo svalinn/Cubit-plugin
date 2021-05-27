@@ -214,7 +214,7 @@ function build_plugin(){
     cd ../
     mkdir -pv bld
     cd bld
-    ls /Applications/Coreform-Cubit-2021.4.app/Contents/bin
+    ls ${CUBIT_PATH}
     cmake ../Trelis-plugin -DCUBIT_ROOT=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
