@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ue
+set -ex
 
 
 function mac_install_brew() {
