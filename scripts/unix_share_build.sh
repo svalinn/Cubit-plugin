@@ -46,7 +46,7 @@ function setup_var() {
 
     if [ "$1" == "2020.2" ]; then
         TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
-        CMAKE_ADDITIONAL_FLAGS=""
+        unset CMAKE_ADDITIONAL_FLAGS
     elif [ "$1" == "17.1.0" ]; then
         TRELIS_PATH="/opt/Trelis-17.1"
     elif [ "$1" == "2021.3" ] ; then
