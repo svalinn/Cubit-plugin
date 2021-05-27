@@ -225,12 +225,6 @@ function build_plugin(){
 
 function linux_build_plugin_pkg(){
 
-    # if ubuntu 18.04 or lower rely of apt-get hdf5
-    ubuntu_version
-    if [ $UBUNTU_VERSION -lt 20 ]; then
-    else
-    fi
-
     cd ${PLUGIN_ABS_PATH}
     mkdir -p pack/bin/plugins/svalinn
     cd pack/bin/plugins/svalinn
