@@ -18,7 +18,7 @@ function ubuntu_version() {
     echo "Ubuntu Version: " $UBUNTU_VERSION
 }
 
-function install_prerequisites() {
+function linux_install_prerequisites() {
     TZ=America/Chicago
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
