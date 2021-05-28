@@ -151,26 +151,30 @@ function mac_setup_cubit_sdk() {
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "${1}" = "2020.2" ] || [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
         cd ${CUBIT_PATH}/bin
-        sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
-        sudo $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-        sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-        sudo $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+        $SUDO cp -pv CubitExport.cmake CubitExport.cmake.orig
+        $SUDO $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+        $SUDO cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+        $SUDO $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
     fi
 
     cd ${CUBIT_PATH}
 
     if [ "$1" == "17.1.0" ] ; then
-        sudo tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
-        sudo mv ${CUBIT_BASE_NAME}/* ./
-        sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
-        sudo mv bin/* MacOS/
-        sudo rm -rf bin ${CUBIT_BASE_NAME}.app
-        sudo ln -s MacOS bin
-        sudo ln -s ${CUBIT_PATH}/include /Applications/include
-        sudo cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-        sudo gsed -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+     $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
+     $SUDO mv ${CUBIT_BASE_NAME}/* ./
+     $SUDO mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
+     $SUDO mv bin/* MacOS/
+     $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
+     $SUDO ln -s MacOS bin
+     $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
 
-        sudo cp -pv ${CUBIT_PATH}/MacOS/CCubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
+
+     # fixing the path to Contents/Include
+     $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
+     $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+
+     $SUDO cp -pv ${CUBIT_PATH}/MacOS/CCubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
+     $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
     fi
 
     #sudo ln -s ${CUBIT_PATH}/include /Applications/include
