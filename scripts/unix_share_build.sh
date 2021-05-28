@@ -148,6 +148,16 @@ function mac_setup_cubit_sdk() {
     hdiutil detach /Volumes/Cubit
     rm -rf trelis.dmg
   
+    # removing app_loger that seems to not be present in Cubit 2020.2
+    if [ "${1}" = "2020.2" ] || [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
+        cd ${CUBIT_PATH}/bin
+        sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
+        sudo $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+        sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+        sudo $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+    fi
+
+
     if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
 	    return
     fi
@@ -170,14 +180,7 @@ function mac_setup_cubit_sdk() {
     sudo $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
 
 
-    # removing app_loger that seems to not be present in Cubit 2020.2
-    if [ "${1}" = "2020.2" ]; then
-        cd ${CUBIT_PATH}/bin
-        sudo cp -pv CubitExport.cmake CubitExport.cmake.orig
-        sudo $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-        sudo cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-        sudo $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
-    fi
+
 
 }
 
