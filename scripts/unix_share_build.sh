@@ -159,44 +159,30 @@ function mac_setup_cubit_sdk() {
     cd /Applications
 
     if [ "$1" == "17.1.0" ] ; then
-     #$SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
-     #$SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
-     cd ${CUBIT_PATH}
-     echo "after tar"
-     ls
-     $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
-     echo "after tar"
-     ls
-     $SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
-     $SUDO rsync -a  ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
-     $SUDO rsync -a bin/* MacOS/
-     $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
-     $SUDO ln -s MacOS bin
-     $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
+        #$SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
+        #$SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
+        cd ${CUBIT_PATH}
+        $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
+        $SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
+        $SUDO rsync -a  ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
+        $SUDO rsync -a bin/* MacOS/
+        $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
+        $SUDO ln -s MacOS bin
+        $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
 
 
-    #  # fixing the path to Contents/Include
-    $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-    $SUDO $SED -i "s/\${_IMPORT_PREFIX}/\/Applications/" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
-    grep _IMPORT_PREFIX ${CUBIT_PATH}/MacOS/*.cmake
-    #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
-    #  $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
+        #  # fixing the path to Contents/Include
+        $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
+        $SUDO $SED -i "s/\${_IMPORT_PREFIX}/\/Applications/" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+        #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
+        #  $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
         ls ${CUBIT_PATH}/MacOS/*cmake
-        #ln -s ${CUBIT_PATH}/MacOS ${CUBIT_PATH}/bin
-    # $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-    # $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+        # $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
+        # $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
 
-
-        #sudo ln -s ${CUBIT_PATH}/include /Applications/include
-        echo "/Applications"
-        ls /Applications
-        echo "${CUBIT_PATH}"
-        ls ${CUBIT_PATH}
-        echo "${CUBIT_PATH}/bin"
-        ls ${CUBIT_PATH}/bin
-        hdiutil detach /Volumes/Cubit
     fi
 
+    hdiutil detach /Volumes/Cubit
 
 
 }
@@ -230,7 +216,6 @@ function build_plugin(){
     cd ../
     mkdir -pv bld
     cd bld
-    ls ${CUBIT_PATH}/MacOS/
     cmake ../Trelis-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH} -DCUBIT_ROOT=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
