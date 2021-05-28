@@ -140,7 +140,9 @@ function build_dagmc(){
 }
 
 function mac_setup_cubit_sdk() {
-
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
+	    return
+    fi
     cd ${FOLDER_PKG}
     hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
     hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
@@ -176,7 +178,6 @@ function mac_setup_cubit_sdk() {
         $SUDO $SED -i "s/\${_IMPORT_PREFIX}/\/Applications/" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
         #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
         #  $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
-        ls ${CUBIT_PATH}/MacOS/*cmake
         # $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
         # $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
 
