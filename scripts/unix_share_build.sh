@@ -170,9 +170,9 @@ function mac_setup_cubit_sdk() {
      $SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
      $SUDO rsync -a  ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
      $SUDO rsync -a bin/* MacOS/
-    #  $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
-    #  $SUDO ln -s MacOS bin
-    #  $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
+     $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
+     $SUDO ln -s MacOS bin
+     $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
 
 
     #  # fixing the path to Contents/Include
