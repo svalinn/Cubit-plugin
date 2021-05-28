@@ -178,8 +178,8 @@ function mac_setup_cubit_sdk() {
         ls ${CUBIT_PATH}/MacOS
         ln -s ${CUBIT_PATH}/MacOS ${CUBIT_PATH}/bin
         #  # fixing the path to Contents/Include
-        $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-        $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+        # $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
+        # $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
         hdiutil detach /Volumes/Cubit
     fi
 
