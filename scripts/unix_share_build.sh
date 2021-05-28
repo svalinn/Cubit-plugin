@@ -147,6 +147,7 @@ function mac_setup_cubit_sdk() {
     cp -n -v -r /Volumes/Cubit/*.app /Applications/
     hdiutil detach /Volumes/Cubit
     rm -rf trelis.dmg
+    ln -s ls ${CUBIT_PATH}/MacOS ${CUBIT_PATH}/bin
   
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "${1}" = "2020.2" ] || [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
