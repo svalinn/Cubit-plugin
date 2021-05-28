@@ -108,20 +108,20 @@ jobs:
         run: |
           ${system}_setup_cubit_sdk ${{ matrix.cubit }}
 
-      - name: Build HDF5
-        shell: bash -l {0}
-        run: |
-          ${system}_build_hdf5
+      # - name: Build HDF5
+      #   shell: bash -l {0}
+      #   run: |
+      #     ${system}_build_hdf5
 
-      - name: Build MOAB
-        shell: bash -l {0}
-        run: |
-          build_moab
+      # - name: Build MOAB
+      #   shell: bash -l {0}
+      #   run: |
+      #     build_moab
 
-      - name: Build DAGMC
-        shell: bash -l {0}
-        run: |
-          build_dagmc
+      # - name: Build DAGMC
+      #   shell: bash -l {0}
+      #   run: |
+      #     build_dagmc
 
       - name: Build plugin
         shell: bash -l {0}
