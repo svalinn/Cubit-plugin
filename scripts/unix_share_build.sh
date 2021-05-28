@@ -157,18 +157,18 @@ function mac_setup_cubit_sdk() {
         sudo $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
     fi
 
-
-    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
-	    return
-    fi
     cd ${CUBIT_PATH}
 
-    sudo tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
-    sudo mv ${CUBIT_BASE_NAME}/* ./
-    sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
-    sudo mv bin/* MacOS/
-    sudo rm -rf bin ${CUBIT_BASE_NAME}.app
-    sudo ln -s MacOS bin
+    if [ "$1" == "17.1" ] ; then
+        sudo tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
+        sudo mv ${CUBIT_BASE_NAME}/* ./
+        sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
+        sudo mv bin/* MacOS/
+        sudo rm -rf bin ${CUBIT_BASE_NAME}.app
+        sudo ln -s MacOS bin
+    fi
+   
+
     sudo ln -s ${CUBIT_PATH}/include /Applications/include
 
 
