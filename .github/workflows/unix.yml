@@ -20,13 +20,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        cubit: [17.1.0]
-#        cubit: [17.1.0, 2021.4]
-#        os: [ubuntu-20.04, macos-10.15]
-        os: [macos-10.15]
-        # include:
-          # - cubit: 17.1.0
-          #   os: ubuntu-18.04
+        cubit: [17.1.0, 2021.4]
+        os: [ubuntu-20.04, macos-10.15]
+        include:
+          - cubit: 17.1.0
+            os: ubuntu-18.04
         exclude:
           - cubit: 17.1.0
             os: ubuntu-20.04      
