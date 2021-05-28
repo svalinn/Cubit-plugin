@@ -169,6 +169,7 @@ function mac_setup_cubit_sdk() {
         # fixing the path to Contents/Include
         sudo cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
         sudo $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+        sudo $SED -i "s/\"\/\.\.\/cubit_geom\"/\"\"/" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
 
         sudo cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
         sudo $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
