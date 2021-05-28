@@ -159,8 +159,8 @@ function mac_setup_cubit_sdk() {
     cd /Applications
 
     if [ "$1" == "17.1.0" ] ; then
-     $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
-     $SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
+     #$SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
+     #$SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
      cd ${CUBIT_PATH}
      echo "after tar"
      ls
