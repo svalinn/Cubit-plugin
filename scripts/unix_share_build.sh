@@ -144,9 +144,8 @@ function mac_setup_cubit_sdk() {
     cd ${FOLDER_PKG}
     hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
     hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
-    rsync -av --ignore-existing -r /Volumes/Cubit/*.app /Applications/
+    mv /Volumes/Cubit/*.app /Applications/
     rm -rf trelis.dmg
-    ln -s ls ${CUBIT_PATH}/MacOS ${CUBIT_PATH}/bin
   
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "${1}" = "2020.2" ] || [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
@@ -175,16 +174,18 @@ function mac_setup_cubit_sdk() {
 
     #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
     #  $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
+        ln -s ls ${CUBIT_PATH}/MacOS ${CUBIT_PATH}/bin
+
+        #sudo ln -s ${CUBIT_PATH}/include /Applications/include
+        echo "/Applications"
+        ls /Applications
+        echo "${CUBIT_PATH}"
+        ls ${CUBIT_PATH}
+        echo "${CUBIT_PATH}/bin"
+        ls ${CUBIT_PATH}/bin
+        hdiutil detach /Volumes/Cubit
     fi
 
-    #sudo ln -s ${CUBIT_PATH}/include /Applications/include
-    echo "/Applications"
-    ls /Applications
-    echo "${CUBIT_PATH}"
-    ls ${CUBIT_PATH}
-    echo "${CUBIT_PATH}/bin"
-    ls ${CUBIT_PATH}/bin
-    hdiutil detach /Volumes/Cubit
 
 
 }
