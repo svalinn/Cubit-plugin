@@ -166,20 +166,17 @@ function mac_setup_cubit_sdk() {
         sudo mv bin/* MacOS/
         sudo rm -rf bin ${CUBIT_BASE_NAME}.app
         sudo ln -s MacOS bin
+    else
+
+        # fixing the path to Contents/Include
+        sudo cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
+        sudo $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+
+        sudo cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
+        sudo $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
     fi
-   
 
     sudo ln -s ${CUBIT_PATH}/include /Applications/include
-
-
-    # fixing the path to Contents/Include
-    sudo cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-    sudo $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
-
-    sudo cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
-    sudo $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
-
-
 
 
 }
