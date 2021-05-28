@@ -174,7 +174,7 @@ function mac_setup_cubit_sdk() {
 
     #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
     #  $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
-        ln -s ls ${CUBIT_PATH}/MacOS ${CUBIT_PATH}/bin
+        ln -s ls ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS
 
         #sudo ln -s ${CUBIT_PATH}/include /Applications/include
         echo "/Applications"
