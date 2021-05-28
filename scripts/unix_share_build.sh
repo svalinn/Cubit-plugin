@@ -52,7 +52,7 @@ function setup_var() {
     elif [ "$1" == "2021.4" ] ; then
         TRELIS_PATH="/opt/Coreform-Cubit-2021.4"
     else
-        echo "unknown Trelis/Cubit version, use: \"17.1.0\" or \"2020.2\""
+        echo "unknown Trelis/Cubit version"
         return 1
     fi
 
@@ -140,20 +140,14 @@ function build_dagmc(){
 }
 
 function mac_setup_cubit_sdk() {
-    
-
 
     cd ${FOLDER_PKG}
-    if [ "${1}" == "17.1.0" ]; then
-        hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
-        hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
-        mv /Volumes/Cubit/*.app /Applications/
-        hdiutil detach /Volumes/Cubit
-        rm -rf trelis.dmg
-    elif [ "${1}" == "2020.2" ]; then
-        sudo installer -pkg ${CUBIT_PKG} -target /
-        rm -rf cubit.pkg
-    fi
+    hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
+    hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
+    mv /Volumes/Cubit/*.app /Applications/
+    hdiutil detach /Volumes/Cubit
+    rm -rf trelis.dmg
+  
     if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
 	    return
     fi
@@ -189,12 +183,14 @@ function mac_setup_cubit_sdk() {
 
 function linux_setup_cubit_sdk() {
 
+  
+    cd ${FOLDER_PKG}
+    $SUDO apt-get install -y ./${CUBIT_PKG}
+
     if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
 	    return
     fi
-    
-    cd ${FOLDER_PKG}
-    $SUDO apt-get install -y ./${CUBIT_PKG}
+
     cd /opt
     $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
