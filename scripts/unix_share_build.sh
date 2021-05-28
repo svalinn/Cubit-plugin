@@ -157,24 +157,24 @@ function mac_setup_cubit_sdk() {
         $SUDO $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
     fi
 
-    cd ${CUBIT_PATH}
+    cd /Applications
 
     if [ "$1" == "17.1.0" ] ; then
      $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
-     $SUDO mv ${CUBIT_BASE_NAME}/* ./
-     $SUDO mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
-     $SUDO mv bin/* MacOS/
-     $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
-     $SUDO ln -s MacOS bin
-     $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
+    #  $SUDO mv ${CUBIT_BASE_NAME}/* ./
+    #  $SUDO mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
+    #  $SUDO mv bin/* MacOS/
+    #  $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
+    #  $SUDO ln -s MacOS bin
+    #  $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
 
 
-     # fixing the path to Contents/Include
-     $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-     $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+    #  # fixing the path to Contents/Include
+    #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
+    #  $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
 
-     $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
-     $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
+    #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
+    #  $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
     fi
 
     #sudo ln -s ${CUBIT_PATH}/include /Applications/include
@@ -212,7 +212,7 @@ function build_plugin(){
     mkdir -pv bld
     cd bld
     ls ${CUBIT_PATH}
-    cmake ../Trelis-plugin -DCUBIT_ROOT=${CUBIT_PATH}/bin \
+    cmake ../Trelis-plugin -DCUBIT_ROOT=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
                             $CMAKE_ADDITIONAL_FLAGS \
