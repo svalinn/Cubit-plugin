@@ -221,7 +221,7 @@ function build_plugin(){
     mkdir -pv bld
     cd bld
     ls ${CUBIT_PATH}
-    cmake ../Trelis-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH} -DCUBIT_ROOT=${CUBIT_PATH} \
+    cmake ../Trelis-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH}/MacOS -DCUBIT_ROOT=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
                             $CMAKE_ADDITIONAL_FLAGS \
