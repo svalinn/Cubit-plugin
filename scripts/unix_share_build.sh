@@ -159,7 +159,7 @@ function mac_setup_cubit_sdk() {
 
     cd ${CUBIT_PATH}
 
-    if [ "$1" == "17.1" ] ; then
+    if [ "$1" == "17.1.0" ] ; then
         sudo tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
         sudo mv ${CUBIT_BASE_NAME}/* ./
         sudo mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
