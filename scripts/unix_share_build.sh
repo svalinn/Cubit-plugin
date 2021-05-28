@@ -144,7 +144,7 @@ function mac_setup_cubit_sdk() {
     cd ${FOLDER_PKG}
     hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
     hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
-    mv /Volumes/Cubit/*.app /Applications/
+    cp -n -v -r /Volumes/Cubit/*.app /Applications/
     hdiutil detach /Volumes/Cubit
     rm -rf trelis.dmg
   
