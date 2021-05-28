@@ -58,7 +58,6 @@ jobs:
             echo "CUBIT_PKG=Coreform-Cubit-2020.2-Ubuntu20.deb" >> $GITHUB_ENV
             echo "CUBIT_SDK_PKG=Coreform-Cubit-2020.2-Lin64-SDK.tar.gz" >> $GITHUB_ENV
             echo "UBUNTU_VERSION=20" >> $GITHUB_ENV
-            echo "HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0" >> $GITHUB_ENV
           fi
           echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
           echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
