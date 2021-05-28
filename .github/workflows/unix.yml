@@ -101,8 +101,12 @@ jobs:
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
           fi
-      
-      
+
+      - name: Trelis setup
+        shell: bash -l {0}
+        run: |
+          ${system}_setup_cubit_sdk ${{ matrix.cubit }}
+
       - name: Build HDF5
         shell: bash -l {0}
         run: |

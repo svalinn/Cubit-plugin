@@ -178,6 +178,12 @@ function mac_setup_cubit_sdk() {
     fi
 
     #sudo ln -s ${CUBIT_PATH}/include /Applications/include
+    echo "/Applications"
+    ls /Applications
+    echo "${CUBIT_PATH}"
+    ls ${CUBIT_PATH}
+    echo "${CUBIT_PATH}/bin"
+    ls ${CUBIT_PATH}/bin
 
 
 }
