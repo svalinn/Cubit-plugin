@@ -165,21 +165,29 @@ function mac_setup_cubit_sdk() {
      $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
 
      $SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
-     $SUDO mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
-     $SUDO mv bin/* MacOS/
+    #  $SUDO mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
+    #  $SUDO mv bin/* MacOS/
     #  $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
     #  $SUDO ln -s MacOS bin
     #  $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
 
 
+    #  # fixing the path to Contents/Include
+    #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
+    #  $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
 
     #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
     #  $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
         ls ${CUBIT_PATH}/MacOS
         ln -s ${CUBIT_PATH}/MacOS ${CUBIT_PATH}/bin
-        #  # fixing the path to Contents/Include
-        # $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-        # $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
+
+        #sudo ln -s ${CUBIT_PATH}/include /Applications/include
+        echo "/Applications"
+        ls /Applications
+        echo "${CUBIT_PATH}"
+        ls ${CUBIT_PATH}
+        echo "${CUBIT_PATH}/bin"
+        ls ${CUBIT_PATH}/bin
         hdiutil detach /Volumes/Cubit
     fi
 
