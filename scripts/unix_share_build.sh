@@ -165,8 +165,8 @@ function mac_setup_cubit_sdk() {
      $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
 
      $SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
-    #  $SUDO mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
-    #  $SUDO mv bin/* MacOS/
+     $SUDO mv ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
+     $SUDO mv bin/* MacOS/
     #  $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
     #  $SUDO ln -s MacOS bin
     #  $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
