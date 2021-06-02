@@ -135,4 +135,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_linux_${{ matrix.cubit }}
-          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_${system}_cubit_${{ matrix.cubit }}.tgz
+          path: /home/runner/work/Trelis-plugin/pack/svalinn-plugin_${{system}}_cubit_${{ matrix.cubit }}.tgz
