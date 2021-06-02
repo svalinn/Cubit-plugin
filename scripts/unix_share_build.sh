@@ -140,9 +140,9 @@ function build_dagmc(){
 }
 
 function mac_setup_cubit_sdk() {
-    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
-	    return
-    fi
+    # if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
+	#     return
+    # fi
     cd ${FOLDER_PKG}
     hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
     hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
