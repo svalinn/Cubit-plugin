@@ -254,8 +254,8 @@ function linux_build_plugin_pkg(){
     cd ..
     ln -sv svalinn/libsvalinn_plugin.so .
     cd ../..
-    tar --sort=name -czvf svalinn-plugin_linux_cubit_$1.tgz bin
-    chmod 666 svalinn-plugin_linux_cubit_$1.tgz
+    tar --sort=name -czvf svalinn-plugin_${OS}_cubit_$1.tgz bin
+    chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
 }
 
 function mac_build_plugin_pkg(){
@@ -272,6 +272,6 @@ function mac_build_plugin_pkg(){
     cd ..
     ln -sv svalinn/libsvalinn_plugin.so .
     cd ../..
-    tar -czvf svalinn-plugin_mac_cubit_${1}.tgz MacOS
-    chmod 666 svalinn-plugin_mac_cubit_$1.tgz
+    tar -czvf svalinn-plugin_${OS}_cubit_${1}.tgz MacOS
+    chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
 }
