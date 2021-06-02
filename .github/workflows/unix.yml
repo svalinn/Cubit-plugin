@@ -72,7 +72,7 @@ jobs:
             echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/MacOS/" >> $GITHUB_ENV
           fi
 
-          echo "OS=${{ matrix.cubit }}" >> $$GITHUB_ENV
+          echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
 
           echo "CUBIT_PKG=${BASE}-${SUFFIX}.${EXT}" >> $GITHUB_ENV
