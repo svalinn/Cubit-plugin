@@ -276,5 +276,5 @@ function mac_build_plugin_pkg(){
     chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
     pwd
 
-    ls /home/runner/work/Trelis-plugin/pack/svalinn-plugin_${OS}_cubit_$1.tgz
+    ls
 }
