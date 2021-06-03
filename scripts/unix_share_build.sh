@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# THIS SET OF FUNCTION EXPECTES THE FOLLOWING VARIABLE TO BE DEFINED/AVAILABLE:
+# THIS SET OF FUNCTION EXPECTS THE FOLLOWING VARIABLE TO BE DEFINED/AVAILABLE:
 # - PLUGIN_ABS_PATH : absolute path to Trelis-plugin folder
 # - CUBIT_PKG : name of the cubit installation package
 # - CUBIT_SDK_PKG : name of the cubit SDK installation package (only used for version <= 1.7.0)
