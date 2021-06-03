@@ -11,7 +11,7 @@ Linux (tested on Ubuntu 18.04 and 20.04):
     - `setup_folder()`: build the folder layout required to plugin build
     - `build_moab()`: build and install MOAB
     - `build_dagmc()`: build and install DAGMC
-    - `setup_cubit_sdk()`: install Trelis/CUbit and the corresponding SDK
+    - `setup_cubit()`: install Trelis/CUbit and the corresponding SDK
     - `build_plugin()`: build the plugin
     - `build_plugin_pkg()`: build a tarball containing the plugin
 

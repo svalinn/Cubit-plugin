@@ -37,7 +37,7 @@ build_moab
 build_dagmc
 
 # $1 is the version of Trelis/Cubit one are trying to compile against i.e. 17.1.0
-linux_setup_cubit_sdk $1
+linux_setup_cubit $1
 build_plugin
 linux_build_plugin_pkg $1
 

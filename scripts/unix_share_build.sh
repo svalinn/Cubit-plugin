@@ -1,4 +1,19 @@
 #!/bin/bash
+
+# THIS SET OF FUNCTION EXPECTES THE FOLLOWING VARIABLE TO BE DEFINED/AVAILABLE:
+# - PLUGIN_ABS_PATH : absolute path to Trelis-plugin folder
+# - CUBIT_PKG : name of the cubit installation package
+# - CUBIT_SDK_PKG : name of the cubit SDK installation package (only used for version <= 1.7.0)
+# - CUBIT_BASE_NAME : root name of the cubit installation
+# - CUBIT_PATH : absolute path to the cubit installation folder
+# - CMAKE_ADDITIONAL_FLAGS : additional flag required for the cmake setup (shared between plugin and dependencies)
+# - BUILD_SHARED_LIBS : ON/OFF specifiies if shared libs will be built for MOAB and DAGMC
+# - BUILD_STATIC_LIBS : ON/OFF specifiies if static libs will be built for MOAB and DAGMC
+# - SUDO : specify the command prefix to run as root (if any)
+# - SED : command to run sed (usually sed for linux, gsed for mac)
+# - OS : reference to the Operating system, used to name the plugin tarball (and when using setup_var() function)
+
+
 set -ex
 
 
@@ -43,14 +58,14 @@ function setup_var() {
     CMAKE_ADDITIONAL_FLAGS="-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0"
 
     if [ "$1" == "2020.2" ]; then
-        TRELIS_PATH="/opt/Coreform-Cubit-2020.2"
+        CUBIT_PATH="/opt/Coreform-Cubit-2020.2"
         unset CMAKE_ADDITIONAL_FLAGS
     elif [ "$1" == "17.1.0" ]; then
-        TRELIS_PATH="/opt/Trelis-17.1"
+        CUBIT_PATH="/opt/Trelis-17.1"
     elif [ "$1" == "2021.3" ] ; then
-        TRELIS_PATH="/opt/Coreform-Cubit-2021.3"
+        CUBIT_PATH="/opt/Coreform-Cubit-2021.3"
     elif [ "$1" == "2021.4" ] ; then
-        TRELIS_PATH="/opt/Coreform-Cubit-2021.4"
+        CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
     else
         echo "unknown Trelis/Cubit version"
         return 1
@@ -139,10 +154,8 @@ function build_dagmc(){
     rm -rf DAGMC/DAGMC DAGMC/bld
 }
 
-function mac_setup_cubit_sdk() {
-    # if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
-	#     return
-    # fi
+function mac_setup_cubit() {
+
     cd ${FOLDER_PKG}
     hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
     hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
@@ -160,9 +173,9 @@ function mac_setup_cubit_sdk() {
 
     cd /Applications
 
+    # 17.1.0 comes with a separate SDK. It is unclear yet on how it is supposed to be installed and used.
+    # this is a way to have it working... 
     if [ "$1" == "17.1.0" ] ; then
-        #$SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
-        #$SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
         cd ${CUBIT_PATH}
         $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
         $SUDO rsync -a  ${CUBIT_BASE_NAME}/* ./
@@ -172,15 +185,9 @@ function mac_setup_cubit_sdk() {
         $SUDO ln -s MacOS bin
         $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
 
-
         #  # fixing the path to Contents/Include
         $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
         $SUDO $SED -i "s/\${_IMPORT_PREFIX}/\/Applications/" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
-        #  $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake.orig
-        #  $SUDO $SED -i "s/\${_IMPORT_PREFIX}\/include/\${_IMPORT_PREFIX}\/${CUBIT_BASE_NAME}.app\/include/" ${CUBIT_PATH}/MacOS/CubitGeomConfig.cmake
-        # $SUDO cp -pv ${CUBIT_PATH}/MacOS/CubitExport-release.cmake ${CUBIT_PATH}/MacOS/CubitExport-release.cmake.orig
-        # $SUDO $SED -i "s/\/${CUBIT_BASE_NAME}.app\/Contents//" ${CUBIT_PATH}/MacOS/CubitExport-release.cmake
-
     fi
 
     hdiutil detach /Volumes/Cubit
@@ -188,7 +195,7 @@ function mac_setup_cubit_sdk() {
 
 }
 
-function linux_setup_cubit_sdk() {
+function linux_setup_cubit() {
 
   
     cd ${FOLDER_PKG}
