@@ -18,14 +18,18 @@ CMAKE_ADDITIONAL_FLAGS=""
 UBUNTU_VERSION=""
 HDF5_PATH=""
 BUILD_SHARED_LIBS=""
-
+SUDO=""
+OS="UBUNTU"
+SED="sed"
 
 source ${SCRIPTPATH}/scripts/unix_share_build.sh
 
-linux_install_prerequisites
+if [ -f /.dockerenv ]; then
+  install_prerequisites   
+fi
 
 setup 
-linux_setup_var $1
+setup_var $1
 
 build_hdf5
 
@@ -33,8 +37,8 @@ build_moab
 build_dagmc
 
 # $1 is the version of Trelis/Cubit one are trying to compile against i.e. 17.1.0
-linux_setup_cubit_sdk $1
-build_plugin $1
+linux_setup_cubit $1
+build_plugin
 linux_build_plugin_pkg $1
 
 mv -v svalinn-plugin_linux_cubit_$1.tgz ${FOLDER_PKG}
