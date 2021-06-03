@@ -154,6 +154,14 @@ function build_dagmc(){
     rm -rf DAGMC/DAGMC DAGMC/bld
 }
 
+function remove_app_logger() {
+    cd ${CUBIT_PATH}/bin
+    $SUDO cp -pv CubitExport.cmake CubitExport.cmake.orig
+    $SUDO $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
+    $SUDO cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
+    $SUDO $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+}
+
 function mac_setup_cubit() {
 
     cd ${FOLDER_PKG}
@@ -164,11 +172,7 @@ function mac_setup_cubit() {
   
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "${1}" = "2020.2" ] || [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
-        cd ${CUBIT_PATH}/bin
-        $SUDO cp -pv CubitExport.cmake CubitExport.cmake.orig
-        $SUDO $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-        $SUDO cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-        $SUDO $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+        remove_app_logger
     fi
 
     cd /Applications
@@ -196,7 +200,6 @@ function mac_setup_cubit() {
 }
 
 function linux_setup_cubit() {
-
   
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${CUBIT_PKG}
@@ -209,11 +212,7 @@ function linux_setup_cubit() {
     $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "$1" = "2020.2" ]; then
-        cd ${CUBIT_PATH}/bin
-        $SUDO cp -pv CubitExport.cmake CubitExport.cmake.orig
-        $SUDO $SED -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-        $SUDO cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-        $SUDO $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
+        remove_app_logger
     fi
 }
 
