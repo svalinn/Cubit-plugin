@@ -135,5 +135,7 @@ jobs:
       - name: Upload package
         uses: actions/upload-artifact@v2
         with:
-          name: svalinn-plugin_linux_${{ matrix.cubit }}
-          path: ${FOLDER_PKG}/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          path: |
+            /home/runner/work/Trelis-plugin/pack/
+            /Users/runner/work/Trelis-plugin/pack/
