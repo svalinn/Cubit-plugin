@@ -171,7 +171,7 @@ function mac_setup_cubit() {
     rm -rf trelis.dmg
   
     # removing app_loger that seems to not be present in Cubit 2020.2
-    if [ "${1}" = "2020.2" ] || [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
+    if [ "${1}" = "2020.2" ]; then #|| [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
         remove_app_logger
     fi
 
