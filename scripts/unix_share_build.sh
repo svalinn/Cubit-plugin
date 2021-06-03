@@ -84,7 +84,7 @@ function setup_var() {
 }
 
 function linux_build_hdf5() {
-    # if ubuntu 18.04 or lower rely of apt-get hdf5
+    # if ubuntu 18.04 or lower rely on apt-get hdf5
     ubuntu_version
     if [ $UBUNTU_VERSION -lt 20 ]; then
         $SUDO apt-get install -y libhdf5-serial-dev
@@ -224,7 +224,8 @@ function build_plugin(){
     cd ../
     mkdir -pv bld
     cd bld
-    cmake ../Trelis-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH} -DCUBIT_ROOT=${CUBIT_PATH} \
+    cmake ../Trelis-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH} \
+                           -DCUBIT_ROOT=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
                             $CMAKE_ADDITIONAL_FLAGS \
