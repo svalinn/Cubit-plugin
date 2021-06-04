@@ -29,7 +29,7 @@ jobs:
           - cubit: 17.1.0
             os: ubuntu-20.04      
 
-    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
+    name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
 
 
     steps:
@@ -102,7 +102,7 @@ jobs:
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
           fi
 
-      - name: Trelis setup
+      - name: Cubit setup
         shell: bash -l {0}
         run: |
           ${system}_setup_cubit ${{ matrix.cubit }}
@@ -137,5 +137,5 @@ jobs:
         with:
           name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
           path: |
-            /home/runner/work/Trelis-plugin/pack/
-            /Users/runner/work/Trelis-plugin/pack/
+            /home/runner/work/Cubit-plugin/pack/
+            /Users/runner/work/Cubit-plugin/pack/

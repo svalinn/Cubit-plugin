@@ -12,7 +12,7 @@ Linux (tested on Ubuntu 18.04 and 20.04):
     - `linux/mac__build_hdf5`: install/build hdf5 as function of the operating system
     - `build_moab()`: build and install MOAB
     - `build_dagmc()`: build and install DAGMC
-    - `linux/mac_setup_cubit()`: install Trelis/CUbit and the corresponding SDK as function of the operating system
+    - `linux/mac_setup_cubit()`: install Cubit and the corresponding SDK as function of the operating system
     - `build_plugin()`: build the plugin
     - `linux/mac_build_plugin_pkg()`: build a tarball containing the plugin as function of the operating system
 
