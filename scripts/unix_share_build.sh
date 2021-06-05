@@ -204,7 +204,7 @@ function linux_setup_cubit() {
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${CUBIT_PKG}
 
-    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] ; then
 	    return
     fi
 
