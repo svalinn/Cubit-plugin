@@ -63,7 +63,7 @@ jobs:
         shell: bash -l {0}
         run: |
           cd ${PLUGIN_ABS_PATH}
-          git clone https://bitbucket.org/qingfengxia/moab -b dllexport
+          git clone https://bitbucket.org/moab/moab
           mkdir moab_build moab_install
           cd moab_build
           cmake ../moab \
