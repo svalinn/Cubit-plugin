@@ -149,7 +149,7 @@ jobs:
           7z x ${CUBIT_PKG}
 
 
-          if [ "${{ matrix.cubit }}" = "17_1_0" ]; then
+          if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
             7z x ${CUBIT_SDK_PKG}
             cp -r Trelis*/* ./
