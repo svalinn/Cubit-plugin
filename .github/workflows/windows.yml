@@ -211,5 +211,5 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_Windows_${{ matrix.cubit }}.tar
-          path: C:/Users/runneradmin/
+          path: C:/Users/runneradmin/svalinn-plugin_Windows_${{ matrix.cubit }}.tar
 
