@@ -204,14 +204,12 @@ jobs:
           cp ../../plugin_install/lib/* ./
           cd ${PLUGIN_ABS_PATH}
           tar -cvf svalin_plugin_windows_${{ matrix.cubit }}.tar  bin
-          pwd
-          ls
-
+          cp svalin_plugin_windows_${{ matrix.cubit }}.tar c/Users/runneradmin/
 
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_Windows_${{ matrix.cubit }}.tar
-          path: ${PLUGIN_ABS_PATH}
+          path: C:/Users/runneradmin/
 
