@@ -37,9 +37,9 @@ jobs:
 
           CUBIT_BASE_NAME=Coreform-Cubit-${{ matrix.cubit }}
           if [ "${{ matrix.cubit }}" == "17.1.0" ]; then
-            BASE=Trelis-17.1.0
-            BASESDK=Trelis-SDK-17.1.0
-            CUBIT_BASE_NAME=Trelis-17.1
+            export BASE=Trelis-17.1.0
+            export BASESDK=Trelis-SDK-17.1.0
+            export CUBIT_BASE_NAME=Trelis-17.1
           elif [ "${{ matrix.cubit }}" == "2021.3" ]; then
             BASE=Coreform-Cubit-2021.3.0
             CUBIT_BASE_NAME=Coreform-Cubit-2021.3
