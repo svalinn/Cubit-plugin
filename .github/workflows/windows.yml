@@ -204,7 +204,7 @@ jobs:
           cp ../../plugin_install/lib/* ./
           cd ${PLUGIN_ABS_PATH}
           tar -cvf svalin_plugin_windows_${{ matrix.cubit }}.tar  bin
-          cp svalin_plugin_windows_${{ matrix.cubit }}.tar c/Users/runneradmin/
+          cp svalin_plugin_windows_${{ matrix.cubit }}.tar C:/Users/runneradmin/
 
 
       - name: 'Upload package'
