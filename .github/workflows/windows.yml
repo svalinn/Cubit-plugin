@@ -20,9 +20,9 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        cubit: [17.1.0]
+        cubit: [17.1.0, 2021.4]
 
-    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Windows'
+    name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Windows'
     steps:
         
       - uses: conda-incubator/setup-miniconda@v2
@@ -203,8 +203,8 @@ jobs:
           cp ../../plugin_install/bin/* ./
           cp ../../plugin_install/lib/* ./
           cd ${PLUGIN_ABS_PATH}
-          tar -cvf svalin_plugin_windows_${{ matrix.cubit }}.tar  bin
-          cp svalin_plugin_windows_${{ matrix.cubit }}.tar C:/Users/runneradmin/
+          tar -cvf svalinn_plugin_windows_${{ matrix.cubit }}.tar  bin
+          cp svalinn_plugin_windows_${{ matrix.cubit }}.tar C:/Users/runneradmin/
 
 
       - name: 'Upload package'
