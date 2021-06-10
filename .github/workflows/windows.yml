@@ -31,6 +31,7 @@ jobs:
           activate-environment: ""
 
       - name: Environment Variables
+        shell: bash -l {0}
         run: |
           COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases
 
