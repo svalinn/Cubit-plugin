@@ -139,3 +139,12 @@ jobs:
           path: |
             /home/runner/work/Trelis-plugin/pack/
             /Users/runner/work/Trelis-plugin/pack/
+    
+    if: contains(github.ref, "release")
+    steps:
+      - name: Upload the artifacts
+        uses: skx/github-action-publish-binaries@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: '/home/runner/work/Trelis-plugin/pack/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz /Users/runner/work/Trelis-plugin/pack/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz'
