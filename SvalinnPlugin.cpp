@@ -3,7 +3,7 @@
 #include <sstream>
 
 #include "CubitVersionCompatibility.hpp"
-#include CUBIT_INTERFACE_HEADER
+#include "CubitInterface.hpp"
 
 #include "CubitMessageHandler.hpp"
 
@@ -23,7 +23,7 @@
 SvalinnPlugin::SvalinnPlugin()
 {
 
-  CubitMessageHandler* console = MSG_HANDLER;
+  CubitMessageHandler* console = CubitInterface::get_cubit_message_handler();
   if (console) {
     std::ostringstream load_message;
     load_message.str("");
