@@ -1,6 +1,5 @@
 #include "DAGMCExportCommand.hpp"
 
-#include "CubitVersionCompatibility.hpp"
 #include "CubitInterface.hpp"
 
 // CGM includes

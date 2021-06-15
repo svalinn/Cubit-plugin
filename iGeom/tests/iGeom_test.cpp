@@ -2,7 +2,6 @@
 
 #include <vector>
 
-#include "CubitVersionCompatibility.hpp"
 #include "CubitInterface.hpp"
 
 #include "iGeom.h"

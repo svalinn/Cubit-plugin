@@ -2,7 +2,6 @@
 
 #include <sstream>
 
-#include "CubitVersionCompatibility.hpp"
 #include "CubitInterface.hpp"
 
 #include "CubitMessageHandler.hpp"

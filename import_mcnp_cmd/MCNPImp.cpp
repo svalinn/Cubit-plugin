@@ -1,6 +1,5 @@
 #include "MCNPImp.hpp"
 
-#include "CubitVersionCompatibility.hpp"
 #include "CubitInterface.hpp"
 
 #include "CubitMessage.hpp"
