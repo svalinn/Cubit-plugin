@@ -140,9 +140,8 @@ jobs:
             /home/runner/work/Trelis-plugin/pack/
             /Users/runner/work/Trelis-plugin/pack/
     
-    if: contains(github.ref, "release")
-    steps:
-      - name: Upload the artifacts
+      - if: contains(github.ref, "release")
+        name: Upload the artifacts
         uses: skx/github-action-publish-binaries@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
