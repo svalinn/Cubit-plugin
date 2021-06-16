@@ -103,8 +103,7 @@ jobs:
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
           fi
-          cd
-          mkdir release
+          mkdir ${SCRIPTPATH}/release
 
       - name: Trelis setup
         shell: bash -l {0}
@@ -148,6 +147,6 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          file: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
           asset_name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
           tag: ${{ github.ref }}

@@ -49,8 +49,7 @@ function setup() {
     cd ${PLUGIN_DIR}
     PLUGIN_ABS_PATH=$(pwd)
     ln -s ${SCRIPTPATH}/ ./
-    cd
-    mkdir release
+    mkdir $SCRIPTPATH/release
 }
 
 
@@ -265,7 +264,7 @@ function linux_build_plugin_pkg(){
     cd ../..
     tar --sort=name -czvf svalinn-plugin_${OS}_cubit_$1.tgz bin
     chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
-    cp svalinn-plugin_${OS}_cubit_$1.tgz ~/release/
+    cp svalinn-plugin_${OS}_cubit_$1.tgz $SCRIPTPATH/release/
 }
 
 function mac_build_plugin_pkg(){
@@ -284,5 +283,5 @@ function mac_build_plugin_pkg(){
     cd ../..
     tar -czvf svalinn-plugin_${OS}_cubit_${1}.tgz MacOS
     chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
-    cp svalinn-plugin_${OS}_cubit_$1.tgz ~/release/
+    cp svalinn-plugin_${OS}_cubit_$1.tgz $SCRIPTPATH/release/
 }
