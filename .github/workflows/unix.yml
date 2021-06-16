@@ -88,6 +88,8 @@ jobs:
 
           echo "" >> ${HOME}/.bash_profile
           echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
+
+          ls -al /
       
       - name: Initial setup
         shell: bash -l {0}
