@@ -138,9 +138,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
-          path: |
-            /home/runner/work/Trelis-plugin/pack/
-            /Users/runner/work/Trelis-plugin/pack/
+          path: /
     
       - if: github.event_name == 'release'
         name: Upload the artifacts
@@ -148,4 +146,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: '/home/runner/work/Trelis-plugin/pack/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz /Users/runner/work/Trelis-plugin/pack/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz'
+          args: '/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz'
