@@ -142,10 +142,10 @@ jobs:
           path: /tmp/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
     
       - if: github.event_name == 'release'
-      name: Upload binaries to release
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: /tmp/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
-        asset_name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
-        tag: ${{ github.ref }}
+        name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: /tmp/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          asset_name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          tag: ${{ github.ref }}
