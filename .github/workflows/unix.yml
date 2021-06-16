@@ -140,7 +140,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
-          path: release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
     
       - if: github.event_name == 'release'
         name: Upload binaries to release
