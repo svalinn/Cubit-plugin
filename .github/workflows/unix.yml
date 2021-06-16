@@ -103,6 +103,8 @@ jobs:
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
           fi
+          cd
+          mkdir release
 
       - name: Trelis setup
         shell: bash -l {0}
