@@ -5,7 +5,7 @@ Svalinn plugins and command extensions for Cubit
 demonstrated to work on a wide range of problems, but the build system is not
 finalized.
 
-The plugin has been tested and is confirmed to work with various Cubit  versions 17.1 up to 2020.2. 
+The plugin has been tested and is confirmed to work with various Cubit versions 17.1 up to 2020.2. 
 
 Prerequisites
 =============
@@ -39,9 +39,9 @@ with the package manager; i.e.
 sudo dpkg -i Cubit_DEB.deb
 ```
 
-This installs Cubit to `/opt/Coreform-Cubit-VERSION` or `/opt/Trelis-VERSION` for old version.
+This installs Cubit to `/opt/Coreform-Cubit-VERSION` or `/opt/Trelis-VERSION` for older versions.
 
-For Cubit version older than 2021 one need to manually install the provided SDK
+For Cubit versions older than 2021, one needs to manually install the provided SDK
 
 ### Note 
 There is also a bug (or some other unknown issue) in come Cubit SDK which requires a
@@ -64,7 +64,10 @@ and they assume that the Cubit-plugin repo has been cloned into
 `${HOME}/plugin-build/Cubit-plugin`.
 
 **Before building anything, ensure that the `LD_LIBRARY_PATH` environment
-variable is empty**. This variable is not needed to build MOAB, DAGMC, or the
+variable is empty**. 
+
+```bash
+unset LD_LIBRARY_PATH
 plugin, and if it is not empty it can only cause problems. Ensure that it
 remains empty when running Cubit as well.
 
