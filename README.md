@@ -189,7 +189,9 @@ cp -pPv ${HOME}/plugin-build/DAGMC/lib/libuwuw.so* .
 cp -pPv ${HOME}/plugin-build/lib/* .
 chmod 644 *
 
-# Set the RPATH to be the current directory for the DAGMC libraries
+# The resulting shared library objects require an update to their RPATH (runtime path) 
+# attribute to ensure that the correct set of libraries is discovered when starting 
+# Cubit and loading the plugin library.
 patchelf --set-rpath PATH_TO_CUBIT/bin/plugins/svalinn libMOAB.so
 patchelf --set-rpath PATH_TO_CUBIT/bin/plugins/svalinn libdagmc.so
 patchelf --set-rpath PATH_TO_CUBIT/bin/plugins/svalinn libmakeWatertight.so
