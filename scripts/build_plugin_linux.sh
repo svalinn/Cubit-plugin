@@ -36,7 +36,7 @@ build_hdf5
 build_moab
 build_dagmc
 
-# $1 is the version of Trelis/Cubit one are trying to compile against i.e. 17.1.0
+# $1 is the version of Cubit one are trying to compile against i.e. 17.1.0
 linux_setup_cubit $1
 build_plugin
 linux_build_plugin_pkg $1
@@ -44,4 +44,4 @@ linux_build_plugin_pkg $1
 mv -v svalinn-plugin_linux_cubit_$1.tgz ${FOLDER_PKG}
 cd ..
 rm -rf pack bld DAGMC lib moab
-rm Trelis-plugin
+rm Cubit-plugin

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # THIS SET OF FUNCTION EXPECTS THE FOLLOWING VARIABLE TO BE DEFINED/AVAILABLE:
-# - PLUGIN_ABS_PATH : absolute path to Trelis-plugin folder
+# - PLUGIN_ABS_PATH : absolute path to Cubit-plugin folder
 # - CUBIT_PKG : name of the cubit installation package
 # - CUBIT_SDK_PKG : name of the cubit SDK installation package (only used for version <= 1.7.0)
 # - CUBIT_BASE_NAME : root name of the cubit installation
@@ -43,7 +43,7 @@ function linux_install_prerequisites() {
 function setup() {
     unset LD_LIBRARY_PATH
     
-    echo "Building the Trelis plugin in ${CURRENT}\\${PLUGIN_DIR}"
+    echo "Building the Cubit plugin in ${CURRENT}\\${PLUGIN_DIR}"
     cd ${CURRENT}
     mkdir ${PLUGIN_DIR}
     cd ${PLUGIN_DIR}
@@ -68,7 +68,7 @@ function setup_var() {
     elif [ "$1" == "2021.4" ] ; then
         CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
     else
-        echo "unknown Trelis/Cubit version"
+        echo "unknown Cubit version"
         return 1
     fi
 
@@ -166,10 +166,10 @@ function remove_app_logger() {
 function mac_setup_cubit() {
 
     cd ${FOLDER_PKG}
-    hdiutil convert ${CUBIT_PKG} -format UDTO -o trelis_eula.dmg.cdr
-    hdiutil attach trelis_eula.dmg.cdr -mountpoint /Volumes/Cubit
+    hdiutil convert ${CUBIT_PKG} -format UDTO -o cubit_eula.dmg.cdr
+    hdiutil attach cubit_eula.dmg.cdr -mountpoint /Volumes/Cubit
     mv /Volumes/Cubit/*.app /Applications/
-    rm -rf trelis.dmg
+    rm -rf cubit.dmg
   
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "${1}" = "2020.2" ]; then #|| [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
@@ -219,12 +219,12 @@ function linux_setup_cubit() {
 
 function build_plugin(){
     cd ${PLUGIN_ABS_PATH}
-    cd Trelis-plugin
+    cd Cubit-plugin
     git submodule update --init
     cd ../
     mkdir -pv bld
     cd bld
-    cmake ../Trelis-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH} \
+    cmake ../Cubit-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH} \
                            -DCUBIT_ROOT=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \

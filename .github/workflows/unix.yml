@@ -31,7 +31,7 @@ jobs:
           - cubit: 17.1.0
             os: ubuntu-20.04      
 
-    name: 'Trelis/Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
+    name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
 
 
     steps:
@@ -110,7 +110,7 @@ jobs:
           fi
           mkdir ${SCRIPTPATH}/release
 
-      - name: Trelis setup
+      - name: Cubit setup
         shell: bash -l {0}
         run: |
           ${system}_setup_cubit ${{ matrix.cubit }}
@@ -141,14 +141,14 @@ jobs:
           ${system}_build_plugin_pkg ${{ matrix.cubit }}
 
       - if: github.event_name != 'release'
-        name: Upload package
+        name: Upload artifact for CI
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
           path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
     
       - if: github.event_name == 'release'
-        name: Upload binaries to release
+        name: Upload binaries into the release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}

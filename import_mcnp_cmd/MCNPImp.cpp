@@ -61,7 +61,7 @@ std::vector<std::string> MCNPImp::get_syntax()
 }
 
 // These two functions need to be implemented for the plugin to be recognized
-// by Trelis, but they do nothing.
+// by Cubit, but they do nothing.
 std::vector<std::string> MCNPImp::get_syntax_help()
 {
   std::vector<std::string> help;

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-trelis -batch -nographics -nojournal test.jou
+coreform_cubit -batch -nographics -nojournal test.jou

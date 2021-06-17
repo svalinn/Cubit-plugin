@@ -53,10 +53,10 @@ std::vector<std::string> SvalinnPlugin::get_keys()
 
 CubitCommand* SvalinnPlugin::create_command(const std::string &key)
 {
-  // NOTE: The internals of Trelis will take owernship of the command,
+  // NOTE: The internals of Cubit will take owernship of the command,
   // and delete it when it is time to clean up.
   
-  // Trelis will crash if included keys haven't been built.
+  // Cubit will crash if included keys haven't been built.
 
 #ifdef BUILD_DAGMC_EXPORT
   if(key == "DAGMCExportCommand")
