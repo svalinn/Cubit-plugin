@@ -70,6 +70,7 @@ variable is empty**.
 unset LD_LIBRARY_PATH
 plugin, and if it is not empty it can only cause problems. Ensure that it
 remains empty when running Cubit as well.
+```
 
 Build MOAB
 ==========
