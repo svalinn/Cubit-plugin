@@ -49,6 +49,7 @@ function setup() {
     cd ${PLUGIN_DIR}
     PLUGIN_ABS_PATH=$(pwd)
     ln -s ${SCRIPTPATH}/ ./
+    mkdir $SCRIPTPATH/release
 }
 
 
@@ -204,7 +205,7 @@ function linux_setup_cubit() {
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${CUBIT_PKG}
 
-    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] ; then
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] ; then
 	    return
     fi
 
@@ -263,6 +264,7 @@ function linux_build_plugin_pkg(){
     cd ../..
     tar --sort=name -czvf svalinn-plugin_${OS}_cubit_$1.tgz bin
     chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
+    cp svalinn-plugin_${OS}_cubit_$1.tgz $SCRIPTPATH/release/
 }
 
 function mac_build_plugin_pkg(){
@@ -281,7 +283,5 @@ function mac_build_plugin_pkg(){
     cd ../..
     tar -czvf svalinn-plugin_${OS}_cubit_${1}.tgz MacOS
     chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
-    pwd
-
-    ls
+    cp svalinn-plugin_${OS}_cubit_$1.tgz $SCRIPTPATH/release/
 }

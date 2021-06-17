@@ -11,7 +11,9 @@ on:
     branches:
       - develop
       - master
-
+  release:
+    types: # This configuration does not affect the page_build event above
+      - created
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -20,7 +22,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        cubit: [17.1.0, 2021.4]
+        cubit: [17.1.0, 2021.4, 2021.5]
         os: [ubuntu-20.04, macos-10.15]
         include:
           - cubit: 17.1.0
@@ -39,6 +41,7 @@ jobs:
         shell: bash -l {0}
         run: |
           COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases
+
           if [ "${{ matrix.cubit }}" == "17.1.0" ]; then
             BASE=Trelis-17.1.0
             BASESDK=Trelis-SDK-17.1.0
@@ -47,6 +50,10 @@ jobs:
           elif [ "${{ matrix.cubit }}" == "2021.4" ]; then
             BASE=Coreform-Cubit-2021.4%2B15017_05893177
             CUBIT_BASE_NAME=Coreform-Cubit-2021.4
+            HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
+          elif [ "${{ matrix.cubit }}" == "2021.5" ]; then
+            BASE=Coreform-Cubit-2021.5%2B15962_5043ef39
+            CUBIT_BASE_NAME=Coreform-Cubit-2021.5
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 
@@ -101,6 +108,7 @@ jobs:
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
           fi
+          mkdir ${SCRIPTPATH}/release
 
       - name: Cubit setup
         shell: bash -l {0}
@@ -132,10 +140,18 @@ jobs:
         run: |
           ${system}_build_plugin_pkg ${{ matrix.cubit }}
 
-      - name: Upload package
+      - if: github.event_name != 'release'
+        name: Upload artifact for CI
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
-          path: |
-            /home/runner/work/Cubit-plugin/pack/
-            /Users/runner/work/Cubit-plugin/pack/
+          path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+    
+      - if: github.event_name == 'release'
+        name: Upload binaries into the release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          asset_name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          tag: ${{ github.ref }}

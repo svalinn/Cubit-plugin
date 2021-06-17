@@ -2,8 +2,7 @@
 
 #include <vector>
 
-#include "CubitVersionCompatibility.hpp"
-#include CUBIT_INTERFACE_HEADER
+#include "CubitInterface.hpp"
 
 #include "iGeom.h"
 
@@ -18,7 +17,7 @@ iGeom_test::iGeom_test()
   radius = 2.0;
   radius2 = 1.0;
 
-  CubitMessageHandler* console = MSG_HANDLER;
+  CubitMessageHandler* console = CubitInterface::get_cubit_message_handler();
   if (console) {
     std::ostringstream load_message;
     load_message.str("");
