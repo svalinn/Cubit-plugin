@@ -11,7 +11,9 @@ on:
     branches:
       - develop
       - master
-
+  release:
+    types: # This configuration does not affect the page_build event above
+      - created
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -106,6 +108,7 @@ jobs:
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
           fi
+          mkdir ${SCRIPTPATH}/release
 
       - name: Trelis setup
         shell: bash -l {0}
@@ -137,10 +140,18 @@ jobs:
         run: |
           ${system}_build_plugin_pkg ${{ matrix.cubit }}
 
-      - name: Upload package
+      - if: github.event_name != 'release'
+        name: Upload package
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
-          path: |
-            /home/runner/work/Trelis-plugin/pack/
-            /Users/runner/work/Trelis-plugin/pack/
+          path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+    
+      - if: github.event_name == 'release'
+        name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          asset_name: svalinn-plugin_${{ matrix.os }}_cubit_${{ matrix.cubit }}.tgz
+          tag: ${{ github.ref }}
