@@ -114,7 +114,7 @@ jobs:
           cd dagmc
           git submodule update --init --recursive
           cd src/pyne
-          ./amalgamate_pyne.sh pwd pwd
+          ./amalgamate_pyne.sh `pwd` `pwd`
 
           cd ../../../dagmc_build
           cmake ../dagmc \
