@@ -110,7 +110,7 @@ jobs:
         run: |
           cd ${PLUGIN_ABS_PATH}
           mkdir dagmc_build dagmc_install
-          git clone https://github.com/bam241/dagmc -b windows
+          git clone --recursive https://github.com/bam241/dagmc -b windows
 
           cd dagmc_build
           cmake ../dagmc \
