@@ -173,14 +173,14 @@ jobs:
         shell: bash -l {0}
         run: |
           cd ${PLUGIN_ABS_PATH}
-          #cp -r /d/a/Trelis-plugin/Trelis-plugin ./
-          cd Trelis-plugin
+          #cp -r /d/a/Cubit-plugin/Cubit-plugin ./
+          cd Cubit-plugin
           rm -rf mcnp2cad
           git clone  https://github.com/bam241/mcnp2cad -b windows
           cd ../
           mkdir plugin_build plugin_install
           cd plugin_build
-          cmake ../Trelis-plugin/ \
+          cmake ../Cubit-plugin/ \
                 -G"Visual Studio 16 2019" \
                 -DCubit_DIR="../Cubit/bin" \
                 -DCUBIT_ROOT="../Cubit/bin" \
