@@ -1,7 +1,7 @@
 Svalinn plugins and command extensions for Cubit
 =================================================
 
-The plugin has been tested and is confirmed to work with versions of Corefoam
+The plugin has been tested and is confirmed to work with versions of Coreform 
 Cubit up to 2021.5 and versions of Cubit up to 15.8.
 
 Install Cubit
