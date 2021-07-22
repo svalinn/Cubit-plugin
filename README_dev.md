@@ -37,12 +37,10 @@ and they assume that the Cubit-plugin repo has been cloned into
 `${HOME}/plugin-build/Cubit-plugin`.
 
 **Before building anything, ensure that the `LD_LIBRARY_PATH` environment
-variable is empty**. 
+variable is empty**. Ensure that it remains empty when running Cubit as well.
 
 ```bash
 unset LD_LIBRARY_PATH
-plugin, and if it is not empty it can only cause problems. Ensure that it
-remains empty when running Cubit as well.
 ```
 
 Build MOAB
