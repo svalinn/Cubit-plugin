@@ -1,11 +1,9 @@
-Svalinn plugins and command extensions for Cubit
-=================================================
+Building the DAGMC Cubit plugin from source
+===========================================
 
-**Beta:** This software is currently under early development. It has been
-demonstrated to work on a wide range of problems, but the build system is not
-finalized.
+This guide is intended for developers and maintainers of the Cubit plugin.
+For installation instructions see the [installation guide](https://github.com/svalinn/Cubit-plugin/tree/develop/README_dev.md).
 
-The plugin has been tested and is confirmed to work with various Cubit versions 17.1 up to 2021.5. 
 
 Prerequisites
 =============
