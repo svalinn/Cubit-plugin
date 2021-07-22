@@ -60,7 +60,7 @@ replace the directory with the correct one.
 cd ${HOME}/plugin-build
 mkdir -pv moab/bld
 cd moab
-git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0
+git clone https://bitbucket.org/fathomteam/moab -b 5.3.0
 cd moab
 autoreconf -fi
 cd ../bld

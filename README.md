@@ -37,7 +37,7 @@ and MacOS 10.15).
 After downloading the compressed tgz file the contents should be uncompress to
 your Cubit folder.
 <details>
-    <summary><b>Expand</b> - Ubuntu terminal commands for Ubuntu 20.04</summary>
+    <summary><b>Expand</b> - Terminal commands for Ubuntu 20.04</summary>
     <pre><code class="language-html">
     wget https://github.com/svalinn/Cubit-plugin/releases/download/0.1.0/svalinn-plugin_ubuntu-20.04_cubit_2021.5.tgz
     sudo tar -xzvf svalinn-plugin_ubuntu-20.04_cubit_2021.5.tgz -C /opt/Coreform-Cubit-2021.5
