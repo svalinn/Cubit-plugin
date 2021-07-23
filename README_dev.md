@@ -62,18 +62,22 @@ mkdir -pv moab/bld
 cd moab
 git clone https://bitbucket.org/fathomteam/moab -b 5.3.0
 cd moab
-autoreconf -fi
-cd ../bld
-../moab/configure CXXFLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
-                  --enable-shared \
-                  --enable-optimize \
-                  --disable-debug \
-                  --disable-blaslapack \
-                  --with-eigen3=/usr/include/eigen3 \
-                  --with-hdf5=/usr/lib/x86_64-linux-gnu/hdf5/serial \
-                  --prefix=${HOME}/plugin-build/moab
-make -j`grep -c processor /proc/cpuinfo`
+# patching MOAB CMakeLists.txt to use default find(HDF5)
+$SED -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
+cd ..
+#end of patch
+cd bld
+cmake ../moab -DENABLE_HDF5=ON \
+        -DHDF5_ROOT=$HDF5_PATH \
+        -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
+        -DENABLE_BLASLAPACK=OFF \
+        -DENABLE_FORTRAN=OFF \
+        $CMAKE_ADDITIONAL_FLAGS \
+        -DCMAKE_INSTALL_PREFIX=${PLUGIN_ABS_PATH}/moab
+make
 make install
+cd ../..
+rm -rf moab/moab moab/bld
 ```
 
 Build DAGMC
