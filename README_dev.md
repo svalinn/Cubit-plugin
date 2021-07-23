@@ -2,7 +2,7 @@ Building the DAGMC Cubit plugin from source
 ===========================================
 
 This guide is intended for developers and maintainers of the Cubit plugin.
-For installation instructions see the [installation guide](https://github.com/svalinn/Cubit-plugin/tree/develop/README_dev.md).
+For installation instructions see the [installation guide](README_dev.md).
 
 
 Prerequisites

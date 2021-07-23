@@ -75,11 +75,11 @@ To view the available command line options for the MCNP importer, type
 
 Similarly for the DAGMC exporter, type ```help dagmc``` in the Cubit command line.
 
-Some sample files have been included in the [test_plugin](https://github.com/svalinn/Cubit-plugin/tree/develop/test_plugin)
+Some sample files have been included in the [test_plugin](test_plugin)
 directory of this repository for testing the command line usage.
 
 
 Building the plugin
 ===================
 
-Building the plugin from source is also [possible](https://github.com/svalinn/Cubit-plugin/tree/develop/README_dev.md) but only recommended for developers.
+Building the plugin from source is also [possible](README_dev.md) but only recommended for developers.
