@@ -29,12 +29,16 @@ jobs:
             os: ubuntu-18.04
         exclude:
           - cubit: 17.1.0
-            os: ubuntu-20.04      
+            os: ubuntu-20.04 
 
     name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
 
 
     steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
       - uses: actions/checkout@v2
 
       - name: Environment Variables
