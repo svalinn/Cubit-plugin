@@ -54,7 +54,6 @@ jobs:
           echo "CUBIT_BASE_NAME=${CUBIT_BASE_NAME}" >> $GITHUB_ENV
 
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
-          echo "PLUGIN_ABS_PATH=" >> $GITHUB_ENV
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
 
