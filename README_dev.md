@@ -125,6 +125,7 @@ cd bld
 cmake ../Cubit-plugin -DCUBIT_ROOT=PATH_TO_CUBIT \
                        -DDAGMC_DIR=${HOME}/plugin-build/DAGMC \
                        -DCMAKE_BUILD_TYPE=Release \
+                       -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
                        -DCMAKE_INSTALL_PREFIX=${HOME}/plugin-build
 make -j`grep -c processor /proc/cpuinfo`
 make install
