@@ -187,7 +187,7 @@ function mac_setup_cubit() {
         $SUDO rsync -a  ${CUBIT_BASE_NAME}.app/Contents/MacOS/* MacOS/
         $SUDO rsync -a bin/* MacOS/
         $SUDO rm -rf bin ${CUBIT_BASE_NAME}.app
-        #$SUDO ln -s MacOS bin
+        $SUDO ln -s MacOS bin
         $SUDO ln -s ${CUBIT_PATH}/include /Applications/include
 
         #  # fixing the path to Contents/Include
@@ -276,6 +276,17 @@ function mac_build_plugin_pkg(){
     cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
     cp /usr/local/opt/szip/lib/libsz.2.dylib .
     install_name_tool -change /usr/local/opt/szip/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
+
+    # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
+    if [ "$1" == "17.1.0" ] ; then
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/nn libsvalinn_plugin.so
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/nn libiGeom.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/nn libmcnp2cad.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libmcnp2cad.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libiGeom.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libsvalinn_plugin.so
+    fi
+
 
     # Create the Svalinn plugin tarball
     cd ..
