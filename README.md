@@ -48,22 +48,24 @@ your Cubit folder.
 Test the Plugin
 ===============
 
-Run ```coreform_cubit``` from the command line. If the plugin was installed
-correctly, after the Cubit GUI finishes loading, the following output should
-appear in the Cubit command line:
+Load Cubit by running ```coreform_cubit``` from the command line. After the
+Cubit GUI finishes loading, run the following command in the Cubit command line:
 
 ```
-Loaded Svalinn plugin.
--- DAGMC export command available.
--- iGeom_test command available.
--- MCNP import command available.
-Journaled Command: undo on
+help dagmc
+```
 
-Cubit>
+If the plugin was installed correctly you should see the following text appear.
+
+```
+Help for words: dagmc.
+
+export dagmc <filename> [faceting_tolerance <faceting tolerance>] [length_tolerance <length tolerance>]
+     [normal_tolerance <normal tolerance>] [make_watertight] [verbose]
+     [fatal_on_curves]
 ```
 
 If this output does not appear, then the plugin was not installed correctly.
-
 
 Usage within Cubit
 ==================
