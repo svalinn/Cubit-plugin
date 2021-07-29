@@ -279,9 +279,9 @@ function mac_build_plugin_pkg(){
 
     # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
     if [ "$1" == "17.1.0" ] ; then
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/nn libsvalinn_plugin.so
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/nn libiGeom.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/nn libmcnp2cad.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libsvalinn_plugin.so
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libiGeom.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libmcnp2cad.dylib
         install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libmcnp2cad.dylib
         install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libiGeom.dylib
         install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libsvalinn_plugin.so
