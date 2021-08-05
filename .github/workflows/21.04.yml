@@ -63,7 +63,6 @@ jobs:
             SUFFIX=Lin64
             EXT=deb
             echo "SED=sed" >> $GITHUB_ENV
-            echo "SUDO=sudo " >> $GITHUB_ENV
             echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
             echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
             echo "system=linux" >> $GITHUB_ENV
