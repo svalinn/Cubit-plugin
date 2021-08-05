@@ -24,12 +24,7 @@ jobs:
       matrix:
         cubit: [2021.5]
         os: [ubuntu-20.04]
-        include:
-          - cubit: 17.1.0
-            os: ubuntu-18.04
-        exclude:
-          - cubit: 17.1.0
-            os: ubuntu-20.04      
+   
 
     name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
 
