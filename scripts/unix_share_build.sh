@@ -37,8 +37,8 @@ function linux_install_prerequisites() {
     $SUDO apt-get update -y
     $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3  lsb-core
     ubuntu_version
-    if [ $UBUNTU_VERSION -lt 21 ]; then
     $SUDO update-alternatives --install /usr/bin/python python /usr/bin/python3 10; \
+    if [ $UBUNTU_VERSION -lt 21 ]; then
     $SUDO update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 10; \
     fi
 }
