@@ -1,4 +1,4 @@
-name: Multiple-Unix
+name: Build in Docker 21.04
 
 on:
   # allows us to run workflows manually
@@ -34,9 +34,9 @@ jobs:
     steps:
       - name: install new git
         run: |
-        add-apt-repository ppa:git-core/ppa
-        apt-get update
-        apt-get install -y git
+          add-apt-repository ppa:git-core/ppa
+          apt-get update
+          apt-get install -y git
       - uses: actions/checkout@v2
 
       - name: Environment Variables
