@@ -23,13 +23,19 @@ jobs:
     strategy:
       matrix:
         cubit: [2021.5]
-        os: [ubuntu-20.04]
+        include:
+          - image: ubuntu:21.04
+            os: ubuntu-21.04
+          - image: ubuntu:20.04
+            os: ubuntu-20.04
+          - image: debian:10.10
+            os: debian-10.10
    
 
     name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
 
     container:
-      image: ubuntu:21.04
+      image:  ${{ matrix.image }}
 
     steps:
       - name: install new git
