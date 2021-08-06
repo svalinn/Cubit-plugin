@@ -1,4 +1,4 @@
-name: Unix
+name: Unix test 21.04 (Docker)
 
 on:
   # allows us to run workflows manually
@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         cubit: [2021.5]
-        os: [ubuntu-21.04]
+        os: [ubuntu-20.04]
    
 
     name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }}'
@@ -32,6 +32,11 @@ jobs:
       image: ubuntu:21.04
 
     steps:
+      - name: install new git
+        run: |
+        add-apt-repository ppa:git-core/ppa; \
+        apt-get update; \
+        apt-get install -y git
       - uses: actions/checkout@v2
 
       - name: Environment Variables
