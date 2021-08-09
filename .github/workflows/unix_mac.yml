@@ -19,7 +19,7 @@ env:
 
 jobs:
   main:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}-${{ matrix.os_version }}
     strategy:
       matrix:
         cubit: [17.1.0, 2021.4, 2021.5]
