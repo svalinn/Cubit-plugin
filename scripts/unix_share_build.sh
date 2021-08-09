@@ -13,7 +13,6 @@
 # - SED : command to run sed (usually sed for linux, gsed for mac)
 # - OS : reference to the Operating system, used to name the plugin tarball (and when using setup_var() function)
 
-
 set -ex
 
 
@@ -25,9 +24,9 @@ function mac_install_prerequisites() {
     brew install eigen gcc@6 gsed
 }
 
-function ubuntu_version() {
-    export UBUNTU_VERSION=$(lsb_release -rs |cut -d"." -f1)
-    echo "Ubuntu Version: " $UBUNTU_VERSION
+function unix_version() {
+    export LINUX_VERSION=$(lsb_release -rs |cut -d"." -f1)
+    echo "Unix Version: " $LINUX_VERSION
 }
 
 function linux_install_prerequisites() {
@@ -35,9 +34,17 @@ function linux_install_prerequisites() {
     $SUDO ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
     $SUDO sh -c 'echo $TZ > /etc/timezone'
     $SUDO apt-get update -y
-    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3  lsb-core
+    if [ "$OS" == "ubuntu" ]; then
+    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3 lsb-core
+    fi
+    if [ "$OS" == "debian" ]; then
+    $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3
+    fi
     $SUDO update-alternatives --install /usr/bin/python python /usr/bin/python3 10; \
+    unix_version
+    if [ $LINUX_VERSION -lt 21 ] && [ "$OS" == "ubuntu" ]; then
     $SUDO update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 10; \
+    fi
 }
 
 function setup() {
@@ -72,28 +79,31 @@ function setup_var() {
         return 1
     fi
 
-    if [ "OS" == "MAC" ]; then
+    if [ "$OS" == "MAC" ]; then
         BUILD_SHARED_LIBS="OFF"
         BUILD_STATIC_LIBS="ON"
-    elif [ "OS" == "UBUNTU"]; then
+    elif [ "$OS" == "ubuntu"]; then
+        BUILD_SHARED_LIBS="ON"
+        BUILD_STATIC_LIBS="OFF"
+    elif [ "$OS" == "debian"]; then
         BUILD_SHARED_LIBS="ON"
         BUILD_STATIC_LIBS="OFF"
     else
-        echo "OS ENV variable needs to be defined to either UBUNTU or MAC"
+        echo "OS ENV variable needs to be defined to either UBUNTU, DEBIAN or MAC"
         return 1
     fi
 }
 
 function linux_build_hdf5() {
     # if ubuntu 18.04 or lower rely on apt-get hdf5
-    ubuntu_version
-    if [ $UBUNTU_VERSION -lt 20 ]; then
+    unix_version
+    if [ $LINUX_VERSION -lt 20 ] && [ "$OS" == "ubuntu" ]; then
         $SUDO apt-get install -y libhdf5-serial-dev
     else
         cd ${PLUGIN_ABS_PATH}
         mkdir -p hdf5/bld
         cd hdf5
-        git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0
+        git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0 --depth 1
         cd bld
         cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
         make
@@ -110,7 +120,8 @@ function build_moab() {
     cd ${PLUGIN_ABS_PATH}
     mkdir -pv moab/bld
     cd moab
-    git clone https://bitbucket.org/fathomteam/moab -b 5.3.0
+    # TODO change to 5.3.0
+    git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0 --depth 1
     cd moab
     # patching MOAB CMakeLists.txt to use default find(HDF5)
     $SED -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
@@ -134,7 +145,7 @@ function build_dagmc(){
     cd ${PLUGIN_ABS_PATH}
     mkdir -pv DAGMC/bld
     cd DAGMC
-    git clone https://github.com/svalinn/DAGMC -b develop
+    git clone https://github.com/svalinn/DAGMC -b develop --depth 1
     cd bld
     cmake ../DAGMC -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
                 -DBUILD_UWUW=ON \
@@ -276,17 +287,6 @@ function mac_build_plugin_pkg(){
     cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
     cp /usr/local/opt/szip/lib/libsz.2.dylib .
     install_name_tool -change /usr/local/opt/szip/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
-
-    # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
-    if [ "$1" == "17.1.0" ] ; then
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libsvalinn_plugin.so
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libiGeom.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libmcnp2cad.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libmcnp2cad.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libiGeom.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libsvalinn_plugin.so
-    fi
-
 
     # Create the Svalinn plugin tarball
     cd ..
