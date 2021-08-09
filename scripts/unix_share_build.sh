@@ -26,7 +26,7 @@ function mac_install_prerequisites() {
 
 function unix_version() {
     export LINUX_VERSION=$(lsb_release -rs |cut -d"." -f1)
-    echo "Unix Version: " $LINUX_VERSION
+    echo "Linux Version: " $LINUX_VERSION
 }
 
 function linux_install_prerequisites() {
@@ -41,7 +41,6 @@ function linux_install_prerequisites() {
     $SUDO apt-get install -y g++ libeigen3-dev patchelf git cmake curl lsb-release python3
     fi
     $SUDO update-alternatives --install /usr/bin/python python /usr/bin/python3 10; \
-    unix_version
     if [ $LINUX_VERSION -lt 21 ] && [ "$OS" == "ubuntu" ]; then
     $SUDO update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 10; \
     fi
@@ -287,6 +286,16 @@ function mac_build_plugin_pkg(){
     cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
     cp /usr/local/opt/szip/lib/libsz.2.dylib .
     install_name_tool -change /usr/local/opt/szip/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
+
+    # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
+    if [ "$1" == "17.1.0" ] ; then
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libsvalinn_plugin.so
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libiGeom.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libmcnp2cad.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libmcnp2cad.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libiGeom.dylib
+        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libsvalinn_plugin.so
+    fi
 
     # Create the Svalinn plugin tarball
     cd ..
