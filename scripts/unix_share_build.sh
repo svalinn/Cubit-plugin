@@ -93,7 +93,7 @@ function linux_build_hdf5() {
         cd ${PLUGIN_ABS_PATH}
         mkdir -p hdf5/bld
         cd hdf5
-        git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0
+        git clone https://github.com/HDFGroup/hdf5.git -b hdf5-1_12_0 --depth 1
         cd bld
         cmake ../hdf5 -DBUILD_SHARED_LIBS:BOOL=ON
         make
@@ -110,7 +110,7 @@ function build_moab() {
     cd ${PLUGIN_ABS_PATH}
     mkdir -pv moab/bld
     cd moab
-    git clone https://bitbucket.org/fathomteam/moab -b 5.3.0
+    git clone https://bitbucket.org/fathomteam/moab -b 5.3.0 --depth 1
     cd moab
     # patching MOAB CMakeLists.txt to use default find(HDF5)
     $SED -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
@@ -134,7 +134,7 @@ function build_dagmc(){
     cd ${PLUGIN_ABS_PATH}
     mkdir -pv DAGMC/bld
     cd DAGMC
-    git clone https://github.com/svalinn/DAGMC -b develop
+    git clone https://github.com/svalinn/DAGMC -b develop --depth 1
     cd bld
     cmake ../DAGMC -DMOAB_DIR=${PLUGIN_ABS_PATH}/moab \
                 -DBUILD_UWUW=ON \
