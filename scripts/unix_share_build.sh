@@ -110,7 +110,7 @@ function build_moab() {
     cd ${PLUGIN_ABS_PATH}
     mkdir -pv moab/bld
     cd moab
-    git clone https://bitbucket.org/fathomteam/moab -b Version5.1.0 --depth 1
+    git clone https://bitbucket.org/fathomteam/moab -b 5.3.0 --depth 1
     cd moab
     # patching MOAB CMakeLists.txt to use default find(HDF5)
     $SED -i "s/HDF5_MOAB/HDF5/" CMakeLists.txt
