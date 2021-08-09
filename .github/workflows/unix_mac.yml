@@ -1,4 +1,4 @@
-name: Unix
+name: Mac builds
 
 on:
   # allows us to run workflows manually

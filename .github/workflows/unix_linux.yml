@@ -1,4 +1,4 @@
-name: Unix builds using Docker
+name: Linux builds
 
 on:
   # allows us to run workflows manually
