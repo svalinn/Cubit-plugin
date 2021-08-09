@@ -49,18 +49,13 @@ jobs:
       - name: install new git
         shell: bash -l {0}
         run: |
+          apt-get update
+          apt-get install -y software-properties-common curl
           if [ "${{ matrix.os }}" == "ubuntu" ]; then
-            apt-get update
-            apt-get install -y software-properties-common
             add-apt-repository ppa:git-core/ppa
             apt-get update
-            apt-get install -y git
-          elif [ "${{ matrix.os }}" == "debian" ]; then
-            apt update
-            apt-get install -y software-properties-common
-            apt update
-            apt install -y git
           fi
+          apt-get install -y git
       - uses: actions/checkout@v2
 
       - name: Environment Variables
@@ -83,17 +78,15 @@ jobs:
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 
-          if [ "${{ matrix.os }}" == "debian" ] || [ "${{ matrix.os }}" == "ubuntu" ]; then
-            SUFFIX=Lin64
-            EXT=deb
-            echo "SED=sed" >> $GITHUB_ENV
-            echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
-            echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
-            echo "system=linux" >> $GITHUB_ENV
-            echo "CUBIT_PATH=/opt/${CUBIT_BASE_NAME}" >> $GITHUB_ENV
-            echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/Linux/" >> $GITHUB_ENV
-            echo "HDF5_PATH=${HDF5_PATH}" >> $GITHUB_ENV
-          fi
+          SUFFIX=Lin64
+          EXT=deb
+          echo "SED=sed" >> $GITHUB_ENV
+          echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
+          echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
+          echo "system=linux" >> $GITHUB_ENV
+          echo "CUBIT_PATH=/opt/${CUBIT_BASE_NAME}" >> $GITHUB_ENV
+          echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/Linux/" >> $GITHUB_ENV
+          echo "HDF5_PATH=${HDF5_PATH}" >> $GITHUB_ENV
 
           echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
@@ -120,7 +113,6 @@ jobs:
         run: |
           mkdir -p $FOLDER_PKG
           cd ${FOLDER_PKG}
-          apt-get install -y curl
           curl -L ${COREFORM_BASE_URL}${CUBIT_PKG} --output ${CUBIT_PKG}
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
