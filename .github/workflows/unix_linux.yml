@@ -39,7 +39,7 @@ jobs:
             os_version: 20.04
             cubit: 17.1.0
    
-    name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }}'
+    name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
     container:
       image:  ${{ matrix.os }}:${{ matrix.os_version }}
