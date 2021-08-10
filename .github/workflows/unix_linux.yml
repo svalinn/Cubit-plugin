@@ -89,6 +89,7 @@ jobs:
           echo "HDF5_PATH=${HDF5_PATH}" >> $GITHUB_ENV
 
           echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
+          echo "OS_VERSION=${{ matrix.os_version }}" >> $GITHUB_ENV
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
 
           echo "CUBIT_PKG=${BASE}-${SUFFIX}.${EXT}" >> $GITHUB_ENV

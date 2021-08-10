@@ -12,6 +12,7 @@
 # - SUDO : specify the command prefix to run as root (if any)
 # - SED : command to run sed (usually sed for linux, gsed for mac)
 # - OS : reference to the Operating system, used to name the plugin tarball (and when using setup_var() function)
+# - OS_VERSION : reference to the Operating system version, used to name the plugin tarball (and when using setup_var() function)
 
 set -ex
 
@@ -271,9 +272,10 @@ function linux_build_plugin_pkg(){
     cd ..
     ln -sv svalinn/libsvalinn_plugin.so .
     cd ../..
-    tar --sort=name -czvf svalinn-plugin_${OS}_cubit_$1.tgz bin
-    chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
-    cp svalinn-plugin_${OS}_cubit_$1.tgz $SCRIPTPATH/release/
+    PLUGIN_FILENAME=svalinn-plugin_${OS}-${OS_VERSION}_cubit_$1.tgz
+    tar --sort=name -czvf ${PLUGIN_FILENAME} bin
+    chmod 666 ${PLUGIN_FILENAME}
+    cp ${PLUGIN_FILENAME} $SCRIPTPATH/release/
 }
 
 function mac_build_plugin_pkg(){
@@ -300,7 +302,8 @@ function mac_build_plugin_pkg(){
     cd ..
     ln -sv svalinn/libsvalinn_plugin.so .
     cd ../..
-    tar -czvf svalinn-plugin_${OS}_cubit_${1}.tgz MacOS
-    chmod 666 svalinn-plugin_${OS}_cubit_$1.tgz
-    cp svalinn-plugin_${OS}_cubit_$1.tgz $SCRIPTPATH/release/
+    PLUGIN_FILENAME=svalinn-plugin_${OS}-${OS_VERSION}_cubit_$1.tgz
+    tar -czvf ${PLUGIN_FILENAME} MacOS
+    chmod 666 ${PLUGIN_FILENAME}
+    cp ${PLUGIN_FILENAME} $SCRIPTPATH/release/
 }
