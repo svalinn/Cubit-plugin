@@ -33,11 +33,11 @@ jobs:
           #   cubit: 2021.5
 
           - os: ubuntu
-            os_version: 20.04
+            os_version: '20.04'
             cubit: 2021.5
 
           - os: debian
-            os_version: 10.10
+            os_version: '10.10'  # using a 'string' here as the 0 gets removed otherwise
             cubit: 2021.5
    
     name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }}'
