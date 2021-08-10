@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cubit: [17.1.0, 2021.4, 2021.5]
+        cubit: [2021.4, 2021.5]
         os: [ubuntu]
         os_version: [20.04, 21.04]
         include:
@@ -33,11 +33,7 @@ jobs:
           - os: debian
             os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
             cubit: 2021.5
-        
-        exclude:
-          - os: ubuntu
-            os_version: 20.04
-            cubit: 17.1.0
+
    
     name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
