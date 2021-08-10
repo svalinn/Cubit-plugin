@@ -88,6 +88,7 @@ jobs:
           echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/Linux/" >> $GITHUB_ENV
           echo "HDF5_PATH=${HDF5_PATH}" >> $GITHUB_ENV
 
+          echo "SUDO=''" >> $GITHUB_ENV
           echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
           echo "OS_VERSION=${{ matrix.os_version }}" >> $GITHUB_ENV
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
