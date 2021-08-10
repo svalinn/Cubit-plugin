@@ -155,6 +155,7 @@ jobs:
         with:
           name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
           path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn` 
     
       - if: github.event_name == 'release'
         name: Upload binaries into the release
