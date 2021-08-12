@@ -24,7 +24,7 @@ jobs:
       matrix:
         cubit: [17.1.0, 2021.4, 2021.5]
         os: [macos]
-        os_version: [10.15]
+        os_version: [10.15, 11]
 
     name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
