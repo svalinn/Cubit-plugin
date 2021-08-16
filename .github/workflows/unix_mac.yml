@@ -25,9 +25,8 @@ jobs:
         cubit: [17.1.0, 2021.4, 2021.5]
         os: [macos]
         os_version: [10.15]
-   
-    name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }}'
 
+    name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
     steps:
       - uses: actions/checkout@v2
@@ -62,6 +61,7 @@ jobs:
           echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/MacOS/" >> $GITHUB_ENV
 
           echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
+          echo "OS_VERSION=${{ matrix.os_version }}" >> $GITHUB_ENV
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
 
           echo "CUBIT_PKG=${BASE}-${SUFFIX}.${EXT}" >> $GITHUB_ENV
@@ -128,6 +128,7 @@ jobs:
         with:
           name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
           path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn` 
     
       - if: github.event_name == 'release'
         name: Upload binaries into the release

@@ -22,25 +22,20 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cubit: [2021.5]
+        cubit: [2021.4, 2021.5]
         os: [ubuntu]
-        os_version: [21.04]
+        os_version: [20.04, 21.04]
         include:
-
-          # this combination is in the inital matrix
-          # - os: ubuntu
-          #   os_version: 21.04
-          #   cubit: 2021.5
-
           - os: ubuntu
-            os_version: 20.04
-            cubit: 2021.5
+            os_version: 18.04
+            cubit: 17.1.0
 
           - os: debian
-            os_version: 10.10
+            os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
             cubit: 2021.5
+
    
-    name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }}'
+    name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
     container:
       image:  ${{ matrix.os }}:${{ matrix.os_version }}
@@ -89,6 +84,7 @@ jobs:
           echo "HDF5_PATH=${HDF5_PATH}" >> $GITHUB_ENV
 
           echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
+          echo "OS_VERSION=${{ matrix.os_version }}" >> $GITHUB_ENV
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
 
           echo "CUBIT_PKG=${BASE}-${SUFFIX}.${EXT}" >> $GITHUB_ENV
@@ -155,6 +151,7 @@ jobs:
         with:
           name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
           path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn` 
     
       - if: github.event_name == 'release'
         name: Upload binaries into the release
