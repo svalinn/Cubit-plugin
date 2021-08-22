@@ -302,7 +302,7 @@ function mac_build_plugin_pkg(){
     cd ..
     ln -sv svalinn/libsvalinn_plugin.so .
     cd ../..
-    PLUGIN_FILENAME=svalinn-plugin_${OS}-${OS_VERSION}_cubit_$1.tgz
+    PLUGIN_FILENAME=svalinn-plugin_${OS}_cubit_$1.tgz
     tar -czvf ${PLUGIN_FILENAME} MacOS
     chmod 666 ${PLUGIN_FILENAME}
     cp ${PLUGIN_FILENAME} $SCRIPTPATH/release/
