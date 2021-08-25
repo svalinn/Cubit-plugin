@@ -109,7 +109,7 @@ jobs:
         run: |
           cd ${PLUGIN_ABS_PATH}
           mkdir dagmc_build dagmc_install
-          git clone --recurse-submodules https://github.com/dagmc/dagmc
+          git clone https://github.com/svalinn/DAGMC -b develop --depth 1 --shallow-submodules
           # cd dagmc
           # git submodule update --init --recursive
           # cd src/pyne
