@@ -6,11 +6,21 @@ on:
   pull_request:
     branches:
       - develop
-      - master
+    paths-ignore:
+      - '.github/workflows/windows.yml'
+      - '.github/workflows/unix_linux.yml'
+      - '*.md'
+      - 'LICENSE'
+
   push:
     branches:
       - develop
-      - master
+    paths-ignore:
+      - '.github/workflows/windows.yml'
+      - '.github/workflows/unix_linux.yml'
+      - '*.md'
+      - 'LICENSE'
+
   release:
     types: # This configuration does not affect the page_build event above
       - created
