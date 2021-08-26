@@ -57,8 +57,6 @@ jobs:
           echo "SCRIPTPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
           echo "PLUGIN_ABS_PATH=$GITHUB_WORKSPACE/.." >> $GITHUB_ENV
 
-
-
       - name: Conda dependencies
         shell:  bash -l {0}
         run: |
@@ -92,7 +90,11 @@ jobs:
                 -G"Visual Studio 16 2019"  \
                 -DCMAKE_INSTALL_PREFIX=../moab_install/ \
                 -DHDF5_ROOT="C:/Program Files/HDF_Group/HDF5/1.8.21" \
-                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
+                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
                 -DCMAKE_EXE_LINKER_FLAGS="" \
                 -DCMAKE_MODULE_LINKER_FLAGS="" \
                 -DCMAKE_SHARED_LINKER_FLAGS="" \
@@ -108,15 +110,11 @@ jobs:
         shell: bash -l {0}
         run: |
           cd ${PLUGIN_ABS_PATH}
-          mkdir dagmc_build dagmc_install
           git clone https://github.com/svalinn/DAGMC -b develop --depth 1 --shallow-submodules
-          # cd dagmc
-          # git submodule update --init --recursive
-          # cd src/pyne
-          # ./amalgamate_pyne.sh `pwd` `pwd`
 
-          # cd ../../../dagmc_build
+          mkdir dagmc_build dagmc_install
           cd dagmc_build
+
           cmake ../dagmc \
                 -G"Visual Studio 16 2019" \
                 -DBUILD_EXE=OFF \
@@ -129,7 +127,11 @@ jobs:
                 -DBUILD_TESTS=OFF \
                 -DMOAB_DIR=../moab_install \
                 -DHDF5_ROOT="C:/Program Files/HDF_Group/HDF5/1.8.21" \
-                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
+                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
                 -DCMAKE_INSTALL_PREFIX=../dagmc_install/ \
                 -DCMAKE_EXE_LINKER_FLAGS="" \
                 -DCMAKE_MODULE_LINKER_FLAGS="" \
@@ -152,7 +154,6 @@ jobs:
           curl -L ${COREFORM_BASE_URL}${CUBIT_PKG} --output ${CUBIT_PKG}
           7z x ${CUBIT_PKG}
 
-
           if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
             7z x ${CUBIT_SDK_PKG}
@@ -165,23 +166,22 @@ jobs:
         shell: bash -l {0}
         run: |
           cd ${PLUGIN_ABS_PATH}
-          #cp -r /d/a/Cubit-plugin/Cubit-plugin ./
-          cd Cubit-plugin
-          rm -rf mcnp2cad
-          git clone  https://github.com/bam241/mcnp2cad -b windows
-          cd ../
           mkdir plugin_build plugin_install
           cd plugin_build
           cmake ../Cubit-plugin/ \
                 -G"Visual Studio 16 2019" \
                 -DCubit_DIR="../Cubit/bin" \
                 -DCUBIT_ROOT="../Cubit/bin" \
-                -DUPDATE_SUBMODULES=OFF \
+                -DUPDATE_SUBMODULES=ON \
                 -DDAGMC_DIR="../dagmc_install" \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX=../plugin_install  \
                 -DHDF5_ROOT="C:/Program Files/HDF_Group/HDF5/1.8.21" \
-                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
+                -DHDF5_hdf5_LIBRARY_RELEASE="C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_hl.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libzlib.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libszip.lib;\
+                                             C:/Program Files/HDF_Group/HDF5/1.8.21/lib/libhdf5_cpp.lib" \
                 -DCMAKE_EXE_LINKER_FLAGS="" \
                 -DCMAKE_MODULE_LINKER_FLAGS="" \
                 -DCMAKE_SHARED_LINKER_FLAGS="" \
@@ -202,7 +202,6 @@ jobs:
           cd ${PLUGIN_ABS_PATH}
           tar -cvf svalinn_plugin_windows_${{ matrix.cubit }}.tar  bin
           cp svalinn_plugin_windows_${{ matrix.cubit }}.tar C:/Users/runneradmin/
-
 
       - name: 'Upload package'
         uses: actions/upload-artifact@v2
