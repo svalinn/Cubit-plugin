@@ -157,13 +157,6 @@ jobs:
             curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
             7z x ${CUBIT_SDK_PKG}
             cp -r Trelis*/* ./
-          # else
-          #   cp -r Coreform*/* ./
-          #   cd bin
-          #   cp -pv CubitExport.cmake CubitExport.cmake.orig
-          #   sed -i "s/\"\/\.\.\/app_logger\"/\"\"/" CubitExport.cmake
-          #   cp -pv CubitUtilConfig.cmake CubitUtilConfig.cmake.orig
-          #   sed -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
           fi
 
       - uses: actions/checkout@v2
