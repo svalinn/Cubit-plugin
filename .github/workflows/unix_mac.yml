@@ -25,7 +25,7 @@ on:
 
   release:
     types: # This configuration does not affect the page_build event above
-      - created
+      - published
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
