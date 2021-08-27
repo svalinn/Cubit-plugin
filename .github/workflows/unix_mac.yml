@@ -9,7 +9,7 @@ on:
       - master
     paths-ignore:
       - '.github/workflows/windows.yml'
-      - '.github/workflows/unix_mac.yml'
+      - '.github/workflows/unix_linux.yml'
       - '*.md'
       - 'LICENSE'
 
@@ -19,7 +19,7 @@ on:
       - master
     paths-ignore:
       - '.github/workflows/windows.yml'
-      - '.github/workflows/unix_mac.yml'
+      - '.github/workflows/unix_linux.yml'
       - '*.md'
       - 'LICENSE'
 

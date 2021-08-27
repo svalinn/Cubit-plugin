@@ -8,7 +8,7 @@ on:
       - develop
     paths-ignore:
       - '.github/workflows/windows.yml'
-      - '.github/workflows/unix_linux.yml'
+      - '.github/workflows/unix_mac.yml'
       - '*.md'
       - 'LICENSE'
 
@@ -17,7 +17,7 @@ on:
       - develop
     paths-ignore:
       - '.github/workflows/windows.yml'
-      - '.github/workflows/unix_linux.yml'
+      - '.github/workflows/unix_mac.yml'
       - '*.md'
       - 'LICENSE'
 
