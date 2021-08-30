@@ -192,15 +192,15 @@ jobs:
           cp ../../plugin_install/bin/* ./
           cp ../../plugin_install/lib/* ./
           cd ${PLUGIN_ABS_PATH}
-          7z a svalinn_plugin_windows_${{ matrix.cubit }}.tar  bin\
-          cp svalinn_plugin_windows_${{ matrix.cubit }}.tar C:/Users/runneradmin/
+          7z a svalinn_plugin_windows_${{ matrix.cubit }}.7z  bin\
+          cp svalinn_plugin_windows_${{ matrix.cubit }}.7z C:/Users/runneradmin/
 
       - if: github.event_name != 'release'
         name: Upload artifact for CI
         uses: actions/upload-artifact@v2
         with:
-          name: svalinn-plugin_windows_${{ matrix.cubit }}.tar
-          path: C:/Users/runneradmin/svalinn_plugin_windows_${{ matrix.cubit }}.tar
+          name: svalinn-plugin_windows_${{ matrix.cubit }}.7z
+          path: C:/Users/runneradmin/svalinn_plugin_windows_${{ matrix.cubit }}.7z
           if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn` 
     
       - if: github.event_name == 'release'
@@ -208,7 +208,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: C:/Users/runneradmin/svalinn_plugin_windows_${{ matrix.cubit }}.tar
-          asset_name: svalinn_plugin_windows_${{ matrix.cubit }}.tar
+          file: C:/Users/runneradmin/svalinn_plugin_windows_${{ matrix.cubit }}.7z
+          asset_name: svalinn_plugin_windows_${{ matrix.cubit }}.7z
           tag: ${{ github.ref }}
 
