@@ -192,7 +192,7 @@ jobs:
           cp ../../plugin_install/bin/* ./
           cp ../../plugin_install/lib/* ./
           cd ${PLUGIN_ABS_PATH}
-          tar -cvf svalinn_plugin_windows_${{ matrix.cubit }}.tar  bin
+          7z a svalinn_plugin_windows_${{ matrix.cubit }}.tar  bin\
           cp svalinn_plugin_windows_${{ matrix.cubit }}.tar C:/Users/runneradmin/
 
       - if: github.event_name != 'release'
