@@ -192,8 +192,7 @@ jobs:
           cp ../../plugin_install/bin/* ./
           cp ../../plugin_install/lib/* ./
           cd ${PLUGIN_ABS_PATH}
-          7z a svalinn_plugin_windows_${{ matrix.cubit }}.7z  bin\
-          cp svalinn_plugin_windows_${{ matrix.cubit }}.7z C:/Users/runneradmin/
+          7z a C:/Users/runneradmin/svalinn_plugin_windows_${{ matrix.cubit }}.7z  bin\
 
       - if: github.event_name != 'release'
         name: Upload artifact for CI
