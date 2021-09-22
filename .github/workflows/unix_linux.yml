@@ -197,6 +197,7 @@ jobs:
 
 
     steps:
+      - uses: actions/checkout@v2
       - name: Environment Variables
         shell: bash -l {0}
         run: |
