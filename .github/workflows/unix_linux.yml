@@ -45,7 +45,7 @@ jobs:
             cubit: 2021.5
 
    
-    name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
+    name: 'Cubit ${{ matrix.cubit }}: Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
     container:
       image:  ${{ matrix.os }}:${{ matrix.os_version }}
@@ -155,8 +155,7 @@ jobs:
         run: |
           ${system}_build_plugin_pkg ${{ matrix.cubit }}
 
-      - if: github.event_name != 'release'
-        name: Upload artifact for CI
+      - name: Upload artifact for CI
         uses: actions/upload-artifact@v2
         with:
           name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
@@ -171,3 +170,91 @@ jobs:
           file: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
           asset_name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
           tag: ${{ github.ref }}
+
+
+  testing-plugin:
+    needs: building-plugin
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cubit: [2021.4, 2021.5]
+        os: [ubuntu]
+        os_version: [20.04, 21.04]
+        include:
+          - os: ubuntu
+            os_version: 18.04
+            cubit: 17.1.0
+
+          - os: debian
+            os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
+            cubit: 2021.5
+
+   
+    name: 'Cubit ${{ matrix.cubit }}: Test for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
+
+    container:
+      image:  ${{ matrix.os }}:${{ matrix.os_version }}
+
+
+    steps:
+      - name: Environment Variables
+        shell: bash -l {0}
+        run: |
+          COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases
+
+          if [ "${{ matrix.cubit }}" == "17.1.0" ]; then
+            BASE=Trelis-17.1.0
+            BASESDK=Trelis-SDK-17.1.0
+            CUBIT_BASE_NAME=Trelis-17.1
+          elif [ "${{ matrix.cubit }}" == "2021.4" ]; then
+            BASE=Coreform-Cubit-2021.4%2B15017_05893177
+            CUBIT_BASE_NAME=Coreform-Cubit-2021.4
+          elif [ "${{ matrix.cubit }}" == "2021.5" ]; then
+            BASE=Coreform-Cubit-2021.5%2B15962_5043ef39
+            CUBIT_BASE_NAME=Coreform-Cubit-2021.5
+          fi
+
+          SUFFIX=Lin64
+          EXT=deb
+          echo "system=linux" >> $GITHUB_ENV
+          echo "CUBIT_PATH=/opt/${CUBIT_BASE_NAME}" >> $GITHUB_ENV
+          echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/Linux/" >> $GITHUB_ENV
+
+          echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
+          echo "OS_VERSION=${{ matrix.os_version }}" >> $GITHUB_ENV
+
+          echo "CUBIT_PKG=${BASE}-${SUFFIX}.${EXT}" >> $GITHUB_ENV
+          echo "CUBIT_SDK_PKG=${BASESDK}-${SUFFIX}.tar.gz" >> $GITHUB_ENV
+          echo "CUBIT_BASE_NAME=${CUBIT_BASE_NAME}" >> $GITHUB_ENV
+
+          echo "CURRENT=$(pwd)" >> $GITHUB_ENV
+
+          echo "" >> ${HOME}/.bash_profile
+          echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
+      
+      - name: Downloading packages
+        shell: bash -l {0}
+        run: |
+          mkdir -p $FOLDER_PKG
+          cd ${FOLDER_PKG}
+          curl -L ${COREFORM_BASE_URL}${CUBIT_PKG} --output ${CUBIT_PKG}
+          if [ "${{ matrix.cubit }}" = "17.1.0" ]; then
+            curl -L ${COREFORM_BASE_URL}${CUBIT_SDK_PKG} --output ${CUBIT_SDK_PKG}
+          fi
+          mkdir ${SCRIPTPATH}/release
+
+      - name: Cubit setup
+        shell: bash -l {0}
+        run: |
+          ${system}_setup_cubit ${{ matrix.cubit }}
+
+      - name: Download artifact for CI
+        uses: actions/download-artifact@v2
+        with:
+          name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn` 
+      
+      - name: Install the plugin
+        run: |
+          tar -xzvf ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz -C ${CUBIT_PATH}
