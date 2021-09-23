@@ -229,6 +229,7 @@ jobs:
           echo "CUBIT_BASE_NAME=${CUBIT_BASE_NAME}" >> $GITHUB_ENV
 
           echo "CURRENT=$(pwd)" >> $GITHUB_ENV
+          echo "FOLDER_PKG=$GITHUB_WORKSPACE/pkg" >> $GITHUB_ENV
 
           echo "" >> ${HOME}/.bash_profile
           echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
