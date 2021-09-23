@@ -32,17 +32,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cubit: [2021.4, 2021.5]
+        # cubit: [2021.4, 2021.5]
+        cubit: 2021.4
         os: [ubuntu]
-        os_version: [20.04, 21.04]
-        include:
-          - os: ubuntu
-            os_version: 18.04
-            cubit: 17.1.0
+        # os_version: [20.04, 21.04]
+        os_version: 20.04
+        # include:
+        #   - os: ubuntu
+        #     os_version: 18.04
+        #     cubit: 17.1.0
 
-          - os: debian
-            os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
-            cubit: 2021.5
+        #   - os: debian
+        #     os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
+        #     cubit: 2021.5
 
    
     name: 'Cubit ${{ matrix.cubit }}: Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
@@ -177,17 +179,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cubit: [2021.4, 2021.5]
+        # cubit: [2021.4, 2021.5]
+        cubit: 2021.4
         os: [ubuntu]
-        os_version: [20.04, 21.04]
-        include:
-          - os: ubuntu
-            os_version: 18.04
-            cubit: 17.1.0
+        # os_version: [20.04, 21.04]
+        os_version: 20.04
+        # include:
+        #   - os: ubuntu
+        #     os_version: 18.04
+        #     cubit: 17.1.0
 
-          - os: debian
-            os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
-            cubit: 2021.5
+        #   - os: debian
+        #     os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
+        #     cubit: 2021.5
 
    
     name: 'Cubit ${{ matrix.cubit }}: Test for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
@@ -233,7 +237,12 @@ jobs:
 
           echo "" >> ${HOME}/.bash_profile
           echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
-      
+            
+      - name: Initial setup
+        shell: bash -l {0}
+        run: |
+          ${system}_install_prerequisites
+
       - name: Downloading packages
         shell: bash -l {0}
         run: |
