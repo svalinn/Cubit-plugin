@@ -270,5 +270,6 @@ jobs:
         run: |
           ls -al /__w/Cubit-plugin/Cubit-plugin/release/svalinn-plugin_ubuntu-20.04_cubit_2021.4.tgz
           cd /__w/Cubit-plugin/Cubit-plugin/release/svalinn-plugin_ubuntu-20.04_cubit_2021.4.tgz
-           ls -al
-          tar -xzvf /__w/Cubit-plugin/Cubit-plugin/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz 
+          ls -al
+          pwd
+          tar -xzvf /__w/Cubit-plugin/Cubit-plugin/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz/Cubit-plugin/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz 
