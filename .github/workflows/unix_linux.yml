@@ -267,5 +267,10 @@ jobs:
       
       - name: Install the plugin
         run: |
-          ls -al /__w/Cubit-plugin/Cubit-plugin/release/svalinn-plugin_ubuntu-20.04_cubit_2021.4.tgz
+          cd $CUBIT_PATH
           tar -xzvf /__w/Cubit-plugin/Cubit-plugin/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+
+      - name: Test the plugin
+        run: |
+          cd $GITHUB_WORKSPACE/tests
+          $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal test.jou
