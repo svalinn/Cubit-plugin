@@ -281,5 +281,5 @@ jobs:
           cd
           git clone https://github.com/Shimwell/cubit_plugin_testing.git
           cd cubit_plugin_testing
-          ls /opt/Coreform-Cubit-2021.5/bin/
+          ls /opt/
           python stp_to_h5m_cubit_script.py
