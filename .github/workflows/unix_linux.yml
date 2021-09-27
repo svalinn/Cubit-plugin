@@ -272,10 +272,6 @@ jobs:
           cd
           mkdir -p .config/Coreform/licenses
           printf 'Fri May 28 2021' >> .config/Coreform/licenses/cubit-learn.lic
-
-      - name: Test the plugin
-        run: |
-          cd $GITHUB_WORKSPACE/test_plugin
           apt install -y libgl1-mesa-glx \
                        libgl1-mesa-dev \
                        libglu1-mesa-dev \
@@ -283,9 +279,16 @@ jobs:
                        libosmesa6 \
                        libosmesa6-dev \
                        libgles2-mesa-dev
-          # $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal test.jou
+
+      - name: Test the plugin (Python)
+        run: |
           cd
           git clone https://github.com/Shimwell/cubit_plugin_testing.git
           cd cubit_plugin_testing
-          ls /opt/
+
           python stp_to_h5m_cubit_script.py
+
+      - name: Test the plugin (Cubit cmd)
+        run: |
+          cd $GITHUB_WORKSPACE/test_plugin
+          $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal test.jou
