@@ -269,6 +269,9 @@ jobs:
         run: |
           cd $CUBIT_PATH
           tar -xzvf /__w/Cubit-plugin/Cubit-plugin/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          cd
+          mkdir -p .config/Coreform/licenses
+          printf 'Fri May 28 2021' >> .config/Coreform/licenses/cubit-learn.lic
 
       - name: Test the plugin
         run: |
