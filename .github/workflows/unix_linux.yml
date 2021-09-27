@@ -272,5 +272,5 @@ jobs:
 
       - name: Test the plugin
         run: |
-          cd $GITHUB_WORKSPACE/tests
+          cd $GITHUB_WORKSPACE/test_plugin
           $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal test.jou
