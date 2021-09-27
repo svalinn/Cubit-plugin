@@ -277,4 +277,8 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/test_plugin
           apt install -y libgl1-mesa-glx
-          $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal test.jou
+          # $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal test.jou
+          cd
+          git clone https://github.com/Shimwell/cubit_plugin_testing.git
+          cd cubit_plugin_testing
+          python stp_to_h5m_cubit_script.py
