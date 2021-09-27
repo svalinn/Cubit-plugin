@@ -276,7 +276,13 @@ jobs:
       - name: Test the plugin
         run: |
           cd $GITHUB_WORKSPACE/test_plugin
-          apt install -y libgl1-mesa-glx
+          apt install -y libgl1-mesa-glx \
+                       libgl1-mesa-dev \
+                       libglu1-mesa-dev \
+                       freeglut3-dev \
+                       libosmesa6 \
+                       libosmesa6-dev \
+                       libgles2-mesa-dev
           # $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal test.jou
           cd
           git clone https://github.com/Shimwell/cubit_plugin_testing.git
