@@ -33,7 +33,7 @@ jobs:
     strategy:
       matrix:
         # cubit: [2021.4, 2021.5]
-        cubit: [2021.4]
+        cubit: [2021.5]
         os: [ubuntu]
         # os_version: [20.04, 21.04]
         os_version: [20.04]
