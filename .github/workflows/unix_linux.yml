@@ -293,4 +293,9 @@ jobs:
       - name: Test the plugin (Cubit cmd)
         run: |
           cd $GITHUB_WORKSPACE/test_plugin
-          $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal test.jou
+          $CUBIT_PATH/bin/coreform_cubit -batch -nographics -nojournal " \
+                        help mcnp \n \
+                        help dagmc \n \
+                        import mcnp test.i \n \
+                        export acis "test.sat" overwrite attributes_on \n \
+                        export dagmc "test.h5m" faceting_tolerance 1e-3 make_watertight verbose"
