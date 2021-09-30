@@ -1,5 +1,5 @@
 help mcnp
 help dagmc
-import mcnp test.i
+import mcnp "/__w/Cubit-plugin/Cubit-plugin/test_plugin/test.i"
 export acis "/__w/Cubit-plugin/Cubit-plugin/test_plugin/test.sat" overwrite attributes_on
 export dagmc "/__w/Cubit-plugin/Cubit-plugin/test_plugin/test.h5m" faceting_tolerance 1e-3 make_watertight verbose
