@@ -65,7 +65,7 @@ jobs:
           elif [ "${{ matrix.cubit }}" == "2021.11" ]; then
             BASE=Coreform-Cubit-2021.11%2B21637_35609873
           fi
-          fi
+
           echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/Windows/" >> $GITHUB_ENV
           echo "CUBIT_PKG=${BASE}-Win64.exe" >> $GITHUB_ENV
           echo "CUBIT_SDK_PKG=${BASESDK}-Win64.zip" >> $GITHUB_ENV
