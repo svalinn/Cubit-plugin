@@ -35,7 +35,7 @@ jobs:
     runs-on: windows-2019
     strategy:
       matrix:
-        cubit: [17.1.0, 2021.3,  2021.4,  2021.5]
+        cubit: [17.1.0, 2021.3,  2021.4,  2021.5, 2021.11]
 
     name: 'Cubit Svalinn Plugin ${{ matrix.cubit }} Build for Windows'
     steps:
