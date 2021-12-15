@@ -151,3 +151,4 @@ jobs:
           file: ${{ github.workspace }}/release/svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
           asset_name: svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
           tag: ${{ github.ref }}
+          overwrite: true

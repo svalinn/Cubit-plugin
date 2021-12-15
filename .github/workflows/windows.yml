@@ -213,4 +213,4 @@ jobs:
           file: C:/Users/runneradmin/svalinn_plugin_windows_${{ matrix.cubit }}.zip
           asset_name: svalinn_plugin_windows_${{ matrix.cubit }}.zip
           tag: ${{ github.ref }}
-
+          overwrite: true
