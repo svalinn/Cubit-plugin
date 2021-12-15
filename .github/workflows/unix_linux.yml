@@ -6,14 +6,24 @@ on:
   pull_request:
     branches:
       - develop
-      - master
+    paths-ignore:
+      - '.github/workflows/windows.yml'
+      - '.github/workflows/unix_mac.yml'
+      - '*.md'
+      - 'LICENSE'
+
   push:
     branches:
       - develop
-      - master
+    paths-ignore:
+      - '.github/workflows/windows.yml'
+      - '.github/workflows/unix_mac.yml'
+      - '*.md'
+      - 'LICENSE'
+
   release:
     types: # This configuration does not affect the page_build event above
-      - created
+      - published
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

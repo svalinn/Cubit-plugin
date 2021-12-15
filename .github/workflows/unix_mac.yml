@@ -7,26 +7,36 @@ on:
     branches:
       - develop
       - master
+    paths-ignore:
+      - '.github/workflows/windows.yml'
+      - '.github/workflows/unix_linux.yml'
+      - '*.md'
+      - 'LICENSE'
+
   push:
     branches:
       - develop
       - master
+    paths-ignore:
+      - '.github/workflows/windows.yml'
+      - '.github/workflows/unix_linux.yml'
+      - '*.md'
+      - 'LICENSE'
+
   release:
     types: # This configuration does not affect the page_build event above
-      - created
+      - published
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   main:
-    runs-on: ${{ matrix.os }}-${{ matrix.os_version }}
+    runs-on: macos-10.15
     strategy:
       matrix:
         cubit: [17.1.0, 2021.4, 2021.5]
-        os: [macos]
-        os_version: [10.15]
 
-    name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
+    name: 'Cubit ${{ matrix.cubit }} Build for MacOS of Svalinn Plugin'
 
     steps:
       - uses: actions/checkout@v2
@@ -60,8 +70,7 @@ jobs:
           echo "CUBIT_PATH=/Applications/${CUBIT_BASE_NAME}.app/Contents" >> $GITHUB_ENV
           echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/MacOS/" >> $GITHUB_ENV
 
-          echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
-          echo "OS_VERSION=${{ matrix.os_version }}" >> $GITHUB_ENV
+          echo "OS=macos" >> $GITHUB_ENV
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
 
           echo "CUBIT_PKG=${BASE}-${SUFFIX}.${EXT}" >> $GITHUB_ENV
@@ -126,8 +135,8 @@ jobs:
         name: Upload artifact for CI
         uses: actions/upload-artifact@v2
         with:
-          name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
-          path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          name: svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
+          path: ${{ github.workspace }}/release/svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
           if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn` 
     
       - if: github.event_name == 'release'
@@ -135,6 +144,6 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
-          asset_name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          file: ${{ github.workspace }}/release/svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
+          asset_name: svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
           tag: ${{ github.ref }}

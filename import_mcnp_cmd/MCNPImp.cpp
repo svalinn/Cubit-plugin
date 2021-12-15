@@ -8,6 +8,8 @@
 
 //Stores all of the options selected
 struct program_option_struct Gopt;
+std::ofstream record;
+
 
 MCNPImp::MCNPImp()
 {
@@ -46,7 +48,7 @@ std::vector<std::string> MCNPImp::get_syntax()
   // format. Full documentation on the command specification syntax can be
   // found in the documentation.
   std::string syntax =
-      "import MCNP "
+      "import mcnp "
       "<string:label='filename',help='<filename>'> "
       "[verbose] [debug] [debug_output] [debug_input] "
       "[extra_effort] [skip_mats] [skip_merge] "
