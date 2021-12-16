@@ -1,4 +1,4 @@
-name: Linux builds
+name: Linux Ubuntu builds
 
 on:
   # allows us to run workflows manually
@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - '.github/workflows/windows.yml'
       - '.github/workflows/unix_mac.yml'
+      - '.github/workflows/linux_debian.yml'
       - '*.md'
       - 'LICENSE'
 
@@ -18,6 +19,7 @@ on:
     paths-ignore:
       - '.github/workflows/windows.yml'
       - '.github/workflows/unix_mac.yml'
+      - '.github/workflows/linux_debian.yml'
       - '*.md'
       - 'LICENSE'
 
@@ -40,15 +42,6 @@ jobs:
             os_version: 18.04
             cubit: 17.1.0
 
-          - os: debian
-            os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
-            cubit: 2021.5
-
-          - os: debian
-            os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
-            cubit: 2021.11
-
-   
     name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
     container:
@@ -60,10 +53,8 @@ jobs:
         run: |
           apt-get update
           apt-get install -y software-properties-common curl
-          if [ "${{ matrix.os }}" == "ubuntu" ]; then
-            add-apt-repository ppa:git-core/ppa
-            apt-get update
-          fi
+          add-apt-repository ppa:git-core/ppa
+          apt-get update
           apt-get install -y git
       - uses: actions/checkout@v2
 
