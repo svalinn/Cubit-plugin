@@ -1,4 +1,4 @@
-name: Mac builds
+name: Linux Ubuntu builds
 
 on:
   # allows us to run workflows manually
@@ -6,20 +6,20 @@ on:
   pull_request:
     branches:
       - develop
-      - master
     paths-ignore:
       - '.github/workflows/windows.yml'
-      - '.github/workflows/unix_linux.yml'
+      - '.github/workflows/unix_mac.yml'
+      - '.github/workflows/linux_debian.yml'
       - '*.md'
       - 'LICENSE'
 
   push:
     branches:
       - develop
-      - master
     paths-ignore:
       - '.github/workflows/windows.yml'
-      - '.github/workflows/unix_linux.yml'
+      - '.github/workflows/unix_mac.yml'
+      - '.github/workflows/linux_debian.yml'
       - '*.md'
       - 'LICENSE'
 
@@ -30,15 +30,36 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  main:
-    runs-on: macos-10.15
+  building-plugin:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        cubit: [17.1.0, 2021.4, 2021.5, 2021.11]
+        cubit: [2021.5, 2021.11]
+        os: [ubuntu]
+        os_version: [20.04, 21.04]
+        include:
+          - os: ubuntu
+            os_version: 18.04
+            cubit: 17.1.0
 
-    name: 'Cubit ${{ matrix.cubit }} Build for MacOS of Svalinn Plugin'
+          - os: ubuntu
+            os_version: 20.04
+            cubit: 2021.4
+
+    name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
+
+    container:
+      image:  ${{ matrix.os }}:${{ matrix.os_version }}
 
     steps:
+      - name: install new git
+        shell: bash -l {0}
+        run: |
+          apt-get update
+          apt-get install -y software-properties-common curl
+          add-apt-repository ppa:git-core/ppa
+          apt-get update
+          apt-get install -y git
       - uses: actions/checkout@v2
 
       - name: Environment Variables
@@ -65,16 +86,18 @@ jobs:
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 
-          SUFFIX=Mac64
-          EXT=dmg
-          echo "SED=gsed" >> $GITHUB_ENV
-          echo "BUILD_SHARED_LIBS=OFF" >> $GITHUB_ENV
-          echo "BUILD_STATIC_LIBS=ON" >> $GITHUB_ENV
-          echo "system=mac" >> $GITHUB_ENV
-          echo "CUBIT_PATH=/Applications/${CUBIT_BASE_NAME}.app/Contents" >> $GITHUB_ENV
-          echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/MacOS/" >> $GITHUB_ENV
+          SUFFIX=Lin64
+          EXT=deb
+          echo "SED=sed" >> $GITHUB_ENV
+          echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
+          echo "BUILD_STATIC_LIBS=OFF" >> $GITHUB_ENV
+          echo "system=linux" >> $GITHUB_ENV
+          echo "CUBIT_PATH=/opt/${CUBIT_BASE_NAME}" >> $GITHUB_ENV
+          echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/Linux/" >> $GITHUB_ENV
+          echo "HDF5_PATH=${HDF5_PATH}" >> $GITHUB_ENV
 
-          echo "OS=macos" >> $GITHUB_ENV
+          echo "OS=${{ matrix.os }}" >> $GITHUB_ENV
+          echo "OS_VERSION=${{ matrix.os_version }}" >> $GITHUB_ENV
           echo "CMAKE_ADDITIONAL_FLAGS=-DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0" >> $GITHUB_ENV
 
           echo "CUBIT_PKG=${BASE}-${SUFFIX}.${EXT}" >> $GITHUB_ENV
@@ -139,12 +162,12 @@ jobs:
         name: Upload artifact for CI
         uses: actions/upload-artifact@v2
         with:
-          name: svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
-          path: ${{ github.workspace }}/release/svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
+          name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
+          path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
           if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn` 
-
+    
       - name: Upload binaries into the release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ${{ github.workspace }}/release/svalinn-plugin_${{env.OS}}_cubit_${{ matrix.cubit }}.tgz
+          files: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
