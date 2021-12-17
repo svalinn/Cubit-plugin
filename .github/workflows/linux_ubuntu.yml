@@ -34,13 +34,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cubit: [2021.4, 2021.5, 2021.11]
+        cubit: [2021.5, 2021.11]
         os: [ubuntu]
         os_version: [20.04, 21.04]
         include:
           - os: ubuntu
             os_version: 18.04
             cubit: 17.1.0
+        include:
+          - os: ubuntu
+            os_version: 20.04
+            cubit: 2021.4
 
     name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
