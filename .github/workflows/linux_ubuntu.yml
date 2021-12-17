@@ -41,7 +41,7 @@ jobs:
           - os: ubuntu
             os_version: 18.04
             cubit: 17.1.0
-        include:
+
           - os: ubuntu
             os_version: 20.04
             cubit: 2021.4
