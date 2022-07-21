@@ -64,6 +64,8 @@ jobs:
             BASE=Coreform-Cubit-2021.5%2B15962_5043ef39
           elif [ "${{ matrix.cubit }}" == "2021.11" ]; then
             BASE=Coreform-Cubit-2021.11%2B21637_35609873
+          elif [ "${{ matrix.cubit }}" == "2022.6" ]; then
+            BASE=Coreform-Cubit-2022.6%2B28861_ea342e28
           fi
 
           echo "COREFORM_BASE_URL=${COREFORM_BASE_URL}/Windows/" >> $GITHUB_ENV
