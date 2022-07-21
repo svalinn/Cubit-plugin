@@ -105,3 +105,7 @@ Create a new ```elif``` entry in the ```Environment Variables``` stage of the ym
 - [Mac yml file](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/.github/workflows/unix_mac.yml#L49-L66)
 
 - [Windows file](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/.github/workflows/windows.yml#L53-L67)
+
+Add an entry for the new Cubit version in the ```scripts/unix_share_build.sh``` file
+
+- [unix build sh](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/scripts/unix_share_build.sh#L218)
