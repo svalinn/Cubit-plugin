@@ -85,3 +85,23 @@ Building the plugin
 ===================
 
 Building the plugin from source is also [possible](README_dev.md) but only recommended for developers.
+
+
+Updating the repository for new Cubit releases
+==============================================
+
+Add the Cubit new version number to the following three lists:
+
+- [Linux yml file](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/.github/workflows/unix_linux.yml#L35)
+
+- [Mac yml file](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/.github/workflows/unix_mac.yml#L37)
+
+- [Windows file](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/.github/workflows/windows.yml#L38)
+
+Create a new ```elif``` entry in the ```Environment Variables``` stage of the yml files. Set the BASE variable equal to the full URL (with the hash) of the new Cubit release.
+
+- [Linux yml file](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/.github/workflows/unix_linux.yml#L75-L92)
+
+- [Mac yml file](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/.github/workflows/unix_mac.yml#L49-L66)
+
+- [Windows file](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/.github/workflows/windows.yml#L53-L67)
