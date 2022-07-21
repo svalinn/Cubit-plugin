@@ -63,7 +63,7 @@ jobs:
             BASE=Coreform-Cubit-2021.11%2B21637_35609873
             CUBIT_BASE_NAME=Coreform-Cubit-2021.11
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
-          elif [ "${{ matrix.cubit }}" == "2021.11" ]; then
+          elif [ "${{ matrix.cubit }}" == "2022.6" ]; then
             BASE=Coreform-Cubit-2022.6%2B28861_ea342e28
             CUBIT_BASE_NAME=Coreform-Cubit-2022.6
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
