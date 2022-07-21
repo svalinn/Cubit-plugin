@@ -31,7 +31,7 @@ env:
 
 jobs:
   main:
-    runs-on: macos-10.15
+    runs-on: macos-11
     strategy:
       matrix:
         cubit: [17.1.0, 2021.4, 2021.5, 2021.11, 2022.6]
