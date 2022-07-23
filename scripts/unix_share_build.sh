@@ -286,8 +286,8 @@ function mac_build_plugin_pkg(){
 
     # Copy all needed libraries into current directory
     cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-    cp /usr/local/opt/szip/lib/libsz.2.dylib .
-    install_name_tool -change /usr/local/opt/szip/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
+    cp /usr/local/opt/libaec/lib/libsz.dylib .
+    install_name_tool -change /usr/local/opt/libaec/lib/libsz.dylib @rpath/libsz.dylib libsvalinn_plugin.so
 
     # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
     if [ "$1" == "17.1.0" ] ; then
