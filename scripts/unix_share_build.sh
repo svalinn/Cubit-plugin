@@ -230,7 +230,7 @@ function linux_setup_cubit() {
 function build_plugin(){
     cd ${PLUGIN_ABS_PATH}
     cd Cubit-plugin
-    git config --global --add safe.directory /__w/Cubit-plugin/Cubit-plugin
+    git config --global --add safe.directory ${GITHUB_WORKSPACE}
     git submodule update --init
     cd ../
     mkdir -pv bld
