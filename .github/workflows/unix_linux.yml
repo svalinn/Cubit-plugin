@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cubit: [2021.4, 2021.5, 2021.11, 2022.6]
+        cubit: [2021.4, 2021.5, 2021.11, 2022.4]
         os: [ubuntu]
         os_version: [20.04, 22.04]
         include:
@@ -48,7 +48,7 @@ jobs:
             os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
             cubit: 2021.11
 
-   
+
     name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
     container:
@@ -89,9 +89,9 @@ jobs:
             BASE=Coreform-Cubit-2021.11%2B21637_35609873
             CUBIT_BASE_NAME=Coreform-Cubit-2021.11
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
-          elif [ "${{ matrix.cubit }}" == "2022.6" ]; then
-            BASE=Coreform-Cubit-2022.6%2B28861_ea342e28
-            CUBIT_BASE_NAME=Coreform-Cubit-2022.6
+          elif [ "${{ matrix.cubit }}" == "2022.4" ]; then
+            BASE=Coreform-Cubit-2022.4%2B26186_e1209cf7
+            CUBIT_BASE_NAME=Coreform-Cubit-2022.4
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 
@@ -120,12 +120,12 @@ jobs:
 
           echo "" >> ${HOME}/.bash_profile
           echo "source $GITHUB_WORKSPACE/scripts/unix_share_build.sh" >> $HOME/.bash_profile
-      
+
       - name: Initial setup
         shell: bash -l {0}
         run: |
           ${system}_install_prerequisites
- 
+
       - name: Downloading packages
         shell: bash -l {0}
         run: |
@@ -160,7 +160,7 @@ jobs:
       - name: Build plugin
         shell: bash -l {0}
         run: |
-          build_plugin 
+          build_plugin
 
       - name: Prepare package
         shell: bash -l {0}
@@ -173,8 +173,8 @@ jobs:
         with:
           name: svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
           path: ${{ github.workspace }}/release/svalinn-plugin_${{ matrix.os }}-${{ matrix.os_version }}_cubit_${{ matrix.cubit }}.tgz
-          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn` 
-    
+          if-no-files-found: error # 'warn' or 'ignore' are also available, defaults to `warn`
+
       - if: github.event_name == 'release'
         name: Upload binaries into the release
         uses: svenstaro/upload-release-action@v2
