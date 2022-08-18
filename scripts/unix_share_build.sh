@@ -49,7 +49,7 @@ function linux_install_prerequisites() {
 
 function setup() {
     unset LD_LIBRARY_PATH
-    
+
     echo "Building the Cubit plugin in ${CURRENT}\\${PLUGIN_DIR}"
     cd ${CURRENT}
     mkdir ${PLUGIN_DIR}
@@ -180,7 +180,7 @@ function mac_setup_cubit() {
     hdiutil attach cubit_eula.dmg.cdr -mountpoint /Volumes/Cubit
     mv /Volumes/Cubit/*.app /Applications/
     rm -rf cubit.dmg
-  
+
     # removing app_loger that seems to not be present in Cubit 2020.2
     if [ "${1}" = "2020.2" ]; then #|| [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ]; then
         remove_app_logger
@@ -189,7 +189,7 @@ function mac_setup_cubit() {
     cd /Applications
 
     # 17.1.0 comes with a separate SDK. It is unclear yet on how it is supposed to be installed and used.
-    # this is a way to have it working... 
+    # this is a way to have it working...
     if [ "$1" == "17.1.0" ] ; then
         cd ${CUBIT_PATH}
         $SUDO tar -xzf ${FOLDER_PKG}/${CUBIT_SDK_PKG}
@@ -211,11 +211,11 @@ function mac_setup_cubit() {
 }
 
 function linux_setup_cubit() {
-  
+
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${CUBIT_PKG}
 
-    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] || [ "$1" == "2021.11" ] ; then
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] || [ "$1" == "2021.11" ] || [ "$1" == "2022.4" ] ; then
 	    return
     fi
 
@@ -230,6 +230,7 @@ function linux_setup_cubit() {
 function build_plugin(){
     cd ${PLUGIN_ABS_PATH}
     cd Cubit-plugin
+    git config --global --add safe.directory ${GITHUB_WORKSPACE}
     git submodule update --init
     cd ../
     mkdir -pv bld
@@ -285,8 +286,8 @@ function mac_build_plugin_pkg(){
 
     # Copy all needed libraries into current directory
     cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
-    cp /usr/local/opt/szip/lib/libsz.2.dylib .
-    install_name_tool -change /usr/local/opt/szip/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
+    cp /usr/local/opt/libaec/lib/libsz.dylib .
+    install_name_tool -change /usr/local/opt/libaec/lib/libsz.dylib @rpath/libsz.dylib libsvalinn_plugin.so
 
     # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
     if [ "$1" == "17.1.0" ] ; then
