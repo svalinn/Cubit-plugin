@@ -118,3 +118,11 @@ Create a new ```elif``` entry in the ```Environment Variables``` stage of the ym
 Add an entry for the new Cubit version in the ```scripts/unix_share_build.sh``` file
 
 - [unix build sh](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/scripts/unix_share_build.sh#L218)
+
+Create a pull request to the develop branch with these changes
+
+Wait for the CI to run tests on the new code and the pull requested to be approved
+
+Once the pull request is merged then create a release from the develop branch, this will lauch more CI that builds the plugins for various systems and versions.
+
+Update the links in the table at the top of the README.md to contain a link to the new plugin (which should now be attached to the release)
