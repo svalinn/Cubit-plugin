@@ -48,6 +48,10 @@ jobs:
             os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
             cubit: 2021.11
 
+          - os: debian
+            os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
+            cubit: 2022.4
+
 
     name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
