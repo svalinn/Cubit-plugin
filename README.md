@@ -118,6 +118,7 @@ Create a new ```elif``` entry in the ```Environment Variables``` stage of the ym
 Add an entry for the new Cubit version in the ```scripts/unix_share_build.sh``` file
 
 - [unix build sh](https://github.com/svalinn/Cubit-plugin/blob/453a2903306a635dbaedb573521f96351a83ed6b/scripts/unix_share_build.sh#L218)
+
 Add new links in the table at the top of the README.md to contain a link to the new plugin files (tgz or zip files). These files won't exist at this stage but the links can be anticipated in advance (see existing links for the URL pattern).
 
 Create a pull request to the develop branch with these changes to the .github/workflows CI yml files and README.md
