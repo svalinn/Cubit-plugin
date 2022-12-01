@@ -78,32 +78,37 @@ jobs:
 
           if [ "${{ matrix.cubit }}" == "17.1.0" ]; then
             BASE=Trelis-17.1.0
+            SUFFIX=Lin64
             BASESDK=Trelis-SDK-17.1.0
             CUBIT_BASE_NAME=Trelis-17.1
             HDF5_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial
           elif [ "${{ matrix.cubit }}" == "2021.4" ]; then
             BASE=Coreform-Cubit-2021.4%2B15017_05893177
+            SUFFIX=Lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2021.4
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           elif [ "${{ matrix.cubit }}" == "2021.5" ]; then
             BASE=Coreform-Cubit-2021.5%2B15962_5043ef39
+            SUFFIX=Lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2021.5
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           elif [ "${{ matrix.cubit }}" == "2021.11" ]; then
             BASE=Coreform-Cubit-2021.11%2B21637_35609873
+            SUFFIX=Lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2021.11
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           elif [ "${{ matrix.cubit }}" == "2022.4" ]; then
             BASE=Coreform-Cubit-2022.4%2B26186_e1209cf7
+            SUFFIX=Lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2022.4
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           elif [ "${{ matrix.cubit }}" == "2022.11" ]; then
             BASE=Coreform-Cubit-2022.11%2B32507
+            SUFFIX=lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2022.11
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 
-          SUFFIX=Lin64
           EXT=deb
           echo "SED=sed" >> $GITHUB_ENV
           echo "BUILD_SHARED_LIBS=ON" >> $GITHUB_ENV
