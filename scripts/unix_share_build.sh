@@ -74,6 +74,8 @@ function setup_var() {
         CUBIT_PATH="/opt/Coreform-Cubit-2021.3"
     elif [ "$1" == "2021.4" ] ; then
         CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
+    elif [ "$1" == "2022.4" ] ; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2022.4"
     else
         echo "unknown Cubit version"
         return 1
@@ -288,6 +290,11 @@ function mac_build_plugin_pkg(){
     cp -pPv ${PLUGIN_ABS_PATH}/lib/* .
     cp /usr/local/opt/libaec/lib/libsz.dylib .
     install_name_tool -change /usr/local/opt/libaec/lib/libsz.dylib @rpath/libsz.dylib libsvalinn_plugin.so
+
+    if [ "$1" == "2022.4" ] ; then
+    cp /usr/local/opt/libaec/lib/libsz.2.dylib .
+    install_name_tool -change /usr/local/opt/libaec/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
+    fi
 
     # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
     if [ "$1" == "17.1.0" ] ; then
