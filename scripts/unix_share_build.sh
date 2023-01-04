@@ -291,10 +291,13 @@ function mac_build_plugin_pkg(){
     cp /usr/local/opt/libaec/lib/libsz.dylib .
     install_name_tool -change /usr/local/opt/libaec/lib/libsz.dylib @rpath/libsz.dylib libsvalinn_plugin.so
 
+    libsz=libsz.dylib
     if [ "$1" == "2022.4" ] ; then
-    cp /usr/local/opt/libaec/lib/libsz.2.dylib .
-    install_name_tool -change /usr/local/opt/libaec/lib/libsz.2.dylib @rpath/libsz.2.dylib libsvalinn_plugin.so
-    fi
+    libsz=libsz.2.dylib
+    fi    
+
+    cp /usr/local/opt/libaec/lib/$libsz .
+    install_name_tool -change /usr/local/opt/libaec/lib/$libsz @rpath/$libsz libsvalinn_plugin.so
 
     # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
     if [ "$1" == "17.1.0" ] ; then
