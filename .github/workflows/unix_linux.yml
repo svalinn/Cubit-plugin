@@ -103,6 +103,7 @@ jobs:
             CUBIT_BASE_NAME=Coreform-Cubit-2022.4
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           elif [ "${{ matrix.cubit }}" == "2023.1rc" ]; then
+            COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/master
             BASE=Coreform-Cubit-2023.1-rc%2B33516
             SUFFIX=lin64
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
