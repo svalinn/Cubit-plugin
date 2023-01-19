@@ -76,6 +76,8 @@ function setup_var() {
         CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
     elif [ "$1" == "2022.4" ] ; then
         CUBIT_PATH="/opt/Coreform-Cubit-2022.4"
+    elif [ "$1" == "2023.1rc" ] ; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2023.1rc"
     else
         echo "unknown Cubit version"
         return 1
