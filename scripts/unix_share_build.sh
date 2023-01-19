@@ -74,6 +74,8 @@ function setup_var() {
         CUBIT_PATH="/opt/Coreform-Cubit-2021.3"
     elif [ "$1" == "2021.4" ] ; then
         CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
+    elif [ "$1" == "2022.4" ] ; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2022.4"
     else
         echo "unknown Cubit version"
         return 1
@@ -174,7 +176,6 @@ function remove_app_logger() {
 }
 
 function mac_setup_cubit() {
-
     cd ${FOLDER_PKG}
     hdiutil convert ${CUBIT_PKG} -format UDTO -o cubit_eula.dmg.cdr
     hdiutil attach cubit_eula.dmg.cdr -mountpoint /Volumes/Cubit
@@ -206,8 +207,6 @@ function mac_setup_cubit() {
     fi
 
     hdiutil detach /Volumes/Cubit
-
-
 }
 
 function linux_setup_cubit() {
@@ -246,8 +245,6 @@ function build_plugin(){
 }
 
 function linux_build_plugin_pkg(){
-
-
     cd ${PLUGIN_ABS_PATH}
     mkdir -p pack/bin/plugins/svalinn
     cd pack/bin/plugins/svalinn
@@ -289,14 +286,29 @@ function mac_build_plugin_pkg(){
     cp /usr/local/opt/libaec/lib/libsz.dylib .
     install_name_tool -change /usr/local/opt/libaec/lib/libsz.dylib @rpath/libsz.dylib libsvalinn_plugin.so
 
-    # restoring correct RPATH for 17.1 (bin does not exist as it is not shipped with SDK)
+    libsz=libsz.dylib
+    if [ "$1" == "2022.4" ] ; then
+        libsz=libsz.2.dylib
+    fi
+
+    cp /usr/local/opt/libaec/lib/$libsz .
+    install_name_tool -change /usr/local/opt/libaec/lib/$libsz @rpath/$libsz libsvalinn_plugin.so
+
+    # restoring correct RPATH and BIN for 17.1 (bin does not exist as it is not shipped with SDK)
     if [ "$1" == "17.1.0" ] ; then
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libsvalinn_plugin.so
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libiGeom.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin/plugins/svalinn ${CUBIT_PATH}/MacOS/plugins/svalinn libmcnp2cad.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libmcnp2cad.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libiGeom.dylib
-        install_name_tool -rpath ${CUBIT_PATH}/bin ${CUBIT_PATH}/MacOS libsvalinn_plugin.so
+        # Correcting the RPATH for the svalinn and dependent libs
+        rpath_old=${CUBIT_PATH}/bin/plugins/svalinn
+        rpath_fix=${CUBIT_PATH}/MacOS/plugins/svalinn
+        install_name_tool -rpath ${rpath_old} ${rpath_fix} libsvalinn_plugin.so
+        install_name_tool -rpath ${rpath_old} ${rpath_fix} libiGeom.dylib
+        install_name_tool -rpath ${rpath_old} ${rpath_fix} libmcnp2cad.dylib
+
+        # Correcting the BIN for the svalinm and dependent libs
+        bin_old=${CUBIT_PATH}/bin
+        bin_fix=${CUBIT_PATH}/MacOS
+        install_name_tool -rpath ${bin_old} ${bin_fix} libmcnp2cad.dylib
+        install_name_tool -rpath ${bin_old} ${bin_fix} libiGeom.dylib
+        install_name_tool -rpath ${bin_old} ${bin_fix} libsvalinn_plugin.so
     fi
 
     # Create the Svalinn plugin tarball
