@@ -216,6 +216,14 @@ function linux_setup_cubit() {
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${CUBIT_PKG}
 
+    if [ "$1" == "2023.4" ]; then
+        cd ${CUBIT_PATH}
+        mkdir license_server
+        cd license_server
+        ln -sf ../bin/libcf_license_server.so .
+        ln -sf ../bin/libcf_license_renewals.so .
+    fi
+
     if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] || [ "$1" == "2021.11" ] || [ "$1" == "2022.4" ] || [ "$1" == "2023.4" ] ; then
 	    return
     fi
