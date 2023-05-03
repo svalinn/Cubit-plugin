@@ -177,7 +177,19 @@ function remove_app_logger() {
     $SUDO $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
 }
 
-function mac_setup_cubit() {
+function mac_setup_cubit () {
+    if [ "${CUBIT_PKG##*.}" == "pkg" ]; then
+        mac_pkg_setup_cubit $1
+    else
+        mac_dmg_setup_cubit $1
+    fi
+}
+function mac_pkg_setup_cubit() {
+    cd ${FOLDER_PKG}
+    sudo installer -pkg /path/to/package.pkg -target /
+}
+
+function mac_dmg_setup_cubit() {
     cd ${FOLDER_PKG}
     hdiutil convert ${CUBIT_PKG} -format UDTO -o cubit_eula.dmg.cdr
     hdiutil attach cubit_eula.dmg.cdr -mountpoint /Volumes/Cubit
