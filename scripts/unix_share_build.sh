@@ -186,7 +186,7 @@ function mac_setup_cubit () {
 }
 function mac_pkg_setup_cubit() {
     cd ${FOLDER_PKG}
-    sudo installer -pkg /path/to/package.pkg -target /
+    sudo installer -pkg ${CUBIT_PKG} -target /
 }
 
 function mac_dmg_setup_cubit() {
