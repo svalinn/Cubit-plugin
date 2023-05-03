@@ -34,7 +34,7 @@ jobs:
     runs-on: macos-11
     strategy:
       matrix:
-        cubit: [17.1.0, 2021.4, 2021.5, 2021.11, 2022.4]
+        cubit: [17.1.0, 2021.4, 2021.5, 2021.11, 2022.4, 2023.4]
 
     name: 'Cubit ${{ matrix.cubit }} Build for MacOS of Svalinn Plugin'
 
@@ -66,6 +66,10 @@ jobs:
           elif [ "${{ matrix.cubit }}" == "2022.4" ]; then
             BASE=Coreform-Cubit-2022.4%2B26186_e1209cf7
             CUBIT_BASE_NAME=Coreform-Cubit-2022.4
+            HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
+          elif [ "${{ matrix.cubit }}" == "2023.4" ]; then
+            BASE=Coreform-Cubit-2023.4%2B36047
+            CUBIT_BASE_NAME=Coreform-Cubit-2023.4
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 

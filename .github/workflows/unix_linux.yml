@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        cubit: [2021.4, 2021.5, 2021.11, 2022.4, 2023.1rc]
+        cubit: [2021.4, 2021.5, 2021.11, 2022.4, 2023.4]
         os: [ubuntu]
         os_version: [20.04, 22.04]
         include:
@@ -52,6 +52,9 @@ jobs:
             os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
             cubit: 2022.4
 
+          - os: debian
+            os_version: '10.10'  # using a 'string' here as the 0 gets rounded away otherwise
+            cubit: 2023.4
 
     name: 'Cubit ${{ matrix.cubit }} Build for ${{ matrix.os }} ${{ matrix.os_version }} of Svalinn Plugin'
 
@@ -75,38 +78,32 @@ jobs:
         shell: bash -l {0}
         run: |
           COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases
+          SUFFIX=Lin64
 
           if [ "${{ matrix.cubit }}" == "17.1.0" ]; then
             BASE=Trelis-17.1.0
-            SUFFIX=Lin64
             BASESDK=Trelis-SDK-17.1.0
             CUBIT_BASE_NAME=Trelis-17.1
             HDF5_PATH=/usr/lib/x86_64-linux-gnu/hdf5/serial
           elif [ "${{ matrix.cubit }}" == "2021.4" ]; then
             BASE=Coreform-Cubit-2021.4%2B15017_05893177
-            SUFFIX=Lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2021.4
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           elif [ "${{ matrix.cubit }}" == "2021.5" ]; then
             BASE=Coreform-Cubit-2021.5%2B15962_5043ef39
-            SUFFIX=Lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2021.5
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           elif [ "${{ matrix.cubit }}" == "2021.11" ]; then
             BASE=Coreform-Cubit-2021.11%2B21637_35609873
-            SUFFIX=Lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2021.11
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           elif [ "${{ matrix.cubit }}" == "2022.4" ]; then
             BASE=Coreform-Cubit-2022.4%2B26186_e1209cf7
-            SUFFIX=Lin64
             CUBIT_BASE_NAME=Coreform-Cubit-2022.4
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
-          elif [ "${{ matrix.cubit }}" == "2023.1rc" ]; then
-            COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/master
-            BASE=Coreform-Cubit-2023.1-rc%2B33516
-            SUFFIX=lin64
-            CUBIT_BASE_NAME=Coreform-Cubit-2023.1
+          elif [ "${{ matrix.cubit }}" == "2023.4" ]; then
+            BASE=Coreform-Cubit-2023.4%2B36047
+            CUBIT_BASE_NAME=Coreform-Cubit-2023.4
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 
