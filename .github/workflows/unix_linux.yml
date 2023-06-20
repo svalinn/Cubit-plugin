@@ -84,7 +84,7 @@ jobs:
           elif [ "${{ matrix.cubit }}" == "2023.6-dev" ]; then
             COREFORM_BASE_URL=https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/master
             BASE=Coreform-Cubit-2023.6-rc%2B38128
-            CUBIT_BASE_NAME=Coreform-Cubit-2023.6-dev
+            CUBIT_BASE_NAME=Coreform-Cubit-2023.6
             HDF5_PATH=/usr/local/HDF_Group/HDF5/1.12.0
           fi
 
