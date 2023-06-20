@@ -76,8 +76,8 @@ function setup_var() {
         CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
     elif [ "$1" == "2022.4" ] ; then
         CUBIT_PATH="/opt/Coreform-Cubit-2022.4"
-    elif [ "$1" == "2023.4" ] ; then
-        CUBIT_PATH="/opt/Coreform-Cubit-2023.4"
+    elif [ "$1" == "2023.6-dev" ] ; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2023.6-dev"
     else
         echo "unknown Cubit version"
         return 1
@@ -236,7 +236,7 @@ function linux_setup_cubit() {
         ln -sf ../bin/libcf_license_renewals.so .
     fi
 
-    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] || [ "$1" == "2021.11" ] || [ "$1" == "2022.4" ] || [ "$1" == "2023.4" ] ; then
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] || [ "$1" == "2021.11" ] || [ "$1" == "2022.4" ] || [ "$1" == "2023.6-dev" ] ; then
 	    return
     fi
 
@@ -309,7 +309,7 @@ function mac_build_plugin_pkg(){
     install_name_tool -change /usr/local/opt/libaec/lib/libsz.dylib @rpath/libsz.dylib libsvalinn_plugin.so
 
     libsz=libsz.dylib
-    if [ "$1" == "2022.4" ] || [ "$1" == "2023.4" ] ; then
+    if [ "$1" == "2022.4" ] || [ "$1" == "2023.6-dev" ] ; then
         libsz=libsz.2.dylib
     fi
 
