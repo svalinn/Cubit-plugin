@@ -258,6 +258,7 @@ function build_plugin(){
     cd bld
     cmake ../Cubit-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH} \
                            -DCUBIT_ROOT=${CUBIT_PATH} \
+                           -DCubit_DIR=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
                             $CMAKE_ADDITIONAL_FLAGS \
