@@ -1,7 +1,7 @@
 Svalinn plugins and command extensions for Cubit
 =================================================
 
-The plugin has been tested and is confirmed to work with versions of Coreform 
+The plugin has been tested and is confirmed to work with versions of Coreform
 Cubit up to 2021.5 and versions of Cubit up to 15.8.
 
 |              | Trelis 17.01       | Cubit 2021.4 | Cubit 2021.5 | Cubit 2021.11 |
@@ -30,13 +30,23 @@ for students and hobbyists as Cubit Learn.
     sudo apt update
     sudo apt-get install wget
     wget -O coreform-cubit-2021.5.deb https://f002.backblazeb2.com/file/cubit-downloads/Coreform-Cubit/Releases/Linux/Coreform-Cubit-2021.5%2B15962_5043ef39-Lin64.deb
-    sudo dpkg -i coreform-cubit-2021.5.deb 
+    sudo dpkg -i coreform-cubit-2021.5.deb
     </code></pre>
 </details>
 
+Installation with Coreform Cubit (as of version 2023.8)
+=======================================================
 
-Install Plugin
-==============
+The DAGMC plugin is now shipped with Coreform Cubit starting at version 2023.8, but it is not activated by default. Following the instructions corresponding to your operating system to enable the plugin.
+
+On Windows and Linux, use the dropdown menu "Tools", then select "Plugins...". Add the bin/plugins directory via the diaglog box. Restart Cubit to activate the plugin.
+
+On Mac, use the dropdown menu "Tools", then select plugins and select "Add". Next, in Finder, navigate to /Applications/Coreform-Cubit-2023.8.app/Contents/lib/plugins.
+Drag the plugins folder from the finder and drop it in the Cubit window. Once you restart Cubit, the plugin will be activated. You can confirm this by typing "help dagmc" in the command line.
+
+
+Manually Install The Plugin
+===========================
 
 The Plugin can be downloaded from the [Release](https://github.com/svalinn/Cubit-plugin/releases)
 section of this repository. Operating system specific assets are created with
@@ -52,7 +62,6 @@ your Cubit folder.
     sudo tar -xzvf svalinn-plugin_ubuntu-20.04_cubit_2021.5.tgz -C /opt/Coreform-Cubit-2021.5
     </code></pre>
 </details>
-
 
 Test the Plugin
 ===============
