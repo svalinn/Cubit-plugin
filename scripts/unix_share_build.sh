@@ -76,6 +76,8 @@ function setup_var() {
         CUBIT_PATH="/opt/Coreform-Cubit-2021.4"
     elif [ "$1" == "2022.4" ] ; then
         CUBIT_PATH="/opt/Coreform-Cubit-2022.4"
+    elif [ "$1" == "2023.6-dev" ] ; then
+        CUBIT_PATH="/opt/Coreform-Cubit-2023.6"
     else
         echo "unknown Cubit version"
         return 1
@@ -175,7 +177,19 @@ function remove_app_logger() {
     $SUDO $SED -i "s/\/\.\.\/app_logger\;//" CubitUtilConfig.cmake
 }
 
-function mac_setup_cubit() {
+function mac_setup_cubit () {
+    if [ "${CUBIT_PKG##*.}" == "pkg" ]; then
+        mac_pkg_setup_cubit $1
+    else
+        mac_dmg_setup_cubit $1
+    fi
+}
+function mac_pkg_setup_cubit() {
+    cd ${FOLDER_PKG}
+    sudo installer -pkg ${CUBIT_PKG} -target /
+}
+
+function mac_dmg_setup_cubit() {
     cd ${FOLDER_PKG}
     hdiutil convert ${CUBIT_PKG} -format UDTO -o cubit_eula.dmg.cdr
     hdiutil attach cubit_eula.dmg.cdr -mountpoint /Volumes/Cubit
@@ -214,7 +228,15 @@ function linux_setup_cubit() {
     cd ${FOLDER_PKG}
     $SUDO apt-get install -y ./${CUBIT_PKG}
 
-    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] || [ "$1" == "2021.11" ] || [ "$1" == "2022.4" ] ; then
+    if [ "$1" == "2023.4" ]; then
+        cd ${CUBIT_PATH}
+        mkdir license_server
+        cd license_server
+        ln -sf ../bin/libcf_license_server.so .
+        ln -sf ../bin/libcf_license_renewals.so .
+    fi
+
+    if [ "$1" == "2021.3" ] || [ "$1" == "2021.4" ] || [ "$1" == "2021.5" ] || [ "$1" == "2021.11" ] || [ "$1" == "2022.4" ] || [ "$1" == "2023.6-dev" ] ; then
 	    return
     fi
 
@@ -236,6 +258,7 @@ function build_plugin(){
     cd bld
     cmake ../Cubit-plugin -DCMAKE_PREFIX_PATH=${CUBIT_PATH} \
                            -DCUBIT_ROOT=${CUBIT_PATH} \
+                           -DCubit_DIR=${CUBIT_PATH} \
                            -DDAGMC_DIR=${PLUGIN_ABS_PATH}/DAGMC \
                            -DCMAKE_BUILD_TYPE=Release \
                             $CMAKE_ADDITIONAL_FLAGS \
@@ -287,7 +310,7 @@ function mac_build_plugin_pkg(){
     install_name_tool -change /usr/local/opt/libaec/lib/libsz.dylib @rpath/libsz.dylib libsvalinn_plugin.so
 
     libsz=libsz.dylib
-    if [ "$1" == "2022.4" ] ; then
+    if [ "$1" == "2022.4" ] || [ "$1" == "2023.6-dev" ] ; then
         libsz=libsz.2.dylib
     fi
 
