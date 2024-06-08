@@ -244,7 +244,7 @@ void iGeom_createTorus(iGeom_Instance instance,
                        /*out*/ iBase_EntityHandle *geom_entity,
                        int* err)
 {
-  if (minor_rad >= major_rad) {
+  if (minor_rad >= fabs(major_rad)) {
     // first calculate the 3 control vertices and 2 control points
     double height = sqrt((minor_rad*minor_rad) - (major_rad*major_rad));
     double maxima = major_rad+minor_rad;
@@ -274,6 +274,10 @@ void iGeom_createTorus(iGeom_Instance instance,
     profile_edges.insert(curve);
 
     if (major_radius > 0) {
+      // this type of degenerate torus is defined by a cross-section that
+      // consists of more than 1/2 of a circle, requiring one arc for the
+      // half and one arc for the bottom half
+      
       //the first arc 
       curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v1,
                                                            v3, &v2_pos);
@@ -284,6 +288,10 @@ void iGeom_createTorus(iGeom_Instance instance,
                                                            v5, &v4_pos);
       profile_edges.insert(curve);
     } else {
+      // this type of degenerate torus is defined by a cross-section that
+      // consists of less than 1/2 of a circle, requiring only a single
+      // arc that passes through the end points and the maxima
+      
       //only one arc
       curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v1,
                                                            v5, &v3_pos);
