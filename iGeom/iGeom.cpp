@@ -273,16 +273,23 @@ void iGeom_createTorus(iGeom_Instance instance,
         STRAIGHT_CURVE_TYPE, v1, v5);
     profile_edges.insert(curve);
 
-    //the first arc
-    curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v1,
-                                                         v3, &v2_pos);
-    profile_edges.insert(curve);
+    if (major_radius > 0) {
+      //the first arc 
+      curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v1,
+                                                           v3, &v2_pos);
+      profile_edges.insert(curve);
 
-    //the second arc
-    curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v3,
-                                                         v5, &v4_pos);
-    profile_edges.insert(curve);
-
+      //the second arc
+      curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v3,
+                                                           v5, &v4_pos);
+      profile_edges.insert(curve);
+    } else {
+      //only one arc
+      curve = GeometryModifyTool::instance()->make_RefEdge(ARC_CURVE_TYPE, v1,
+                                                           v5, &v3_pos);
+      profile_edges.insert(curve);
+    }
+    
     // make surf from the curves
     // This fails in Cubit
     RefFace *surf = GeometryModifyTool::instance()->make_RefFace(
