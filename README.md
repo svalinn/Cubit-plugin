@@ -1,3 +1,16 @@
+Cubit support for DAGMC now provided by Coreform Cubit
+=========================================================
+
+Since 2024, support for exporting DAGMC geometries from Cubit
+has been incorporated natively into [Coreform Cubit](https://coreform.com/coreform-cubit/).
+As a result this project is **no longer actively supported**.
+
+Users are directed to explore [Coreform Cubit](https://coreform.com/coreform-cubit/)
+as a solution.  The verison of Cubit distributed by Sandia National Laboratories
+does not yet include this support. Users of Sandia Cubit are encouraged to request
+this capability through their Sandia points of contact.
+
+
 Svalinn plugins and command extensions for Cubit
 =================================================
 
